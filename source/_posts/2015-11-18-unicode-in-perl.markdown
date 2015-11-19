@@ -42,7 +42,7 @@ print "Unicode codepoints: $unicode_helloworld\n";
 
 More recipes for working with Unicode in Perl 5 can be found in References below.
 
-One dilenma you might be facing when your Perl codes run in Windows is to choose which encoding for your script files: ANSI or UTF-8. In my own experience: 
+One dilemma you might be facing when your Perl codes run in Windows is to choose which encoding for your script files: ANSI or UTF-8. In my own experience: 
 
 * If the script file encoding is ANSI, I usually have better luck in "What you see is what you get" department: for example, files created in filesystem have the filenames with same Unicode characters, such as Japanese/Chinese characters, in Perl scripts. The downside of ANSI encoding is when I try to do regex matching of those Japanese/Chinese characters, I get "malformed regex" error. 
 * If the script file encoding is UTF-8, the files created in filesystem usually have different Japanese/Chinese characters from those in Perl scripts. However, Japanese/Chinese characters in other places such as log files are matching with ones in Perl scripts. There is no "malformed regex" error when doing regex matching. However, that correctly formed regex matching may be useless if you need to do matching for output from filesystem such as "ls" command's output.
