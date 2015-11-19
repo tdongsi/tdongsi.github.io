@@ -1,13 +1,22 @@
 ---
 layout: post
-title: "An old email"
+title: "An Old Email"
 date: 2015-11-19 00:41:40 -0800
 comments: true
 categories: 
 - Java
 ---
 
-Dear LeadDeveloper,
+I found this old email in an old document folder. It is probably one of the most memorable emails I have ever written. It contains many significant lessons, especially to me when early in my job/career:
+
+1. A code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.
+1. A small change in implementation approach can improve testability of your code significantly.
+1. Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together as programmers having different roles (develop vs test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
+  * Organizational boundaries only dampen collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.
+
+***
+
+Hi LeadDeveloper,
 
 I noticed the following problem with enum classes in Project_X. I know that it’s a long email, please bear with me.
 
@@ -115,3 +124,6 @@ It means that those enum classes may be broken any time due to changes. The only
        }
 
 In summary, testers will be helpless if a bug is introduced into one of the Project_X enum classes if the safer alternative is not used instead of switch statements.
+
+Best regards,
+Cuong
