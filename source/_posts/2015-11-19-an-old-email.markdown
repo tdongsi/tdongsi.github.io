@@ -8,12 +8,12 @@ categories:
 - JUnit
 ---
 
-I found this old email in an old document folder. It is probably one of the most memorable emails I have ever written. It contains many significant lessons, especially to me when early in my job/career:
+I found this email below in an old document folder. It is probably one of the most memorable emails I have ever written. It contains many significant lessons to me, especially when I'm relatively early in my job/career:
 
-1. A code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.
-1. A small change in implementation approach can improve testability of your code significantly.
-1. Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together as programmers having different roles (develop vs. test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
-  * Organizational boundaries only dampen open collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.
+1. Code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.
+1. A small change in implementation approach can significantly improve testability of your code.
+1. Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together, as programmers having different roles (develop vs. test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
+   * Organizational boundaries only dampen open collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.
 
 ***
 
@@ -57,7 +57,7 @@ Similar to many other enum classes in Project_X, the public static method getAtt
 
 There is nothing wrong with those classes now, but using switch statements is NOT a good practice, as explained below. 
 
-(STOP: I would encourage blog readers to stop for a few minutes and think why. NOT in the original email)
+*(STOP: I would encourage blog readers to stop for a few minutes and think why. NOT in the original email)*
 
 In the event of (1) we want to add a new instance, for example, PackageVisibility with value 8 into it, and (2) the developer is unaware of/forgets to update the getAttributeVisibility() method. The case for the new instance PackageVisibility is not added into the switch statement, and the getAttributeVisibility() method is now broken when the input is 8 and PackageVisibility instance is expected to return. One should never rule out that those events (1), (2) ever happen (i.e., they WILL happen) as the project Project_X is evolving.
 
@@ -101,7 +101,7 @@ public enum AttributePreferred {
 
 Please note the static initialization block and the updated getAttributeVisibility method. In some enum classes that do not have the private value field such as DiskFormat, the intention may be concisely expressed by the ordinal() method in the static initialization block:
 
-``` java
+``` java DO NOT do this
 	static {
 		for (DiskFormat member : DiskFormat.values()) {
 			intToEnum.put(member.ordinal(), member);
@@ -109,7 +109,7 @@ Please note the static initialization block and the updated getAttributeVisibili
 	}
 ```
 
-However, using ordinal() method is strongly advised against (as indicated in JDK documentation http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html). Instead, I would recommend that such enum class uses a private value field to specify a fixed integer value for each instance, similar to the class AttributeVisibility above.
+However, using ordinal() method is strongly advised **against** (as indicated in JDK documentation http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html). Instead, I would recommend that such enum class uses a private value field to specify a fixed integer value for each instance, similar to the class AttributeVisibility above.
 
 As a test engineer, I do have my stake to demand this change. Writing a unit test for such public method like getAttributeVisibility() is pointless, since it would not be better or more efficient than visually verifying it (see "silly" test below).
 
@@ -128,4 +128,5 @@ Even worse, that test won't help in the case that events (1)-(2) happen. In fact
 In summary, testers will be helpless if a bug is introduced into one of the Project_X enum classes if the safer alternative is not used instead of switch statements.
 
 Best regards,
+
 Cuong
