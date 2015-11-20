@@ -25,7 +25,7 @@ public interface Counter {
 	public int current();
 	
 	/**
-	 * Reset the counter value.
+	 * Reset the counter value. For multiple experiment runs.
 	 */
 	public void reset();
 }
