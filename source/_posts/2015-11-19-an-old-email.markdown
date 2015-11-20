@@ -8,7 +8,7 @@ categories:
 - JUnit
 ---
 
-I found this email below in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me many significant lessons and insight, especially when I'm relatively early in my job/career:
+I found this email below (names redacted) in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me many significant lessons and insight, especially when I'm relatively early in my job/career:
 
 1. Code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.
 1. A small change in implementation approach can significantly improve testability of your code.
