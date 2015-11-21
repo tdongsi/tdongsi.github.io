@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "WordCount Sample in Cloudera Quickstart VM"
+title: "WordCount Example in Cloudera Quickstart VM"
 date: 2015-11-20 11:47:51 -0800
 comments: true
 categories: 
@@ -9,7 +9,7 @@ categories:
 - HDFS
 ---
 
-[WordCount](https://wiki.apache.org/hadoop/WordCount) is the Hadoop equivalent of “Hello World” sample program. When you first start learning a new language or framework, you would want to run and look into some "Hello World" sample to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic "Hello World" samples.
+[WordCount](https://wiki.apache.org/hadoop/WordCount) is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some "Hello World" example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic "Hello World" examples.
 
 Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as [this](https://developer.yahoo.com/hadoop/tutorial/)). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.
 
