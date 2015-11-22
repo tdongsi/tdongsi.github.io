@@ -27,13 +27,13 @@ Nowadays, many companies provide Hadoop sandboxes for learning purpose, such as 
 
 Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" > wordcount.txt
 ```
 
 Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
 [cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
 [cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
@@ -43,7 +43,7 @@ Found 1 items
 
 It should be noted that for a fresh Cloudera VM, there is a "/user" folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux's "ls" and HDFS's "ls" interact with those independently.
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ ls /user
 
 ls: cannot access /user: No such file or directory
@@ -64,7 +64,7 @@ Next, we want to run some MapReduce example, such as WordCount. The WordCount ex
 
 We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file "hadoop-mapreduce-examples.jar". Running that jar file without any argument will give you a list of available examples.
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
 lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -> hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
 
@@ -96,7 +96,7 @@ Valid program names are:
 
 To run the WordCount example using the input file that we just moved to HDFS, use the following command:
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
 /user/cloudera/input/wordcount.txt /user/cloudera/output
 
@@ -116,7 +116,7 @@ To run the WordCount example using the input file that we just moved to HDFS, us
 
 The output folder is specified as "/user/cloudera/output" in the above command. Finally, check the output of WordCount example in the output folder.
 
-``` bash
+``` 
 [cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
 
 Found 2 items
