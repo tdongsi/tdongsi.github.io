@@ -16,6 +16,8 @@ categories:
 
 This post is the first of many posts summarizing the **Programming Hive** book, with some observations from my own experience.
 
+{% img center /images/hive/cat.gif Cover %}
+
 ### Introduction
 
 Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it's an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for expert database designers and administrators.
