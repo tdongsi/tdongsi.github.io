@@ -5,11 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Category: Cassandra - Personal Programming Notes</title>
+  <title>Overview of MapReduce: Explaining WordCount Example - Personal Programming Notes</title>
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Category: cassandra">
+  <meta name="description" content="MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -18,7 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://tdongsi.github.io/blog/categories/cassandra/">
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
@@ -65,35 +65,120 @@
   <div id="main">
     <div id="content">
       <div>
-<article role="article">
+<article class="hentry" role="article">
   
   <header>
-    <h1 class="entry-title">Category: Cassandra</h1>
+    
+      <h1 class="entry-title">Overview of MapReduce: Explaining WordCount Example</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-21T02:37:20-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>2:37 am</span></time>
+        
+      </p>
     
   </header>
-  
-  <div id="blog-archives" class="category">
 
 
+<div class="entry-content"><p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below (from <a href="https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html">here</a>):</p>
 
-  
-  <h2>2015</h2>
+<p><img src="https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png" alt="Process Flow of WordCount Example" /></p>
 
-<article>
-  
-<h1><a href="/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra/">Automated Performance Logging and Plotting for Cassandra</a></h1>
-<time datetime="2015-11-14T19:57:43-08:00" pubdate><span class='month'>Nov</span> <span class='day'>14</span> <span class='year'>2015</span></time>
+<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
 
-<footer>
-  <span class="categories">posted in <a class='category' href='/blog/categories/automation/'>automation</a>, <a class='category' href='/blog/categories/cassandra/'>cassandra</a>, <a class='category' href='/blog/categories/database/'>database</a>, <a class='category' href='/blog/categories/python/'>python</a></span>
-</footer>
+<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
+
+<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
+
+<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection or a value, such as summing. In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
+
+<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
+
+<table>
+<thead>
+<tr>
+<th> </th>
+<th> Mapper </th>
+<th> Shuffling </th>
+<th> Reducer </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> <strong>Input</strong> </td>
+<td> <code>(offset, text_line)</code> </td>
+<td> Multiple <code>(token,1)</code> </td>
+<td> <code>(token,[1,1,1,...])</code> </td>
+</tr>
+<tr>
+<td> <strong>Processing</strong> </td>
+<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
+<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
+<td> Sum all elements in collection </td>
+</tr>
+<tr>
+<td> <strong>Output</strong> </td>
+<td> Multiple <code>(token,1)</code> </td>
+<td> Sorted <code>(token,[1,1,1,...])</code> </td>
+<td> <code>(token, count)</code> </td>
+</tr>
+</tbody>
+</table>
 
 
-</article>
-
+<p><br></p>
 </div>
 
+
+  <footer>
+    <p class="meta">
+      
   
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-11-21T02:37:20-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>2:37 am</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/book/'>book</a>, <a class='category' href='/blog/categories/hadoop/'>hadoop</a>, <a class='category' href='/blog/categories/java/'>java</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/" data-via="" data-counturl="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/" title="Previous Post: WordCount Example in Cloudera Quickstart VM">&laquo; WordCount Example in Cloudera Quickstart VM</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2015/11/22/programming-hive-chapter-1/" title="Next Post: Programming Hive: Introduction">Programming Hive: Introduction &raquo;</a>
+      
+    </p>
+  </footer>
 </article>
 
 </div>

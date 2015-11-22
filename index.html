@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="WordCount is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run &hellip;">
+  <meta name="description" content="This post is the first of many posts summarizing the &ldquo;Programming Hive&rdquo; book, with some observations from my own experience. &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -22,6 +22,7 @@
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
   <script src="/javascripts/modernizr-2.0.js"></script>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
   <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
@@ -71,6 +72,158 @@
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2015/11/22/programming-hive-chapter-1/">Programming Hive: Introduction</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-22T17:22:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>5:22 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><!---
+"Chapter 1: Introduction" of the "Programming Hive" book.
+-->
+
+
+<p>This post is the first of many posts summarizing the &ldquo;Programming Hive&rdquo; book, with some observations from my own experience.</p>
+
+<h3>Introduction</h3>
+
+<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for expert database designers and administrators.</p>
+
+<p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
+
+<p>HiveQL does not conform to the ANSI SQL standard (not many do), but quite close to MySQL dialect.</p>
+
+<h3>Hive within the Hadoop Ecosystem</h3>
+
+<p>A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my <a href="/blog/2015/11/21/explaining-wordcount-example/">last post</a> can be very involving when using the Hadoop Java API with many low-level details, repetitive wiring to/from Mappers and Reducers have to be taken care of (see <a href="https://wiki.apache.org/hadoop/WordCount">WordCount in Java</a>). Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL is as simple as:</p>
+
+<figure class='code'><figcaption><span>WordCount example in HiveQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">docs</span> <span class="p">(</span><span class="n">line</span> <span class="n">STRING</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Load text files into TABLE docs: each line as a row */</span>
+</span><span class='line'><span class="k">LOAD</span> <span class="k">DATA</span> <span class="n">INPATH</span> <span class="s1">&#39;wordcount.txt&#39;</span> <span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">docs</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">word_counts</span> <span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">word</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="k">count</span>
+</span><span class='line'><span class="k">FROM</span>
+</span><span class='line'>   <span class="c1">-- explode will return rows of tokens</span>
+</span><span class='line'>  <span class="p">(</span><span class="k">SELECT</span> <span class="n">explode</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s1">&#39;\s&#39;</span><span class="p">))</span> <span class="k">AS</span> <span class="n">word</span>
+</span><span class='line'>   <span class="k">FROM</span> <span class="n">docs</span><span class="p">)</span> <span class="n">w</span>
+</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">word</span>
+</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">word</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the remaining sections of the chapter, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/21/explaining-wordcount-example/">Overview of MapReduce: Explaining WordCount Example</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-21T02:37:20-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>2:37 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below (from <a href="https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html">here</a>):</p>
+
+<p><img src="https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png" alt="Process Flow of WordCount Example" /></p>
+
+<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
+
+<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
+
+<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
+
+<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection or a value, such as summing. In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
+
+<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
+
+<table>
+<thead>
+<tr>
+<th> </th>
+<th> Mapper </th>
+<th> Shuffling </th>
+<th> Reducer </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> <strong>Input</strong> </td>
+<td> <code>(offset, text_line)</code> </td>
+<td> Multiple <code>(token,1)</code> </td>
+<td> <code>(token,[1,1,1,...])</code> </td>
+</tr>
+<tr>
+<td> <strong>Processing</strong> </td>
+<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
+<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
+<td> Sum all elements in collection </td>
+</tr>
+<tr>
+<td> <strong>Output</strong> </td>
+<td> Multiple <code>(token,1)</code> </td>
+<td> Sorted <code>(token,[1,1,1,...])</code> </td>
+<td> <code>(token, count)</code> </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">WordCount Example in Cloudera Quickstart VM</a></h1>
     
     
@@ -108,29 +261,27 @@
 
 <p>Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span><span class="nb">echo</span> “This is a hadoop tutorial <span class="nb">test</span><span class="err">&quot;</span> &gt; wordcount.txt
-</span></code></pre></td></tr></table></div></figure>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" &gt; wordcount.txt</span></code></pre></td></tr></table></div></figure>
 
 
 <p>Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -mkdir /user/cloudera/input
-</span><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
-</span><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -ls /user/cloudera/input
-</span><span class='line'>Found <span class="m">1</span> items
-</span><span class='line'>-rw-r--r--   <span class="m">1</span> cloudera cloudera         <span class="m">31</span> 2015-01-15 18:04 /user/cloudera/input/wordcount.txt
-</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
+</span><span class='line'>Found 1 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 /user/cloudera/input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
 
 
 <p>It should be noted that for a fresh Cloudera VM, there is a &ldquo;/user&rdquo; folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux&rsquo;s &ldquo;ls&rdquo; and HDFS&rsquo;s &ldquo;ls&rdquo; interact with those independently.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -140,28 +291,27 @@
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>ls /user
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls /user
 </span><span class='line'>
 </span><span class='line'>ls: cannot access /user: No such file or directory
-</span><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -ls /user
-</span><span class='line'>Found <span class="m">5</span> items
-</span><span class='line'>drwxr-xr-x   - cloudera cloudera          <span class="m">0</span> 2014-12-18 07:08 /user/cloudera
-</span><span class='line'>drwxr-xr-x   - mapred   hadoop            <span class="m">0</span> 2014-12-18 07:08 /user/history
-</span><span class='line'>drwxrwxrwx   - hive     hive              <span class="m">0</span> 2014-12-18 07:08 /user/hive
-</span><span class='line'>drwxrwxrwx   - oozie    oozie             <span class="m">0</span> 2014-12-18 07:09 /user/oozie
-</span><span class='line'>drwxr-xr-x   - spark    spark             <span class="m">0</span> 2014-12-18 07:09 /user/spark
-</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user
+</span><span class='line'>Found 5 items
+</span><span class='line'>drwxr-xr-x   - cloudera cloudera          0 2014-12-18 07:08 /user/cloudera
+</span><span class='line'>drwxr-xr-x   - mapred   hadoop            0 2014-12-18 07:08 /user/history
+</span><span class='line'>drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
+</span><span class='line'>drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
+</span><span class='line'>drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark</span></code></pre></td></tr></table></div></figure>
 
 
 <p>For more HDFS commands, check out links in References section below.</p>
 
 <h3>Running the WordCount example</h3>
 
-<p>Next, we want to run some MapReduce examples such as WordCount. We need to locate the example programs on the sandbox VM.</p>
+<p>Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.</p>
 
-<p>On Cloudera VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
+<p>We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -188,10 +338,10 @@
 <span class='line-number'>25</span>
 <span class='line-number'>26</span>
 <span class='line-number'>27</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>ls -ltr /usr/lib/hadoop-mapreduce/
-</span><span class='line'>lrwxrwxrwx <span class="m">1</span> root root      <span class="m">44</span> Dec <span class="m">18</span> 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
+</span><span class='line'>lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
 </span><span class='line'>
-</span><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
+</span><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
 </span><span class='line'>Valid program names are:
 </span><span class='line'>  aggregatewordcount: An Aggregate based map/reduce program that counts the words in the input files.
 </span><span class='line'>  aggregatewordhist: An Aggregate based map/reduce program that computes the histogram of the words in the input files.
@@ -208,19 +358,18 @@
 </span><span class='line'>  secondarysort: An example defining a secondary sort to the reduce.
 </span><span class='line'>  sort: A map/reduce program that sorts the data written by the random writer.
 </span><span class='line'>  sudoku: A sudoku solver.
-</span><span class='line'>  teragen: Generate data <span class="k">for</span> the terasort
+</span><span class='line'>  teragen: Generate data for the terasort
 </span><span class='line'>  terasort: Run the terasort
 </span><span class='line'>  teravalidate: Checking results of terasort
 </span><span class='line'>  wordcount: A map/reduce program that counts the words in the input files.
 </span><span class='line'>  wordmean: A map/reduce program that counts the average length of the words in the input files.
 </span><span class='line'>  wordmedian: A map/reduce program that counts the median length of the words in the input files.
-</span><span class='line'>  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.
-</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.</span></code></pre></td></tr></table></div></figure>
 
 
 <p>To run the WordCount example using the input file that we just moved to HDFS, use the following command:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -235,27 +384,26 @@
 <span class='line-number'>13</span>
 <span class='line-number'>14</span>
 <span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
 </span><span class='line'>/user/cloudera/input/wordcount.txt /user/cloudera/output
 </span><span class='line'>
 </span><span class='line'>15/11/15 18:14:45 INFO client.RMProxy: Connecting to ResourceManager at /0.0.0.0:8032
 </span><span class='line'>15/11/15 18:14:46 INFO input.FileInputFormat: Total input paths to process : 1
 </span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: number of splits:1
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens <span class="k">for</span> job: job_1421372394109_0001
+</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens for job: job_1421372394109_0001
 </span><span class='line'>15/11/15 18:14:46 INFO impl.YarnClientImpl: Submitted application application_1421372394109_0001
 </span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: The url to track the job: http://quickstart.cloudera:8088/proxy/application_1421372394109_0001/
 </span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: Running job: job_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : <span class="nb">false</span>
+</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : false
 </span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job:  map 0% reduce 0%
 </span><span class='line'>15/11/15 18:15:01 INFO mapreduce.Job:  map 100% reduce 0%
 </span><span class='line'>15/11/15 18:15:07 INFO mapreduce.Job:  map 100% reduce 100%
-</span><span class='line'>15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully
-</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully</span></code></pre></td></tr></table></div></figure>
 
 
 <p>The output folder is specified as &ldquo;/user/cloudera/output&rdquo; in the above command. Finally, check the output of WordCount example in the output folder.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -267,19 +415,18 @@
 <span class='line-number'>10</span>
 <span class='line-number'>11</span>
 <span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -ls /user/cloudera/output
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
 </span><span class='line'>
-</span><span class='line'>Found <span class="m">2</span> items
-</span><span class='line'>-rw-r--r--   <span class="m">1</span> cloudera cloudera          <span class="m">0</span> 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
-</span><span class='line'>-rw-r--r--   <span class="m">1</span> cloudera cloudera         <span class="m">43</span> 2015-11-15 18:15 /user/cloudera/output/part-r-00000
-</span><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hdfs dfs -cat /user/cloudera/output/part-r-00000
+</span><span class='line'>Found 2 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera          0 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         43 2015-11-15 18:15 /user/cloudera/output/part-r-00000
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/output/part-r-00000
 </span><span class='line'>a     1
 </span><span class='line'>hadoop     1
 </span><span class='line'>is     1
-</span><span class='line'><span class="nb">test     </span>1
+</span><span class='line'>test     1
 </span><span class='line'>this     1
-</span><span class='line'>tutorial     1
-</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>tutorial     1</span></code></pre></td></tr></table></div></figure>
 
 
 <p>Congratulations!! You just finished the first step of the journey into Hadoop.</p>
@@ -627,209 +774,9 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/">Pushing Local Jar File Into Your Local Maven (M2) Repository</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-17T16:46:49-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>4:46 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h4>Problem:</h4>
-
-<p>I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency.</p>
-
-<p>This post will also apply if you are behind a firewall and/or do not have external access for some reason.</p>
-
-<h4>Solution:</h4>
-
-<ul>
-<li>Download the jar file (e.g., the Vertica JDBC jar file).</li>
-<li>At the same directory as the jar file, run the following command to install the jar to the local Maven repository (running in a different directory seems not work).</li>
-</ul>
-
-
-<figure class='code'><figcaption><span>General Maven command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>mvn install:install-file -DgroupId<span class="o">=</span>&lt;GROUP_ID&gt; -DartifactId<span class="o">=</span>&lt;ARTIFACT_ID&gt; -Dversion<span class="o">=</span>&lt;VERSION&gt; -Dpackaging<span class="o">=</span>jar -Dfile<span class="o">=</span>&lt;LOCAL_PATH_FOR_JAR&gt; -DgeneratePom<span class="o">=</span><span class="nb">true</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Example:</p>
-
-<figure class='code'><figcaption><span>Example Maven command for Vertica JDBC</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>mvn install:install-file -DgroupId<span class="o">=</span>vertica -DartifactId<span class="o">=</span>vertica-jdbc -Dversion<span class="o">=</span>7.0.1 -Dpackaging<span class="o">=</span>jar -Dfile<span class="o">=</span>~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom<span class="o">=</span><span class="nb">true</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).</li>
-</ul>
-
-
-<p>If you want your Eclipse to start using this jar from your local repository:</p>
-
-<ul>
-<li>In Eclipse Luna on a Mac/Windows, go to Navigate > Show View > Other > Maven > Maven Repository.</li>
-<li>Open Local Repositories > Local Repository.</li>
-<li>Right click for the context menu > Rebuild Index.</li>
-</ul>
-
-
-<p>Now it should show up in “Add…” dialog in pom.xml edit.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra/">Automated Performance Logging and Plotting for Cassandra</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-14T19:57:43-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>7:57 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In this <a href="https://github.com/tdongsi/python/tree/master/PerformanceLog">mini-project</a>, I created a Python script (PerformanceLog.py) to record JMX values from a running Cassandra instance, using JMXTerm (<a href="http://wiki.cyclopsgroup.org/jmxterm/">http://wiki.cyclopsgroup.org/jmxterm/</a>), and do the following:</p>
-
-<ul>
-<li>Put the records into a Cassandra table.</li>
-<li>Plot the results.</li>
-</ul>
-
-
-<p>Based on a Cassandra question on Glassdoor.</p>
-
-<p>Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.</p>
-
-<h2>Input/Output</h2>
-
-<p><strong>Input</strong></p>
-
-<p>If running the script from command line, the following arguments must be provided:</p>
-
-<ul>
-<li>installDir INSTALLDIR:  Path to installation directory.</li>
-<li>host HOST: URL string for Cassandra instance. Only localhost tested.</li>
-<li>jmxTerm JMXTERM: Path to jmxterm jar file.</li>
-<li>osString OSSTRING: String that represents the current OS. Windows: win. Mac: mac. Unix/Linux: linux.</li>
-</ul>
-
-
-<p>Example:</p>
-
-<blockquote><p>python PerformanceLog.py -installDir C:\datastax -host localhost -jmxTerm lib\jmxterm.jar -osString win</p></blockquote>
-
-<p><strong>Output</strong></p>
-
-<ul>
-<li>CSV file with each field for each JMX metric.</li>
-</ul>
-
-
-<p>Example:</p>
-
-<blockquote><p>  SSTableCount,DataSize,c95thPercentile</p>
-
-<p>  0,0,0.0</p>
-
-<p>  7,31306299,9337.784849999995</p>
-
-<p>  7,31306299,9262.307649999999</p>
-
-<p>  &hellip;</p></blockquote>
-
-<ul>
-<li><p>Records in a Cassandra table</p></li>
-<li><p>Performance plot as PNG file (automatically generated from CSV output file)</p></li>
-</ul>
-
-
-<p>Example:</p>
-
-<p><img src="https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png" title="Performance Plot" alt="alt text" /></p>
-
-<h2>Python modules</h2>
-
-<ol>
-<li>PerformanceLog.py: Main module to run the automated tasks. Please use &ldquo;python PerformanceLog -h&rdquo;
-for the required arguments. Example call for Windows is in the doc string.</li>
-<li>MyLogger.py: Logging support module</li>
-<li>CassandraRecord.py: Support module to record metrics into a Cassandra table.</li>
-<li>Plotter.py: Support module to plot metrics into plots and save into PNG file.</li>
-</ol>
-
-
-<h3>Automated tasks by the modules</h3>
-
-<ol>
-<li>Check if Cassandra is Running</li>
-<li>Record certain JMX Metrics</li>
-<li>Runs the external tool Cassandra Stress</li>
-<li>Once the stress session has completed, stop recording JMX Metrics</li>
-<li>Record the metrics back into a Cassandra Table</li>
-<li>Graph the results (create these graphs at the end of the run).</li>
-</ol>
-
-
-<h2>External Python libraries required</h2>
-
-<h4>For CassandraRecord.py</h4>
-
-<p>This module requires Datastax&rsquo;s Python driver: <a href="http://datastax.github.io/python-driver/installation.html">http://datastax.github.io/python-driver/installation.html</a></p>
-
-<h4>For Plotter.py</h4>
-
-<p>This Python module used Matplotlib library. Please install the following Python libraries: matplotlib, numpy, dateutil, pytz, pyparsing, six (optionally: pillow, pycairo, tornado, wxpython, pyside, pyqt, ghostscript, miktex, ffmpeg, mencoder, avconv, or imagemagick).</p>
-
-<p>Installation of these Python libraries are straight-forward on Linux and Win32. On Win64, please find their installers here: <a href="http://www.lfd.uci.edu/~gohlke/pythonlibs/">http://www.lfd.uci.edu/~gohlke/pythonlibs/</a></p>
-
-<h2>Other files</h2>
-
-<p>The following output files are produced. For consistency check, they are left behind.
-In the final version of the script, they may be cleaned up accordingly.</p>
-
-<ul>
-<li>tempout: Output from JmxTerm session</li>
-<li>jmxMetrics.csv: The cvs file that records the interested JMX metrics.</li>
-<li>CassandraTest.log: The log file for the script.</li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
+    
+      <a class="prev" href="/posts/2">&larr; Older</a>
     
     <a href="/blog/archives">Blog Archives</a>
     
@@ -845,6 +792,14 @@ In the final version of the script, they may be cleaned up accordingly.</p>
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2015/11/22/programming-hive-chapter-1/">Programming Hive: Introduction</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/11/21/explaining-wordcount-example/">Overview of MapReduce: Explaining WordCount Example</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">WordCount Example in Cloudera Quickstart VM</a>
       </li>
     
@@ -856,19 +811,11 @@ In the final version of the script, they may be cleaned up accordingly.</p>
         <a href="/blog/2015/11/18/unicode-in-perl/">Unicode in Perl</a>
       </li>
     
-      <li class="post">
-        <a href="/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/">Pushing Local Jar File Into Your Local Maven (M2) Repository</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra/">Automated Performance Logging and Plotting for Cassandra</a>
-      </li>
-    
   </ul>
 </section>
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/database/'>database (2)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (1)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/java/'>java (3)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (1)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/book/'>book (2)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/database/'>database (2)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (3)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (1)</a></li><li><a href='/blog/categories/java/'>java (4)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/sql/'>sql (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (1)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
 </section>
 <section>
   <h1>GitHub Repos</h1>
