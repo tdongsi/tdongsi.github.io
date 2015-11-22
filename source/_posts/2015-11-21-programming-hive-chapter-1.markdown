@@ -10,37 +10,44 @@ categories:
 - SQL
 ---
 
-This is my summary for "Chapter 1: Introduction" of the "Programming Hive" book, with some observations from my hands-on experience.
+<!---
+"Chapter 1: Introduction" of the "Programming Hive" book.
+-->
+
+This post is the first of many posts summarizing the "Programming Hive" book, with some observations from my own experience.
 
 ### Introduction
 
 Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it's an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for expert database designers and administrators.
 
-Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as `select count(*) from my_table` can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database.
+Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as `select count(*) from my_table` can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).
 
-HiveQL does not conform to the ANSI SQL standard (which is usual), with MySQL dialect being the closest.
+HiveQL does not conform to the ANSI SQL standard (not many do), but quite close to MySQL dialect.
 
-### Overview of Hadoop and MapReduce
+### Overview of Hadoop and MapReduce: Explaining WordCount Example
 
-A basic understanding of Hadoop and MapReduce can help you to understand how Hive works. MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: *map* and *reduce*. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last [post](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/).
-
-A *map* operation converts the elements of a collection from one form to another. In this case, input key-value pairs are converted to zero-to-many output key-value pairs. In WordCount, the character offset (key) is discarded. The value, the line of text, is tokenized into words, using one of several possible techniques (e.g., splitting on whitespace is the simplest, but it can leave in undesirable punctuation). We’ll also assume that the Mapper converts each word to lowercase, so for example, “FUN” and “fun” will be counted as the same word.
-
-“Finally, for each word in the line, the mapper outputs a key-value pair, with the word as the key and the number 1 as the value (i.e., the count of “one occurrence”). Note that the output types of the keys and values are different from the input types.”
-
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
-
-“Sort and Shuffle phase that comes next. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. There are several possible techniques that can be used to decide which reducer gets which range of keys.”
-
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
+A basic understanding of Hadoop and MapReduce can help you to understand how Hive works. MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: *map* and *reduce*. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last [post](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/). The process flow of WordCount example is shown below:
 
 
-In MapReduce, all the key-pairs for a given key are sent to the same reduce operation. Specifically, the key and a collection of the values are passed to the reducer. The goal of “reduction” is to convert the collection to a value, such as summing or averaging a collection of numbers, or to another collection. A final key-value pair is emitted by the reducer. Again, the input versus output keys and values may be different. Note that if the job requires no reduction step, then it can be skipped.”
+![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
 
-“The inputs to each Reducer are again key-value pairs, but this time, each key will be one of the words found by the mappers and the value will be a collection of all the counts emitted by all the mappers for that word. Note that the type of the key and the type of the value collection elements are the same as the types used in the Mapper’s output. That is, the key type is a character string and the value collection element type is an integer.
-To finish the algorithm, all the reducer has to do is add up all the counts in the value collection and write a final key-value pair consisting of each word and the count for that word.”
+The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the document line by line, with the key being the character offset into the document and the value being the line of text.
 
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
+A **map** operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.
+
+Next is the **shuffling** phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.
+
+A **reduce** operation converts the collection for each key in input key-value pairs to another smaller collection or a value, such as summing. In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.
+
+The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.
+
+| | Mapper | Shuffling | Reducer |
+| --- | --- | --- | --- |
+| **Input** | `(offset, text_line)` | Multiple `(token,1)` | `(token,[1,1,1,...])` |
+| **Processing** | Discard the key `offset`. Normalize and tokenize `text_line`.| Move `(token,1)`with same `token` to same Reducer | Sum all elements in collection |
+| **Output** | Multiple `(token,1)` | Sorted `(token,[1,1,1,...])` | Multiple (token, count) |
+
+<br>
 
 ### Hive within the Hadoop Ecosystem
 
