@@ -9,8 +9,11 @@ categories:
 - Java
 ---
 
-MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: *map* and *reduce*. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last [post](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/). The process flow of WordCount example is shown below (from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
+MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: *map* and *reduce*. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last [post](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/). The process flow of WordCount example is shown below: 
 
+<!---
+(from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
+-->
 
 ![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
 

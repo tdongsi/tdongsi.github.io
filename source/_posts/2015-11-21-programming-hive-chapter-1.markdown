@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive: Introduction"
+title: "Programming Hive (Pt. 1): Introduction"
 date: 2015-11-22 17:22:51 -0800
 comments: true
 categories: 
@@ -14,7 +14,7 @@ categories:
 "Chapter 1: Introduction" of the "Programming Hive" book.
 -->
 
-This post is the first of many posts summarizing the "Programming Hive" book, with some observations from my own experience.
+This post is the first of many posts summarizing the **Programming Hive** book, with some observations from my own experience.
 
 ### Introduction
 
@@ -22,11 +22,13 @@ Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for quer
 
 Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as `select count(*) from my_table` can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).
 
-HiveQL does not conform to the ANSI SQL standard (not many do), but quite close to MySQL dialect.
+HiveQL does not conform to the ANSI SQL standard (not many do), but it is quite close to MySQL dialect.
 
 ### Hive within the Hadoop Ecosystem
 
-A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my [last post](/blog/2015/11/21/explaining-wordcount-example/) can be very involving when using the Hadoop Java API with many low-level details, repetitive wiring to/from Mappers and Reducers have to be taken care of (see [WordCount in Java](https://wiki.apache.org/hadoop/WordCount)). Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL is as simple as:
+A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my [last post](/blog/2015/11/21/explaining-wordcount-example/) can be very involving when using the Hadoop Java API. The API requires Java developers to manage many low-level details, repetitive wiring to/from Mappers and Reducers. The WordCount example's Java implementation can be found [here](https://wiki.apache.org/hadoop/WordCount). 
+
+Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL can be as simple as:
 
 ``` sql WordCount example in HiveQL
 CREATE TABLE docs (line STRING);
@@ -44,4 +46,4 @@ GROUP BY word
 ORDER BY word;
 ```
 
-In the remaining sections of the chapter, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka.
+In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
