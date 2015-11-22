@@ -60,9 +60,9 @@ For more HDFS commands, check out links in References section below.
 
 ### Running the WordCount example
 
-Next, we want to run some MapReduce examples such as WordCount. We need to locate the example programs on the sandbox VM. 
+Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.
 
-On Cloudera VM, they are packaged in this jar file "hadoop-mapreduce-examples.jar". Running that jar file without any argument will give you a list of available examples.
+We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file "hadoop-mapreduce-examples.jar". Running that jar file without any argument will give you a list of available examples.
 
 ``` bash
 [cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
