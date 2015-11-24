@@ -1,46 +1,56 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 3): Getting Started"
+title: "Programming Hive (Pt. 3): Runtime Modes"
 date: 2015-11-24 18:24:30 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Book
 - Hadoop
 - Hive
+- JDBC
 ---
 
-Chapter 2 of the **Programming Hive** book mostly discusses how to install Hadoop and Hive on Linux and Mac OS X, and how to run WordCount example (see my last [post](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/)) to make sure everything works.
+{% img center /images/hive/cat.gif Cover %}
 
-### Runtime modes
+In addition to [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/), chapter 2 of the **Programming Hive** book also covers some lower-level details of Hive such as Hadoop runtime modes and metastore.
 
-Local mode, distributed mode.
+### Runtime Modes
 
-“the default mode is local mode, where filesystem references use the local filesystem. Also in local mode, when Hadoop jobs are executed (including most Hive queries), the Map and Reduce tasks are run as part of the same process.”
-“Actual clusters are configured in distributed mode, where all filesystem references that aren’t full URIs default to the distributed filesystem (usually HDFS) and jobs are managed by the JobTracker service, with individual tasks executed in separate processes.”
-“a single machine can be configured to run in pseudodistributed mode, where the behavior is identical to distributed mode, namely filesystem references default to the distributed filesystem and jobs are managed by the JobTracker service, but there is just a single machine.”
+There are different runtime modes for Hadoop. Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using. However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.
 
-#### Local Mode Configuration
+| Local Mode | Distributed Mode | Pseudodistributed Mode |
+| --- | --- | --- |
+| Filesystem references use local filesystem. | Filesystem referenes use HDFS. | Similar to distributed mode. |
+| MapReduce tasks in same process. |  MapReduce tasks in separate <br>processes, managed by JobTracker service. | Similar to distributed mode.|
+| Default mode. | Usually configured for server clusters. | Like a cluster of one node.|
 
-Check section
+<br>
 
-#### Distributed and Pseudodistributed Mode Configuration
+Pseudodistributed mode is mainly for developers working on personal machines or VM's when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the `hive-site.xml` file in `$HIVE_HOME/conf` folder (e.g., `/usr/lib/hive/conf` on Cloudera VM). Create one if it doesn’t already exist.
 
-#### Metastore Using JDBC
+### Metastore Using JDBC
 
-“Hive requires only one extra component that Hadoop does not already have; the metastore component. The metastore stores metadata such as table schema and partition information that you specify when you run commands such as create table x..., or alter table y..., etc.”
+Hive requires only one extra component that Hadoop does not already have; the metastore component. The metastore stores metadata such as table schema and partition information that you specify when you run commands such as create table x..., or alter table y..., etc. Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL. In `hive-site.xml` file, the metastore database configuration looks like this:
 
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
+``` xml
+  <property>
+    <name>javax.jdo.option.ConnectionURL</name>
+    <value>jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true</value>
+    <description>JDBC connect string for a JDBC metastore</description>
+  </property>
 
-“Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.”
+  <property>
+    <name>javax.jdo.option.ConnectionDriverName</name>
+    <value>com.mysql.jdbc.Driver</value>
+    <description>Driver class name for a JDBC metastore</description>
+  </property>
 
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
+  <property>
+    <name>javax.jdo.option.ConnectionUserName</name>
+    <value>hive</value>
+  </property>
+```
 
-“The information required for table schema, partition information, etc., is small, typically much smaller than the large quantity of data stored in Hive. As a result, you typically don’t need a powerful dedicated database server for the metastore. However because it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the standard techniques you would normally use with other relational database instances.”
-
-Excerpt From: Edward Capriolo, Dean Wampler, and Jason Rutherglen. “Programming Hive.” iBooks. 
-
-
- 
-
+The information stored in metatstore is typically much smaller than the data stored in Hive. Therefore, you typically don’t need a powerful dedicated database server for the metastore. However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.
 
