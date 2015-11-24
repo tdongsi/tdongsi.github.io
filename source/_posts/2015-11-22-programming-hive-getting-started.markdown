@@ -3,6 +3,7 @@ layout: post
 title: "Programming Hive (Pt. 3): Getting Started"
 date: 2015-11-24 18:24:30 -0800
 comments: true
+published: false
 categories: 
 - Book
 - Hadoop

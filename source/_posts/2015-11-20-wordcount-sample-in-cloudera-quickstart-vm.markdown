@@ -56,6 +56,14 @@ drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
 drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
 drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark
 ```
+To see the content of a file on HDFS, use cat subcommand:
+
+```
+[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/input/wordcount.txt
+this is a hadoop tutorial test
+```
+
+For large files, if you want to view just the first or last parts, there is no -more or -tail subcommand. Instead, pipe the output of the -cat subcommand through your local shell’s more, or tail. For example: `hdfs dfs -cat wc-out/* | more`.
 
 For more HDFS commands, check out links in References section below.
 
