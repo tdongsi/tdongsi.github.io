@@ -52,5 +52,5 @@ Hive requires only one extra component that Hadoop does not already have; the me
   </property>
 ```
 
-The information stored in metatstore is typically much smaller than the data stored in Hive. Therefore, you typically don’t need a powerful dedicated database server for the metastore. However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.
+The information stored in metastore is typically much smaller than the data stored in Hive. Therefore, you typically don’t need a powerful dedicated database server for the metastore. However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.
 

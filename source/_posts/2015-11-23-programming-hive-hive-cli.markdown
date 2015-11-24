@@ -14,7 +14,7 @@ categories:
 
 Chapter 2 of the book covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).
 
-### Starting Hive with Cloundera Quickstart VM
+### Starting Hive with Cloudera Quickstart VM
 
 On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. The Hive executables can be found in `/usr/lib/hive/bin`. Running `hive` without any parameter will start Hive's CLI.
  
@@ -68,7 +68,7 @@ ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
 15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
 15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar
 ```
-To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. On Clouder Quickstart VM, the WAR file property block should look like this:
+To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. On Cloudera Quickstart VM, the WAR file property block should look like this:
 
 ```
 ...
@@ -160,7 +160,7 @@ name2 20
 name3 30
 ```
 
-**Tip**: To quickly search for the fullname of a property that you only remember part of its name, pipe the Hive's `SET` command output to grep. For example:
+**Tip**: To quickly search for the full name of a property that you only remember part of its name, pipe the Hive's `SET` command output to grep. For example:
 
 ```
 [cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
