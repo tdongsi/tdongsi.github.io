@@ -60,13 +60,40 @@ Debug help:  ./hive --debug --help
 
 Note the list of services following the line "Service List". There are several services available, most notably **cli, hwi, jar, metastore**. You can use `--service name` option to invoke a service. CLI is the default service, not specifying any service in `hive` command will run CLI service, as shown above.
 
-TODO: Try out HWI
+For example, to run [Hive Web Interface](https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface), run the service **hwi**. On Cloudera Quickstart VM, you might encounter this error:
 
-https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface
+```
+[cloudera@quickstart temp]$ hive --service hwi
+ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
+15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar
+```
+To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. 
+
+```
+...
+ <property>
+    <name>hive.hwi.war.file</name>
+    <value>/lib/hive-hwi.jar</value>
+    <description>This is the WAR file with the jsp content for Hive Web Interface</description>
+  </property>
+...
+```
+Running the **hwi** service again using `hive` command should work. In order to access the Hive Web Interface, go to `[Hive Server Address]`:9999/hwi on your web browser.
+
+```
+[cloudera@quickstart temp]$ hive --service hwi
+ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+15/11/23 20:31:27 INFO hwi.HWIServer: HWI is starting up
+15/11/23 20:31:27 INFO mortbay.log: Logging to org.slf4j.impl.Log4jLoggerAdapter(org.mortbay.log) via org.mortbay.log.Slf4jLog
+15/11/23 20:31:27 INFO mortbay.log: jetty-6.1.26.cloudera.4
+15/11/23 20:31:27 INFO mortbay.log: Extract /usr/lib/hive/lib/hive-hwi.jar to /tmp/Jetty_0_0_0_0_9999_hive.hwi.0.13.1.cdh5.3.0.jar__hwi__.lcik1p/webapp
+15/11/23 20:31:28 INFO mortbay.log: Started SocketConnector@0.0.0.0:9999
+```
 
 ### Hive CLI
 
-This shows available options for Hive CLI:
+Available options for Hive CLI can be displayed as follows:
 
 ```
 [cloudera@quickstart temp]$ hive --help --service cli
@@ -87,6 +114,7 @@ usage: hive
  -v,--verbose                     Verbose mode (echo executed SQL to the
                                   console)
 ```
+
 #### Hive variables and properties
 
 “The --define key=value option is effectively equivalent to the --hivevar key=value option. Both let you define on the command line custom variables that you can reference in Hive scripts to customize execution.”
