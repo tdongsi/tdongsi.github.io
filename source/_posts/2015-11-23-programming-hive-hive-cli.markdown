@@ -12,11 +12,11 @@ categories:
 
 {% img center /images/hive/cat.gif Cover %}
 
-Chapter 2 of the book covers how to get started with Hive and some basics of Hive and its command-line interface (CLI).
+Chapter 2 of the book covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).
 
 ### Starting Hive with Cloundera Quickstart VM
 
-On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. The Hive executables can be found in `/usr/lib/hive/bin`.
+On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. The Hive executables can be found in `/usr/lib/hive/bin`. Running `hive` without any parameter will start Hive's CLI.
  
 ```
 [cloudera@quickstart temp]$ hive
@@ -40,7 +40,7 @@ hive> exit;
 
 ### Hive services
 
-The `hive` shell command is the wrapper to multiple Hive services, including the CLI.
+The `hive` shell command is actually a wrapper to multiple Hive services, including the CLI.
 
 ```
 [cloudera@quickstart temp]$ hive --help
@@ -68,7 +68,7 @@ ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
 15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
 15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar
 ```
-To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. 
+To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. On Clouder Quickstart VM, the WAR file property block should look like this:
 
 ```
 ...
@@ -154,13 +154,13 @@ Time taken: 4.955 seconds
 ```
 
 ```
-$ hive -S "select * FROM mytable LIMIT 3"
+$ hive -S -e "select * FROM mytable LIMIT 3"
 name1 10
 name2 20
 name3 30
 ```
 
-**Tip**: To quickly search for the fullname of a property that you only remember part of its name, use this command:
+**Tip**: To quickly search for the fullname of a property that you only remember part of its name, pipe the Hive's `SET` command output to grep. For example:
 
 ```
 [cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
@@ -170,7 +170,7 @@ hive.warehouse.subdir.inherit.perms=true
 
 #### `-f script_file` option
 
-This option allows you to execute one or more queries in a script file. If you are already within the Hive CLI, you can use the `SOURCE` command to execute a script file. For example:
+This option allows you to execute one or more queries contained in a script file. If you are already within the Hive CLI, you can use the `SOURCE` command to execute a script file. For example:
 
 ```
 $ cat /path/to/file/withqueries.hql
@@ -181,7 +181,7 @@ hive> source /path/to/file/withqueries.hql;
 
 #### `-i filename` option
 
-This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is your own `$HOME/.hiverc` if it exists.
+This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is the file `$HOME/.hiverc` if it exists.
 
 #### Tips
 
@@ -195,7 +195,7 @@ Found 1 items
 -rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 input/wordcount.txt
 ```
 
-* To run the bash shell commands from within Hive CLI, prefix `!` before the bash commands and terminate the line with a semicolon (;). Note that interact commands, shell pipes `|`, and file globs `*` will not work. For example: 
+* To run the bash shell commands from within Hive CLI, prefix `!` before the bash commands and terminate the line with a semicolon (;). Note that interactive commands, shell pipes `|`, and file globs `*` will not work. Example: 
 
 ```
 hive> !pwd;
