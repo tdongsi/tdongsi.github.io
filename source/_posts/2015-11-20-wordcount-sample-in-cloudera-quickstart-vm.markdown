@@ -7,6 +7,7 @@ categories:
 - Hadoop
 - Java
 - HDFS
+- Cloudera
 ---
 
 [WordCount](https://wiki.apache.org/hadoop/WordCount) is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some "Hello World" example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic "Hello World" examples.
