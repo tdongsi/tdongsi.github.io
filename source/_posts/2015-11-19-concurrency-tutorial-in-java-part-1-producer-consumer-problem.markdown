@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Process Synchronization Concepts in Java (part 1): Producer-Consumer problem"
+title: "Process Synchronization Concepts in Java (Pt. 1): Producer-Consumer problem"
 date: 2015-11-19 14:57:21 -0800
 comments: true
 published: false
