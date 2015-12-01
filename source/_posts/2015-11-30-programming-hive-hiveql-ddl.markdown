@@ -3,6 +3,7 @@ layout: post
 title: "Programming Hive (Pt. 5): HiveQL Data Definition"
 date: 2015-11-30 18:32:21 -0800
 comments: true
+published: true
 categories:
 - Book
 - Hive
@@ -10,13 +11,18 @@ categories:
 - SQL
 ---
 
-=== Databases ===
+{% img center /images/hive/cat.gif Cover %}
 
-“The Hive concept of a database is essentially just a catalog or namespace of tables. If you don’t specify a database, the default  database is used.”
-“You can also use the keyword SCHEMA instead of DATABASE in all the database-related commands.”
+Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. It defers discussion of views hapter 7, indexes until Chapter 8, and functions until Chapter 13.
 
-Database commands
+### Databases
 
+In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the default database is used.
+
+
+Some basic HiveQL's database commands:
+
+``` sql
 > CREATE DATABASE college;
 > CREATE DATABASE IF NOT EXISTS college;
 
@@ -26,30 +32,31 @@ Database commands
 > CREATE DATABASE college
 > LOCATION ‘/my/preferred/directory’;
 
-— add comments
+—- add comments
 > CREATE DATABASE college
 > COMMENT ‘A college admission database’;
-— show comments
+—- show comments
 > DESCRIBE DATABASE college;
 
-— add properties
+—- add properties
 > CREATE DATABASE college
 > WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
 — show properties
 > DESCRIBE DATABASE EXTENDED college;
 
-— set working database
+—- set working database
 > USE college;
 — this will show tables in this database
 > SHOW TABLES;
 
 > DROP DATABASE IF EXISTS college;
-— Drop tables if there is any table in the database
+—- Drop tables if there is any table in the database
 > DROP DATABASE IF EXISTS college CASCADE;
 
-— You can set additional key-value paris in properties.
-— No other metadata about the database can be changed. No way to delete a DB PROPERTY.
+—- You can set additional key-value pairs in properties.
+—- No other metadata about the database can be changed. No way to delete a DB PROPERTY.
 > ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
+```
 
 NOTES:
 
