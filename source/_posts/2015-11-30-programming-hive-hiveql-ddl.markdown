@@ -13,7 +13,7 @@ categories:
 
 {% img center /images/hive/cat.gif Cover %}
 
-Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. It defers discussion of views hapter 7, indexes until Chapter 8, and functions until Chapter 13.
+Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. The book defers discussion of views until chapter 7, indexes until Chapter 8, and functions until Chapter 13.
 
 ### Databases
 
@@ -23,39 +23,38 @@ In Hive, the concept of a database is basically just a namespace of tables. The 
 Some basic HiveQL's database commands:
 
 ``` sql
-> CREATE DATABASE college;
-> CREATE DATABASE IF NOT EXISTS college;
+CREATE DATABASE college;
+CREATE DATABASE IF NOT EXISTS college;
 
-> SHOW DATABASES;
-> SHOW DATABASES LIKE ‘h.*’;
+SHOW DATABASES;
+SHOW DATABASES LIKE ‘h.*’;
 
-> CREATE DATABASE college
-> LOCATION ‘/my/preferred/directory’;
+CREATE DATABASE college
+LOCATION ‘/my/preferred/directory’;
 
-—- add comments
-> CREATE DATABASE college
-> COMMENT ‘A college admission database’;
-—- show comments
-> DESCRIBE DATABASE college;
+/* add comments to table */
+CREATE DATABASE college COMMENT ‘A college admission database’;
+/* show comments */
+DESCRIBE DATABASE college;
 
-—- add properties
-> CREATE DATABASE college
-> WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
-— show properties
-> DESCRIBE DATABASE EXTENDED college;
+/* add properties */
+CREATE DATABASE college WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
+/* show properties */
+DESCRIBE DATABASE EXTENDED college;
 
-—- set working database
-> USE college;
-— this will show tables in this database
-> SHOW TABLES;
+/* set working database */
+USE college;
+/* this will show tables in this database */
+SHOW TABLES;
 
-> DROP DATABASE IF EXISTS college;
-—- Drop tables if there is any table in the database
-> DROP DATABASE IF EXISTS college CASCADE;
+DROP DATABASE IF EXISTS college;
+/* Drop tables if there is any table in the database */
+DROP DATABASE IF EXISTS college CASCADE;
 
-—- You can set additional key-value pairs in properties.
-—- No other metadata about the database can be changed. No way to delete a DB PROPERTY.
-> ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
+/* You can set additional key-value pairs in properties.
+ * No other metadata about the database can be changed. No way to delete a DB PROPERTY.
+ */
+ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
 ```
 
 NOTES:
