@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Programming Hive DDL Table"
-date: 2015-12-02 20:15:56 -0800
+title: "Programming Hive (Pt. 6): HiveQL Data Definition"
+date: 2015-12-03 20:15:56 -0800
 comments: true
 published: false
 categories:
@@ -11,35 +11,47 @@ categories:
 - SQL
 ---
 
-=== Tables ===
+{% img center /images/hive/cat.gif Cover %}
 
-> CREATE TABLE IF NOT EXISTS mydb.employees (
-  name STRING COMMENT ‘Employee name’,
-  salary FLOAT COMMENT ‘Employee salary’,
+Continue Chapter 4 of the book from previous post.
+
+### Tables
+
+``` sql
+/* NOTE: the location is the default location */
+CREATE TABLE IF NOT EXISTS mydb.employees (
+  name STRING COMMENT 'Employee name',
+  salary FLOAT COMMENT 'Employee salary',
 )
-COMMENT ‘Description of the table'
-TBLPROPERTIES ( ‘creator’ = ‘me’ )
-LOCATION ‘/user/hive/warehouse/mydb.db/employees’; — the location is the default location
+COMMENT 'Description of the table' TBLPROPERTIES ( 'creator' = 'me' )
+LOCATION '/user/hive/warehouse/mydb.db/employees';
 
-> SHOW TBLPROPERTIES mydb.employees;
-> SHOW TABLES;
-> SHOW TABLES IN mydb;
-> USE mydb;
-> SHOW TABLES ‘empl.*’; — use regex to search tables in current database
+SHOW TBLPROPERTIES mydb.employees;
+SHOW TABLES;
+SHOW TABLES IN mydb;
+USE mydb;
+/* use regex to search tables in current database */
+SHOW TABLES 'empl.*';
 
-— copy the schema of an existing table
-— you can specify LOCATION but no other can be defined
-> CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
+/* 
+ * copy the schema of an existing table
+ * you can specify LOCATION but no other can be defined
+ */
+CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
 
-> DESCRIBE EXTENDED mydb.employees;
-> DESCRIBE FORMATTED mydb.employees; — more readable and verbose
-> DESCRIBE mydb.employees.name; — see schema for a column
+DESCRIBE EXTENDED mydb.employees;
+/* more readable and verbose */
+DESCRIBE FORMATTED mydb.employees;
+/* see schema for a column */
+DESCRIBE mydb.employees.name; 
 
-— Create external table
-— Read all data files with comma-delimited format
-— from /data/stocks
-— LOCATION is required for external table
-> CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
+/*
+* Create external table
+* Read all data files with comma-delimited format
+* from /data/stocks
+* LOCATION is required for external table
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
   exchange        STRING,
   symbol          STRING,
   volume          INT,
@@ -47,15 +59,20 @@ LOCATION ‘/user/hive/warehouse/mydb.db/employees’; — the location is the d
 ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
 LOCATION '/data/stocks';
 
-— Copy external table
-> CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
+/*
+* Copy external table
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
 LIKE stocks
-LOCATION ‘/path/to/data’;
+LOCATION '/path/to/data';
 
-— Drop table
-— For managed tables, the table metadata and data are deleted.
-— For external tables, the metadata is deleted but the data is not.
+/*
+* Drop table
+* For managed tables, the table metadata and data are deleted.
+* For external tables, the metadata is deleted but the data is not.
+*/
 DROP TABLE IF EXISTS college;
+```
 
 Warning: “f you use IF NOT EXISTS and the existing table has a different schema than the schema in the CREATE TABLE statement, Hive will ignore the discrepancy.”
 “Hive automatically adds two table properties: last_modified_by holds the username of the last user to modify the table, and last_modified_time holds the epoch time in seconds of that modification.”
@@ -90,6 +107,8 @@ Partitioning tables changes how Hive structures the data storage.
 “For very large data sets, partitioning can dramatically improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by locations, timestamp ranges). When we add predicates to WHERE clauses that filter on partition values, these predicates are called partition filters.”
 
 “A highly suggested safety measure is putting Hive into “strict” mode, which prohibits queries of partitioned tables without a WHERE clause that filters on partitions.”
+
+```
 > set hive.mapred.mode = strict;
 > SELECT e.name FROM employees e; — does not work
 > set hive.mapred.mode = nonstrict;
@@ -106,6 +125,8 @@ PARTITIONED BY (country STRING, state STRING);
 “LOAD DATA LOCAL INPATH '${env:HOME}/california-employees'
 INTO TABLE employees
 PARTITION (country = 'US', state = 'CA');
+```
+
 The directory for this partition, …/employees/country=US/state=CA, will be created by Hive and all data files in $HOME/california-employees will be copied into it”
 
 External Partitioned Tables
