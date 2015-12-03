@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Hadoop | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/hadoop/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2015-11-26T19:59:43-08:00</updated>
+  <updated>2015-12-02T20:42:21-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,100 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Programming Hive (Pt. 5): HiveQL Data Definition]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/"/>
+    <updated>2015-12-02T18:32:21-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl</id>
+    <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<p>Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. The book defers discussion of views until chapter 7, indexes until Chapter 8, and functions until Chapter 13.</p>
+
+<p>Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.</p>
+
+<h3>Databases</h3>
+
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<pre><code class="sql">CREATE DATABASE college;
+CREATE DATABASE IF NOT EXISTS college;
+
+SHOW DATABASES;
+SHOW DATABASES LIKE ‘h.*’;
+
+CREATE DATABASE college
+LOCATION ‘/my/preferred/directory’;
+
+/* add comments to table */
+CREATE DATABASE college COMMENT ‘A college admission database’;
+/* show comments */
+DESCRIBE DATABASE college;
+
+/* add properties */
+CREATE DATABASE college WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
+/* show properties */
+DESCRIBE DATABASE EXTENDED college;
+
+/* set working database */
+USE college;
+/* this will show tables in this database */
+SHOW TABLES;
+
+DROP DATABASE IF EXISTS college;
+/* Drop tables if there is any table in the database */
+DROP DATABASE IF EXISTS college CASCADE;
+
+/* You can set additional key-value pairs in properties.
+ * No other metadata about the database can be changed. No way to delete a DB PROPERTY.
+ */
+ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
+</code></pre>
+
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. These are illustrated by the Hive CLI commands as follows:</p>
+
+<pre><code>[cloudera@quickstart temp]$ hive
+
+Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+hive&gt; describe database default;
+OK
+default Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+Time taken: 0.01 seconds, Fetched: 1 row(s)
+hive&gt; describe database college;
+OK
+college     hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+Time taken: 0.011 seconds, Fetched: 1 row(s)
+
+hive&gt; SET hive.metastore.warehouse.dir;
+hive.metastore.warehouse.dir=/user/hive/warehouse
+
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db;
+Found 3 items
+drwxrwxrwx   - hive hive          0 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+drwxrwxrwx   - hive hive          0 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+drwxrwxrwx   - hive hive          0 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student;
+Found 1 items
+-rwxrwxrwx   1 cloudera hive        213 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college;
+Found 1 items
+-rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</code></pre>
+
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code> with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
+
+<pre><code>hive&gt; set hive.cli.print.current.db=true;
+hive (default)&gt; USE college;
+OK
+Time taken: 0.278 seconds
+hive (college)&gt; 
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Programming Hive (Pt. 4): Data Types]]></title>
@@ -429,68 +523,6 @@ ORDER BY word;
 </code></pre>
 
 <p>In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Overview of MapReduce: Explaining WordCount Example]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/"/>
-    <updated>2015-11-21T02:37:20-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example</id>
-    <content type="html"><![CDATA[<p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below:</p>
-
-<!---
-(from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
-
-![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
--->
-
-
-<p><img class="center" src="/images/hive/wordcount.png" title="Process Flow of WordCount Example" ></p>
-
-<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
-
-<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
-
-<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
-
-<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection (or a value when the collection has a single element). In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
-
-<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
-
-<table>
-<thead>
-<tr>
-<th> </th>
-<th> Mapper </th>
-<th> Shuffling </th>
-<th> Reducer </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Input</strong> </td>
-<td> <code>(offset, text_line)</code> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> <code>(token,[1,1,1,...])</code> </td>
-</tr>
-<tr>
-<td> <strong>Processing</strong> </td>
-<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
-<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
-<td> Sum all elements in collection </td>
-</tr>
-<tr>
-<td> <strong>Output</strong> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> Sorted <code>(token,[1,1,1,...])</code> </td>
-<td> <code>(token, count)</code> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
 ]]></content>
   </entry>
   
