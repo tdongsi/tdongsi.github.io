@@ -59,7 +59,7 @@ DROP DATABASE IF EXISTS college CASCADE;
 ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
 ```
 
-Note that Hive will create separate directory for each database. The exception is the `default` database, which doesn't have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory created is specified by the property hive.metastore.warehouse.dir. These are illustrated by the Hive CLI commands as follows:
+Note that Hive will create separate directory for each database. The exception is the `default` database, which doesn't have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property `hive.metastore.warehouse.dir`. These are illustrated by the Hive CLI commands as follows:
 
 ```
 [cloudera@quickstart temp]$ hive
@@ -90,9 +90,9 @@ Found 1 items
 -rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
 ```
 
-In the output of the `DESCRIBE DATABASE` commands above, the directory location of the database is shown, with `hdfs` as URI scheme. `hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db` is equivalent to `hdfs://user/hive/warehouse/college.db`, where `quickstart.cloudera:8020` is simply the master node’s DNS name and port on Cloudera Quickstart VM. Note that the name of the database directory is `database_name.db`. The three tables `college`, `student`, and `apply` in the `college` database are created as sub-directories in that `college.db` directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second `DROP DATABASE` command with `CASCADE` will cause Hive to drop the tables in the database first.
+In the output of the `DESCRIBE DATABASE` commands above, the directory location of the database is shown, with `hdfs` as URI scheme. Note that `hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db` is equivalent to `hdfs://user/hive/warehouse/college.db`, where `quickstart.cloudera:8020` is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always `database_name.db` with `.db` suffix added to database name. The three tables `college`, `student`, and `apply` in the `college` database are created as sub-directories in that `college.db` directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second `DROP DATABASE` command with `CASCADE` will force Hive to drop the database by dropping the tables in the database first.
 
-There is no command to show the current working database. When in doubt, it is safe to use the command `USE database_name;` since there is no nesting of databases in Hive. Otherwise, you can set a property to print the current database in Hive CLI prompt:
+There is no command to show the current working database. When in doubt, it is safe to use the command `USE database_name;` repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:
 
 ```
 hive> set hive.cli.print.current.db=true;
