@@ -13,37 +13,26 @@ categories:
 
 {% img center /images/hive/cat.gif Cover %}
 
-Continue Chapter 4 of the book from previous post.
+Chapter 4 of the book, continued from the previous post.
 
 ### Tables
 
+Some basic HiveQL's table DDL commands is shown in the following examples:
+
 ``` sql
 /* NOTE: the location is the default location */
-CREATE TABLE IF NOT EXISTS mydb.employees (
-  name STRING COMMENT 'Employee name',
-  salary FLOAT COMMENT 'Employee salary',
+CREATE TABLE IF NOT EXISTS college.student (
+  name STRING COMMENT 'Student name',
+  sid INT COMMENT 'Student ID',
 )
 COMMENT 'Description of the table' TBLPROPERTIES ( 'creator' = 'me' )
-LOCATION '/user/hive/warehouse/mydb.db/employees';
-
-SHOW TBLPROPERTIES mydb.employees;
-SHOW TABLES;
-SHOW TABLES IN mydb;
-USE mydb;
-/* use regex to search tables in current database */
-SHOW TABLES 'empl.*';
+LOCATION '/user/hive/warehouse/college.db/student';
 
 /* 
  * copy the schema of an existing table
  * you can specify LOCATION but no other can be defined
  */
 CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
-
-DESCRIBE EXTENDED mydb.employees;
-/* more readable and verbose */
-DESCRIBE FORMATTED mydb.employees;
-/* see schema for a column */
-DESCRIBE mydb.employees.name; 
 
 /*
 * Create external table
@@ -73,6 +62,25 @@ LOCATION '/path/to/data';
 */
 DROP TABLE IF EXISTS college;
 ```
+
+Note that in the first `CREATE TABLE` command, note that you can prefix a database name, e.g. `mydb`, even when it is not your current working database. As usual, the optional `IF NOT EXISTS` clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive).
+
+```
+SHOW TBLPROPERTIES mydb.employees;
+SHOW TABLES;
+SHOW TABLES IN mydb;
+USE mydb;
+/* use regex to search tables in current database */
+SHOW TABLES 'empl.*';
+
+
+DESCRIBE EXTENDED mydb.employees;
+/* more readable and verbose */
+DESCRIBE FORMATTED mydb.employees;
+/* see schema for a column */
+DESCRIBE mydb.employees.name; 
+```
+
 
 Warning: “f you use IF NOT EXISTS and the existing table has a different schema than the schema in the CREATE TABLE statement, Hive will ignore the discrepancy.”
 “Hive automatically adds two table properties: last_modified_by holds the username of the last user to modify the table, and last_modified_time holds the epoch time in seconds of that modification.”
