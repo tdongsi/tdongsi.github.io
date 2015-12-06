@@ -17,10 +17,10 @@ Chapter 4 of the book, continued from the previous post.
 
 ### Creating Tables
 
-Some basic HiveQL's table DDL commands is shown in the following examples:
+Some basic HiveQL's table DDL commands are shown in the following examples:
 
 ``` sql
-/* NOTE: the location is the default location */
+/* NOTE: the LOCATION clause uses the default location */
 CREATE TABLE IF NOT EXISTS college.student (
   name STRING COMMENT 'Student name',
   sid INT COMMENT 'Student ID',
@@ -30,7 +30,7 @@ LOCATION '/user/hive/warehouse/college.db/student';
 
 /* 
  * copy the schema of an existing table
- * you can specify LOCATION but no other can be defined
+ * you can specify optional LOCATION but no other can be defined
  */
 CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
 
@@ -49,7 +49,7 @@ ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
 LOCATION '/data/stocks';
 
 /*
-* Copy external table
+* Copy external table schema.
 */
 CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
 LIKE stocks
@@ -63,7 +63,7 @@ LOCATION '/path/to/data';
 DROP TABLE IF EXISTS college;
 ```
 
-Note that in the first `CREATE TABLE` command, you can prefix a database name, e.g. `mydb`, even when it is not your current working database. As usual, the optional `IF NOT EXISTS` clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second `CREATE TABLE` command is useful to copy the schema of an existing table. The corresponding commands for **external** table is also shown (note `EXTERNAL TABLE`). The concept of external table in Hive will be discussed shortly.
+Note that in the first `CREATE TABLE` command, you can prefix a database name, e.g. `mydb`, even when it is not your current working database. As usual, the optional `IF NOT EXISTS` clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second `CREATE TABLE` command is useful to copy the schema of an existing table. The corresponding commands for **external** table are also shown above (note `EXTERNAL TABLE`). The concept of external table in Hive will be discussed shortly.
 
 The `SHOW TABLES` command lists the tables. You use different variants of that command to find tables of interest as shown below:
 
@@ -174,7 +174,7 @@ Time taken: 0.315 seconds, Fetched: 1 row(s)
 
 ### Managed tables vs External tables
 
-`CREATE TABLE` (i.e., without `EXTERNAL`) commands create *managed tables* or *internal tables*. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). When we drop a mananged table with `DROP TABLE` command, the data in the table will be deleted.
+`CREATE TABLE` commands (without `EXTERNAL`) create *managed tables* or *internal tables*. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). When we drop a mananged table with `DROP TABLE` command, the data in the table will be deleted.
 
 ```
 hive> SET hive.metastore.warehouse.dir;
@@ -188,7 +188,7 @@ drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/colleg
 
 As mentioned in [Schema on Read](/blog/2015/11/26/programming-hive-data-types/), Hive does not have control over the underlying storage, even for *managed table*: for example, you can totally use another `dfs` command in the last example to modify files on HDFS.
 
-Managed tables are nice, but not convenient for sharing data with other tools. Instead, *external tables* can be defined to point to that data, but don't take ownership of data. In the `CREATE EXTERNAL TABLE` command example at the beginning of this post, the data files are in HDFS at `/data/stocks` and the external table will be created and populated by reading all comma-delimited data files in that location. The `LOCATION` clause is required for external table, to tell Hive where it is located. Dropping an external table does not delete the data since Hive does not *own* the data. However, the *metadata* for that table will be deleted.
+Managed tables are not convenient for sharing data with other tools. Instead, *external tables* can be defined to point to that data, but don't take ownership of data. In the `CREATE EXTERNAL TABLE` command example at the beginning of this post, the data files are in HDFS at `/data/stocks` and the external table will be created and populated by reading all comma-delimited data files in that location. The `LOCATION` clause is required for external table, to tell Hive where it is located. Dropping an external table does not delete the data since Hive does not *own* the data. However, the *metadata* for that table will be deleted.
 
 To tell whether if a table is managed or external, use the command `DESCRIBE FORMATTED`. In the example in the last section, we see that the table `college.student` is a managed table because of its output:
 
@@ -203,7 +203,7 @@ For external tables, the output will be like `Table Type: EXTERNAL_TABLE`.
 
 The `ALTER TABLE` statements *only* change *metadata* of the table, but not the data in the table. It's up to us to ensure that any schema modifications are consistent with the actual data.
 
-Some basic `ALTER TABLE` statements are shown in the following examples: 
+Some basic `ALTER TABLE` statements for renaming table and changing table columns are shown in the following examples: 
 
 ```
 /* Renaming table */

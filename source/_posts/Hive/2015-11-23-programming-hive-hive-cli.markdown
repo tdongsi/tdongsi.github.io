@@ -58,7 +58,7 @@ For help on a particular service:
 Debug help:  ./hive --debug --help
 ```
 
-Note the list of services following the line "Service List". There are several services available, most notably **cli, hwi, jar, metastore**. You can use `--service name` option to invoke a service. CLI is the default service, not specifying any service in `hive` command will run CLI service, as shown above.
+Note the list of services following the line "Service List". There are several services available, most notably **cli, hwi, jar, metastore**. You can use `--service name` option to invoke a service. CLI is the default service, not specifying any service in `hive` command will run CLI service, as shown in "Starting Hive" section above.
 
 For example, to run [Hive Web Interface](https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface), run the service **hwi**. On Cloudera Quickstart VM, you might encounter this error:
 
