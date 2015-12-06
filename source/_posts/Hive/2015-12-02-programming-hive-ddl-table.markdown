@@ -3,7 +3,7 @@ layout: post
 title: "Programming Hive (Pt. 6): HiveQL Data Definition"
 date: 2015-12-03 20:15:56 -0800
 comments: true
-published: false
+published: true
 categories:
 - Book
 - Hive
@@ -63,30 +63,117 @@ LOCATION '/path/to/data';
 DROP TABLE IF EXISTS college;
 ```
 
-Note that in the first `CREATE TABLE` command, note that you can prefix a database name, e.g. `mydb`, even when it is not your current working database. As usual, the optional `IF NOT EXISTS` clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive).
+Note that in the first `CREATE TABLE` command, you can prefix a database name, e.g. `mydb`, even when it is not your current working database. As usual, the optional `IF NOT EXISTS` clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second `CREATE TABLE` command is useful to copy the schema of an existing table. The corresponding commands for **external** table is also shown (note `EXTERNAL TABLE`). The concept of external table in Hive will be discussed shortly.
+
+The `SHOW TABLES` command lists the tables. You use different variants of that command to find tables of interest as shown below:
 
 ```
-SHOW TBLPROPERTIES mydb.employees;
-SHOW TABLES;
-SHOW TABLES IN mydb;
-USE mydb;
+hive> use college;
+OK
+Time taken: 0.048 seconds
+
+
+/* Show list of tables in current database */
+hive> show tables;
+OK
+apply
+college
+student
+Time taken: 0.031 seconds, Fetched: 3 row(s)
+
+/* Show list of tables in the specified database */
+hive> show tables in college;
+OK
+apply
+college
+student
+Time taken: 0.034 seconds, Fetched: 3 row(s)
+
 /* use regex to search tables in current database */
-SHOW TABLES 'empl.*';
+hive> show tables '.*e.*';
+OK
+college
+student
+Time taken: 0.025 seconds, Fetched: 2 row(s)
 
 
-DESCRIBE EXTENDED mydb.employees;
-/* more readable and verbose */
-DESCRIBE FORMATTED mydb.employees;
-/* see schema for a column */
-DESCRIBE mydb.employees.name; 
+/* Show table properties */
+hive> show tblproperties student;        
+OK
+COLUMN_STATS_ACCURATE	true
+comment	List of students
+numFiles	1
+numRows	0
+rawDataSize	0
+totalSize	213
+transient_lastDdlTime	1421796179
+Time taken: 0.28 seconds, Fetched: 7 row(s)
 ```
 
+You can use `DESCRIBE` command to display table information as shown below:
+```
+hive> describe extended student;        
+OK
+sid                 	int                 	Student ID          
+sname               	string              	Student name        
+gpa                 	float               	Student GPA         
+sizehs              	int                 	Size of student highschool
+	 	 
+Detailed Table Information	Table(tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+sd:StorageDescriptor(cols:[FieldSchema(name:sid, type:int, comment:Student ID), FieldSchema(name:sname, type:string, comment:Student name), ...
+Time taken: 0.119 seconds, Fetched: 6 row(s)
 
-Warning: “f you use IF NOT EXISTS and the existing table has a different schema than the schema in the CREATE TABLE statement, Hive will ignore the discrepancy.”
-“Hive automatically adds two table properties: last_modified_by holds the username of the last user to modify the table, and last_modified_time holds the epoch time in seconds of that modification.”
-“Using the IN database_name clause and a regular expression for the table names together is not supported.”
 
-Managed tables vs External tables:
+/* more readable and verbose */
+hive> describe formatted student;
+OK
+# col_name            	data_type           	comment             
+	 	 
+sid                 	int                 	Student ID          
+sname               	string              	Student name        
+gpa                 	float               	Student GPA         
+sizehs              	int                 	Size of student highschool
+	 	 
+# Detailed Table Information	 	 
+Database:           	college             	 
+Owner:              	cloudera            	 
+CreateTime:         	Tue Jan 20 15:22:58 PST 2015	 
+LastAccessTime:     	UNKNOWN             	 
+Protect Mode:       	None                	 
+Retention:          	0                   	 
+Location:           	hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student	 
+Table Type:         	MANAGED_TABLE       	 
+Table Parameters:	 	 
+	COLUMN_STATS_ACCURATE	true                
+	comment             	List of students    
+	numFiles            	1                   
+	numRows             	0                   
+	rawDataSize         	0                   
+	totalSize           	213                 
+	transient_lastDdlTime	1421796179          
+	 	 
+# Storage Information	 	 
+SerDe Library:      	org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe	 
+InputFormat:        	org.apache.hadoop.mapred.TextInputFormat	 
+OutputFormat:       	org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat	 
+Compressed:         	No                  	 
+Num Buckets:        	-1                  	 
+Bucket Columns:     	[]                  	 
+Sort Columns:       	[]                  	 
+Storage Desc Params:	 	 
+	field.delim         	;                   
+	serialization.format	;                   
+Time taken: 0.108 seconds, Fetched: 36 row(s)
+
+/* see schema for a column */
+hive> describe student.sid;
+OK
+sid                 	int                 	from deserializer   
+Time taken: 0.315 seconds, Fetched: 1 row(s)
+```
+
+### Managed tables vs External tables
+
 “The tables we have created so far are called managed tables or sometimes called internal tables, because Hive controls the lifecycle of their data”
 When we drop a managed table, Hives deletes the data in the table.
 “Suppose we have data that is created and used primarily by Pig or other tools, but we want to run some queries against it, but not give Hive ownership of the data. We can define an external table that points to that data, but doesn’t take ownership of it.”
