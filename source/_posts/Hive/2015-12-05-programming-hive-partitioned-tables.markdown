@@ -57,23 +57,22 @@ SHOW PARTITIONS employees PARTITION( country=‘US’);
 
 #### Strict mode
 
-Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a "strict" mode that does that.
+Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a "strict" mode for that.
 
 ```
 hive> set hive.mapred.mode;
 hive.mapred.mode=nonstrict
 
 hive> set hive.mapred.mode = strict;
-hive> SELECT e.name FROM employees e; — does not work
+hive> SELECT e.name FROM employees e; /* does not work */
 ```
 
 ### Partitioned External Tables
 
-“You can use partitioning with external tables. In fact, you may find that this is your most common scenario for managing large production data sets. The combination gives you a way to “share” data with other tools, while still optimizing query performance.”
+You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, use ALTER TABLE statement is used to add data in each partition separately.
 
-While LOCATION clause is required for non-partitioned external table, it is not required for external partitioned tables. Instead, use ALTER TABLE statement is used to add each partition separately.
-
-> CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
+``` sql
+CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
   hms             INT,
   severity        STRING,
   server          STRING,
@@ -82,25 +81,31 @@ While LOCATION clause is required for non-partitioned external table, it is not 
 PARTITIONED BY (year INT, month INT, day INT)
 ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t';
 
-> ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
+ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
 LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
 
-> DESCRIBE EXTENDED log_messages PARTITION (year=2012);
+DESCRIBE EXTENDED log_messages PARTITION (year=2012);
+```
 
-Example use case:
+Note that `ALTER TABLE … ADD PARTITION` is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and, when you want to completely drop the managed table, remember to manually delete data in it.
 
+#### Example use case
+ 
 For example, each day we might use the following procedure to move data older than a month to S3:
+
 1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:
+```
      hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+```
 2) Alter the table to point the partition to the S3 location:
+```
      ALTER TABLE log_messages PARTITION(year = 2011, month = 12, day = 2)
      SET LOCATION 's3n://ourbucket/logs/2011/01/02';
+```
 3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:
-     hadoop fs -rmr /data/log_messages/2011/01/02”
-
-“Hive doesn’t care if a partition directory doesn’t exist for a partition or if it has no files. In both cases, you’ll just get no results for a query that filters for the partition.”
-
-Note: “ALTER TABLE … ADD PARTITION is not limited to external tables. You can use it with managed tables, too. You’ll need to remember that not all of the table’s data will be under the usual Hive “warehouse” directory, and this data won’t be deleted when you drop the managed table! Hence, from a “sanity” perspective, it’s questionable whether you should dare to use this feature with managed tables.”
+```
+     hadoop fs -rmr /data/log_messages/2011/01/02
+```
 
 ### Altering Partitioned Tables
 
@@ -116,16 +121,16 @@ SET LOCATION ‘/bucket/logs/2011/01’;
 
 — Drop partition
 > ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
-```
 
-Others:
-
-Alter storage properties:
-“ALTER TABLE log_messages
+- Alter storage properties
+ALTER TABLE log_messages
 PARTITION(year = 2012, month = 1, day = 1)
-SET FILEFORMAT SEQUENCEFILE;”
+SET FILEFORMAT SEQUENCEFILE;
 
-“The ALTER TABLE … ARCHIVE PARTITION statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings (e.g., through compression):
 ALTER TABLE log_messages ARCHIVE
 PARTITION(year = 2012, month = 1, day = 1);
+```
+
+“The ALTER TABLE … ARCHIVE PARTITION statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings (e.g., through compression):
+
 To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.”
