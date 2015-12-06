@@ -84,3 +84,31 @@ For example, each day we might use the following procedure to move data older th
 “Hive doesn’t care if a partition directory doesn’t exist for a partition or if it has no files. In both cases, you’ll just get no results for a query that filters for the partition.”
 
 Note: “ALTER TABLE … ADD PARTITION is not limited to external tables. You can use it with managed tables, too. You’ll need to remember that not all of the table’s data will be under the usual Hive “warehouse” directory, and this data won’t be deleted when you drop the managed table! Hence, from a “sanity” perspective, it’s questionable whether you should dare to use this feature with managed tables.”
+
+### Altering partition
+
+```
+— Add partition
+> ALTER TABLE log_messages ADD IF NOT EXISTS
+PARTITION (year = 2011, month = 1)
+LOCATION ‘/logs/2011/01';
+
+— Change partition location
+> ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
+SET LOCATION ‘/bucket/logs/2011/01’;
+
+— Drop partition
+> ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
+```
+
+Others:
+
+Alter storage properties:
+“ALTER TABLE log_messages
+PARTITION(year = 2012, month = 1, day = 1)
+SET FILEFORMAT SEQUENCEFILE;”
+
+“The ALTER TABLE … ARCHIVE PARTITION statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings (e.g., through compression):
+ALTER TABLE log_messages ARCHIVE
+PARTITION(year = 2012, month = 1, day = 1);
+To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.”

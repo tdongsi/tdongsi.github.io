@@ -15,7 +15,7 @@ categories:
 
 Chapter 4 of the book, continued from the previous post.
 
-### Tables
+### Creating Tables
 
 Some basic HiveQL's table DDL commands is shown in the following examples:
 
@@ -174,7 +174,7 @@ Time taken: 0.315 seconds, Fetched: 1 row(s)
 
 ### Managed tables vs External tables
 
-`CREATE TABLE` (i.e., without `EXTERNAL`) commands creates *managed tables* or *internal tables*. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). When we drop a mananged table with `DROP TABLE` command, the data in the table will be deleted.
+`CREATE TABLE` (i.e., without `EXTERNAL`) commands create *managed tables* or *internal tables*. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). When we drop a mananged table with `DROP TABLE` command, the data in the table will be deleted.
 
 ```
 hive> SET hive.metastore.warehouse.dir;
@@ -186,74 +186,66 @@ drwxrwxrwx   - hive hive          0 2015-12-03 15:16 /user/hive/warehouse/colleg
 drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/college.db/student
 ```
 
-Managed tables are nice, but not convenient for sharing data with other tools. *External tables* are defined to point to that data, but don't take ownership of data.
+As mentioned in [Schema on Read](/blog/2015/11/26/programming-hive-data-types/), Hive does not have control over the underlying storage, even for *managed table*: for example, you can totally use another `dfs` command in the last example to modify files on HDFS.
 
+Managed tables are nice, but not convenient for sharing data with other tools. Instead, *external tables* can be defined to point to that data, but don't take ownership of data. In the `CREATE EXTERNAL TABLE` command example at the beginning of this post, the data files are in HDFS at `/data/stocks` and the external table will be created and populated by reading all comma-delimited data files in that location. The `LOCATION` clause is required for external table, to tell Hive where it is located. Dropping an external table does not delete the data since Hive does not *own* the data. However, the *metadata* for that table will be deleted.
 
+To tell whether if a table is managed or external, use the command `DESCRIBE FORMATTED`. In the example in the last section, we see that the table `college.student` is a managed table because of its output:
 
-“Suppose we have data that is created and used primarily by Pig or other tools, but we want to run some queries against it, but not give Hive ownership of the data. We can define an external table that points to that data, but doesn’t take ownership of it.”
+```
+Location:           	hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student	 
+Table Type:         	MANAGED_TABLE 
+```
 
-Dropping external table does not delete the data, although the metadata will be deleted.
-“The differences between managed and external tables are smaller than they appear at first. Even for managed tables, you know where they are located.”
-External table is based on a general principle of good software design, that is to express intent. If the data is shared, creating an external table makes this ownership explicit.
+For external tables, the output will be like `Table Type: EXTERNAL_TABLE`.
 
-Copying schema for external table: CREATE [EXTERNAL] TABLE … LIKE ...
-“If you omit the EXTERNAL keyword and the original table is external, the new table will also be external. If you omit EXTERNAL and the original table is managed, the new table will also be managed. However, if you include the EXTERNAL keyword and the original table is managed, the new table will be external. Even in this scenario, the LOCATION clause will still be optional.”
+### Altering Tables
 
+The `ALTER TABLE` statements *only* change *metadata* of the table, but not the data in the table. It's up to us to ensure that any schema modifications are consistent with the actual data.
 
-=== Altering tables ===
+Some basic `ALTER TABLE` statements are shown in the following examples: 
 
-> ALTER TABLE college RENAME TO university;
+```
+/* Renaming table */
+ALTER TABLE college RENAME TO university;
 
-— Add partition
-> ALTER TABLE log_messages ADD IF NOT EXISTS
-PARTITION (year = 2011, month = 1)
-LOCATION ‘/logs/2011/01'
-…;
-
-— Change partition location
-> ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
-SET LOCATION ‘/bucket/logs/2011/01’;
-
-— Drop partition
-> ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
-
-— Change columns: rename, change its position, type, or comment
-— The keyword COLUMN is optional, as well as COMMENT clause
-— This command changes metadata only. The data has to be moved to match the new columns if needed.
-> ALTER TABLE log_messages
+/*
+ * Change columns: rename, change its position, type, or comment.
+ * The keyword COLUMN is optional, as well as COMMENT clause.
+ * This command changes metadata only. 
+ * The data has to be moved to match the new columns if needed.
+ * Use FIRST, instead of AFTER, if the column is moved to first.
+ */
+ALTER TABLE log_messages
 CHANGE COLUMN hms hours_minutes_seconds INT
-COMMENT ‘New comment'
-AFTER severity; — use FIRST if the column is moved to first
+COMMENT 'New comment'
+AFTER severity;
 
-— Add columns, to the end of existing columns
-— Use CHANGE COLUMN to rearrange if needed
-> ALTER TABLE log_messages
+/*
+ * Add columns, to the end of existing columns.
+ * Use CHANGE COLUMN to rearrange if needed.
+ */
+ALTER TABLE log_messages
 ADD COLUMNS (
-app_name STRING COMMENT ‘New column 1’,
-session_id INT COMMENT ‘New column 2'
-);
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
 
-— Remove all the existing columns and replaces with new specified columns
-> ALTER TABLE log_messages
+/*
+ * Remove all the existing columns and replaces with new 
+ * specified columns.
+ */
+ALTER TABLE log_messages
 REPLACE COLUMNS (
-app_name STRING COMMENT ‘New column 1’,
-session_id INT COMMENT ‘New column 2'
-);
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
 
-— You can add table properties or set current properties, but not remove them
+/* 
+ * You can add table properties or set current properties,
+ * but not remove them 
+ */
 > ALTER TABLE log_messages
 SET TBLPROPERTIES (
-‘some_key’ = ‘some_value'
+'some_key' = 'some_value'
 );
+```
 
-Others:
-
-Alter storage properties:
-“ALTER TABLE log_messages
-PARTITION(year = 2012, month = 1, day = 1)
-SET FILEFORMAT SEQUENCEFILE;”
-
-“The ALTER TABLE … ARCHIVE PARTITION statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings (e.g., through compression):
-ALTER TABLE log_messages ARCHIVE
-PARTITION(year = 2012, month = 1, day = 1);
-To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.”
