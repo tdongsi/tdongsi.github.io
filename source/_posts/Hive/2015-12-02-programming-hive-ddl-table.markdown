@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Programming Hive (Pt. 6): HiveQL Data Definition"
-date: 2015-12-03 20:15:56 -0800
+date: 2015-12-05 20:15:56 -0800
 comments: true
 published: true
 categories:
