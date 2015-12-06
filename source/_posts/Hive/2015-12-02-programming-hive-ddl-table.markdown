@@ -13,7 +13,7 @@ categories:
 
 {% img center /images/hive/cat.gif Cover %}
 
-Chapter 4 of the book, continued from the previous post.
+Chapter 4 of the book, continued from the previous [post](/blog/2015/12/02/programming-hive-hiveql-ddl/).
 
 ### Creating Tables
 
@@ -243,7 +243,7 @@ session_id INT COMMENT 'New column 2');
  * You can add table properties or set current properties,
  * but not remove them 
  */
-> ALTER TABLE log_messages
+ALTER TABLE log_messages
 SET TBLPROPERTIES (
 'some_key' = 'some_value'
 );

@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "Programming Hive: Partitioned tables"
-date: 2015-12-05 21:09:51 -0800
+title: "Programming Hive (Pt. 7): Partitioned tables"
+date: 2015-12-06 21:09:51 -0800
 comments: true
-published: false
+published: true
 categories:
 - Book
 - Hive
@@ -11,46 +11,63 @@ categories:
 - SQL
 ---
 
-### Partitioned, Managed Tables
-Partitioning data is distributing load horizontally, moving data physically closer to its most frequent users.
-Partitioning tables changes how Hive structures the data storage.
+{% img center /images/hive/cat.gif Cover %}
 
-“Hive will now create subdirectories reflecting the partitioning structure. For example with partition keys ‘country’ and ’state':
+Chapter 4 of the book, continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [posts](/blog/2015/12/05/programming-hive-ddl-table/).
+
+### Partitioned Managed Tables
+
+In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage, for some performance gain.
+
+The book presents a hypothetical problem where one will regularly query some `employees` table by country and state, e.g. all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.
+
+``` sql
+CREATE TABLE employees (
+  name         STRING,
+  salary       FLOAT,
+  subordinates ARRAY<STRING>,
+  deductions   MAP<STRING, FLOAT>,
+  address      STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
+)
+PARTITIONED BY (country STRING, state STRING);
+```
+
+Without `PARTITIONED BY` clause, Hive will store data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir` (see [Managed tables](/blog/2015/12/05/programming-hive-ddl-table/)). However, Hive will now create subdirectories inside `employees` directory for the above partitioning structure:
+
+```
 ...
 .../employees/country=CA/state=AB
 .../employees/country=CA/state=BC
 ...
 .../employees/country=US/state=AL
 .../employees/country=US/state=AK
-...”
-
-“Once created, the partition keys (country and state, in this case) behave like regular columns. In fact, users of the table don’t need to care if these “columns” are partitions or not, except when they want to optimize query performance.”
-“For very large data sets, partitioning can dramatically improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by locations, timestamp ranges). When we add predicates to WHERE clauses that filter on partition values, these predicates are called partition filters.”
-
-“A highly suggested safety measure is putting Hive into “strict” mode, which prohibits queries of partitioned tables without a WHERE clause that filters on partitions.”
-
-```
-> set hive.mapred.mode = strict;
-> SELECT e.name FROM employees e; — does not work
-> set hive.mapred.mode = nonstrict;
-
-— Create partitioned table
-> CREATE TABLE college (
-)
-PARTITIONED BY (country STRING, state STRING);
-
-> SHOW PARTITIONS college;
-> SHOW PARTITIONS employees PARTITION( country=‘US’);
-— DESCRIBE EXTENDED also shows partition keys
-
-“LOAD DATA LOCAL INPATH '${env:HOME}/california-employees'
-INTO TABLE employees
-PARTITION (country = 'US', state = 'CA');
+...
 ```
 
-The directory for this partition, …/employees/country=US/state=CA, will be created by Hive and all data files in $HOME/california-employees will be copied into it”
+The actual directory names depends on values of *partition keys* (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called *partition filters* (e.g., `WHERE state = 'CA'`).
 
-External Partitioned Tables
+You can view the partitions in a table with `SHOW PARTITIONS`, as shown in examples below:
+
+```
+SHOW PARTITIONS college;
+
+/* DESCRIBE EXTENDED also shows partition keys */
+SHOW PARTITIONS employees PARTITION( country=‘US’);
+```
+
+#### Strict mode
+
+Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a "strict" mode that does that.
+
+```
+hive> set hive.mapred.mode;
+hive.mapred.mode=nonstrict
+
+hive> set hive.mapred.mode = strict;
+hive> SELECT e.name FROM employees e; — does not work
+```
+
+### Partitioned External Tables
 
 “You can use partitioning with external tables. In fact, you may find that this is your most common scenario for managing large production data sets. The combination gives you a way to “share” data with other tools, while still optimizing query performance.”
 
@@ -85,7 +102,7 @@ For example, each day we might use the following procedure to move data older th
 
 Note: “ALTER TABLE … ADD PARTITION is not limited to external tables. You can use it with managed tables, too. You’ll need to remember that not all of the table’s data will be under the usual Hive “warehouse” directory, and this data won’t be deleted when you drop the managed table! Hence, from a “sanity” perspective, it’s questionable whether you should dare to use this feature with managed tables.”
 
-### Altering partition
+### Altering Partitioned Tables
 
 ```
 — Add partition
