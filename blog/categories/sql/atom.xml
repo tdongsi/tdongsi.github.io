@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2015-12-02T20:42:21-08:00</updated>
+  <updated>2015-12-05T22:28:17-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,306 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Programming Hive (Pt. 6): HiveQL Data Definition]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/"/>
+    <updated>2015-12-05T20:15:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table</id>
+    <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<p>Chapter 4 of the book, continued from the previous post.</p>
+
+<h3>Creating Tables</h3>
+
+<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
+
+<pre><code class="sql">/* NOTE: the LOCATION clause uses the default location */
+CREATE TABLE IF NOT EXISTS college.student (
+  name STRING COMMENT 'Student name',
+  sid INT COMMENT 'Student ID',
+)
+COMMENT 'Description of the table' TBLPROPERTIES ( 'creator' = 'me' )
+LOCATION '/user/hive/warehouse/college.db/student';
+
+/* 
+ * copy the schema of an existing table
+ * you can specify optional LOCATION but no other can be defined
+ */
+CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
+
+/*
+* Create external table
+* Read all data files with comma-delimited format
+* from /data/stocks
+* LOCATION is required for external table
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
+  exchange        STRING,
+  symbol          STRING,
+  volume          INT,
+  price_adj_close FLOAT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION '/data/stocks';
+
+/*
+* Copy external table schema.
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
+LIKE stocks
+LOCATION '/path/to/data';
+
+/*
+* Drop table
+* For managed tables, the table metadata and data are deleted.
+* For external tables, the metadata is deleted but the data is not.
+*/
+DROP TABLE IF EXISTS college;
+</code></pre>
+
+<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
+
+<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
+
+<pre><code>hive&gt; use college;
+OK
+Time taken: 0.048 seconds
+
+
+/* Show list of tables in current database */
+hive&gt; show tables;
+OK
+apply
+college
+student
+Time taken: 0.031 seconds, Fetched: 3 row(s)
+
+/* Show list of tables in the specified database */
+hive&gt; show tables in college;
+OK
+apply
+college
+student
+Time taken: 0.034 seconds, Fetched: 3 row(s)
+
+/* use regex to search tables in current database */
+hive&gt; show tables '.*e.*';
+OK
+college
+student
+Time taken: 0.025 seconds, Fetched: 2 row(s)
+
+
+/* Show table properties */
+hive&gt; show tblproperties student;        
+OK
+COLUMN_STATS_ACCURATE   true
+comment List of students
+numFiles    1
+numRows 0
+rawDataSize 0
+totalSize   213
+transient_lastDdlTime   1421796179
+Time taken: 0.28 seconds, Fetched: 7 row(s)
+</code></pre>
+
+<p>You can use <code>DESCRIBE</code> command to display table information as shown below:
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; describe extended student;      &lt;br/&gt;
+</span><span class='line'>OK
+</span><span class='line'>sid                     int                     Student ID        &lt;br/&gt;
+</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
+</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
+</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;Detailed Table Information  Table(tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor(cols:[FieldSchema(name:sid, type:int, comment:Student ID), FieldSchema(name:sname, type:string, comment:Student name), &hellip;
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: 6 row(s)&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;/&lt;em&gt; more readable and verbose &lt;/em&gt;/
+</span><span class='line'>hive&gt; describe formatted student;
+</span><span class='line'>OK&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;col_name              data_type               comment&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;sid                     int                     Student ID        &lt;br/&gt;
+</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
+</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
+</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;Detailed Table Information&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;Database:               college                &lt;br/&gt;
+</span><span class='line'>Owner:                  cloudera               &lt;br/&gt;
+</span><span class='line'>CreateTime:             Tue Jan 20 15:22:58 PST 2015   &lt;br/&gt;
+</span><span class='line'>LastAccessTime:         UNKNOWN                &lt;br/&gt;
+</span><span class='line'>Protect Mode:           None                   &lt;br/&gt;
+</span><span class='line'>Retention:              0                      &lt;br/&gt;
+</span><span class='line'>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student &lt;br/&gt;
+</span><span class='line'>Table Type:             MANAGED_TABLE          &lt;br/&gt;
+</span><span class='line'>Table Parameters:      &lt;br/&gt;
+</span><span class='line'>    COLUMN_STATS_ACCURATE   true              &lt;br/&gt;
+</span><span class='line'>    comment                 List of students  &lt;br/&gt;
+</span><span class='line'>    numFiles                1                 &lt;br/&gt;
+</span><span class='line'>    numRows                 0                 &lt;br/&gt;
+</span><span class='line'>    rawDataSize             0                 &lt;br/&gt;
+</span><span class='line'>    totalSize               213               &lt;br/&gt;
+</span><span class='line'>    transient_lastDdlTime   1421796179&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;Storage Information&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe &lt;br/&gt;
+</span><span class='line'>InputFormat:            org.apache.hadoop.mapred.TextInputFormat   &lt;br/&gt;
+</span><span class='line'>OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat &lt;br/&gt;
+</span><span class='line'>Compressed:             No                     &lt;br/&gt;
+</span><span class='line'>Num Buckets:            -1                     &lt;br/&gt;
+</span><span class='line'>Bucket Columns:         []                     &lt;br/&gt;
+</span><span class='line'>Sort Columns:           []                     &lt;br/&gt;
+</span><span class='line'>Storage Desc Params:       &lt;br/&gt;
+</span><span class='line'>    field.delim             ;                 &lt;br/&gt;
+</span><span class='line'>    serialization.format    ;                 &lt;br/&gt;
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: 36 row(s)&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;/&lt;em&gt; see schema for a column &lt;/em&gt;/
+</span><span class='line'>hive&gt; describe student.sid;
+</span><span class='line'>OK
+</span><span class='line'>sid                     int                     from deserializer &lt;br/&gt;
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: 1 row(s)</span></code></pre></td></tr></table></div></figure></p>
+
+<h3>Managed tables vs External tables</h3>
+
+<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands). When we drop a mananged table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
+
+<pre><code>hive&gt; SET hive.metastore.warehouse.dir;
+hive.metastore.warehouse.dir=/user/hive/warehouse
+hive&gt; dfs -ls /user/hive/warehouse/college.db;
+Found 3 items
+drwxrwxrwx   - hive hive          0 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+drwxrwxrwx   - hive hive          0 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/college.db/student
+</code></pre>
+
+<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
+
+<p>Managed tables are not convenient for sharing data with other tools. Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data. In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location. The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located. Dropping an external table does not delete the data since Hive does not <em>own</em> the data. However, the <em>metadata</em> for that table will be deleted.</p>
+
+<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
+
+<pre><code>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student   
+Table Type:             MANAGED_TABLE 
+</code></pre>
+
+<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
+
+<h3>Altering Tables</h3>
+
+<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
+
+<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
+
+<pre><code>/* Renaming table */
+ALTER TABLE college RENAME TO university;
+
+/*
+ * Change columns: rename, change its position, type, or comment.
+ * The keyword COLUMN is optional, as well as COMMENT clause.
+ * This command changes metadata only. 
+ * The data has to be moved to match the new columns if needed.
+ * Use FIRST, instead of AFTER, if the column is moved to first.
+ */
+ALTER TABLE log_messages
+CHANGE COLUMN hms hours_minutes_seconds INT
+COMMENT 'New comment'
+AFTER severity;
+
+/*
+ * Add columns, to the end of existing columns.
+ * Use CHANGE COLUMN to rearrange if needed.
+ */
+ALTER TABLE log_messages
+ADD COLUMNS (
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
+
+/*
+ * Remove all the existing columns and replaces with new 
+ * specified columns.
+ */
+ALTER TABLE log_messages
+REPLACE COLUMNS (
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
+
+/* 
+ * You can add table properties or set current properties,
+ * but not remove them 
+ */
+&gt; ALTER TABLE log_messages
+SET TBLPROPERTIES (
+'some_key' = 'some_value'
+);
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Programming Hive (Pt. 5): HiveQL Data Definition]]></title>
@@ -94,7 +394,7 @@ Found 1 items
 -rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
 </code></pre>
 
-<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code> with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
 
 <p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
 
