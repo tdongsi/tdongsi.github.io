@@ -19,7 +19,7 @@ Chapter 4 of the book, continued from the [previous](/blog/2015/12/02/programmin
 
 In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage, for some performance gain.
 
-The book presents a hypothetical problem where one will regularly query some `employees` table by country and state, e.g. all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.
+The book presents a hypothetical problem where one will regularly query some `employees` table by country and state, e.g., all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.
 
 ``` sql
 CREATE TABLE employees (
@@ -69,7 +69,7 @@ hive> SELECT e.name FROM employees e; /* does not work */
 
 ### Partitioned External Tables
 
-You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, use ALTER TABLE statement is used to add data in each partition separately.
+You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, `ALTER TABLE` statement is used to add data in each partition separately.
 
 ``` sql
 CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
@@ -87,9 +87,9 @@ LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
 DESCRIBE EXTENDED log_messages PARTITION (year=2012);
 ```
 
-Note that `ALTER TABLE … ADD PARTITION` is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and, when you want to completely drop the managed table, remember to manually delete data in it.
+Note that `ALTER TABLE … ADD PARTITION` is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.
 
-#### Example use case
+#### Example use case of partitioned external tables
  
 For example, each day we might use the following procedure to move data older than a month to S3:
 
@@ -109,28 +109,29 @@ For example, each day we might use the following procedure to move data older th
 
 ### Altering Partitioned Tables
 
+Some basic `ALTER TABLE` statements for manipulating table partitions are shown in the following examples:
+
 ```
-— Add partition
-> ALTER TABLE log_messages ADD IF NOT EXISTS
+/* Add partition */
+ALTER TABLE log_messages ADD IF NOT EXISTS
 PARTITION (year = 2011, month = 1)
 LOCATION ‘/logs/2011/01';
 
-— Change partition location
-> ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
+/* Change partition location */
+ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
 SET LOCATION ‘/bucket/logs/2011/01’;
 
-— Drop partition
-> ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
+/* Drop partition */
+ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
 
-- Alter storage properties
+/* Alter storage properties of partition */
 ALTER TABLE log_messages
 PARTITION(year = 2012, month = 1, day = 1)
 SET FILEFORMAT SEQUENCEFILE;
 
+/* Archive partition */
 ALTER TABLE log_messages ARCHIVE
 PARTITION(year = 2012, month = 1, day = 1);
 ```
 
-“The ALTER TABLE … ARCHIVE PARTITION statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings (e.g., through compression):
-
-To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.”
+The `ALTER TABLE ... ARCHIVE PARTITION` statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.
