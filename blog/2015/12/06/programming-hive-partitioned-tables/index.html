@@ -1,0 +1,439 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Programming Hive (Pt. 7): Partitioned Tables - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="Chapter 4 of the book, continued from the previous posts. Partitioned Managed Tables In general, paritioning data means distributing data load &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Programming Hive (Pt. 7): Partitioned Tables</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-06T21:09:51-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>9:09 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<p>Chapter 4 of the book, continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
+
+<h3>Partitioned Managed Tables</h3>
+
+<p>In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage, for some performance gain.</p>
+
+<p>The book presents a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="n">country</span> <span class="n">STRING</span><span class="p">,</span> <span class="k">state</span> <span class="n">STRING</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="p">...</span>
+</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">CA</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AB</span>
+</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">CA</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">BC</span>
+</span><span class='line'><span class="p">...</span>
+</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">US</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AL</span>
+</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">US</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AK</span>
+</span><span class='line'><span class="p">...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
+
+<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* DESCRIBE EXTENDED also shows partition keys */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">employees</span> <span class="n">PARTITION</span><span class="p">(</span> <span class="n">country</span><span class="o">=</span><span class="err">‘</span><span class="n">US</span><span class="err">’</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Strict mode</h4>
+
+<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">set</span> <span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span><span class="p">;</span>
+</span><span class='line'><span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span><span class="o">=</span><span class="n">nonstrict</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">set</span> <span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span> <span class="o">=</span> <span class="k">strict</span><span class="p">;</span>
+</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">SELECT</span> <span class="n">e</span><span class="p">.</span><span class="n">name</span> <span class="k">FROM</span> <span class="n">employees</span> <span class="n">e</span><span class="p">;</span> <span class="cm">/* does not work */</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Partitioned External Tables</h3>
+
+<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">log_messages</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">hms</span>             <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">severity</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">server</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">process_id</span>      <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">message</span>         <span class="n">STRING</span><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="k">year</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">month</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">day</span> <span class="nb">INT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\t&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;hdfs://master_server/data/log_messages/2012/01/02&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="n">EXTENDED</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span><span class="o">=</span><span class="mi">2012</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
+
+<h4>Example use case of partitioned external tables</h4>
+
+<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
+
+<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="n">hadoop</span> <span class="n">distcp</span> <span class="o">/</span><span class="k">data</span><span class="o">/</span><span class="n">log_messages</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">12</span><span class="o">/</span><span class="mi">02</span> <span class="n">s3n</span><span class="p">:</span><span class="o">//</span><span class="n">ourbucket</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">12</span><span class="o">/</span><span class="mi">02</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>2) Alter the table to point the partition to the S3 location:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'> <span class="k">SET</span> <span class="k">LOCATION</span> <span class="s1">&#39;s3n://ourbucket/logs/2011/01/02&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="n">hadoop</span> <span class="n">fs</span> <span class="o">-</span><span class="n">rmr</span> <span class="o">/</span><span class="k">data</span><span class="o">/</span><span class="n">log_messages</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="o">/</span><span class="mi">02</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Altering Partitioned Tables</h3>
+
+<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Add partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Change partition location */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">bucket</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Drop partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">DROP</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Alter storage properties of partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">FILEFORMAT</span> <span class="n">SEQUENCEFILE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Archive partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">ARCHIVE</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-12-06T21:09:51-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>9:09 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/book/'>book</a>, <a class='category' href='/blog/categories/hadoop/'>hadoop</a>, <a class='category' href='/blog/categories/hive/'>hive</a>, <a class='category' href='/blog/categories/sql/'>sql</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/" data-via="" data-counturl="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/12/05/programming-hive-ddl-table/" title="Previous Post: Programming Hive (Pt. 6): HiveQL Data Definition">&laquo; Programming Hive (Pt. 6): HiveQL Data Definition</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/12/06/programming-hive-partitioned-tables/">Programming Hive (Pt. 7): Partitioned Tables</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/05/programming-hive-ddl-table/">Programming Hive (Pt. 6): HiveQL Data Definition</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Programming Hive (Pt. 5): HiveQL Data Definition</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/11/26/programming-hive-data-types/">Programming Hive (Pt. 4): Data Types</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/11/24/programming-hive-getting-started/">Programming Hive (Pt. 3): Runtime Modes</a>
+      </li>
+    
+  </ul>
+</section>
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (2)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (4)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (3)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/sql/'>sql (5)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (1)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+</section>
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2015 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Book | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/book/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2015-12-05T22:28:17-08:00</updated>
+  <updated>2015-12-06T17:13:01-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -14,13 +14,139 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Programming Hive (Pt. 7): Partitioned Tables]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/"/>
+    <updated>2015-12-06T21:09:51-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables</id>
+    <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<p>Chapter 4 of the book, continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
+
+<h3>Partitioned Managed Tables</h3>
+
+<p>In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage, for some performance gain.</p>
+
+<p>The book presents a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.</p>
+
+<pre><code class="sql">CREATE TABLE employees (
+  name         STRING,
+  salary       FLOAT,
+  subordinates ARRAY&lt;STRING&gt;,
+  deductions   MAP&lt;STRING, FLOAT&gt;,
+  address      STRUCT&lt;street:STRING, city:STRING, state:STRING, zip:INT&gt;
+)
+PARTITIONED BY (country STRING, state STRING);
+</code></pre>
+
+<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
+
+<pre><code>...
+.../employees/country=CA/state=AB
+.../employees/country=CA/state=BC
+...
+.../employees/country=US/state=AL
+.../employees/country=US/state=AK
+...
+</code></pre>
+
+<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
+
+<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
+
+<pre><code>SHOW PARTITIONS college;
+
+/* DESCRIBE EXTENDED also shows partition keys */
+SHOW PARTITIONS employees PARTITION( country=‘US’);
+</code></pre>
+
+<h4>Strict mode</h4>
+
+<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
+
+<pre><code>hive&gt; set hive.mapred.mode;
+hive.mapred.mode=nonstrict
+
+hive&gt; set hive.mapred.mode = strict;
+hive&gt; SELECT e.name FROM employees e; /* does not work */
+</code></pre>
+
+<h3>Partitioned External Tables</h3>
+
+<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
+
+<pre><code class="sql">CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
+  hms             INT,
+  severity        STRING,
+  server          STRING,
+  process_id      INT,
+  message         STRING)
+PARTITIONED BY (year INT, month INT, day INT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t';
+
+ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
+LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
+
+DESCRIBE EXTENDED log_messages PARTITION (year=2012);
+</code></pre>
+
+<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
+
+<h4>Example use case of partitioned external tables</h4>
+
+<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
+
+<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:
+<code>
+     hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+</code>
+2) Alter the table to point the partition to the S3 location:
+<code>
+     ALTER TABLE log_messages PARTITION(year = 2011, month = 12, day = 2)
+     SET LOCATION 's3n://ourbucket/logs/2011/01/02';
+</code>
+3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:
+<code>
+     hadoop fs -rmr /data/log_messages/2011/01/02
+</code></p>
+
+<h3>Altering Partitioned Tables</h3>
+
+<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
+
+<pre><code>/* Add partition */
+ALTER TABLE log_messages ADD IF NOT EXISTS
+PARTITION (year = 2011, month = 1)
+LOCATION ‘/logs/2011/01';
+
+/* Change partition location */
+ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
+SET LOCATION ‘/bucket/logs/2011/01’;
+
+/* Drop partition */
+ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
+
+/* Alter storage properties of partition */
+ALTER TABLE log_messages
+PARTITION(year = 2012, month = 1, day = 1)
+SET FILEFORMAT SEQUENCEFILE;
+
+/* Archive partition */
+ALTER TABLE log_messages ARCHIVE
+PARTITION(year = 2012, month = 1, day = 1);
+</code></pre>
+
+<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Programming Hive (Pt. 6): HiveQL Data Definition]]></title>
     <link href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/"/>
     <updated>2015-12-05T20:15:56-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table</id>
     <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
 
-<p>Chapter 4 of the book, continued from the previous post.</p>
+<p>Chapter 4 of the book, continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
 
 <h3>Creating Tables</h3>
 
@@ -305,7 +431,7 @@ session_id INT COMMENT 'New column 2');
  * You can add table properties or set current properties,
  * but not remove them 
  */
-&gt; ALTER TABLE log_messages
+ALTER TABLE log_messages
 SET TBLPROPERTIES (
 'some_key' = 'some_value'
 );
@@ -575,207 +701,6 @@ STORED AS TEXTFILE;
 </code></pre>
 
 <p>The information stored in metastore is typically much smaller than the data stored in Hive. Therefore, you typically don’t need a powerful dedicated database server for the metastore. However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 2): Hive CLI]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli/"/>
-    <updated>2015-11-23T19:47:23-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli</id>
-    <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 2 of the book covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
-
-<h3>Starting Hive with Cloudera Quickstart VM</h3>
-
-<p>On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as <code>hive-exec*.jar</code> and <code>hive-metastore*.jar</code>, can be found in <code>/usr/lib/hive/lib</code>. The Hive executables can be found in <code>/usr/lib/hive/bin</code>. Running <code>hive</code> without any parameter will start Hive&rsquo;s CLI.</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive
-
-Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
-hive&gt; CREATE TABLE x (a INT);
-OK
-Time taken: 3.032 seconds
-hive&gt; SELECT * FROM x;
-OK
-Time taken: 0.465 seconds
-hive&gt; SELECT *        
-    &gt; FROM x;
-OK
-Time taken: 0.049 seconds
-hive&gt; DROP TABLE x;
-OK
-Time taken: 0.348 seconds
-hive&gt; exit;
-</code></pre>
-
-<h3>Hive services</h3>
-
-<p>The <code>hive</code> shell command is actually a wrapper to multiple Hive services, including the CLI.</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive --help
-Usage ./hive &lt;parameters&gt; --service serviceName &lt;service parameters&gt;
-Service List: beeline cli help hiveserver2 hiveserver hwi jar lineage metastore metatool orcfiledump rcfilecat schemaTool version 
-Parameters parsed:
-  --auxpath : Auxillary jars 
-  --config : Hive configuration directory
-  --service : Starts specific service/component. cli is default
-Parameters used:
-  HADOOP_HOME or HADOOP_PREFIX : Hadoop install directory
-  HIVE_OPT : Hive options
-For help on a particular service:
-  ./hive --service serviceName --help
-Debug help:  ./hive --debug --help
-</code></pre>
-
-<p>Note the list of services following the line &ldquo;Service List&rdquo;. There are several services available, most notably <strong>cli, hwi, jar, metastore</strong>. You can use <code>--service name</code> option to invoke a service. CLI is the default service, not specifying any service in <code>hive</code> command will run CLI service, as shown in &ldquo;Starting Hive&rdquo; section above.</p>
-
-<p>For example, to run <a href="https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface">Hive Web Interface</a>, run the service <strong>hwi</strong>. On Cloudera Quickstart VM, you might encounter this error:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive --service hwi
-ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
-15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
-15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar
-</code></pre>
-
-<p>To fix that error, edit the config file <code>hive-site.xml</code> in the <code>config</code> folder (e.g., <code>/usr/lib/hive/conf/hive-site.xml</code> on Cloudera VM) to point to the right location of HWI&rsquo;s war file. On Cloudera Quickstart VM, the WAR file property block should look like this:</p>
-
-<pre><code>...
- &lt;property&gt;
-    &lt;name&gt;hive.hwi.war.file&lt;/name&gt;
-    &lt;value&gt;/lib/hive-hwi.jar&lt;/value&gt;
-    &lt;description&gt;This is the WAR file with the jsp content for Hive Web Interface&lt;/description&gt;
-  &lt;/property&gt;
-...
-</code></pre>
-
-<p>Running the <strong>hwi</strong> service again using <code>hive</code> command should work. In order to access the Hive Web Interface, go to <code>[Hive Server Address]</code>:9999/hwi on your web browser.</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive --service hwi
-ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
-15/11/23 20:31:27 INFO hwi.HWIServer: HWI is starting up
-15/11/23 20:31:27 INFO mortbay.log: Logging to org.slf4j.impl.Log4jLoggerAdapter(org.mortbay.log) via org.mortbay.log.Slf4jLog
-15/11/23 20:31:27 INFO mortbay.log: jetty-6.1.26.cloudera.4
-15/11/23 20:31:27 INFO mortbay.log: Extract /usr/lib/hive/lib/hive-hwi.jar to /tmp/Jetty_0_0_0_0_9999_hive.hwi.0.13.1.cdh5.3.0.jar__hwi__.lcik1p/webapp
-15/11/23 20:31:28 INFO mortbay.log: Started SocketConnector@0.0.0.0:9999
-</code></pre>
-
-<h3>Hive CLI</h3>
-
-<p>Available options for Hive CLI can be displayed as follows:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive --help --service cli
-usage: hive
- -d,--define &lt;key=value&gt;          Variable subsitution to apply to hive
-                                  commands. e.g. -d A=B or --define A=B
-    --database &lt;databasename&gt;     Specify the database to use
- -e &lt;quoted-query-string&gt;         SQL from command line
- -f &lt;filename&gt;                    SQL from files
- -H,--help                        Print help information
- -h &lt;hostname&gt;                    connecting to Hive Server on remote host
-    --hiveconf &lt;property=value&gt;   Use value for given property
-    --hivevar &lt;key=value&gt;         Variable subsitution to apply to hive
-                                  commands. e.g. --hivevar A=B
- -i &lt;filename&gt;                    Initialization SQL file
- -p &lt;port&gt;                        connecting to Hive Server on port number
- -S,--silent                      Silent mode in interactive shell
- -v,--verbose                     Verbose mode (echo executed SQL to the
-                                  console)
-</code></pre>
-
-<h4>Hive variables and properties</h4>
-
-<p>The <code>--define key=value</code> option is equivalent to the <code>--hivevar key=value</code> option. Both let you define custom variables in the <code>hivevar</code> namespace, separate from three other built-in namespaces, <code>hiveconf</code>, <code>system</code>, and <code>env</code>. By convention, the Hive namespaces for variables and properties are as follows:</p>
-
-<ol>
-<li>hivevar: user-defined custom variables.</li>
-<li>hiveconf: Hive-specific configuration properties.</li>
-<li>system: Java configuration properties.</li>
-<li>env: (Read-only) environment variables by shell environment (e.g., bash).</li>
-</ol>
-
-
-<p>Inside Hive CLI, the command <code>SET</code> is used to display and change variables. For example:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive
-
-Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
-hive&gt; set env:HOME; &lt;-- display HOME variable in env namespace
-env:HOME=/home/cloudera
-hive&gt; set; &lt;-- display all variables
-...
-hive&gt; set -v; &lt;-- display even more variables
-...
-hive&gt; set hivevar:foo=bar; &lt;-- set foo variable in hivevar namespace to bar
-</code></pre>
-
-<h4><code>-e query_string</code> and <code>-S</code> options</h4>
-
-<p><code>-e</code> option allows you to execute a list of semicolon-separated queries as an input string. <code>-S</code> option for silent mode will remove non-essential output. For example:</p>
-
-<pre><code>$ hive -e "SELECT * FROM mytable LIMIT 3";
-OK
-name1 10
-name2 20
-name3 30
-Time taken: 4.955 seconds
-</code></pre>
-
-<pre><code>$ hive -S -e "select * FROM mytable LIMIT 3"
-name1 10
-name2 20
-name3 30
-</code></pre>
-
-<p><strong>Tip</strong>: To quickly search for the full name of a property that you only remember part of its name, pipe the Hive&rsquo;s <code>SET</code> command output to grep. For example:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
-hive.metastore.warehouse.dir=/user/hive/warehouse
-hive.warehouse.subdir.inherit.perms=true
-</code></pre>
-
-<h4><code>-f script_file</code> option</h4>
-
-<p>This option allows you to execute one or more queries contained in a script file. If you are already within the Hive CLI, you can use the <code>SOURCE</code> command to execute a script file. For example:</p>
-
-<pre><code>$ cat /path/to/file/withqueries.hql
-SELECT x.* FROM src x;
-$ hive
-hive&gt; source /path/to/file/withqueries.hql;
-</code></pre>
-
-<h4><code>-i filename</code> option</h4>
-
-<p>This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is the file <code>$HOME/.hiverc</code> if it exists.</p>
-
-<h4>Tips</h4>
-
-<ul>
-<li>To print column headers (disabled by default), set the hiveconf property <code>hive.cli.print.header</code> to true: <code>set hive.cli.print.header=true;</code>.</li>
-<li>Hive does have command history, saved into a file <code>$HOME/.hivehistory</code>. Use the up and down arrow keys to scroll through previous commands.</li>
-<li>To run HDFS commands from within Hive CLI, drop the hdfs. For example:</li>
-</ul>
-
-
-<pre><code>hive&gt; dfs -ls input; 
-Found 1 items
--rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 input/wordcount.txt
-</code></pre>
-
-<ul>
-<li>To run the bash shell commands from within Hive CLI, prefix <code>!</code> before the bash commands and terminate the line with a semicolon (;). Note that interactive commands, shell pipes <code>|</code>, and file globs <code>*</code> will not work. Example:</li>
-</ul>
-
-
-<pre><code>hive&gt; !pwd;
-hive&gt; /home/cloudera/temp
-</code></pre>
-
-<ul>
-<li>Set the property <code>set hive.exec.mode.local.auto=true;</code> to use local mode more aggressively and gain performance in Hive queries, especially when working with small data sets.</li>
-</ul>
-
 ]]></content>
   </entry>
   
