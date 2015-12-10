@@ -3,6 +3,7 @@ layout: post
 title: "Set up two-node Vertica sandbox VMs on Mac"
 date: 2015-12-09 14:35:19 -0800
 comments: true
+published: false
 categories: 
 - Vertica
 ---
