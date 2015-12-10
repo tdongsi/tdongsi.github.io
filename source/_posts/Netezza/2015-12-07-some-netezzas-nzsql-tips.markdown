@@ -34,7 +34,7 @@ select NAME from my_table;
 * The best practice is that you should never care or override the above default behavior: your identifiers should be case-insensitive. Unfortunately, if you have to override the above default behavior, then you must surround the identifier with double-quotes whenever you reference it. For example, if you create a table using this statement:
 
 ``` sql
-create table my_table ("Name" varchar(80), “Address" varchar(80));
+create table my_table ("Name" varchar(80), "Address" varchar(80));
 ```  
 then you must reference the identifiers by surrounding them with double-quotes. For example:
   
