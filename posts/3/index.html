@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="I found this email below (names redacted) in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me &hellip;">
+  <meta name="description" content="WordCount is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -66,6 +66,243 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">WordCount Example in Cloudera Quickstart VM</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-20T11:47:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:47 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><a href="https://wiki.apache.org/hadoop/WordCount">WordCount</a> is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some &ldquo;Hello World&rdquo; example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic &ldquo;Hello World&rdquo; examples.</p>
+
+<p>Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as <a href="https://developer.yahoo.com/hadoop/tutorial/">this</a>). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.</p>
+
+<p>The purpose of this post is to help new users dive into Hadoop more easily. After reading this, you should be able to:</p>
+
+<ol>
+<li>Get started with a simple, local Hadoop sandbox for hands-on experiments.</li>
+<li>Perform some simple tasks in HDFS.</li>
+<li>Run the most basic example program WordCount, using your own input data.</li>
+</ol>
+
+
+<h3>Get your Hadoop sandbox</h3>
+
+<p>Nowadays, many companies provide Hadoop sandboxes for learning purpose, such as Cloudera, <a href="http://hortonworks.com/products/hortonworks-sandbox/">Hortonworks</a>. In this post, I used <a href="http://www.cloudera.com/content/www/en-us/documentation/enterprise/5-2-x/topics/cloudera_quickstart_vm.html">Cloudera Quickstart VM</a>. Download the VM and start it up in VirtualBox or VMWare Fusion.</p>
+
+<h3>Working with HDFS</h3>
+
+<p>Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" &gt; wordcount.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
+</span><span class='line'>Found 1 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 /user/cloudera/input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It should be noted that for a fresh Cloudera VM, there is a &ldquo;/user&rdquo; folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux&rsquo;s &ldquo;ls&rdquo; and HDFS&rsquo;s &ldquo;ls&rdquo; interact with those independently.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls /user
+</span><span class='line'>
+</span><span class='line'>ls: cannot access /user: No such file or directory
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user
+</span><span class='line'>Found 5 items
+</span><span class='line'>drwxr-xr-x   - cloudera cloudera          0 2014-12-18 07:08 /user/cloudera
+</span><span class='line'>drwxr-xr-x   - mapred   hadoop            0 2014-12-18 07:08 /user/history
+</span><span class='line'>drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
+</span><span class='line'>drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
+</span><span class='line'>drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To see the content of a file on HDFS, use cat subcommand:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/input/wordcount.txt
+</span><span class='line'>this is a hadoop tutorial test</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For large files, if you want to view just the first or last parts, there is no -more or -tail subcommand. Instead, pipe the output of the -cat subcommand through your local shell’s more, or tail. For example: <code>hdfs dfs -cat wc-out/* | more</code>.</p>
+
+<p>For more HDFS commands, check out links in References section below.</p>
+
+<h3>Running the WordCount example</h3>
+
+<p>Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.</p>
+
+<p>We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
+</span><span class='line'>lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
+</span><span class='line'>
+</span><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
+</span><span class='line'>Valid program names are:
+</span><span class='line'>  aggregatewordcount: An Aggregate based map/reduce program that counts the words in the input files.
+</span><span class='line'>  aggregatewordhist: An Aggregate based map/reduce program that computes the histogram of the words in the input files.
+</span><span class='line'>  bbp: A map/reduce program that uses Bailey-Borwein-Plouffe to compute exact digits of Pi.
+</span><span class='line'>  dbcount: An example job that count the pageview counts from a database.
+</span><span class='line'>  distbbp: A map/reduce program that uses a BBP-type formula to compute exact bits of Pi.
+</span><span class='line'>  grep: A map/reduce program that counts the matches of a regex in the input.
+</span><span class='line'>  join: A job that effects a join over sorted, equally partitioned datasets
+</span><span class='line'>  multifilewc: A job that counts words from several files.
+</span><span class='line'>  pentomino: A map/reduce tile laying program to find solutions to pentomino problems.
+</span><span class='line'>  pi: A map/reduce program that estimates Pi using a quasi-Monte Carlo method.
+</span><span class='line'>  randomtextwriter: A map/reduce program that writes 10GB of random textual data per node.
+</span><span class='line'>  randomwriter: A map/reduce program that writes 10GB of random data per node.
+</span><span class='line'>  secondarysort: An example defining a secondary sort to the reduce.
+</span><span class='line'>  sort: A map/reduce program that sorts the data written by the random writer.
+</span><span class='line'>  sudoku: A sudoku solver.
+</span><span class='line'>  teragen: Generate data for the terasort
+</span><span class='line'>  terasort: Run the terasort
+</span><span class='line'>  teravalidate: Checking results of terasort
+</span><span class='line'>  wordcount: A map/reduce program that counts the words in the input files.
+</span><span class='line'>  wordmean: A map/reduce program that counts the average length of the words in the input files.
+</span><span class='line'>  wordmedian: A map/reduce program that counts the median length of the words in the input files.
+</span><span class='line'>  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To run the WordCount example using the input file that we just moved to HDFS, use the following command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
+</span><span class='line'>/user/cloudera/input/wordcount.txt /user/cloudera/output
+</span><span class='line'>
+</span><span class='line'>15/11/15 18:14:45 INFO client.RMProxy: Connecting to ResourceManager at /0.0.0.0:8032
+</span><span class='line'>15/11/15 18:14:46 INFO input.FileInputFormat: Total input paths to process : 1
+</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: number of splits:1
+</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens for job: job_1421372394109_0001
+</span><span class='line'>15/11/15 18:14:46 INFO impl.YarnClientImpl: Submitted application application_1421372394109_0001
+</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: The url to track the job: http://quickstart.cloudera:8088/proxy/application_1421372394109_0001/
+</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: Running job: job_1421372394109_0001
+</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : false
+</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job:  map 0% reduce 0%
+</span><span class='line'>15/11/15 18:15:01 INFO mapreduce.Job:  map 100% reduce 0%
+</span><span class='line'>15/11/15 18:15:07 INFO mapreduce.Job:  map 100% reduce 100%
+</span><span class='line'>15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The output folder is specified as &ldquo;/user/cloudera/output&rdquo; in the above command. Finally, check the output of WordCount example in the output folder.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
+</span><span class='line'>
+</span><span class='line'>Found 2 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera          0 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         43 2015-11-15 18:15 /user/cloudera/output/part-r-00000
+</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/output/part-r-00000
+</span><span class='line'>a     1
+</span><span class='line'>hadoop     1
+</span><span class='line'>is     1
+</span><span class='line'>test     1
+</span><span class='line'>this     1
+</span><span class='line'>tutorial     1</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Congratulations!! You just finished the first step of the journey into Hadoop.</p>
+
+<h3>Additional links</h3>
+
+<ol>
+<li><a href="http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/">http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/</a></li>
+<li><a href="http://wiki.apache.org/hadoop/WordCount">http://wiki.apache.org/hadoop/WordCount</a></li>
+<li><a href="https://developer.yahoo.com/hadoop/tutorial/">https://developer.yahoo.com/hadoop/tutorial/</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -615,6 +852,10 @@ In the final version of the script, they may be cleaned up accordingly.</p>
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2015/12/09/netezza-cli/">Netezza CLI Tools</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2015/12/07/some-netezzas-nzsql-tips/">Some NZSQL Tips for New Netezza Users</a>
       </li>
     
@@ -630,15 +871,11 @@ In the final version of the script, they may be cleaned up accordingly.</p>
         <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Programming Hive (Pt. 5): HiveQL Data Definition</a>
       </li>
     
-      <li class="post">
-        <a href="/blog/2015/11/26/programming-hive-data-types/">Programming Hive (Pt. 4): Data Types</a>
-      </li>
-    
   </ul>
 </section>
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (2)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (4)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (3)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/sql/'>sql (6)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (1)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (2)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (4)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (3)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/sql/'>sql (6)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (1)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
 </section>
 <section>
   <h1>GitHub Repos</h1>
