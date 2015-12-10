@@ -1,23 +1,23 @@
 ---
 layout: post
-title: "Netezza CLI"
+title: "Netezza CLI tools"
 date: 2015-12-09 18:34:12 -0800
 comments: true
 categories: 
 - Netezza
 ---
 
-In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) clients. These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from Unix scripts, controlling sessions and queries, etc. The following is a quick overview of just the nzsql and nzload commands; for a description of all the commands see the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en). You can install the Netezza CLI clients directly onto your laptop by following the instructions [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html).
+In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) clients. These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from Unix scripts, controlling sessions and queries, etc. The following is a quick overview of just the `nzsql` and `nzload` commands. For a description of all the commands, see the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en). You can install the Netezza CLI clients directly onto your laptop by following the instructions [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html).
 
 
-### The nzsql command
+### nzsql command
 
-First confirm that nzsql is installed:
+First confirm that `nzsql` is installed:
 ```
 -bash-4.1$ which nzsql
 /app/netezza/bin/nzsql
 ```
-You can use nzsql in interactive terminal mode by executing the command:
+You can use `nzsql` in interactive terminal mode by executing the command:
 
 ```
 nzsql -host <hostname> -u <username> -pw <password> -d <database>
@@ -41,16 +41,16 @@ From there, you can execute SQL commands:
 ws(user)=> select count(*) from dwh..companies;
 COUNT
 ---------
-3786286
+6286
 (1 row)
 ```
 
-and you can also execute "slash" commands.  For example, to change the database to dwh and describe the table companies:
+and you can also execute "slash" commands.  For example, to change the database to `dwh` and describe the table `companies`:
 ```
 ws(user)=> \c dwh
-You are now connected to database ued_qbo_dwh.
-ws(user)=> \d companies_1
-                                 View "COMPANIES_1"
+You are now connected to database dwh.
+ws(user)=> \d companies
+                                 View "COMPANIES"
            Attribute           |          Type           | Modifier | Default Value 
 -------------------------------+-------------------------+----------+---------------
  COMPANY_ID                    | NUMERIC(38,0)           | NOT NULL | 
@@ -64,7 +64,7 @@ ws(user)=> \d companies_1
 ...
 ```
 
-To see all the available slash commands, type \? at the prompt:
+To see all the available slash commands, type `\?` at the prompt:
 
 ```
 ws(user)=> \?
@@ -88,24 +88,25 @@ ws(user)=> \?
 ```
 To escape from the nzsql interactive terminal mode, type `\q` at the prompt.
 
-You can also use the `nzsql` command directly from the Unix command line, by invoking it with various parameters. See the documentation here for all the parameters that can be used with the nzsql command.
+You can also use the `nzsql` command directly from the Unix command line, by invoking it with various parameters. See the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html) for all the parameters that can be used with the `nzsql` command.
 As an example, to execute a single SQL statement and print the results to the Unix terminal: 
 
 ```
--bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies_1'
+-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies'
 COUNT  
 ---------
-3790324
+9032
 (1 row)
 ```
 
 Or, to direct the output to a specific file in the local Unix file system:
+
 ```
--bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies_1' -o output.txt
+-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies' -o output.txt
 -bash-4.1$ cat output.txt
 COUNT  
 ---------
-3790324
+9032
 (1 row)
 ```
 
@@ -113,17 +114,17 @@ And, to run a SQL script that is located in the local Unix file system:
 
 ```
 -bash-4.1$ cat my_script.sql
-select count(*) from companies_1;
+select count(*) from companies;
 -bash-4.1$ nzsql -host myHost -u username -pw password -d ws -f my_script.sql
 COUNT
 ---------
-3790324
+9032
 (1 row)
 ```
 
-### The nzload command
+### nzload command
 
-The nzload command is used to move large volumes of data in to and out of Netezza. This is very broad subject, and you can find all the details [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&lang=en).
+The `nzload` command is used to move large volumes of data in to and out of Netezza. This is a very broad subject, and you can find all the details [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&lang=en).
 As a toy example, suppose you have the following data in the local Unix filesystem:
 
 ```
@@ -134,20 +135,20 @@ Wilma, 10
 Barney, 5
 ```
 
-You can create a Netezza to hold this data, using the nzsql command:
+You can create a Netezza to hold this data, using the `nzsql` command:
 
 ```
 -bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'create table my_table (name varchar(80), rocks int)'
 ```
 
-And then you can populate the table using the nzload command:
+And then you can populate the table using the `nzload` command:
 
 ```
 nzload -host myHost -u username -pw password -db ws -t my_table -df my_data.txt -delim ','
 Load session of table 'MY_TABLE' completed successfully
 ```
 
-Finally, you can confirm that the table was populated using the nzsql command:
+Finally, you can confirm that the table was populated using the `nzsql` command:
 
 ```
 -bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select * from my_table'
