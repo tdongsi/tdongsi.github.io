@@ -3,7 +3,8 @@ layout: post
 title: "Netezza CLI tools"
 date: 2015-12-09 18:34:12 -0800
 comments: true
-categories: 
+categories:
+- Database
 - Netezza
 ---
 

@@ -8,6 +8,54 @@ categories:
 - Vertica
 ---
 
+## Installing new Vertica
+
+Download CentOS box from oxboxes.org. I used CentOS 6.
+
+Make Network connection work for that CentOS box based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724). I added the following line to the end of my .vmx file:
+
+```
+ethernet0.virtualDev = "e1000"
+```
+
+1. http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/
+1. http://www.cyberciti.biz/faq/centos-ssh/
+
+### Troubleshooting
+
+#### S0180 "insufficient swap size"
+
+1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
+
+```
+[root@vertica72 osboxes]# swapoff /dev/sda2
+[root@vertica72 osboxes]# swapon -s
+[root@vertica72 osboxes]# swapon /swapfile
+swapon: /swapfile: swapon failed: Invalid argument
+```
+
+This is due to a bug
+
+1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
+
+
+1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
+
+#### S0081 "SELinux appears to be enabled and not in permissive mode"
+
+```
+FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
+SELinux appears to be enabled and not in permissive mode.
+```
+
+1. http://geeks-cache.comoj.com/?p=560
+
+
+
+1. https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm
+
+## Troubleshooting with older Vertica VM
+
 Download the Vertica VM from HP website.
 
 In VMWare Fusion, create clone.

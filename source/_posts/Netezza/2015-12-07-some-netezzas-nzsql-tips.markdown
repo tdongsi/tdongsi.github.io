@@ -4,6 +4,7 @@ title: "Some NZSQL tips for new Netezza users"
 date: 2015-12-07 11:11:06 -0800
 comments: true
 categories: 
+- Database
 - SQL
 - Netezza
 ---
