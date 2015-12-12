@@ -8,8 +8,11 @@ categories:
 - Netezza
 ---
 
-In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) clients. These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from Unix scripts, controlling sessions and queries, etc. The following is a quick overview of just the `nzsql` and `nzload` commands. For a description of all the commands, see the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en). You can install the Netezza CLI clients directly onto your laptop by following the instructions [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html).
-
+In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) clients. 
+These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from bash scripts, controlling sessions and queries, etc. 
+The following is a quick overview of just the `nzsql` and `nzload` commands. 
+For a description of all the commands, see the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en). 
+You can install the Netezza CLI clients directly onto your laptop by following the instructions [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html).
 
 ### nzsql command
 
@@ -89,7 +92,8 @@ ws(user)=> \?
 ```
 To escape from the nzsql interactive terminal mode, type `\q` at the prompt.
 
-You can also use the `nzsql` command directly from the Unix command line, by invoking it with various parameters. See the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html) for all the parameters that can be used with the `nzsql` command.
+You can also use the `nzsql` command directly from the Unix command line, by invoking it with various parameters. 
+See the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html) for all the parameters that can be used with the `nzsql` command.
 As an example, to execute a single SQL statement and print the results to the Unix terminal: 
 
 ```
@@ -125,7 +129,8 @@ COUNT
 
 ### nzload command
 
-The `nzload` command is used to move large volumes of data in to and out of Netezza. This is a very broad subject, and you can find all the details [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&lang=en).
+The `nzload` command is used to move large volumes of data in to and out of Netezza. 
+This is a very broad subject, and you can find all the details [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&lang=en).
 As a toy example, suppose you have the following data in the local Unix filesystem:
 
 ```
