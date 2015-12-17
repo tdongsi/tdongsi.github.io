@@ -49,6 +49,6 @@ select "Name" from my_table;
 select count(*) from (select company_name from my_dwh..companies where company_name like '%e%') as x;
 ```
   
-Reference:
+#### External Links
 
 1. [Database Object Naming](https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html)
