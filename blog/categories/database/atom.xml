@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Database | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/database/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2015-12-17T10:45:54-08:00</updated>
+  <updated>2015-12-18T22:35:14-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,63 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/"/>
+    <updated>2015-12-18T21:39:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
+    <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
+
+<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific directions on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost.</p>
+
+<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
+
+<pre><code class="sql Query to list tables' sizes in a schema">select anchor_table_schema, anchor_table_name, sum(used_bytes)
+FROM v_monitor.column_storage
+where anchor_table_schema = 'some_schema'
+group by anchor_table_schema, anchor_table_name
+</code></pre>
+
+<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
+
+<h3>v_catalog schema and TABLES system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
+
+<pre><code class="sql Query to list all tables in a schema">select table_schema, table_name from tables
+where table_schema = 'some_schema'
+</code></pre>
+
+<p>Another useful system table in <code>v_catalog</code> shema is <code>USER_FUNCTIONS</code> which lists all user-defined functions in the database.</p>
+
+<h3>Find all the empty (truncated) tables</h3>
+
+<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
+
+<pre><code class="sql Query to find empty tables in a schema">select table_name
+from v_catalog.tables
+where table_schema = 'some_schema'
+EXCEPT
+select anchor_table_name
+from v_monitor.column_storage
+where anchor_table_schema = 'some_schema' 
+</code></pre>
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
+<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
+</ol>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Netezza CLI Tools]]></title>
