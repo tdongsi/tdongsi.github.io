@@ -17,9 +17,9 @@ Chapter 4 of the book, continued from the [previous](/blog/2015/12/02/programmin
 
 ### Partitioned Managed Tables
 
-In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage, for some performance gain.
+In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.
 
-The book presents a hypothetical problem where one will regularly query some `employees` table by country and state, e.g., all employees in California, US or Alberta, Canada. Partitioning this table by country and state is a logical thing to do.
+The book presents a hypothetical problem where one will regularly query some `employees` table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.
 
 ``` sql
 CREATE TABLE employees (
@@ -32,7 +32,7 @@ CREATE TABLE employees (
 PARTITIONED BY (country STRING, state STRING);
 ```
 
-Without `PARTITIONED BY` clause, Hive will store data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir` (see [Managed tables](/blog/2015/12/05/programming-hive-ddl-table/)). However, Hive will now create subdirectories inside `employees` directory for the above partitioning structure:
+Without `PARTITIONED BY` clause, Hive will store data for these tables in a subdirectory `employees` under the directory defined by `hive.metastore.warehouse.dir` (see [Managed tables](/blog/2015/12/05/programming-hive-ddl-table/)). However, Hive will now create subdirectories inside `employees` directory for the above partitioning structure:
 
 ```
 ...
