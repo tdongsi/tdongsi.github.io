@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Vertica tip: Using vsql"
+title: "Vertica tip: Using vsql CLI"
 date: 2015-12-17 22:54:07 -0800
 comments: true
 published: true
