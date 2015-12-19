@@ -7,3 +7,97 @@ categories:
 - Database
 - Vertica
 ---
+
+This post lists some of best practices that I learnt when working with Vertica database.
+
+### General Tips and Tricks
+
+#### CREATE
+
+* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you do not use /*+ direct */, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
+
+* ALWAYS include `COMMIT` in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.
+
+* When you are creating a table in Vertica from another table **DO NOT** use `Create Table copy_table AS SELECT * FROM source_table`. Instead you should use `Create a Table Like Another` if the existing table is a temporary table. For example:
+
+``` sql DO NOT do this
+create table to_schema.to_table_name
+as select *
+from from_schema.from_table_name;
+```
+
+``` sql DO this
+Create table like another
+CREATE TABLE new_t LIKE exist_t INCLUDING PROJECTIONS
+```
+
+* Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis, and consider  consulting your data engineering team for performance optimization.
+
+#### READ
+
+* Avoid joining large tables (e.g., > 50M records). Run a `count(*)` on tables before joining and use `MERGE JOIN` to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the `MERGE JOIN` algorithm instead of the `HASH JOIN` one, which is less optimal. Also join small data sets and use subqueries when analyzing data.
+
+* When an approximate value will be enough, Vertica offers an alternative to `COUNT(DISTINCT)`: `APPROXIMATE_COUNT_DISTINCT`. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to [this documentation](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm), you can much better performance than `COUNT(DISTINCT)`. Here is an example of the [APPROXIMATE_COUNT_DISTINCT](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm) syntax that you should use.
+
+#### UPDATE & DELETE
+
+* Deletes and updates take exclusive locks on the table. Hence, only one `DELETE` or `UPDATE` transaction on that table can be in progress at a time and only when no `loads (or INSERTs)` are in progress. Deletes and updates on different tables can be run concurrently.
+
+* Try to avoid Delete or Update as much as you can, Instead move the data you want to update to a new Temp table, drop the original table and rename the Temp Table with the original table name. For example:
+Create Temp_Table1 like Table1 include projections
+Insert into Temp_Table1 (Select…based on the updated data or the needed rows only)
+Drop  Table1
+Rename ‘Temp_Table1’ , ‘Table1’
+iii)   Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.
+
+
+### Query plan
+
+Review The Query plan
+A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. It is important to understand what a Query Plan is.
+ You can get information about query plans by using the EXPLAIN command:
+Run the EXPLAIN command in front of the query text.
+To view query plan information, preface the query with the EXPLAIN command, as in the following example:
+EXPLAIN statement
+EXPLAIN SELECT customer_name, customer_state FROM customer_dimension WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
+ 
+ORDER BY customer_name LIMIT 10;
+  
+ The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:
+ 
+``` bash Query Plan description
+EXPLAIN SELECT
+customer_name,
+customer_state
+FROM customer_dimension
+WHERE customer_state in ('MA','NH')
+AND customer_gender = 'Male'
+ORDER BY customer_name
+LIMIT 10;
+Access Path:
++-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
+|  Output Only: 10 tuples
+|  Execute on: Query Initiator
+| +---> SORT [Cost: 370, Rows: 544] (PATH ID: 1)
+| |      Order: customer_dimension.customer_name ASC
+| |      Output Only: 10 tuples
+| |      Execute on: Query Initiator
+| | +---> STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
+| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
+| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
+| | |      Filter: (customer_dimension.customer_gender = 'Male')
+| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
+| | |      Execute on: Query Initiator
+```
+
+If you want to understand the details of the Query plan and observe the real-time flow of data through the plan, follow these three steps to identify possible query bottlenecks:
+(1) query the V_MONITOR.QUERY_PLAN_PROFILES system table.
+(2) review Profiling Query Plans and
+(3) use PROFILE to view further detailed analysis of your query. If you need help please consult your engineering team.
+Check query events proactively to determine if there are issues with the planning phase of a query. The QUERY_EVENTS table gives a detailed description of each issue and suggests solutions.
+
+### External Links
+
+1. [Vertica documentation](https://my.vertica.com/docs/7.1.x/HTML/index.htm)
+1. [APPROXIMATE_COUNT_DISTINCT](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm)
+1. 
