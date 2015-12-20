@@ -3,7 +3,7 @@ layout: page
 title: "Disclaimer"
 date: 2015-12-20 01:23
 comments: true
-sharing: true
+sharing: false
 footer: true
 ---
 
