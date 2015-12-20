@@ -9,17 +9,17 @@ categories:
 - SQL
 ---
 
-This post lists some of best practices that I learnt when working with Vertica database.
+This post lists some tips and tricks that I learnt when working with Vertica database.
 
 ### General Tips and Tricks
 
 #### CREATE (INSERT)
 
-* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you do NOT use `/*+ direct */`, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
+* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you don't use `/*+ direct */`, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
 
 * ALWAYS include `COMMIT` in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.
 
-* If you are copying a table, **DO NOT** use `CREATE TABLE copy AS SELECT * FROM source`. This will give you a copy table with default projections and storage policy. Instead, you should use `CREATE TABLE` statement with the [`LIKE existing_table` clause](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm) and use `INSERT /*+ direct */` statement. Creating a table with `LIKE` option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the `LIKE` clause does not work if the table is a temporary table.
+* If you are copying a table, **DO NOT** use `CREATE TABLE copy AS SELECT * FROM source`. This will give you a copy table with default projections and storage policy. Instead, you should use `CREATE TABLE` statement with the [`LIKE existing_table` clause](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm) and use `INSERT /*+ direct */` statement. Creating a table with `LIKE` option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the `LIKE` clause does not work if the existing source table is a temporary table.
 
 ``` sql DO NOT do this
 create table to_schema.to_table_name
@@ -35,21 +35,23 @@ INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from
 
 #### READ
 
-* Avoid joining large tables (e.g., > 50M records). Run a `count(*)` on tables before joining and use `MERGE JOIN` to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the `MERGE JOIN` algorithm instead of the `HASH JOIN` one, which is less optimal. Also join small data sets and use subqueries when analyzing data.
+* Avoid joining large tables (e.g., > 50M records). Run a `count(*)` on tables before joining and use `MERGE JOIN` to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the `MERGE JOIN` algorithm instead of the `HASH JOIN` one, which is less optimal.
 
-* When an approximate value will be enough, Vertica offers an alternative to `COUNT(DISTINCT)`: `APPROXIMATE_COUNT_DISTINCT`. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to [this documentation](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm), you can much better performance than `COUNT(DISTINCT)`. [Here](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm) is an example of the APPROXIMATE_COUNT_DISTINCT syntax that you should use.
+* When an approximate value will be enough, Vertica offers an alternative to `COUNT(DISTINCT)`: `APPROXIMATE_COUNT_DISTINCT`. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to [this documentation](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm), you can get much better performance than `COUNT(DISTINCT)`. [Here](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm) is an example of the `APPROXIMATE_COUNT_DISTINCT` syntax that you should use.
 
 #### UPDATE & DELETE
 
-* Deletes and updates take exclusive locks on the table. Hence, only one `DELETE` or `UPDATE` transaction on that table can be in progress at a time and only when no `loads (or INSERTs)` are in progress. Deletes and updates on different tables can be run concurrently.
+* Deletes and updates take exclusive locks on the table. Hence, only one `DELETE` or `UPDATE` transaction on that table can be in progress at a time and only when no `INSERTs` are in progress. Deletes and updates on different tables can be run concurrently.
 
-* Try to avoid Delete or Update as much as you can, Instead move the data you want to update to a new Temp table, drop the original table and rename the Temp Table with the original table name. For example:
-Create Temp_Table1 like Table1 include projections
-Insert into Temp_Table1 (Select…based on the updated data or the needed rows only)
-Drop  Table1
-Rename ‘Temp_Table1’ , ‘Table1’
-iii)   Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.
+* Try to avoid `DELETE` or `UPDATE` as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:
 
+``` sql
+CREATE temp_table LIKE table INCLUDE PROJECTIONS;
+INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
+DROP TABLE table;
+ALTER TABLE temp_table RENAME TO table;
+```
+* Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.
 
 ### Query plan
 
