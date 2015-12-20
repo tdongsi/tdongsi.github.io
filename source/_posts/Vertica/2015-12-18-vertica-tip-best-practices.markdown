@@ -6,38 +6,38 @@ comments: true
 categories: 
 - Database
 - Vertica
+- SQL
 ---
 
 This post lists some of best practices that I learnt when working with Vertica database.
 
 ### General Tips and Tricks
 
-#### CREATE
+#### CREATE (INSERT)
 
-* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you do not use /*+ direct */, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
+* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you do NOT use `/*+ direct */`, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
 
 * ALWAYS include `COMMIT` in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.
 
-* When you are creating a table in Vertica from another table **DO NOT** use `Create Table copy_table AS SELECT * FROM source_table`. Instead you should use `Create a Table Like Another` if the existing table is a temporary table. For example:
+* If you are copying a table, **DO NOT** use `CREATE TABLE copy AS SELECT * FROM source`. This will give you a copy table with default projections and storage policy. Instead, you should use `CREATE TABLE` statement with the [`LIKE existing_table` clause](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm) and use `INSERT /*+ direct */` statement. Creating a table with `LIKE` option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the `LIKE` clause does not work if the table is a temporary table.
 
 ``` sql DO NOT do this
 create table to_schema.to_table_name
-as select *
-from from_schema.from_table_name;
+as select * from from_schema.from_table_name;
 ```
 
 ``` sql DO this
-Create table like another
-CREATE TABLE new_t LIKE exist_t INCLUDING PROJECTIONS
+CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
+INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
 ```
 
-* Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis, and consider  consulting your data engineering team for performance optimization.
+* Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.
 
 #### READ
 
 * Avoid joining large tables (e.g., > 50M records). Run a `count(*)` on tables before joining and use `MERGE JOIN` to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the `MERGE JOIN` algorithm instead of the `HASH JOIN` one, which is less optimal. Also join small data sets and use subqueries when analyzing data.
 
-* When an approximate value will be enough, Vertica offers an alternative to `COUNT(DISTINCT)`: `APPROXIMATE_COUNT_DISTINCT`. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to [this documentation](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm), you can much better performance than `COUNT(DISTINCT)`. Here is an example of the [APPROXIMATE_COUNT_DISTINCT](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm) syntax that you should use.
+* When an approximate value will be enough, Vertica offers an alternative to `COUNT(DISTINCT)`: `APPROXIMATE_COUNT_DISTINCT`. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to [this documentation](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm), you can much better performance than `COUNT(DISTINCT)`. [Here](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm) is an example of the APPROXIMATE_COUNT_DISTINCT syntax that you should use.
 
 #### UPDATE & DELETE
 
@@ -100,4 +100,4 @@ Check query events proactively to determine if there are issues with the plannin
 
 1. [Vertica documentation](https://my.vertica.com/docs/7.1.x/HTML/index.htm)
 1. [APPROXIMATE_COUNT_DISTINCT](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm)
-1. 
+1. [Create a Table Like Another](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm)

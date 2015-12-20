@@ -11,9 +11,23 @@ categories:
 
 ### Using vsql
 
+With username and password.
+
+TODO: example
+
+With Kerberos authentication.
+
+TODO: example
+
+Note that from time to time, we could run into Kerberos GSI failure because the ticket expired. This is how you can renew and extend the ticket: run the following command to refresh Kerberos cache for the headless account `vertica_user`.
+
+``` 
+kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET
+```
+
 ### Vsql meta commands
 
-Here is list of commonly used vsql [commands](http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm):
+Here is list of commonly used vsql [meta commands](http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm):
 
 ```
 dbadmin=> \dt — (list of all tables)
