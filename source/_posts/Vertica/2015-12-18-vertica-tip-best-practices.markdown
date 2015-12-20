@@ -15,7 +15,7 @@ This post lists some tips and tricks that I learnt when working with Vertica dat
 
 #### CREATE (INSERT)
 
-* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a parameter in your `INSERT` statement. This is especially helpful when you are loading data for big files into Vertica. If you don't use `/*+ direct */`, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
+* If you want to write data directly to disk and bypass memory, then you should include `/*+ direct */` as a "hint" in your `INSERT` statement. This is especially helpful when you are loading data from big files into Vertica. If you don't use `/*+ direct */`, then `INSERT` statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.
 
 * ALWAYS include `COMMIT` in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.
 
@@ -46,26 +46,25 @@ INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from
 * Try to avoid `DELETE` or `UPDATE` as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:
 
 ``` sql
-CREATE temp_table LIKE table INCLUDE PROJECTIONS;
+CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
 INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
-DROP TABLE table;
-ALTER TABLE temp_table RENAME TO table;
+DROP TABLE src_table;
+ALTER TABLE temp_table RENAME TO src_table;
 ```
+
 * Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.
 
 ### Query plan
 
-Review The Query plan
-A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. It is important to understand what a Query Plan is.
- You can get information about query plans by using the EXPLAIN command:
-Run the EXPLAIN command in front of the query text.
-To view query plan information, preface the query with the EXPLAIN command, as in the following example:
-EXPLAIN statement
-EXPLAIN SELECT customer_name, customer_state FROM customer_dimension WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
- 
+A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about query plans by prefixing the SQL query with the `EXPLAIN` command.
+
+``` sql EXPLAIN statement
+EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
+WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
 ORDER BY customer_name LIMIT 10;
-  
- The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:
+```  
+
+The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:
  
 ``` bash Query Plan description
 EXPLAIN SELECT
@@ -92,14 +91,17 @@ Access Path:
 | | |      Execute on: Query Initiator
 ```
 
-If you want to understand the details of the Query plan and observe the real-time flow of data through the plan, follow these three steps to identify possible query bottlenecks:
-(1) query the V_MONITOR.QUERY_PLAN_PROFILES system table.
-(2) review Profiling Query Plans and
-(3) use PROFILE to view further detailed analysis of your query. If you need help please consult your engineering team.
-Check query events proactively to determine if there are issues with the planning phase of a query. The QUERY_EVENTS table gives a detailed description of each issue and suggests solutions.
+If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:
+
+1. query the [V_MONITOR.QUERY_PLAN_PROFILES](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm) system table.
+1. review [Profiling Query Plans](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm).
+1. use [PROFILE](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm) statement to view further detailed analysis of your query.
 
 ### External Links
 
 1. [Vertica documentation](https://my.vertica.com/docs/7.1.x/HTML/index.htm)
 1. [APPROXIMATE_COUNT_DISTINCT](http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm)
 1. [Create a Table Like Another](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm)
+1. [V_MONITOR.QUERY_PLAN_PROFILES](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm) system table.
+1. [Profiling Query Plans](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm).
+1. [PROFILE](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm) statement.
