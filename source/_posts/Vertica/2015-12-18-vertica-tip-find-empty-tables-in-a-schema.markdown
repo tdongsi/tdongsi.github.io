@@ -11,7 +11,7 @@ categories:
 
 This post is a reminder of using Vertica's system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again. 
 
-You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific directions on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with `direct` [hint](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm) will give a significant performance boost.
+You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with `direct` [hint](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm) will give a significant performance boost (see [Best practices](/blog/2015/12/16/vertica-tip-best-practices/)).
 
 ### v\_monitor schema and COLUMN_STORAGE system table
 
@@ -35,7 +35,7 @@ select table_schema, table_name from tables
 where table_schema = 'some_schema'
 ```
 
-Another useful system table in `v_catalog` shema is `USER_FUNCTIONS` which lists all user-defined functions in the database. 
+Another useful system table in `v_catalog` shema is `USER_FUNCTIONS` which lists all user-defined functions and their function signatures in the database. 
 
 ### Find all the empty (truncated) tables
 

@@ -11,7 +11,7 @@ categories:
 
 ### Using vsql
 
-You can connect to Vertica database with username and password. Note that the password might be seen in the command history.
+You can connect to Vertica database with username and password. When doing this, note that the password might be seen in the command history.
 
 ```
 vsql -h internal.vertica.net -p 5433 -d VMart -U vertica_user -w password 
@@ -29,7 +29,7 @@ Note that from time to time, we could run into Kerberos GSI failure because the 
 kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET
 ```
 
-You can also run a command with `-c` option or a SQL script file with many commands with `-f` option. These options can be very useful to automate in shell/python scripts. Note that you can parameterize your sripts by using `-v` option to assign variables inside your SQL scripts. 
+You can also run a single SQL command from command line with `-c` option or a SQL script file with multiple commands with `-f` option. These options can be very useful to automate in shell/python scripts. Note that you can also parameterize your sripts by using `-v` option to assign variables inside your SQL scripts. 
 
 ### Vsql meta commands
 

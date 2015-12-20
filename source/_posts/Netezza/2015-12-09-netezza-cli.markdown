@@ -16,11 +16,6 @@ You can install the Netezza CLI tools directly onto your system by following the
 
 ### nzsql command
 
-First confirm that `nzsql` is installed:
-```
--bash-4.1$ which nzsql
-/app/netezza/bin/nzsql
-```
 You can use `nzsql` in interactive terminal mode by executing the command:
 
 ```
