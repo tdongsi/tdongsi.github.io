@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2015-12-18T22:35:14-08:00</updated>
+  <updated>2015-12-20T01:18:01-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -20,7 +20,7 @@
     <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
     <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
 
-<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific directions on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost.</p>
+<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
 
 <h3>v_monitor schema and COLUMN_STORAGE system table</h3>
 
@@ -42,7 +42,7 @@ group by anchor_table_schema, anchor_table_name
 where table_schema = 'some_schema'
 </code></pre>
 
-<p>Another useful system table in <code>v_catalog</code> shema is <code>USER_FUNCTIONS</code> which lists all user-defined functions in the database.</p>
+<p>Another useful system table in <code>v_catalog</code> shema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
 
 <h3>Find all the empty (truncated) tables</h3>
 
@@ -65,6 +65,122 @@ where anchor_table_schema = 'some_schema'
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Best Practices]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/"/>
+    <updated>2015-12-16T23:12:06-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices</id>
+    <content type="html"><![CDATA[<p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
+
+<h3>General Tips and Tricks</h3>
+
+<h4>CREATE (INSERT)</h4>
+
+<ul>
+<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
+<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
+<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
+</ul>
+
+
+<pre><code class="sql DO NOT do this">create table to_schema.to_table_name
+as select * from from_schema.from_table_name;
+</code></pre>
+
+<pre><code class="sql DO this">CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
+INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
+</code></pre>
+
+<ul>
+<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
+</ul>
+
+
+<h4>READ</h4>
+
+<ul>
+<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
+<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
+</ul>
+
+
+<h4>UPDATE &amp; DELETE</h4>
+
+<ul>
+<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
+<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
+</ul>
+
+
+<pre><code class="sql">CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
+INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
+DROP TABLE src_table;
+ALTER TABLE temp_table RENAME TO src_table;
+</code></pre>
+
+<ul>
+<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
+</ul>
+
+
+<h3>Query plan</h3>
+
+<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about query plans by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
+
+<pre><code class="sql EXPLAIN statement">EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
+WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
+ORDER BY customer_name LIMIT 10;
+</code></pre>
+
+<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
+
+<pre><code class="bash Query Plan description">EXPLAIN SELECT
+customer_name,
+customer_state
+FROM customer_dimension
+WHERE customer_state in ('MA','NH')
+AND customer_gender = 'Male'
+ORDER BY customer_name
+LIMIT 10;
+Access Path:
++-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
+|  Output Only: 10 tuples
+|  Execute on: Query Initiator
+| +---&gt; SORT [Cost: 370, Rows: 544] (PATH ID: 1)
+| |      Order: customer_dimension.customer_name ASC
+| |      Output Only: 10 tuples
+| |      Execute on: Query Initiator
+| | +---&gt; STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
+| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
+| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
+| | |      Filter: (customer_dimension.customer_gender = 'Male')
+| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
+| | |      Execute on: Query Initiator
+</code></pre>
+
+<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
+
+<ol>
+<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
+</ol>
+
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
+<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
 </ol>
 
 ]]></content>
@@ -552,100 +668,6 @@ ALTER TABLE log_messages
 SET TBLPROPERTIES (
 'some_key' = 'some_value'
 );
-</code></pre>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 5): HiveQL Data Definition]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/"/>
-    <updated>2015-12-02T18:32:21-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl</id>
-    <content type="html"><![CDATA[<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. The book defers discussion of views until chapter 7, indexes until Chapter 8, and functions until Chapter 13.</p>
-
-<p>Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.</p>
-
-<h3>Databases</h3>
-
-<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
-
-<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
-
-<pre><code class="sql">CREATE DATABASE college;
-CREATE DATABASE IF NOT EXISTS college;
-
-SHOW DATABASES;
-SHOW DATABASES LIKE ‘h.*’;
-
-CREATE DATABASE college
-LOCATION ‘/my/preferred/directory’;
-
-/* add comments to table */
-CREATE DATABASE college COMMENT ‘A college admission database’;
-/* show comments */
-DESCRIBE DATABASE college;
-
-/* add properties */
-CREATE DATABASE college WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
-/* show properties */
-DESCRIBE DATABASE EXTENDED college;
-
-/* set working database */
-USE college;
-/* this will show tables in this database */
-SHOW TABLES;
-
-DROP DATABASE IF EXISTS college;
-/* Drop tables if there is any table in the database */
-DROP DATABASE IF EXISTS college CASCADE;
-
-/* You can set additional key-value pairs in properties.
- * No other metadata about the database can be changed. No way to delete a DB PROPERTY.
- */
-ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
-</code></pre>
-
-<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. These are illustrated by the Hive CLI commands as follows:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hive
-
-Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
-hive&gt; describe database default;
-OK
-default Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
-Time taken: 0.01 seconds, Fetched: 1 row(s)
-hive&gt; describe database college;
-OK
-college     hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
-Time taken: 0.011 seconds, Fetched: 1 row(s)
-
-hive&gt; SET hive.metastore.warehouse.dir;
-hive.metastore.warehouse.dir=/user/hive/warehouse
-
-hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db;
-Found 3 items
-drwxrwxrwx   - hive hive          0 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
-drwxrwxrwx   - hive hive          0 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
-drwxrwxrwx   - hive hive          0 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
-hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student;
-Found 1 items
--rwxrwxrwx   1 cloudera hive        213 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
-hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college;
-Found 1 items
--rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
-</code></pre>
-
-<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
-
-<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
-
-<pre><code>hive&gt; set hive.cli.print.current.db=true;
-hive (default)&gt; USE college;
-OK
-Time taken: 0.278 seconds
-hive (college)&gt; 
 </code></pre>
 ]]></content>
   </entry>

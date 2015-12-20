@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Vertica Tip: Best Practices - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="This post lists some tips and tricks that I learnt when working with Vertica database. General Tips and Tricks CREATE (INSERT) If you want to write &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Vertica Tip: Best Practices</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-16T23:12:06-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:12 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
+
+<h3>General Tips and Tricks</h3>
+
+<h4>CREATE (INSERT)</h4>
+
+<ul>
+<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
+<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
+<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
+</ul>
+
+
+<figure class='code'><figcaption><span>DO NOT do this</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span>
+</span><span class='line'><span class="k">as</span> <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>DO this</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span> <span class="k">LIKE</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span> <span class="k">INCLUDING</span> <span class="n">PROJECTIONS</span><span class="p">;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span> <span class="k">SELECT</span> <span class="o">*</span> <span class="k">from</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
+</ul>
+
+
+<h4>READ</h4>
+
+<ul>
+<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
+<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
+</ul>
+
+
+<h4>UPDATE &amp; DELETE</h4>
+
+<ul>
+<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
+<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">temp_table</span> <span class="k">LIKE</span> <span class="n">src_table</span> <span class="k">INCLUDING</span> <span class="n">PROJECTIONS</span><span class="p">;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">temp_table</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">statement</span> <span class="n">based</span> <span class="k">on</span> <span class="n">the</span> <span class="n">updated</span> <span class="k">data</span> <span class="k">or</span> <span class="n">the</span> <span class="n">needed</span> <span class="k">rows</span><span class="p">);</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">src_table</span><span class="p">;</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">temp_table</span> <span class="k">RENAME</span> <span class="k">TO</span> <span class="n">src_table</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
+</ul>
+
+
+<h3>Query plan</h3>
+
+<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about query plans by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
+
+<figure class='code'><figcaption><span>EXPLAIN statement</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">EXPLAIN</span> <span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="n">customer_state</span> <span class="k">FROM</span> <span class="n">customer_dimension</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">customer_state</span> <span class="k">in</span> <span class="p">(</span><span class="s1">&#39;MA&#39;</span><span class="p">,</span><span class="s1">&#39;NH&#39;</span><span class="p">)</span> <span class="k">AND</span> <span class="n">customer_gender</span> <span class="o">=</span> <span class="s1">&#39;Male&#39;</span>
+</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_name</span> <span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
+
+<figure class='code'><figcaption><span>Query Plan description</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>EXPLAIN SELECT
+</span><span class='line'>customer_name,
+</span><span class='line'>customer_state
+</span><span class='line'>FROM customer_dimension
+</span><span class='line'>WHERE customer_state in <span class="o">(</span><span class="s1">&#39;MA&#39;</span>,<span class="s1">&#39;NH&#39;</span><span class="o">)</span>
+</span><span class='line'>AND <span class="nv">customer_gender</span> <span class="o">=</span> <span class="s1">&#39;Male&#39;</span>
+</span><span class='line'>ORDER BY customer_name
+</span><span class='line'>LIMIT 10<span class="p">;</span>
+</span><span class='line'>Access Path:
+</span><span class='line'>+-SELECT  LIMIT <span class="m">10</span> <span class="o">[</span>Cost: 370, Rows: 10<span class="o">]</span> <span class="o">(</span>PATH ID: 0<span class="o">)</span>
+</span><span class='line'><span class="p">|</span>  Output Only: <span class="m">10</span> tuples
+</span><span class='line'><span class="p">|</span>  Execute on: Query Initiator
+</span><span class='line'><span class="p">|</span> +---&gt; SORT <span class="o">[</span>Cost: 370, Rows: 544<span class="o">]</span> <span class="o">(</span>PATH ID: 1<span class="o">)</span>
+</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Order: customer_dimension.customer_name ASC
+</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Output Only: <span class="m">10</span> tuples
+</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Execute on: Query Initiator
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> +---&gt; STORAGE ACCESS <span class="k">for</span> customer_dimension <span class="o">[</span>Cost: 331, Rows: 544<span class="o">]</span> <span class="o">(</span>PATH ID: 2<span class="o">)</span>
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Filter: <span class="o">(</span>customer_dimension.customer_gender <span class="o">=</span> <span class="s1">&#39;Male&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Filter: <span class="o">(</span>customer_dimension.customer_state <span class="o">=</span> ANY <span class="o">(</span>ARRAY<span class="o">[</span><span class="s1">&#39;MA&#39;</span>, <span class="s1">&#39;NH&#39;</span><span class="o">]))</span>
+</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Execute on: Query Initiator
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
+
+<ol>
+<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
+</ol>
+
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
+<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
+</ol>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-12-16T23:12:06-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:12 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/database/'>database</a>, <a class='category' href='/blog/categories/sql/'>sql</a>, <a class='category' href='/blog/categories/vertica/'>vertica</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/" data-via="" data-counturl="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/12/09/netezza-cli/" title="Previous Post: Netezza CLI tools">&laquo; Netezza CLI tools</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2015/12/17/vertica-tip-using-vsql/" title="Next Post: Vertica tip: Using vsql CLI">Vertica tip: Using vsql CLI &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/">Vertica Tip: Find Empty Tables</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/17/vertica-tip-using-vsql/">Vertica Tip: Using Vsql CLI</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Tip: Best Practices</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/09/netezza-cli/">Netezza CLI Tools</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/07/some-netezzas-nzsql-tips/">Some NZSQL Tips for New Netezza Users</a>
+      </li>
+    
+  </ul>
+</section>
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (4)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (3)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (1)</a></li><li><a href='/blog/categories/sql/'>sql (8)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (4)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+</section>
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2015 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
