@@ -19,7 +19,7 @@ This post lists some tips and tricks that I learnt when working with Vertica dat
 
 * ALWAYS include `COMMIT` in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.
 
-* If you are copying a table, **DO NOT** use `CREATE TABLE copy AS SELECT * FROM source`. This will give you a copy table with default projections and storage policy. Instead, you should use `CREATE TABLE` statement with the [`LIKE existing_table` clause](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm) and use `INSERT /*+ direct */` statement. Creating a table with `LIKE` option replicates the table definition and storage policy associated with the source table, which can make significant difference in data loading performance. Note that the `LIKE` clause does not work if the existing source table is a temporary table.
+* If you are copying a table, **DO NOT** use `CREATE TABLE copy AS SELECT * FROM source`. This will give you a copy table with default projections and storage policy. Instead, you should use `CREATE TABLE` statement with the [`LIKE existing_table` clause](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm) and use `INSERT /*+ direct */` statement. Creating a table with `LIKE` option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the `LIKE` clause does not work if the existing source table is a temporary table.
 
 ``` sql DO NOT do this
 create table to_schema.to_table_name

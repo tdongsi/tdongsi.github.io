@@ -10,7 +10,7 @@ categories:
 - Windows
 ---
 
-For automation in Perl, Unicode can be a tricky, especially when you want your automated jobs/tests to work across platforms (Windows and *nix). If you have a choice, another scripting language like Python may be better off in dealing with Unicode texts. If you don't have a choice and must use Perl (specifically Perl 5) like I used to, some of these tips may help get you started.
+For automation in Perl, Unicode can be tricky, especially when you want your automated jobs/tests to work across platforms (Windows and *nix). If you have a choice, another scripting language like Python may be better off in dealing with Unicode texts. If you don't have a choice and must use Perl (specifically Perl 5) like I used to, some of these tips may help get you started.
 
 The most common code snippet that I used in my Perl codes when dealing with Unicode texts is this Unicode preamble:
 

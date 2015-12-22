@@ -15,7 +15,7 @@ In this [mini-project](https://github.com/tdongsi/python/tree/master/Performance
 * Put the records into a Cassandra table.
 * Plot the results.
 
-Based on a Cassandra question on Glassdoor.
+The project is based on a Cassandra interview question found on Glassdoor.
 
 Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.
 
@@ -23,7 +23,7 @@ Currently, the first version only works with Windows version of Cassandra (using
 
 **Input**
 
-If running the script from command line, the following arguments must be provided:
+When running the script from command line, the following arguments must be provided:
 
 * installDir INSTALLDIR:  Path to installation directory.
 * host HOST: URL string for Cassandra instance. Only localhost tested.
@@ -59,8 +59,7 @@ Example:
 ![alt text](https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png "Performance Plot")
 
 ## Python modules
-1. PerformanceLog.py: Main module to run the automated tasks. Please use "python PerformanceLog -h"
-for the required arguments. Example call for Windows is in the doc string.
+1. PerformanceLog.py: Main module to run the automated tasks. Please use "python PerformanceLog -h" for the required arguments. Example call for Windows is in the doc string.
 2. MyLogger.py: Logging support module
 3. CassandraRecord.py: Support module to record metrics into a Cassandra table.
 4. Plotter.py: Support module to plot metrics into plots and save into PNG file.
