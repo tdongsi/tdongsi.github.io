@@ -1,12 +1,16 @@
 ---
 layout: post
-title: "Set up two-node Vertica sandbox VMs on Mac"
+title: "Set up three-node Vertica sandbox VMs on Mac"
 date: 2015-12-09 14:35:19 -0800
 comments: true
 published: false
 categories: 
 - Vertica
 ---
+
+To work around "KSAFE 1" error.
+
+Database with 1 or 2 hosts cannot be k-safe and it may lose data if it crashes.
 
 ## Installing new Vertica
 
