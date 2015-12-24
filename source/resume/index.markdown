@@ -52,7 +52,7 @@ TODO: Add link to skills
   Visual Studio, Git, SourceTree, Perforce, Subversion, 
   Jenkins, Tidal Scheduler, 
   Confluence, JIRA, Trello, 
-  Splunk, 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), 
   Chef.
 
 ### Work Experience
@@ -131,7 +131,17 @@ TODO:
 
 ### Courseworks & Trainings
 
+* [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk 6.
+* [Chef Fundamentals](/download/training/COC_Chef.pdf).
+* [Amazon](/download/training/COC_AWS.pdf) Web Services.
+* [Stanford: Database](/download/training/)
 
+#### College
+
+* Machine learning
+* Pattern Recognition
+* Computer Vision
+* Advanced Robotics
 
 ### Publications
 
