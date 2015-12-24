@@ -146,3 +146,10 @@ TODO:
 ### Publications
 
 TODO: Add PDFs to /download/pdfs.
+
+* Estimator initialization in vision-aided inertial navigation with unknown camera-IMU calibration. IROS 2012.
+* Consistency analysis for sliding-window visual odometry. ICRA 2012.
+* Motion tracking with fixed-lag smoothing: Algorithm and consistency analysis. ICRA 2011.
+  * Technical Report: [PDF].
+* Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008.
+* Robust extraction of shady roads for vision-based UGV navigation. IROS 2008
