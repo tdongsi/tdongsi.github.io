@@ -14,6 +14,13 @@ My resume in simple format.
 * [LinkedIn](https://www.linkedin.com/in/cuong-dong-si-479b326)
 * [PDF version](/download/Resume.pdf)
 
+<!--
+Checklist:
+
+1. Update PDF resume.
+2. Enable Publications section?
+-->
+
 ### Skills
 
 * **Programming**: 
@@ -59,6 +66,23 @@ My resume in simple format.
   Confluence, JIRA, Trello, 
   [Splunk](/download/training/COC_Searching_Splunk.pdf), 
   Chef, vagrant.
+
+### Education
+
+* Master of Science, 2009 - 2012, University of California, Riverside.
+* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore.
+
+### Honor & Awards
+
+* **Intuit Spotlight Award** [August 2015]: for demonstrating Intuit Value [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
+* **Intuit Spotlight Award** [March 2015]: for demonstrating Intuit Value [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf).
+* **IEEE ICRA Student Travel Award** [2011, 2012], by **IEEE Robotics and Automation Society**.
+* **Dean’s Distinguished Fellowship** [2009], by **University of California, Riverside**.
+* **Singapore Scholarship**, by **Singapore Ministry of Foreign Affairs** [2002-06], merit-based full tuition scholarship for pursuing undergraduate study in Singapore, awarded to the top students of ASEAN nations.
+* **Dean’s List**, Faculty of Engineering, National University of Singapore [2002-04].
+* **Champion**, IEEE All-Singapore University Tech Quiz [2005, 2006].
+* **First Prize**, Vietnam National Physics Olympiad for Universities [2002]
+* **Merit Prize**, Vietnam National Physics Olympiad for High Schools [2001]
 
 ### Work Experience
 
@@ -117,26 +141,6 @@ My resume in simple format.
   surface from stereo images, by building statistical models of road appearance.
 * Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
   conferences. Linux drivers for Windows-native IEEE-1394 cameras.
-
-### Education
-
-* Master of Science, 2009 - 2012, University of California, Riverside.
-* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore.
-
-### Honor & Awards
-
-TODO:
-1. Scan and add PDFs for Spotlight Awards
-
-* **Intuit Spotlight Award** [August 2015]: for demonstrating Intuit Value “Deliver Awesome”.
-* **Intuit Spotlight Award** [March 2015]: for demonstrating Intuit Value “Learn Fast”.
-* **IEEE ICRA Student Travel Award** [2011, 2012], by **IEEE Robotics and Automation Society**.
-* **Dean’s Distinguished Fellowship** [2009], by **University of California, Riverside**.
-* **Singapore Scholarship**, by **Singapore Ministry of Foreign Affairs** [2002-06], merit-based full tuition scholarship for pursuing undergraduate study in Singapore, awarded to the top students of ASEAN nations.
-* **Dean’s List**, Faculty of Engineering, National University of Singapore [2002-04].
-* **Champion**, IEEE All-Singapore University Tech Quiz [2005, 2006].
-* **First Prize**, Vietnam National Physics Olympiad for Universities [2002]
-* **Merit Prize**, Vietnam National Physics Olympiad for High Schools [2001]
 
 ### Courseworks & Trainings
 
