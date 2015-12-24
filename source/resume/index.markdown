@@ -12,8 +12,7 @@ My resume in simple format. [PDF version here](/download/pdfs/Resume.pdf).
 
 dongsi.tuecuong@gmail.com
 
-
-### Summary
+TODO: LinkedIn link
 
 ### Skills
 
@@ -50,9 +49,65 @@ TODO: Add link to skills
   Objectivity/DB.
 * **Tools**: 
   [Eclipse](/blog/categories/eclipse/), 
-  Visual Studio, Git, SourceTree, Perforce, Subversion, Jenkins, Tidal Scheduler, Confluence, JIRA, Trello, Splunk, Chef.
+  Visual Studio, Git, SourceTree, Perforce, Subversion, 
+  Jenkins, Tidal Scheduler, 
+  Confluence, JIRA, Trello, 
+  Splunk, 
+  Chef.
 
 ### Work Experience
+
+**Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
+
+* Develop and automate test cases for backend infrastructure and services in QuickBooks Online
+  and Small Business Group ecosystem.
+* Design and implement frameworks to facilitate automated testing. Work with developers on
+  project requirements to make informed testing decisions and develop appropriate test solutions.
+
+*Recent Projects and Achievements*:
+
+* Designed and implemented test plans for QuickBooks Online ecosystem’s Data Mart project,
+ verifying business analytics requirements and functionalities implemented and validated.
+* Implemented a test automation framework to facilitate automated testing of SQL scripts, verifying Extract-Transform-Load (ETL) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
+* Achievements: Three successful releases of Data Mart with different analytic use cases, approved
+  and used by business analysts and data scientists. Two Intuit Spotlight Awards for demonstrating Intuit’s Operating Values “Learn Fast” and “Deliver Awesome”.
+
+**Software QA Engineer**, Objectivity Inc. (7/2012 - 12/2014)
+
+* Developed and automated test cases, maintained and executed test suites for company’s
+  database products, Objectivity and InfiniteGraph, and their various utility tools.
+* Designed and implemented frameworks to facilitate automated performance testing. Worked
+  with developers to make informed testing decisions and develop appropriate test solutions.
+* Reviewed Java codes and enforced good practices for more robust and flexible Java API.
+
+*Selected Projects and Achievements*:
+
+* Designed and implemented test plans for measuring data ingestion performance of graph
+  database InfiniteGraph in distributed multi-client settings. Set up and configured a network of eight Linux and Windows hosts with OpenSSH. Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
+* Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANLTR) to verify correctness of decompiled byte codes after injection.
+* Developed generic-based JUnit tests for database-backed Java collection classes, based on Guava library. 5000+ JUnit tests effectively added into nightly test suite within a month.
+* Developed functional tests for Talend data connectors that convert data from MySQL and Cassandra databases to Objectivity databases.
+* Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
+
+**Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
+
+* Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras,
+  with applications targeted for smartphones and driverless car navigation systems.
+* Implemented innovative sensor-based navigation algorithms, based on probabilistic models and statistical inference methods, using C++ and Matlab. Designed and implemented pluggable sensor simulators for verifying and benchmarking performance of those navigation algorithms. 
+* Proposed and implemented various numerical algorithms for problem solving, including convex
+  optimization techniques, Gauss-Newton algorithm and its variants.
+* Achievements: Innovative algorithms for vision-aided inertial navigation, published at 2011
+  and 2012 ICRA conferences.
+
+**Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
+
+* Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial
+  research labs, headed by DSO National Laboratories.
+* Designed and developed different prototype software components for visual sensor modules.
+* Designed and implemented an adaptive machine learning algorithm to identify drivable road
+  surface from stereo images, by building statistical models of road appearance.
+* Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
+  conferences. Linux drivers for Windows-native IEEE-1394 cameras.
 
 ### Education
 
