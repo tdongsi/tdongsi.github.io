@@ -131,25 +131,21 @@ TODO:
 
 ### Courseworks & Trainings
 
+Lifelong learning and professional training after college.
+
 * [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk 6.
 * [Chef Fundamentals](/download/training/COC_Chef.pdf).
 * [Amazon](/download/training/COC_AWS.pdf) Web Services.
-* [Stanford: Database](/download/training/)
-
-#### College
-
-* Machine learning
-* Pattern Recognition
-* Computer Vision
-* Advanced Robotics
+* [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
 ### Publications
 
-TODO: Add PDFs to /download/pdfs.
-
-* Estimator initialization in vision-aided inertial navigation with unknown camera-IMU calibration. IROS 2012.
-* Consistency analysis for sliding-window visual odometry. ICRA 2012.
-* Motion tracking with fixed-lag smoothing: Algorithm and consistency analysis. ICRA 2011.
-  * Technical Report: [PDF].
+* Estimator initialization in vision-aided inertial navigation with unknown camera-IMU calibration. IROS 2012. [PDF](/download/pubs/DongSi2012IROS.pdf)
+  * Earlier work as Technical Report: [PDF](/download/pubs/2011_VIO_Init_TR.pdf)
+* Consistency analysis for sliding-window visual odometry. ICRA 2012. [PDF](/download/pubs/DongSi2012ICRA.pdf)
+  * Technical Report: [PDF](/download/pubs/ICRA12_TR.pdf)
+* Motion tracking with fixed-lag smoothing: Algorithm and consistency analysis. ICRA 2011. [PDF](/download/pubs/DongSi2011ICRA.pdf)
+  * Technical Report: [PDF](/download/pubs/ICRA11_TR.pdf)
+* Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
 * Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008.
-* Robust extraction of shady roads for vision-based UGV navigation. IROS 2008
+* Robust extraction of shady roads for vision-based UGV navigation. IROS 2008.
