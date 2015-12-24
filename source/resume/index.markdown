@@ -16,30 +16,11 @@ My resume in simple format.
 
 ### Skills
 
-TODO: Better division of skills: Framework, Platform.
-
-* **Languages**: 
+* **Programming**: 
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  [Perl](/blog/categories/perl/), 
-  [SQL](/blog/categories/sql/), 
-  XML, 
-  XQuery, 
-  HTML.
-* **Java stack**: 
-  [JDBC](/blog/categories/jdbc/), 
-  Guava, 
-  [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), JCommander, SLF4J, SWTBot, 
-  [JUnit](/blog/categories/junit/), TestNG, Selenium, Apache Ant, 
-  [Maven](/blog/categories/maven/), Gradle, JMeter, RestAssured, WireMock.
-* **Other libraries**: 
-  ANTLR, Boost, OpenCV, Eigen, 
-  [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/java/).
-* **Operating systems**: 
-  [Windows](/blog/categories/windows/), 
-  Mac OS, CentOS, Ubuntu, SunOS, HP-UX.
+  [Perl](/blog/categories/perl/).
 * [**Database**](/blog/categories/database/): 
   SQLite, MySQL, 
   [Vertica](/blog/categories/vertica/), 
@@ -47,13 +28,37 @@ TODO: Better division of skills: Framework, Platform.
   [Cassandra](/blog/categories/cassandra/), 
   InfiniteGraph, 
   Objectivity/DB.
-* **Tools**: 
+* **Query Language**: 
+  [SQL](/blog/categories/sql/), 
+  XPath, 
+  XQuery.
+* **Java stack**: 
+  [JDBC](/blog/categories/jdbc/), 
+  Guava, 
+  [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
+  JCommander, SLF4J, SWTBot, 
+  [JUnit](/blog/categories/junit/), TestNG,
+  Apache Ant, 
+  [Maven](/blog/categories/maven/), Gradle, JMeter.
+* **Web Apps**: 
+  HTML, Selenium, RestAssured, WireMock.
+* **Other libraries**: 
+  ANTLR, Boost, OpenCV, Eigen, 
+  [Numpy](/blog/categories/numpy/), 
+  [Matplotlib](/blog/categories/java/).
+* **Platforms**: 
+  [Windows](/blog/categories/windows/), 
+  Mac OS, CentOS, Ubuntu, SunOS, HP-UX,
+  Amazon Web Services.
+* **Tools**:
+  IntelliJ,
   [Eclipse](/blog/categories/eclipse/), 
-  Visual Studio, Git, SourceTree, Perforce, Subversion, 
+  Visual Studio, 
+  Git, SourceTree, Perforce, Subversion, 
   Jenkins, Tidal Scheduler, 
   Confluence, JIRA, Trello, 
   [Splunk](/download/training/COC_Searching_Splunk.pdf), 
-  Chef.
+  Chef, vagrant.
 
 ### Work Experience
 
@@ -61,9 +66,10 @@ TODO: Better division of skills: Framework, Platform.
 
 * Develop and automate test cases for backend infrastructure and services in QuickBooks Online
   and Small Business Group ecosystem.
-* Design and implement frameworks to facilitate automated testing. Work with developers on
+* Design and implement frameworks to facilitate automated testing of SQL scripts in **Big Data** projects. Work with developers on
   project requirements to make informed testing decisions and develop appropriate test solutions.
 
+<!--
 *Recent Projects and Achievements*:
 
 * Designed and implemented test plans for QuickBooks Online ecosystem’s Data Mart project,
@@ -71,7 +77,8 @@ TODO: Better division of skills: Framework, Platform.
 * Implemented a test automation framework to facilitate automated testing of SQL scripts, verifying Extract-Transform-Load (ETL) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
 * Achievements: Three successful releases of Data Mart with different analytic use cases, approved
   and used by business analysts and data scientists. Two Intuit Spotlight Awards for demonstrating Intuit’s Operating Values “Learn Fast” and “Deliver Awesome”.
-
+-->
+  
 **Software QA Engineer**, Objectivity Inc. (7/2012 - 12/2014)
 
 * Developed and automated test cases, maintained and executed test suites for company’s
@@ -80,6 +87,7 @@ TODO: Better division of skills: Framework, Platform.
   with developers to make informed testing decisions and develop appropriate test solutions.
 * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
+<!--
 *Selected Projects and Achievements*:
 
 * Designed and implemented test plans for measuring data ingestion performance of graph
@@ -88,6 +96,7 @@ TODO: Better division of skills: Framework, Platform.
 * Developed generic-based JUnit tests for database-backed Java collection classes, based on Guava library. 5000+ JUnit tests effectively added into nightly test suite within a month.
 * Developed functional tests for Talend data connectors that convert data from MySQL and Cassandra databases to Objectivity databases.
 * Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
+-->
 
 **Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
 
