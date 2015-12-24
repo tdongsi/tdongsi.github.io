@@ -8,7 +8,6 @@ categories:
 - Book
 - Hive
 - Hadoop
-- JDBC
 - SQL
 ---
 
