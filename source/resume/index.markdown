@@ -8,23 +8,39 @@ footer: true
 published: true
 ---
 
+My resume in simple format. [PDF version here](/download/pdfs/Resume.pdf).
+
 dongsi.tuecuong@gmail.com
 
-Work in progress
 
-##Summary
+###Summary
 
-##Skills
+###Skills
 
-##Work Experience
+TODO: Add link to skills
 
-##Education
+* **Languages**: [Java](/blog/categories/java/), C/C++, [Python](/blog/categories/python/), [Perl](/blog/categories/perl/), [SQL](/blog/categories/sql/), XML, XQuery, HTML.
+* **Java stack**: JDBC, Guava, Swing, JCommander, SLF4J, SWTBot, JUnit, TestNG, Selenium, Apache Ant, [Maven](/blog/categories/maven/), Gradle, JMeter, RestAssured, WireMock.
+* **Other libraries**: ANTLR, Boost, OpenCV, Eigen, 
+  [Numpy](/blog/categories/numpy/), 
+  [Matplotlib](/blog/categories/java/).
+* **Operating systems**: [Windows](/blog/categories/windows/), Mac OS, CentOS, Ubuntu, SunOS, HP-UX
+* [**Database**](/blog/categories/database/): SQLite, MySQL, 
+  [Vertica](/blog/categories/vertica/), 
+  [Hive](/blog/categories/hive/), 
+  [Cassandra](/blog/categories/cassandra/), 
+  InfiniteGraph, 
+  Objectivity/DB
+* **Tools**: [Eclipse](/blog/categories/eclipse/), Visual Studio, Git, SourceTree, Perforce, Subversion, Jenkins, Tidal Scheduler, Confluence, JIRA, Trello, Splunk, Chef
 
-Master of Science, 2009 - 2012, University of California, Riverside.
+###Work Experience
 
-Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore.
+###Education
 
-##Honor & Awards
+* Master of Science, 2009 - 2012, University of California, Riverside.
+* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore.
+
+###Honor & Awards
 
 * IEEE ICRA Student Travel Award [2011, 2012], by IEEE Robotics and Automation Society.
 * Dean’s Distinguished Fellowship [2009], by University of California, Riverside.
@@ -33,3 +49,11 @@ Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapor
 * Champion, IEEE All-Singapore University Tech Quiz [2005, 2006].
 * First Prize, Vietnam National Physics Olympiad for Universities [2002]
 * Merit Prize, Vietnam National Physics Olympiad for High Schools [2001]
+
+### Courseworks & Trainings
+
+
+
+###Publications
+
+TODO: Add PDFs to /download/pdfs.
