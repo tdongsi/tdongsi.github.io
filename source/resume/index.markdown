@@ -8,15 +8,15 @@ footer: true
 published: true
 ---
 
-My resume in simple format. [PDF version here](/download/pdfs/Resume.pdf).
+My resume in simple format.
 
-dongsi.tuecuong@gmail.com
-
-TODO: LinkedIn link
+* Email: dongsi.tuecuong@gmail.com
+* [LinkedIn](https://www.linkedin.com/in/cuong-dong-si-479b326)
+* [PDF version](/download/Resume.pdf)
 
 ### Skills
 
-TODO: Add link to skills
+TODO: Better division of skills: Framework, Platform.
 
 * **Languages**: 
   [Java](/blog/categories/java/), 
@@ -133,11 +133,12 @@ TODO:
 
 Lifelong learning and professional training after college.
 
-* [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk 6.
+* [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk.
 * [Chef Fundamentals](/download/training/COC_Chef.pdf).
 * [Amazon](/download/training/COC_AWS.pdf) Web Services.
 * [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
+<!-- 
 ### Publications
 
 * Estimator initialization in vision-aided inertial navigation with unknown camera-IMU calibration. IROS 2012. [PDF](/download/pubs/DongSi2012IROS.pdf)
@@ -149,3 +150,4 @@ Lifelong learning and professional training after college.
 * Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
 * Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008.
 * Robust extraction of shady roads for vision-based UGV navigation. IROS 2008.
+-->
