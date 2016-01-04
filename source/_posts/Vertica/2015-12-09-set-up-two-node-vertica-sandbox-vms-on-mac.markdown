@@ -8,6 +8,19 @@ categories:
 - Vertica
 ---
 
+## Vertica VM as sandbox test environment
+
+It is definitely better if you can have separate schema for each developer in Pre-Prod, please go for it first. BUT if it is NOT possible, I recommend that we look into using Vertica Virtual Machine (VM) for sandbox test environment, as a cheap alternative.
+
+In QE testing, some of our tests add mock records to represent corner cases or run ETLs multiple times to simulate daily incremental updates. I can not use SBG_DWH_QE schema for these which is shared by all QEs for that since it might affect/destroy valuable source data as well Jenkins run, i.e., "stepping on each other's toes” like you said. My solution is to use Vertica VM as sandbox test environment for those tests. 
+
+## Single-node VM versus three-node VM cluster
+
+I have been using a single-node Vertica VM to run tests for a while. And it works wonderfully for testing purpose, especially when you want to isolate issues, e.g., a corner case. The only minor problem is when we add "KSAFE 1" in our DDLs which gives error (for single-node) when running DDLs to set up schema. Even then, the workaround for running tests is easy enough in sbg-ecosystem repo since all DDLs are in "table" folder.
+
+As we move to sbg_datasets repo, the work around for the problem "KSAFE 1” for single-node VM is probably messy. I already looked into setting up a Vertica cluster of two VM nodes and it seems "doable", at least on Mac (“doable” means "not very smooth first time, but repeatable” :) ). If we cannot request individual schema on Pre-Prod, I can document it and share on how I set up a cluster of Vertica VMs.
+
+
 To work around "KSAFE 1" error.
 
 Database with 1 or 2 hosts cannot be k-safe and it may lose data if it crashes.
