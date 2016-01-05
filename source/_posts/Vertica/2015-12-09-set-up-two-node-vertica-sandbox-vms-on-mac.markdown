@@ -1,29 +1,34 @@
 ---
 layout: post
 title: "Set up three-node Vertica sandbox VMs on Mac"
-date: 2015-12-09 14:35:19 -0800
+date: 2016-1-09 14:35:19 -0800
 comments: true
 published: false
 categories: 
 - Vertica
+- CentOS
 ---
 
 ## Vertica VM as sandbox test environment
 
-It is definitely better if you can have separate schema for each developer in Pre-Prod, please go for it first. BUT if it is NOT possible, I recommend that we look into using Vertica Virtual Machine (VM) for sandbox test environment, as a cheap alternative.
+When developing data-warehouse solutions in Vertica, you want to set up some test environment.
+Ideally, you should have separate schema for each developer. 
+However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment. The explanation that I usually get is that having each schema for each developer will not scale in database maintainance and administration, and there are likely some limits in Vertica's commercial license. 
+If that is the case, I recommend that we look into using Vertica Community Edition on Virtual Machines (VMs) for sandbox test environment, as a cheap alternative.
 
-In QE testing, some of our tests add mock records to represent corner cases or run ETLs multiple times to simulate daily incremental updates. I can not use SBG_DWH_QE schema for these which is shared by all QEs for that since it might affect/destroy valuable source data as well Jenkins run, i.e., "stepping on each other's toes” like you said. My solution is to use Vertica VM as sandbox test environment for those tests. 
+When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and running ETLs multiple times to simulate daily runs of those processes. 
+For these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data. 
+My solution is to use Vertica VMs as sandbox test environment for those tests. 
 
-## Single-node VM versus three-node VM cluster
+### Single-node VM versus three-node VM cluster
 
-I have been using a single-node Vertica VM to run tests for a while. And it works wonderfully for testing purpose, especially when you want to isolate issues, e.g., a corner case. The only minor problem is when we add "KSAFE 1" in our DDLs which gives error (for single-node) when running DDLs to set up schema. Even then, the workaround for running tests is easy enough in sbg-ecosystem repo since all DDLs are in "table" folder.
+I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, e.g., a corner case. 
+The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
+Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder.
 
-As we move to sbg_datasets repo, the work around for the problem "KSAFE 1” for single-node VM is probably messy. I already looked into setting up a Vertica cluster of two VM nodes and it seems "doable", at least on Mac (“doable” means "not very smooth first time, but repeatable” :) ). If we cannot request individual schema on Pre-Prod, I can document it and share on how I set up a cluster of Vertica VMs.
-
-
-To work around "KSAFE 1" error.
-
-Database with 1 or 2 hosts cannot be k-safe and it may lose data if it crashes.
+As my project moves to a new phase, the DDL scripts are disibuted into different folders. My original work-around for the problem `KSAFE 1` for single-node VM is becoming less practical. 
+In this blog post, I looked into setting up a Vertica cluster of **three** VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications. Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
 
 ## Installing new Vertica
 
