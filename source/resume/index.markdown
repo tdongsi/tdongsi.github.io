@@ -52,7 +52,7 @@ Checklist:
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/java/).
+  [Matplotlib](/blog/categories/matplotlib/).
 * **Platforms**: 
   [Windows](/blog/categories/windows/), 
   Mac OS, CentOS, Ubuntu, SunOS, HP-UX,
