@@ -8,17 +8,21 @@ categories:
 - CentOS
 ---
 
-## Vertica VM as sandbox test environment
+## Vertica Virtual Machine as sandbox test environment
 
 When developing data-warehouse solutions in Vertica, you want to set up some test environment.
 Ideally, you should have separate schema for each developer. 
 However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment. 
-The explanation that I usually get is that having each schema for each developer will not scale in database maintainance and administration, and there are likely some limits in Vertica's commercial license. 
-If that is the case, I recommend that we look into using Vertica Community Edition on Virtual Machines (VMs) for sandbox test environment, as a cheap alternative.
+The explanation that I usually get is that having a schema for each developer will not scale in database maintainance and administration, and there are likely some limits in Vertica's commercial license. 
+If that is the case, I recommend that we look into using Vertica Community Edition on **Virtual Machines (VMs)** for sandbox test environment, as a cheap alternative.
 
-When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and running ETLs multiple times to simulate daily runs of those processes. 
-For these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data. 
-My solution is to use Vertica VMs as sandbox test environment for those tests. 
+Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and/or running ETLs multiple times to simulate daily runs of those processes. 
+Regular tear-down requires dropping multiple tables regularly: using 
+
+TODO: effect to and from others
+
+In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data. 
+Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.
 
 ## Single-node VM and KSAFE clause
 
@@ -28,4 +32,32 @@ The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., 
 
 Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder.
 
+TODO: Download from HP website.
+
 ### Find and replace a string in multiple files
+
+```
+grep -rl matchstring somedir/ | xargs sed -i 's/string1/string2/g'
+```
+
+Note: The forward slash '/' delimiter in the sed argument could also be a different delimiter (such as the pipe '|' character). The pipe delimiter might be useful when searching through a lot of html files if you didn't want to escape the forward slash, for instance.
+
+matchstring is the string you want to match, e.g., "football" string1 would ideally be the same string as matchstring, as the matchstring in the grep command will pipe only files with matchstring in them to sed. string2 is the string that replace string1. There may be times when you want to use grep to find only files that have some matchstring and then replace on a different string in the file than matchstring. For example, maybe you have a lot of files and only want to only replace on files that have the matchstring of 'phonenumber' in them, and then replace '555-5555' with '555-1337'. Not that great of an example (you could just search files for that phone number instead of the string 'phonenumber'), but your imagination is probably better than mine.
+
+Example
+
+```
+grep -rl 'windows' ./ | xargs sed -i 's/windows/linux/g'
+```
+
+This will search for the string 'windows' in all files relative to the current directory and replace 'windows' with 'linux' for each occurrence of the string in each file.
+
+### KSAFE
+
+An special case of "Find and replace" command is "Find and remove". 
+
+Example:
+
+grep -rl 'KSAFE 1' table | xargs sed -i 's/KSAFE 1//g'
+
+
