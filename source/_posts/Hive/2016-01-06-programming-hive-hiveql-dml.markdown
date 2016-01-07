@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Programming Hive (Pt. 8): Data Manipulation in HiveQL"
-date: 2016-01-06 23:34:38 -0800
+date: 2016-01-12 23:34:38 -0800
 comments: true
 published: false
 categories: 

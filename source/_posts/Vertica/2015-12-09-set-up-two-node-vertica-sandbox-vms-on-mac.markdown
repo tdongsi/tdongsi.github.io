@@ -9,16 +9,7 @@ categories:
 - CentOS
 ---
 
-## Vertica VM as sandbox test environment
 
-When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer. 
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment. The explanation that I usually get is that having each schema for each developer will not scale in database maintainance and administration, and there are likely some limits in Vertica's commercial license. 
-If that is the case, I recommend that we look into using Vertica Community Edition on Virtual Machines (VMs) for sandbox test environment, as a cheap alternative.
-
-When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and running ETLs multiple times to simulate daily runs of those processes. 
-For these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data. 
-My solution is to use Vertica VMs as sandbox test environment for those tests. 
 
 ### Single-node VM versus three-node VM cluster
 
