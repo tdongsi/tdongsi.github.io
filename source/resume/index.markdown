@@ -30,6 +30,7 @@ Checklist:
   [Perl](/blog/categories/perl/).
 * [**Database**](/blog/categories/database/): 
   SQLite, MySQL, 
+  [Netezza](/blog/categories/netezza/),
   [Vertica](/blog/categories/vertica/), 
   [Hive](/blog/categories/hive/), 
   [Cassandra](/blog/categories/cassandra/), 
@@ -55,7 +56,9 @@ Checklist:
   [Matplotlib](/blog/categories/matplotlib/).
 * **Platforms**: 
   [Windows](/blog/categories/windows/), 
-  Mac OS, CentOS, Ubuntu, SunOS, HP-UX,
+  Mac OS, 
+  [CentOS](/blog/categories/centos/),
+  Ubuntu, SunOS, HP-UX,
   Amazon Web Services.
 * **Tools**:
   IntelliJ,

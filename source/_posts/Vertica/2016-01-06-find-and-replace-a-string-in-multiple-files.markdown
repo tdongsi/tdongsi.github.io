@@ -6,6 +6,8 @@ comments: true
 categories: 
 - Vertica
 - CentOS
+- MacOS
+- Ubuntu
 ---
 
 ## Vertica Virtual Machine as sandbox test environment
@@ -34,6 +36,8 @@ Even then, the workaround for running those DDL scripts in tests is easy enough 
 
 TODO: Download from HP website.
 
+TODO: Git branch.
+
 ### Find and replace a string in multiple files
 
 ```
@@ -52,7 +56,7 @@ grep -rl 'windows' ./ | xargs sed -i 's/windows/linux/g'
 
 This will search for the string 'windows' in all files relative to the current directory and replace 'windows' with 'linux' for each occurrence of the string in each file.
 
-### KSAFE
+### Remove KSAFE
 
 An special case of "Find and replace" command is "Find and remove". 
 
