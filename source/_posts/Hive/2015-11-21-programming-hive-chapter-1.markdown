@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 1): Introduction"
+title: "Hive Tutorial (Pt. 1): Introduction"
 date: 2015-11-22 17:22:51 -0800
 comments: true
 categories: 
@@ -14,13 +14,13 @@ categories:
 "Chapter 1: Introduction" of the "Programming Hive" book.
 -->
 
-This post is the first of many posts summarizing the **Programming Hive** book, with some observations from my own experience.
+This post is the first of many Hive tutorial posts. Most of these posts are based on the **Programming Hive** book, with some observations from my own experience with [Cloudera Quickstart VM](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/).
 
 {% img center /images/hive/cat.gif Cover %}
 
 ### Introduction
 
-Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it's an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for expert database designers and administrators.
+Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it's an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.
 
 Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as `select count(*) from my_table` can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).
 

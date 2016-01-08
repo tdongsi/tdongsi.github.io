@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 7): Partitioned tables"
+title: "Hive Tutorial (Pt. 7): Partitioned tables"
 date: 2015-12-06 21:09:51 -0800
 comments: true
 published: true
@@ -11,9 +11,11 @@ categories:
 - SQL
 ---
 
-{% img center /images/hive/cat.gif Cover %}
+<!--
+Chapter 4
+-->
 
-Chapter 4 of the book, continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [posts](/blog/2015/12/05/programming-hive-ddl-table/).
+Continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [posts](/blog/2015/12/05/programming-hive-ddl-table/).
 
 ### Partitioned Managed Tables
 

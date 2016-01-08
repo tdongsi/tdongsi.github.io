@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 2): Hive CLI"
+title: "Hive Tutorial (Pt. 2): Hive CLI"
 date: 2015-11-23 19:47:23 -0800
 comments: true
 categories: 
@@ -10,9 +10,7 @@ categories:
 - Cloudera
 ---
 
-{% img center /images/hive/cat.gif Cover %}
-
-Chapter 2 of the book covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).
+This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).
 
 ### Starting Hive with Cloudera Quickstart VM
 

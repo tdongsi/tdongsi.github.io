@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 6): HiveQL Data Definition"
+title: "Hive Tutorial (Pt. 6): HiveQL Data Definition"
 date: 2015-12-05 20:15:56 -0800
 comments: true
 published: true
@@ -11,9 +11,7 @@ categories:
 - SQL
 ---
 
-{% img center /images/hive/cat.gif Cover %}
-
-Chapter 4 of the book, continued from the previous [post](/blog/2015/12/02/programming-hive-hiveql-ddl/).
+Continued from the previous [post](/blog/2015/12/02/programming-hive-hiveql-ddl/).
 
 ### Creating Tables
 

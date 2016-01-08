@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 3): Runtime Modes"
+title: "Hive Tutorial (Pt. 3): Runtime Modes"
 date: 2015-11-24 18:24:30 -0800
 comments: true
 published: true
@@ -11,9 +11,7 @@ categories:
 - JDBC
 ---
 
-{% img center /images/hive/cat.gif Cover %}
-
-In addition to [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/), chapter 2 of the **Programming Hive** book also covers some lower-level details of Hive such as Hadoop runtime modes and metastore.
+Following up on [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/), this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.
 
 ### Runtime Modes
 

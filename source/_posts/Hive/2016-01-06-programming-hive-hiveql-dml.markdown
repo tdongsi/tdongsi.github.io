@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 8): Data Manipulation in HiveQL"
+title: "Hive Tutorial (Pt. 8): Data Manipulation in HiveQL"
 date: 2016-01-12 23:34:38 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Hive
 - SQL
@@ -11,9 +11,13 @@ categories:
 - Hadoop
 ---
 
+<!--
 {% img center /images/hive/cat.gif Cover %}
 
-Chapter 5 of the book is about HiveQL's parts used to put data into tables and extract data from tables to the filesystem.
+Chapter 5 of the book
+-->
+
+This post is about HiveQL's parts used to put data into tables and extract data from tables to the filesystem.
 
 
 “Since Hive has no row-level insert, update, and delete operations, the only way to put data into an table is to use one of the “bulk” load operations.”

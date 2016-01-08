@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 4): Data Types"
+title: "Hive Tutorial (Pt. 4): Data Types"
 date: 2015-11-26 18:01:37 -0800
 comments: true
 published: true
@@ -11,9 +11,7 @@ categories:
 - SQL
 ---
 
-{% img center /images/hive/cat.gif Cover %}
-
-Chapter 3 of the book covers different data types and file formats supported by Hive.
+This post covers different data types and file formats supported by Hive.
 
 ### Data Types
 
@@ -35,7 +33,7 @@ The following primitive data types are supported:
 
 As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.
 
-NOTE: Not metioned in the book, but the types `DECIMAL` and `DATE` are introduced since Hive 0.13.0. In addition, the book claimed "Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects" but `VARCHAR` type, introduced in Hive 0.12.0, does exactly that.
+NOTE: Not metioned in the **Programming Hive** book, but the types `DECIMAL` and `DATE` are introduced since Hive 0.13.0. In addition, the book claimed "Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects" but `VARCHAR` type, introduced in Hive 0.12.0, does exactly that.
 
 Besides primitive data types, Hive supports the following collection data types:
 
@@ -74,7 +72,7 @@ Different from databases, Hive has no control over the underlying storage: for e
 
 ### Additional References
 
-As of November 2015, the book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:
+As of November 2015, the **Programming Hive (2nd edition)** book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:
 
 1. https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types
 2. https://cwiki.apache.org/confluence/display/Hive/Tutorial

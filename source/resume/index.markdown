@@ -19,6 +19,7 @@ Checklist:
 
 1. Update PDF resume.
 2. Enable Publications section?
+3. Compare Skills section vs Blog categories.
 -->
 
 ### Skills

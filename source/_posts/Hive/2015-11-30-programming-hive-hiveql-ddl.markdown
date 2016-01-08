@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Programming Hive (Pt. 5): HiveQL Data Definition"
+title: "Hive Tutorial (Pt. 5): HiveQL Data Definition"
 date: 2015-12-02 18:32:21 -0800
 comments: true
 published: true
@@ -11,11 +11,7 @@ categories:
 - SQL
 ---
 
-{% img center /images/hive/cat.gif Cover %}
-
-Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. The book defers discussion of views until chapter 7, indexes until Chapter 8, and functions until Chapter 13.
-
-Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.
+This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.
 
 ### Databases
 
