@@ -6,7 +6,7 @@ comments: true
 categories: 
 - Vertica
 - CentOS
-- MacOS
+- MacOSX
 - Ubuntu
 ---
 

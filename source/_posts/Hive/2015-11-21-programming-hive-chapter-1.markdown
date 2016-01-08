@@ -48,4 +48,6 @@ GROUP BY word
 ORDER BY word;
 ```
 
+<!--
 In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
+-->
