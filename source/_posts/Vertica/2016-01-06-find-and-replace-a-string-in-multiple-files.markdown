@@ -29,29 +29,30 @@ Using a Vertica VM as the sandbox test environment helps us minimize interferenc
 
 ### Single-node VM and KSAFE clause
 
-I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. This Vertica VM can be downloaded from HP Vertica's support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).
+I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica's support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).
+
 The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
+The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
 
-Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since `KSAFE 1` does not affect ETL processes's logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with **Git** is as follows:
+Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since `KSAFE 1` does not affect ETL processes's transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with **Git** is as follows:
 
-* Branch the latest code (develop branch) into a temporary branch (local/develop branch).
+* Branch the latest code (`develop` branch) into a temporary branch (e.g., `local/develop` branch).
 * Find and remove `KSAFE 1` in all DDL files (see subsection below).
-* Commit this change in local/develop branch with some unique description. For example, "KSAFE REMOVAL".
+* While still in `local/develop` branch, commit all these changes in a **single** commmit with some unique description (e.g., "KSAFE REMOVAL").
 * Add unit and functional tests to ETL scripts in this branch.
-* After tests are properly done and checked-in, reverse "KSAFE REMOVAL" commit above. 
+* After tests are properly developed and checked-in, reverse the "KSAFE REMOVAL" commit above. 
   * In SourceTree, it could be done by a simple right-click on that commit and selecting "Reverse Commit".
-* Merge local/develop branch into develop branch. You will now have your tests with the latest codes in develop branch.
+* Merge `local/develop` branch into `develop` branch. You will now have your tests with the latest codes in `develop` branch.
 
 #### Find and replace a string in multiple files
 
-There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing `KSAFE 1` like the above workflow is an example where "removing string" is a special case of "replacing it with nothing". This operation can be really quick if you know the following bash command:
+There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing `KSAFE 1` like the above workflow is an example where "removing string" is a special case of "replacing string" with nothing. This operation can be quickly done by the following bash command:
 
 ```
 grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
 ```
 
-If you are familiar with bash scripting, the command is straight forward. This explanation is for anyone who does not work with bash regularly:
+If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:
 
 * `grep` command finds all files in `your_dir` directory that contain `match_string`. `-l` option makes sure it will return a list of files
 * `sed` command then execute the replacement regex on all those files. A regex tip: the forward slash `/` delimiter could be another delimiter (e.g., `#`). This might be useful if you need to search HTML files.
