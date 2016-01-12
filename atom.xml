@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-01-04T18:00:04-08:00</updated>
+  <updated>2016-01-11T18:20:25-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,76 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Using Virtual Machine for ETL Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/"/>
+    <updated>2016-01-10T23:49:15-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files</id>
+    <content type="html"><![CDATA[<h3>Vertica Virtual Machine as sandbox test environment</h3>
+
+<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
+Ideally, you should have separate schema for each developer.
+However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
+The explanation that I usually get is that having a schema for each developer will not scale in database maintainance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
+If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
+
+<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
+Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
+Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
+Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.</p>
+
+<p>In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
+Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
+
+<h3>Single-node VM and KSAFE clause</h3>
+
+<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. This Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).
+The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+
+<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes&rsquo;s logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+
+<ul>
+<li>Branch the latest code (develop branch) into a temporary branch (local/develop branch).</li>
+<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
+<li>Commit this change in local/develop branch with some unique description. For example, &ldquo;KSAFE REMOVAL&rdquo;.</li>
+<li>Add unit and functional tests to ETL scripts in this branch.</li>
+<li>After tests are properly done and checked-in, reverse &ldquo;KSAFE REMOVAL&rdquo; commit above.
+
+<ul>
+<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
+</ul>
+</li>
+<li>Merge local/develop branch into develop branch. You will now have your tests with the latest codes in develop branch.</li>
+</ul>
+
+
+<h4>Find and replace a string in multiple files</h4>
+
+<p>There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing it with nothing&rdquo;. This operation can be really quick if you know the following bash command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you are familiar with bash scripting, the command is straight forward. This explanation is for anyone who does not work with bash regularly:</p>
+
+<ul>
+<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
+<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
+</ul>
+
+
+<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurences, the command is:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
@@ -633,19 +703,22 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 7): Partitioned Tables]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 7): Partitioned Tables]]></title>
     <link href="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/"/>
     <updated>2015-12-06T21:09:51-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
+    <content type="html"><![CDATA[<!--
+Chapter 4
+-->
 
-<p>Chapter 4 of the book, continued from the <a href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
+
+<p>Continued from the <a href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
 
 <h3>Partitioned Managed Tables</h3>
 
 <p>In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.</p>
 
-<p>The book presents a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
+<p>In &ldquo;Programming Hive&rdquo;, the authors present a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -675,13 +748,13 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="p">...</span>
-</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">CA</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AB</span>
-</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">CA</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">BC</span>
-</span><span class='line'><span class="p">...</span>
-</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">US</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AL</span>
-</span><span class='line'><span class="p">...</span><span class="o">/</span><span class="n">employees</span><span class="o">/</span><span class="n">country</span><span class="o">=</span><span class="n">US</span><span class="o">/</span><span class="k">state</span><span class="o">=</span><span class="n">AK</span>
-</span><span class='line'><span class="p">...</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>AB
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>BC
+</span><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AL
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AK
+</span><span class='line'>...
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -709,11 +782,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">set</span> <span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span><span class="p">;</span>
-</span><span class='line'><span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span><span class="o">=</span><span class="n">nonstrict</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode<span class="p">;</span>
+</span><span class='line'>hive.mapred.mode<span class="o">=</span>nonstrict
 </span><span class='line'>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">set</span> <span class="n">hive</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="k">mode</span> <span class="o">=</span> <span class="k">strict</span><span class="p">;</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">SELECT</span> <span class="n">e</span><span class="p">.</span><span class="n">name</span> <span class="k">FROM</span> <span class="n">employees</span> <span class="n">e</span><span class="p">;</span> <span class="cm">/* does not work */</span>
+</span><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode <span class="o">=</span> strict<span class="p">;</span>
+</span><span class='line'>hive&gt; SELECT e.name FROM employees e<span class="p">;</span> /* does not work */
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -759,7 +832,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="n">hadoop</span> <span class="n">distcp</span> <span class="o">/</span><span class="k">data</span><span class="o">/</span><span class="n">log_messages</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">12</span><span class="o">/</span><span class="mi">02</span> <span class="n">s3n</span><span class="p">:</span><span class="o">//</span><span class="n">ourbucket</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">12</span><span class="o">/</span><span class="mi">02</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -775,7 +848,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <p>3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="n">hadoop</span> <span class="n">fs</span> <span class="o">-</span><span class="n">rmr</span> <span class="o">/</span><span class="k">data</span><span class="o">/</span><span class="n">log_messages</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="o">/</span><span class="mi">02</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop fs -rmr /data/log_messages/2011/01/02
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -831,13 +904,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 6): HiveQL Data Definition]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 6): HiveQL Data Definition]]></title>
     <link href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/"/>
     <updated>2015-12-05T20:15:56-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 4 of the book, continued from the previous <a href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
+    <content type="html"><![CDATA[<p>Continued from the previous <a href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
 
 <h3>Creating Tables</h3>
 
@@ -972,46 +1043,46 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>38</span>
 <span class='line-number'>39</span>
 <span class='line-number'>40</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="n">use</span> <span class="n">college</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">048</span> <span class="n">seconds</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; use college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.048 seconds
 </span><span class='line'>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* Show list of tables in current database */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">show</span> <span class="n">tables</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">apply</span>
-</span><span class='line'><span class="n">college</span>
-</span><span class='line'><span class="n">student</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">031</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">3</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>/* Show list of tables in current database */
+</span><span class='line'>hive&gt; show tables<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.031 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* Show list of tables in the specified database */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">show</span> <span class="n">tables</span> <span class="k">in</span> <span class="n">college</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">apply</span>
-</span><span class='line'><span class="n">college</span>
-</span><span class='line'><span class="n">student</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">034</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">3</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>/* Show list of tables in the specified database */
+</span><span class='line'>hive&gt; show tables in college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.034 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* use regex to search tables in current database */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">show</span> <span class="n">tables</span> <span class="s1">&#39;.*e.*&#39;</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">college</span>
-</span><span class='line'><span class="n">student</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">025</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">2</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>/* use regex to search tables in current database */
+</span><span class='line'>hive&gt; show tables <span class="s1">&#39;.*e.*&#39;</span><span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.025 seconds, Fetched: <span class="m">2</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* Show table properties */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">show</span> <span class="n">tblproperties</span> <span class="n">student</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">COLUMN_STATS_ACCURATE</span>  <span class="k">true</span>
-</span><span class='line'><span class="k">comment</span>    <span class="n">List</span> <span class="k">of</span> <span class="n">students</span>
-</span><span class='line'><span class="n">numFiles</span>   <span class="mi">1</span>
-</span><span class='line'><span class="n">numRows</span>    <span class="mi">0</span>
-</span><span class='line'><span class="n">rawDataSize</span>    <span class="mi">0</span>
-</span><span class='line'><span class="n">totalSize</span>  <span class="mi">213</span>
-</span><span class='line'><span class="n">transient_lastDdlTime</span>  <span class="mi">1421796179</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">28</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">7</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>/* Show table properties */
+</span><span class='line'>hive&gt; show tblproperties student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>COLUMN_STATS_ACCURATE <span class="nb">true</span>
+</span><span class='line'>comment   List of students
+</span><span class='line'>numFiles  1
+</span><span class='line'>numRows   0
+</span><span class='line'>rawDataSize   0
+</span><span class='line'>totalSize 213
+</span><span class='line'>transient_lastDdlTime 1421796179
+</span><span class='line'>Time taken: 0.28 seconds, Fetched: <span class="m">7</span> row<span class="o">(</span>s<span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -1075,64 +1146,64 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>56</span>
 <span class='line-number'>57</span>
 <span class='line-number'>58</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">describe</span> <span class="n">extended</span> <span class="n">student</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">sid</span>                    <span class="nb">int</span>                     <span class="n">Student</span> <span class="n">ID</span>
-</span><span class='line'><span class="n">sname</span>                  <span class="n">string</span>               <span class="n">Student</span> <span class="n">name</span>
-</span><span class='line'><span class="n">gpa</span>                    <span class="nb">float</span>                   <span class="n">Student</span> <span class="n">GPA</span>
-</span><span class='line'><span class="n">sizehs</span>                 <span class="nb">int</span>                     <span class="k">Size</span> <span class="k">of</span> <span class="n">student</span> <span class="n">highschool</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; describe extended student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
 </span><span class='line'>      
-</span><span class='line'><span class="n">Detailed</span> <span class="k">Table</span> <span class="n">Information</span>   <span class="k">Table</span><span class="p">(</span><span class="n">tableName</span><span class="p">:</span><span class="n">student</span><span class="p">,</span> <span class="n">dbName</span><span class="p">:</span><span class="n">college</span><span class="p">,</span> <span class="k">owner</span><span class="p">:</span><span class="n">cloudera</span><span class="p">,</span> <span class="n">createTime</span><span class="p">:</span><span class="mi">1421796178</span><span class="p">,</span> <span class="n">lastAccessTime</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="n">retention</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span>
-</span><span class='line'><span class="n">sd</span><span class="p">:</span><span class="n">StorageDescriptor</span><span class="p">(</span><span class="n">cols</span><span class="p">:[</span><span class="n">FieldSchema</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="n">sid</span><span class="p">,</span> <span class="k">type</span><span class="p">:</span><span class="nb">int</span><span class="p">,</span> <span class="k">comment</span><span class="p">:</span><span class="n">Student</span> <span class="n">ID</span><span class="p">),</span> <span class="n">FieldSchema</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="n">sname</span><span class="p">,</span> <span class="k">type</span><span class="p">:</span><span class="n">string</span><span class="p">,</span> <span class="k">comment</span><span class="p">:</span><span class="n">Student</span> <span class="n">name</span><span class="p">),</span> <span class="p">...</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">119</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">6</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>Detailed Table Information    Table<span class="o">(</span>tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor<span class="o">(</span>cols:<span class="o">[</span>FieldSchema<span class="o">(</span>name:sid, <span class="nb">type</span>:int, comment:Student ID<span class="o">)</span>, FieldSchema<span class="o">(</span>name:sname, <span class="nb">type</span>:string, comment:Student name<span class="o">)</span>, ...
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: <span class="m">6</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* more readable and verbose */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">describe</span> <span class="n">formatted</span> <span class="n">student</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="o">#</span> <span class="n">col_name</span>              <span class="n">data_type</span>            <span class="k">comment</span>
+</span><span class='line'>/* more readable and verbose */
+</span><span class='line'>hive&gt; describe formatted student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'><span class="c"># col_name                data_type               comment             </span>
 </span><span class='line'>      
-</span><span class='line'><span class="n">sid</span>                    <span class="nb">int</span>                     <span class="n">Student</span> <span class="n">ID</span>
-</span><span class='line'><span class="n">sname</span>                  <span class="n">string</span>               <span class="n">Student</span> <span class="n">name</span>
-</span><span class='line'><span class="n">gpa</span>                    <span class="nb">float</span>                   <span class="n">Student</span> <span class="n">GPA</span>
-</span><span class='line'><span class="n">sizehs</span>                 <span class="nb">int</span>                     <span class="k">Size</span> <span class="k">of</span> <span class="n">student</span> <span class="n">highschool</span>
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
 </span><span class='line'>      
-</span><span class='line'><span class="o">#</span> <span class="n">Detailed</span> <span class="k">Table</span> <span class="n">Information</span>      
-</span><span class='line'><span class="k">Database</span><span class="p">:</span>               <span class="n">college</span>              
-</span><span class='line'><span class="k">Owner</span><span class="p">:</span>                  <span class="n">cloudera</span>             
-</span><span class='line'><span class="n">CreateTime</span><span class="p">:</span>             <span class="n">Tue</span> <span class="n">Jan</span> <span class="mi">20</span> <span class="mi">15</span><span class="p">:</span><span class="mi">22</span><span class="p">:</span><span class="mi">58</span> <span class="n">PST</span> <span class="mi">2015</span> 
-</span><span class='line'><span class="n">LastAccessTime</span><span class="p">:</span>         <span class="k">UNKNOWN</span>              
-</span><span class='line'><span class="n">Protect</span> <span class="k">Mode</span><span class="p">:</span>        <span class="k">None</span>                 
-</span><span class='line'><span class="n">Retention</span><span class="p">:</span>              <span class="mi">0</span>                       
-</span><span class='line'><span class="k">Location</span><span class="p">:</span>               <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span> 
-</span><span class='line'><span class="k">Table</span> <span class="k">Type</span><span class="p">:</span>          <span class="n">MANAGED_TABLE</span>        
-</span><span class='line'><span class="k">Table</span> <span class="k">Parameters</span><span class="p">:</span>        
-</span><span class='line'>  <span class="n">COLUMN_STATS_ACCURATE</span>    <span class="k">true</span>
-</span><span class='line'>  <span class="k">comment</span>              <span class="n">List</span> <span class="k">of</span> <span class="n">students</span>
-</span><span class='line'>  <span class="n">numFiles</span>             <span class="mi">1</span>
-</span><span class='line'>  <span class="n">numRows</span>              <span class="mi">0</span>
-</span><span class='line'>  <span class="n">rawDataSize</span>          <span class="mi">0</span>
-</span><span class='line'>  <span class="n">totalSize</span>            <span class="mi">213</span>
-</span><span class='line'>  <span class="n">transient_lastDdlTime</span>    <span class="mi">1421796179</span>
+</span><span class='line'><span class="c"># Detailed Table Information       </span>
+</span><span class='line'>Database:             college                 
+</span><span class='line'>Owner:                cloudera                
+</span><span class='line'>CreateTime:           Tue Jan <span class="m">20</span> 15:22:58 PST 2015 
+</span><span class='line'>LastAccessTime:       UNKNOWN                 
+</span><span class='line'>Protect Mode:         None                    
+</span><span class='line'>Retention:            <span class="m">0</span>                    
+</span><span class='line'>Location:             hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE           
+</span><span class='line'>Table Parameters:     
+</span><span class='line'>  COLUMN_STATS_ACCURATE   <span class="nb">true                </span>
+</span><span class='line'><span class="nb"> </span>comment              List of students
+</span><span class='line'>  numFiles                <span class="m">1</span>
+</span><span class='line'>  numRows                 <span class="m">0</span>
+</span><span class='line'>  rawDataSize             <span class="m">0</span>
+</span><span class='line'>  totalSize               <span class="m">213</span>
+</span><span class='line'>  transient_lastDdlTime   <span class="m">1421796179</span>
 </span><span class='line'>      
-</span><span class='line'><span class="o">#</span> <span class="k">Storage</span> <span class="n">Information</span>        
-</span><span class='line'><span class="n">SerDe</span> <span class="n">Library</span><span class="p">:</span>       <span class="n">org</span><span class="p">.</span><span class="n">apache</span><span class="p">.</span><span class="n">hadoop</span><span class="p">.</span><span class="n">hive</span><span class="p">.</span><span class="n">serde2</span><span class="p">.</span><span class="n">lazy</span><span class="p">.</span><span class="n">LazySimpleSerDe</span>   
-</span><span class='line'><span class="n">InputFormat</span><span class="p">:</span>            <span class="n">org</span><span class="p">.</span><span class="n">apache</span><span class="p">.</span><span class="n">hadoop</span><span class="p">.</span><span class="n">mapred</span><span class="p">.</span><span class="n">TextInputFormat</span> 
-</span><span class='line'><span class="n">OutputFormat</span><span class="p">:</span>           <span class="n">org</span><span class="p">.</span><span class="n">apache</span><span class="p">.</span><span class="n">hadoop</span><span class="p">.</span><span class="n">hive</span><span class="p">.</span><span class="n">ql</span><span class="p">.</span><span class="n">io</span><span class="p">.</span><span class="n">HiveIgnoreKeyTextOutputFormat</span>   
-</span><span class='line'><span class="n">Compressed</span><span class="p">:</span>             <span class="k">No</span>                   
-</span><span class='line'><span class="n">Num</span> <span class="n">Buckets</span><span class="p">:</span>         <span class="o">-</span><span class="mi">1</span>                   
-</span><span class='line'><span class="n">Bucket</span> <span class="n">Columns</span><span class="p">:</span>      <span class="p">[]</span>                   
-</span><span class='line'><span class="n">Sort</span> <span class="n">Columns</span><span class="p">:</span>        <span class="p">[]</span>                   
-</span><span class='line'><span class="k">Storage</span> <span class="k">Desc</span> <span class="n">Params</span><span class="p">:</span>      
-</span><span class='line'>  <span class="n">field</span><span class="p">.</span><span class="n">delim</span>            <span class="p">;</span>
-</span><span class='line'>  <span class="n">serialization</span><span class="p">.</span><span class="n">format</span>   <span class="p">;</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">108</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">36</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'><span class="c"># Storage Information      </span>
+</span><span class='line'>SerDe Library:        org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe  
+</span><span class='line'>InputFormat:          org.apache.hadoop.mapred.TextInputFormat    
+</span><span class='line'>OutputFormat:         org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat  
+</span><span class='line'>Compressed:           No                      
+</span><span class='line'>Num Buckets:          -1                      
+</span><span class='line'>Bucket Columns:       <span class="o">[]</span>                   
+</span><span class='line'>Sort Columns:         <span class="o">[]</span>                   
+</span><span class='line'>Storage Desc Params:      
+</span><span class='line'>  field.delim             <span class="p">;</span>
+</span><span class='line'>  serialization.format    <span class="p">;</span>
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: <span class="m">36</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
-</span><span class='line'><span class="cm">/* see schema for a column */</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">describe</span> <span class="n">student</span><span class="p">.</span><span class="n">sid</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">sid</span>                    <span class="nb">int</span>                     <span class="k">from</span> <span class="n">deserializer</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">315</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">1</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>/* see schema <span class="k">for</span> a column */
+</span><span class='line'>hive&gt; describe student.sid<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     from deserializer
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -1147,13 +1218,13 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">SET</span> <span class="n">hive</span><span class="p">.</span><span class="n">metastore</span><span class="p">.</span><span class="n">warehouse</span><span class="p">.</span><span class="n">dir</span><span class="p">;</span>
-</span><span class='line'><span class="n">hive</span><span class="p">.</span><span class="n">metastore</span><span class="p">.</span><span class="n">warehouse</span><span class="p">.</span><span class="n">dir</span><span class="o">=/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="n">dfs</span> <span class="o">-</span><span class="n">ls</span> <span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="p">;</span>
-</span><span class='line'><span class="k">Found</span> <span class="mi">3</span> <span class="n">items</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">21</span> <span class="mi">11</span><span class="p">:</span><span class="mi">29</span> <span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">apply</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">03</span> <span class="mi">15</span><span class="p">:</span><span class="mi">16</span> <span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">college</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">28</span> <span class="mi">15</span><span class="p">:</span><span class="mi">26</span> <span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>hive&gt; dfs -ls /user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 /user/hive/warehouse/college.db/student
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -1165,8 +1236,8 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">Location</span><span class="p">:</span>               <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span> 
-</span><span class='line'><span class="k">Table</span> <span class="k">Type</span><span class="p">:</span>          <span class="n">MANAGED_TABLE</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Location:            hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE
 </span></code></pre></td></tr></table></div></figure>
 
 
@@ -1268,15 +1339,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 5): HiveQL Data Definition]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 5): HiveQL Data Definition]]></title>
     <link href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/"/>
     <updated>2015-12-02T18:32:21-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 4 of the book covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. The book defers discussion of views until chapter 7, indexes until Chapter 8, and functions until Chapter 13.</p>
-
-<p>Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.</p>
+    <content type="html"><![CDATA[<p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
 
 <h3>Databases</h3>
 
@@ -1320,18 +1387,18 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 </span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span><span class="p">;</span>
-</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="err">‘</span><span class="n">h</span><span class="p">.</span><span class="o">*</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="s1">&#39;h.*&#39;</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span>
-</span><span class='line'><span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">my</span><span class="o">/</span><span class="n">preferred</span><span class="o">/</span><span class="n">directory</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/my/preferred/directory&#39;</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="cm">/* add comments to table */</span>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="err">‘</span><span class="n">A</span> <span class="n">college</span> <span class="n">admission</span> <span class="k">database</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="s1">&#39;A college admission database&#39;</span><span class="p">;</span>
 </span><span class='line'><span class="cm">/* show comments */</span>
 </span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="cm">/* add properties */</span>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="err">‘</span><span class="n">creator</span><span class="err">’</span> <span class="o">=</span> <span class="err">‘</span><span class="n">CD</span><span class="err">’</span><span class="p">,</span> <span class="err">‘</span><span class="nb">date</span><span class="err">’</span> <span class="o">=</span> <span class="err">‘</span><span class="n">today</span><span class="err">’</span> <span class="p">);</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;CD&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="o">=</span> <span class="s1">&#39;today&#39;</span> <span class="p">);</span>
 </span><span class='line'><span class="cm">/* show properties */</span>
 </span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">EXTENDED</span> <span class="n">college</span><span class="p">;</span>
 </span><span class='line'>
@@ -1347,11 +1414,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 </span><span class='line'><span class="cm">/* You can set additional key-value pairs in properties.</span>
 </span><span class='line'><span class="cm"> * No other metadata about the database can be changed. No way to delete a DB PROPERTY.</span>
 </span><span class='line'><span class="cm"> */</span>
-</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="err">‘</span><span class="n">editor</span><span class="err">’</span> <span class="o">=</span> <span class="err">‘</span><span class="n">DC</span><span class="err">’</span><span class="p">);</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="s1">&#39;editor&#39;</span> <span class="o">=</span> <span class="s1">&#39;DC&#39;</span><span class="p">);</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. These are illustrated by the Hive CLI commands as follows:</p>
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -1379,36 +1446,36 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>24</span>
 <span class='line-number'>25</span>
 <span class='line-number'>26</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="p">[</span><span class="n">cloudera</span><span class="o">@</span><span class="n">quickstart</span> <span class="n">temp</span><span class="p">]</span><span class="err">$</span> <span class="n">hive</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hive
 </span><span class='line'>
-</span><span class='line'><span class="n">Logging</span> <span class="n">initialized</span> <span class="k">using</span> <span class="n">configuration</span> <span class="k">in</span> <span class="n">file</span><span class="p">:</span><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">conf</span><span class="p">.</span><span class="n">dist</span><span class="o">/</span><span class="n">hive</span><span class="o">-</span><span class="n">log4j</span><span class="p">.</span><span class="n">properties</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">describe</span> <span class="k">database</span> <span class="k">default</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="k">default</span>    <span class="k">Default</span> <span class="n">Hive</span> <span class="k">database</span>  <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span>  <span class="k">public</span>   <span class="k">ROLE</span> 
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">01</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">1</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">describe</span> <span class="k">database</span> <span class="n">college</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">college</span>        <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span>   <span class="n">cloudera</span> <span class="k">USER</span> 
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">011</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">Fetched</span><span class="p">:</span> <span class="mi">1</span> <span class="k">row</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; describe database default<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>default   Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+</span><span class='line'>Time taken: 0.01 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>hive&gt; describe database college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college       hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+</span><span class='line'>Time taken: 0.011 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
 </span><span class='line'>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">SET</span> <span class="n">hive</span><span class="p">.</span><span class="n">metastore</span><span class="p">.</span><span class="n">warehouse</span><span class="p">.</span><span class="n">dir</span><span class="p">;</span>
-</span><span class='line'><span class="n">hive</span><span class="p">.</span><span class="n">metastore</span><span class="p">.</span><span class="n">warehouse</span><span class="p">.</span><span class="n">dir</span><span class="o">=/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span>
+</span><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
 </span><span class='line'>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="n">dfs</span> <span class="o">-</span><span class="n">ls</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="p">;</span>
-</span><span class='line'><span class="k">Found</span> <span class="mi">3</span> <span class="n">items</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">21</span> <span class="mi">11</span><span class="p">:</span><span class="mi">29</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">apply</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">20</span> <span class="mi">15</span><span class="p">:</span><span class="mi">22</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">college</span>
-</span><span class='line'><span class="n">drwxrwxrwx</span>   <span class="o">-</span> <span class="n">hive</span> <span class="n">hive</span>          <span class="mi">0</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">28</span> <span class="mi">15</span><span class="p">:</span><span class="mi">26</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="n">dfs</span> <span class="o">-</span><span class="n">ls</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span><span class="p">;</span>
-</span><span class='line'><span class="k">Found</span> <span class="mi">1</span> <span class="n">items</span>
-</span><span class='line'><span class="o">-</span><span class="n">rwxrwxrwx</span>   <span class="mi">1</span> <span class="n">cloudera</span> <span class="n">hive</span>        <span class="mi">213</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">20</span> <span class="mi">15</span><span class="p">:</span><span class="mi">22</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">student</span><span class="o">/</span><span class="n">student</span><span class="p">.</span><span class="k">data</span>
-</span><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="n">dfs</span> <span class="o">-</span><span class="n">ls</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">college</span><span class="p">;</span>
-</span><span class='line'><span class="k">Found</span> <span class="mi">1</span> <span class="n">items</span>
-</span><span class='line'><span class="o">-</span><span class="n">rwxrwxrwx</span>   <span class="mi">1</span> <span class="n">cloudera</span> <span class="n">hive</span>         <span class="mi">66</span> <span class="mi">2015</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">20</span> <span class="mi">15</span><span class="p">:</span><span class="mi">22</span> <span class="n">hdfs</span><span class="p">:</span><span class="o">//</span><span class="n">quickstart</span><span class="p">.</span><span class="n">cloudera</span><span class="p">:</span><span class="mi">8020</span><span class="o">/</span><span class="k">user</span><span class="o">/</span><span class="n">hive</span><span class="o">/</span><span class="n">warehouse</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="n">db</span><span class="o">/</span><span class="n">college</span><span class="o">/</span><span class="n">college</span><span class="p">.</span><span class="k">data</span>
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive        <span class="m">213</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive         <span class="m">66</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
 
 <p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
 
@@ -1417,24 +1484,22 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="n">hive</span><span class="o">&gt;</span> <span class="k">set</span> <span class="n">hive</span><span class="p">.</span><span class="n">cli</span><span class="p">.</span><span class="n">print</span><span class="p">.</span><span class="k">current</span><span class="p">.</span><span class="n">db</span><span class="o">=</span><span class="k">true</span><span class="p">;</span>
-</span><span class='line'><span class="n">hive</span> <span class="p">(</span><span class="k">default</span><span class="p">)</span><span class="o">&gt;</span> <span class="n">USE</span> <span class="n">college</span><span class="p">;</span>
-</span><span class='line'><span class="n">OK</span>
-</span><span class='line'><span class="n">Time</span> <span class="n">taken</span><span class="p">:</span> <span class="mi">0</span><span class="p">.</span><span class="mi">278</span> <span class="n">seconds</span>
-</span><span class='line'><span class="n">hive</span> <span class="p">(</span><span class="n">college</span><span class="p">)</span><span class="o">&gt;</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.cli.print.current.db<span class="o">=</span><span class="nb">true</span><span class="p">;</span>
+</span><span class='line'>hive <span class="o">(</span>default<span class="o">)</span>&gt; USE college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.278 seconds
+</span><span class='line'>hive <span class="o">(</span>college<span class="o">)</span>&gt;
 </span></code></pre></td></tr></table></div></figure>
 
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 4): Data Types]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 4): Data Types]]></title>
     <link href="http://tdongsi.github.io/blog/2015/11/26/programming-hive-data-types/"/>
     <updated>2015-11-26T18:01:37-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/11/26/programming-hive-data-types</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 3 of the book covers different data types and file formats supported by Hive.</p>
+    <content type="html"><![CDATA[<p>This post covers different data types and file formats supported by Hive.</p>
 
 <h3>Data Types</h3>
 
@@ -1463,7 +1528,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 
 <p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
 
-<p>NOTE: Not metioned in the book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0. In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+<p>NOTE: Not metioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0. In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
 
 <p>Besides primitive data types, Hive supports the following collection data types:</p>
 
@@ -1530,7 +1595,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 
 <h3>Additional References</h3>
 
-<p>As of November 2015, the book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
 
 <ol>
 <li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
@@ -1542,13 +1607,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 3): Runtime Modes]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 3): Runtime Modes]]></title>
     <link href="http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started/"/>
     <updated>2015-11-24T18:24:30-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<p>In addition to <a href="http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, chapter 2 of the <strong>Programming Hive</strong> book also covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
+    <content type="html"><![CDATA[<p>Following up on <a href="http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
 
 <h3>Runtime Modes</h3>
 
@@ -1630,13 +1693,11 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 2): Hive CLI]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 2): Hive CLI]]></title>
     <link href="http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli/"/>
     <updated>2015-11-23T19:47:23-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli</id>
-    <content type="html"><![CDATA[<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<p>Chapter 2 of the book covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
+    <content type="html"><![CDATA[<p>This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
 
 <h3>Starting Hive with Cloudera Quickstart VM</h3>
 
@@ -1932,7 +1993,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Programming Hive (Pt. 1): Introduction]]></title>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 1): Introduction]]></title>
     <link href="http://tdongsi.github.io/blog/2015/11/22/programming-hive-chapter-1/"/>
     <updated>2015-11-22T17:22:51-08:00</updated>
     <id>http://tdongsi.github.io/blog/2015/11/22/programming-hive-chapter-1</id>
@@ -1941,13 +2002,13 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 -->
 
 
-<p>This post is the first of many posts summarizing the <strong>Programming Hive</strong> book, with some observations from my own experience.</p>
+<p>This post is the first of many Hive tutorial posts. Most of these posts are based on the <strong>Programming Hive</strong> book, with some observations from my own experience with <a href="http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">Cloudera Quickstart VM</a>.</p>
 
 <p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
 
 <h3>Introduction</h3>
 
-<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for expert database designers and administrators.</p>
+<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.</p>
 
 <p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
 
@@ -1988,7 +2049,12 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.</p>
+
+
+<!--
+In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
+-->
+
 ]]></content>
   </entry>
   
