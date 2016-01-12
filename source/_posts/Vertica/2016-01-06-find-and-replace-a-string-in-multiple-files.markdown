@@ -8,9 +8,10 @@ categories:
 - CentOS
 - MacOSX
 - Ubuntu
+- Git
 ---
 
-## Vertica Virtual Machine as sandbox test environment
+### Vertica Virtual Machine as sandbox test environment
 
 When developing data-warehouse solutions in Vertica, you want to set up some test environment.
 Ideally, you should have separate schema for each developer. 
@@ -19,26 +20,30 @@ The explanation that I usually get is that having a schema for each developer wi
 If that is the case, I recommend that we look into using Vertica Community Edition on **Virtual Machines (VMs)** for sandbox test environment, as a cheap alternative.
 
 Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and/or running ETLs multiple times to simulate daily runs of those processes. 
-Regular tear-down requires dropping multiple tables regularly: using 
-
-TODO: effect to and from others
+Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables. 
+Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
+Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
 
 In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data. 
 Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.
 
-## Single-node VM and KSAFE clause
+### Single-node VM and KSAFE clause
 
-I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, e.g., a corner case. 
+I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. This Vertica VM can be downloaded from HP Vertica's support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).
 The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
 The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
 
-Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder.
+Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since `KSAFE 1` does not affect ETL processes's logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with **Git** is as follows:
 
-TODO: Download from HP website.
+* Branch the latest code (develop branch) into a temporary branch (local/develop branch).
+* Find and replace `KSAFE 1` in all DDL files (see subsection below).
+* Commit this change in local/develop branch with some unique description. For example, "KSAFE REMOVAL".
+* Add unit and functional tests to ETL scripts in this branch.
+* After tests are properly done and checked-in, reverse "KSAFE REMOVAL" commit above. 
+  * In SourceTree, it could be done by a simple right-click on that commit and selecting "Reverse Commit".
+* Merge local/develop branch into develop branch. You will now have your tests with the latest codes in develop branch.
 
-TODO: Git branch.
-
-### Find and replace a string in multiple files
+#### Find and replace a string in multiple files
 
 ```
 grep -rl matchstring somedir/ | xargs sed -i 's/string1/string2/g'
@@ -56,7 +61,7 @@ grep -rl 'windows' ./ | xargs sed -i 's/windows/linux/g'
 
 This will search for the string 'windows' in all files relative to the current directory and replace 'windows' with 'linux' for each occurrence of the string in each file.
 
-### Remove KSAFE
+#### Remove KSAFE
 
 An special case of "Find and replace" command is "Find and remove". 
 

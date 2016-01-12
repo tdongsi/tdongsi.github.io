@@ -3,7 +3,7 @@ layout: post
 title: "Hive Tutorial (Pt. 8): Data Manipulation in HiveQL"
 date: 2016-01-12 23:34:38 -0800
 comments: true
-published: true
+published: false
 categories: 
 - Hive
 - SQL
