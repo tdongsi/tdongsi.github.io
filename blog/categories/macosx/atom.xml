@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Macosx | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/macosx/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-01-11T18:20:25-08:00</updated>
+  <updated>2016-01-11T18:33:38-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -36,35 +36,36 @@ Using a Vertica VM as the sandbox test environment helps us minimize interferenc
 
 <h3>Single-node VM and KSAFE clause</h3>
 
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. This Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).
-The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not avaialble).</p>
 
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes&rsquo;s logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+
+<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes&rsquo;s transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
 
 <ul>
-<li>Branch the latest code (develop branch) into a temporary branch (local/develop branch).</li>
+<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
 <li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>Commit this change in local/develop branch with some unique description. For example, &ldquo;KSAFE REMOVAL&rdquo;.</li>
+<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commmit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
 <li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly done and checked-in, reverse &ldquo;KSAFE REMOVAL&rdquo; commit above.
+<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
 
 <ul>
 <li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
 </ul>
 </li>
-<li>Merge local/develop branch into develop branch. You will now have your tests with the latest codes in develop branch.</li>
+<li>Merge <code>local/develop</code> branch into <code>develop</code> branch. You will now have your tests with the latest codes in <code>develop</code> branch.</li>
 </ul>
 
 
 <h4>Find and replace a string in multiple files</h4>
 
-<p>There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing it with nothing&rdquo;. This operation can be really quick if you know the following bash command:</p>
+<p>There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
 
 <pre><code>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
 </code></pre>
 
-<p>If you are familiar with bash scripting, the command is straight forward. This explanation is for anyone who does not work with bash regularly:</p>
+<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
 
 <ul>
 <li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
