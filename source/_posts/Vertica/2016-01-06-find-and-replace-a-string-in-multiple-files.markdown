@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Find and replace a string in multiple files"
-date: 2016-01-06 23:49:15 -0800
+title: "Using Virtual Machine for ETL testing"
+date: 2016-01-10 23:49:15 -0800
 comments: true
 categories: 
 - Vertica
@@ -36,7 +36,7 @@ The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., 
 Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since `KSAFE 1` does not affect ETL processes's logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with **Git** is as follows:
 
 * Branch the latest code (develop branch) into a temporary branch (local/develop branch).
-* Find and replace `KSAFE 1` in all DDL files (see subsection below).
+* Find and remove `KSAFE 1` in all DDL files (see subsection below).
 * Commit this change in local/develop branch with some unique description. For example, "KSAFE REMOVAL".
 * Add unit and functional tests to ETL scripts in this branch.
 * After tests are properly done and checked-in, reverse "KSAFE REMOVAL" commit above. 
@@ -45,28 +45,22 @@ Even then, the workaround for running those DDL scripts in tests is easy enough 
 
 #### Find and replace a string in multiple files
 
-```
-grep -rl matchstring somedir/ | xargs sed -i 's/string1/string2/g'
-```
-
-Note: The forward slash '/' delimiter in the sed argument could also be a different delimiter (such as the pipe '|' character). The pipe delimiter might be useful when searching through a lot of html files if you didn't want to escape the forward slash, for instance.
-
-matchstring is the string you want to match, e.g., "football" string1 would ideally be the same string as matchstring, as the matchstring in the grep command will pipe only files with matchstring in them to sed. string2 is the string that replace string1. There may be times when you want to use grep to find only files that have some matchstring and then replace on a different string in the file than matchstring. For example, maybe you have a lot of files and only want to only replace on files that have the matchstring of 'phonenumber' in them, and then replace '555-5555' with '555-1337'. Not that great of an example (you could just search files for that phone number instead of the string 'phonenumber'), but your imagination is probably better than mine.
-
-Example
+There are times and times again that you find that you have to replace every single occurences of some string in multiple files with another string. Finding and removing `KSAFE 1` like the above workflow is an example where "removing string" is a special case of "replacing it with nothing". This operation can be really quick if you know the following bash command:
 
 ```
-grep -rl 'windows' ./ | xargs sed -i 's/windows/linux/g'
+grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
 ```
 
-This will search for the string 'windows' in all files relative to the current directory and replace 'windows' with 'linux' for each occurrence of the string in each file.
+If you are familiar with bash scripting, the command is straight forward. This explanation is for anyone who does not work with bash regularly:
 
-#### Remove KSAFE
+* `grep` command finds all files in `your_dir` directory that contain `match_string`. `-l` option makes sure it will return a list of files
+* `sed` command then execute the replacement regex on all those files. A regex tip: the forward slash `/` delimiter could be another delimiter (e.g., `#`). This might be useful if you need to search HTML files.
 
-An special case of "Find and replace" command is "Find and remove". 
+Example: In my case, all the DDL scripts are in multiple sub-directories under `tables` directory. To find and remove all `KSAFE 1` occurences, the command is:
 
-Example:
+```
+grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'
+```
 
-grep -rl 'KSAFE 1' table | xargs sed -i 's/KSAFE 1//g'
-
+This will search for the string `KSAFE 1` in all files in the `tables` directory and replace `KSAFE 1` with nothing `''` for each occurrence of the string in each file.
 
