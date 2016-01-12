@@ -7,3 +7,8 @@ published: false
 categories: 
 - AWS
 ---
+
+Amazon Kinesis Streams.
+
+
+
