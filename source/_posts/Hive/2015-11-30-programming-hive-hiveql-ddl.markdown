@@ -11,7 +11,7 @@ categories:
 - SQL
 ---
 
-This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. It also adds extensions for better performance in the context of Hadoop.
+This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.
 
 ### Databases
 
@@ -25,18 +25,18 @@ CREATE DATABASE college;
 CREATE DATABASE IF NOT EXISTS college;
 
 SHOW DATABASES;
-SHOW DATABASES LIKE ‘h.*’;
+SHOW DATABASES LIKE 'h.*';
 
 CREATE DATABASE college
-LOCATION ‘/my/preferred/directory’;
+LOCATION '/my/preferred/directory';
 
 /* add comments to table */
-CREATE DATABASE college COMMENT ‘A college admission database’;
+CREATE DATABASE college COMMENT 'A college admission database';
 /* show comments */
 DESCRIBE DATABASE college;
 
 /* add properties */
-CREATE DATABASE college WITH DBPROPERTIES ( ‘creator’ = ‘CD’, ‘date’ = ‘today’ );
+CREATE DATABASE college WITH DBPROPERTIES ( 'creator' = 'CD', 'date' = 'today' );
 /* show properties */
 DESCRIBE DATABASE EXTENDED college;
 
@@ -52,12 +52,12 @@ DROP DATABASE IF EXISTS college CASCADE;
 /* You can set additional key-value pairs in properties.
  * No other metadata about the database can be changed. No way to delete a DB PROPERTY.
  */
-ALTER DATABASE college SET DBPROPERTIES (‘editor’ = ‘DC’);
+ALTER DATABASE college SET DBPROPERTIES ('editor' = 'DC');
 ```
 
-Note that Hive will create separate directory for each database. The exception is the `default` database, which doesn't have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property `hive.metastore.warehouse.dir`. These are illustrated by the Hive CLI commands as follows:
+Note that Hive will create separate directory for each database. The exception is the `default` database, which doesn't have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property `hive.metastore.warehouse.dir`. To help us understand better, these are illustrated by the Hive CLI commands as follows:
 
-```
+``` bash
 [cloudera@quickstart temp]$ hive
 
 Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
@@ -86,7 +86,7 @@ Found 1 items
 -rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
 ```
 
-In the output of the `DESCRIBE DATABASE` commands above, the directory location of the database is shown, with `hdfs` as URI scheme. Note that `hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db` is equivalent to `hdfs://user/hive/warehouse/college.db`, where `quickstart.cloudera:8020` is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always `database_name.db`, with `.db` suffix added to database name. The three tables `college`, `student`, and `apply` in the `college` database are created as sub-directories in that `college.db` directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a table that contains tables. The second `DROP DATABASE` command with `CASCADE` will force Hive to drop the database by dropping the tables in the database first.
+In the output of the `DESCRIBE DATABASE` commands above, the directory location of the database is shown, with `hdfs` as URI scheme. Note that `hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db` is equivalent to `hdfs://user/hive/warehouse/college.db`, where `quickstart.cloudera:8020` is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always `database_name.db`, with `.db` suffix added to database name. The three tables `college`, `student`, and `apply` in the `college` database are created as sub-directories in that `college.db` directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second `DROP DATABASE` command with `CASCADE` will force Hive to drop the database by dropping the tables in the database first.
 
 There is no command to show the current working database. When in doubt, it is safe to use the command `USE database_name;` repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:
 

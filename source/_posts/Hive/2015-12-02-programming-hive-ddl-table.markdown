@@ -65,7 +65,7 @@ Note that in the first `CREATE TABLE` command, you can prefix a database name, e
 
 The `SHOW TABLES` command lists the tables. You use different variants of that command to find tables of interest as shown below:
 
-```
+``` bash
 hive> use college;
 OK
 Time taken: 0.048 seconds
@@ -203,7 +203,7 @@ The `ALTER TABLE` statements *only* change *metadata* of the table, but not the 
 
 Some basic `ALTER TABLE` statements for renaming table and changing table columns are shown in the following examples: 
 
-```
+``` sql
 /* Renaming table */
 ALTER TABLE college RENAME TO university;
 
