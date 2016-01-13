@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "AWS: Building the Foundation"
+title: "AWS: Overview of Services"
 date: 2016-01-11 18:36:45 -0800
 comments: true
 published: false
@@ -8,19 +8,46 @@ categories:
 - AWS
 ---
 
-Not all Amazon Web Services (AWS) are equal. This will list only important AWS's.
+Amazon Web Services (AWS) is a collection of web services that deliver computing resources (hardware and software) to end-users over the Internet. 
+Not all AWS are equal but for AWS beginners, we usually don't know which are more important and which are secondary, supporting services. 
+Personally, I am initially overwhelmed by the number of services offered as well as large amount of documenation for individual service.
 
-From bottom up:
+This post documents my understanding on some key AWS services and concepts.
 
-* AWS Global Infrastructure
-* Foundation Services
-* Platform Services
+In summary, AWS concepts and services can be divided into layers. Those layers are, from bottom up:
+
+* AWS Infrastructure: Physical data centers and physical network connections.
+* Foundation Services: Infrastructures as Services. 
+* Platform Services: Platform as Services.
+
+### AWS Global Infrastructure
+
+http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
+
+11 Regions: Each region has at least 2 AZs. Regions are separate from each other: e.g., you cannot access China or Government regions without special permissions.
+
+53 Edge locations: for CloudFront and Route 53 services.
+
+Availability Zones: Physical data center.
+
+https://forums.aws.amazon.com/thread.jspa?threadID=91845
+
+An AWS region contains two or more availability zones. Each zone is basically a separate data center, and provides low latency connectivity to all other zones in the same region. Your resources, such as EC2 instances, reside in the region of your choice. The AWS regions are isolated from each other, but you can seamlessly manage resources in different availability zones within the same region.
+
+It is recommended that you provision your resources across multiple Availability Zones and get redundancy. If a single AZ has a problem, your resources and assets in other AZs will not be affected.
+
+Edge locations serve requests for CloudFront and Route 53. CloudFront is a content delivery network 
+(CDN), while Route 53 is a DNS service. Requests going to either one of these services will be routed to the nearest edge location automatically. This allows for low latency no matter where the end user is located.
+
+S3 stores your data in multiple availability zones within your region of choice. The US Standard region works a bit different though, as it uses both the East and West coast.
 
 ### Foundation Services
 
 #### Networking
 
-Amazon VPC: Virtual Private Cloud, virtual networking environment. Interaction with EC2 instances as if you are in the same existing network.
+[VPC](http://aws.amazon.com/vpc/): Virtual Private Cloud, virtual networking environment. Interaction with EC2 instances as if you are in the same existing network. You can create private subnets and VPN tunnels between your home network and your AWS VPC.
+
+
 
 Amazon Route 53: DNS service.
 
@@ -50,6 +77,15 @@ CloudWatch: Monitoring metrics and performance.
 
 CloudTrail
 
+
+#### Security
+
+[IAM](http://aws.amazon.com/iam/)
+
+[Best Practices](http://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+
+
+
 ### Platform Services
 
 #### Databases
@@ -59,24 +95,6 @@ RDS:
 [**ElastiCache**](https://aws.amazon.com/elasticache/)
 
 You pay more for better performance. It can imporve performance of web applications by allowing you to retrieve information from memory-based cache nodes instead of relying entirely on slower disk-based databases. It supports Memcached and Redis caching engine.
-
-### AWS Global Infrastructure
-
-http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
-
-11 Regions: Each region has at least 2 AZs. Regions are separate from each other: e.g., you cannot access China or Government regions without special permissions.
-
-53 Edge locations: for CloudFront and Route 53 services.
-
-Availability Zones: Physical data center.
-
-https://forums.aws.amazon.com/thread.jspa?threadID=91845
-
-An AWS region contains two or more availability zones. Each zone is basically a separate datacenter, and provides low latency connectivity to all other zones in the region. Your resources, such as EC2 instances, reside in the region of your choice. The AWS regions are isolated from each other, but you can seamlessly manage resources in different availability zones within the same region.
-
-Edge locations serve requests for CloudFront and Route 53. CloudFront is a content delivery network, while Route 53 is a DNS service. Requests going to either one of these services will be routed to the nearest edge location automatically. This allows for low latency no matter where the end user is located.
-
-S3 stores your data in multiple availability zones within your region of choice. The US Standard region works a bit different though, as it uses both the East and West coast.
 
 ### Amazon Resource Name
 
