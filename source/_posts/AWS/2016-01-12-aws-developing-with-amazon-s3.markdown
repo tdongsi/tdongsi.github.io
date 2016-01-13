@@ -6,6 +6,8 @@ comments: true
 published: false
 categories: 
 - AWS
+- Java
+- Python
 ---
 
 http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
@@ -40,3 +42,10 @@ Default Region
 [default]
 region = us-west-2
 ```
+
+### Lab 2
+
+http://docs.aws.amazon.com/AmazonS3/latest/dev/RetrievingObjectUsingJava.html
+
+http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadObjSingleOpJava.html
+
