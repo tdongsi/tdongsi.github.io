@@ -44,6 +44,18 @@ S3 stores your data in multiple availability zones within your region of choice.
 In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "(*Equivalent*: technology name)" string next to each service name. 
 Note that they are just analogies, purely for illustration purposes. Some are not exactly equivalent since some of these AWS can work closely with each other.
 
+"To implement sophisticated solutions, you can integrate DynamoDB with other services as follows:
+•	Object index: Integrate DynamoDB with Amazon S3 to maintain an index of objects in your S3 bucket.
+•	Triggers: Integrate DynamoDB with AWS Lambda to automatically execute a custom function when item-level changes occur. For example, you can use this functionality to send a notification or to update an aggregate table every time a change occurs.
+•	Search: Integrate DynamoDB with Amazon Elasticsearch Service to enable free- text search of DynamoDB content. You can also integrate with Amazon CloudSearch to search DynamoDB content.
+•	Monitoring: Integrate DynamoDB with Amazon CloudWatch to view throughput and latency and send alarms when there is a sudden surge in usage.
+•	Fine-grained access control: Integrate DynamoDB with AWS Identity and Access Management (IAM) to grant access to DynamoDB resources and API operations."
+ (AWS 110)
+
+AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
+
+
+
 #### Compute
 
 * **Amazon EC2 (Elastic Compute Cloud)** (*Equivalent*: Application server): Remote, virtual server instances.

@@ -45,6 +45,8 @@ region = us-west-2
 
 ### Lab 2
 
+http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/s3/AmazonS3Client.html
+
 http://docs.aws.amazon.com/AmazonS3/latest/dev/RetrievingObjectUsingJava.html
 
 http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadObjSingleOpJava.html
