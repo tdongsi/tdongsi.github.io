@@ -8,7 +8,21 @@ categories:
 - AWS
 ---
 
+Not all Amazon Web Services (AWS) are equal. This will list only important AWS's.
+
+From bottom up:
+
+* AWS Global Infrastructure
+* Foundation Services
+* Platform Services
+
 ### Foundation Services
+
+#### Networking
+
+Amazon VPC: Virtual Private Cloud, virtual networking environment. Interaction with EC2 instances as if you are in the same existing network.
+
+Amazon Route 53: DNS service.
 
 #### Storage
 
@@ -28,15 +42,23 @@ CloudFront: is a content delivery service, working like a cache for frequently a
 Glacier: different from S3: in S3, files are frequently accessed. Glacier is a cold storage for infrequently accessed files, for archiving. 
 It takes much longer to access Glacier files than S3.
 
-##### Administration
+It is possible and actually recommended to bundle many files/objects into one archive before storing to Glacier. 
+
+#### Administration
 
 CloudWatch: Monitoring metrics and performance.
+
+CloudTrail
 
 ### Platform Services
 
 #### Databases
 
 RDS: 
+
+[**ElastiCache**](https://aws.amazon.com/elasticache/)
+
+You pay more for better performance. It can imporve performance of web applications by allowing you to retrieve information from memory-based cache nodes instead of relying entirely on slower disk-based databases. It supports Memcached and Redis caching engine.
 
 ### AWS Global Infrastructure
 
@@ -62,5 +84,35 @@ Some services are global, such as S3. Those services do not require a region spe
 
 
 ### Lab 1
+
+``` bash
+MTVL1288aeea2-82:~ cdongsi$ chmod 400 ~/Downloads/qwikLABS-L1014-387088.pem
+MTVL1288aeea2-82:~ cdongsi$ ssh -i ~/Downloads/qwikLABS-L1014-387088.pem ec2-user@52.33.62.25
+The authenticity of host '52.33.62.25 (52.33.62.25)' can't be established.
+RSA key fingerprint is 59:40:98:24:8f:96:b4:13:95:c4:3d:f6:e0:87:be:2b.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '52.33.62.25' (RSA) to the list of known hosts.
+
+       __|  __|_  )
+       _|  (     /   Amazon Linux AMI
+      ___|\___|___|
+
+https://aws.amazon.com/amazon-linux-ami/2015.09-release-notes/
+11 package(s) needed for security, out of 27 available
+Run "sudo yum update" to apply all updates.
+
+
+Credentials Profile file
+[ec2-user@ip-10-0-10-236 ~]$ cat ~/.aws/credentials
+[default]
+aws_access_key_id=ASYX4NadfasdCSUVOQlkjsldkjfa
+aws_secret_access_key=RSPh45sfadsf0yVYBv+xiTasdfas8n5cyZufUrptFaZ
+
+Default Region
+[ec2-user@ip-10-0-10-236 ~]$ cat ~/.aws/config
+[default]
+region = us-west-2
+```
+
 
 
