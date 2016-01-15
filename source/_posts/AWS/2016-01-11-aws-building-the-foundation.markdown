@@ -20,6 +20,7 @@ This post documents my understanding on some key AWS services and concepts. In t
 
 ### AWS Global Infrastructure
 
+
 http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
 
 11 Regions: Each region has at least 2 AZs. Regions are separate from each other: e.g., you cannot access China or Government regions without special permissions.
@@ -63,6 +64,18 @@ AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
 * **AWS Lambda**
 * **Amazon EC2 Container Service**
 * **Auto Scaling**
+
+More on EC2:
+
+* [What is EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html)
+* [Instance types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+* [Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
+* [Key Pairs](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
+* [EC2 and VPC](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html)
+* [AMI](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instances-and-amis.html)
+* [ELB](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html)
+* [ELB Terms and Concepts](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html)
+* [Auto Scaling Group](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/how-as-works.html)
 
 #### Networking
 
