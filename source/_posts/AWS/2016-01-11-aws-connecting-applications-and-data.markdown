@@ -100,3 +100,15 @@ Your pharmaceutical supplies will be shipped 5 business days from the date of or
 If you wish to stop receiving notifications from this topic, please click or visit the link below to unsubscribe:
 https://sns.us-west-2.amazonaws.com/unsubscribe.html?SubscriptionArn={TopicARNcode}&Endpoint=myemail@gmail.com
 ```
+
+### Lambda
+
+http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+
+### Wrap-up
+
+White papers.
+
+
+
+
