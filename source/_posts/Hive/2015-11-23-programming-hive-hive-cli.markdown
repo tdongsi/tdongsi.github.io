@@ -14,7 +14,8 @@ This post covers how to get started with Hive and some basics of Hive, including
 
 ### Starting Hive with Cloudera Quickstart VM
 
-On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. The Hive executables can be found in `/usr/lib/hive/bin`. Running `hive` without any parameter will start Hive's CLI.
+On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. 
+The Hive executables can be found in `/usr/lib/hive/bin`. Running `hive` without any parameter will start Hive's CLI.
  
 ```
 [cloudera@quickstart temp]$ hive
@@ -56,7 +57,10 @@ For help on a particular service:
 Debug help:  ./hive --debug --help
 ```
 
-Note the list of services following the line "Service List". There are several services available, most notably **cli, hwi, jar, metastore**. You can use `--service name` option to invoke a service. CLI is the default service, not specifying any service in `hive` command will run CLI service, as shown in "Starting Hive" section above.
+Note the list of services following the line "Service List". 
+There are several services available, most notably **cli, hwi, jar, metastore**. 
+You can use `--service name` option to invoke a service. 
+CLI is the default service, not specifying any service in `hive` command will run CLI service, as shown in "Starting Hive" section above.
 
 For example, to run [Hive Web Interface](https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface), run the service **hwi**. On Cloudera Quickstart VM, you might encounter this error:
 
@@ -66,7 +70,8 @@ ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
 15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
 15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar
 ```
-To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's war file. On Cloudera Quickstart VM, the WAR file property block should look like this:
+To fix that error, edit the config file `hive-site.xml` in the `config` folder (e.g., `/usr/lib/hive/conf/hive-site.xml` on Cloudera VM) to point to the right location of HWI's `war` file. 
+On Cloudera Quickstart VM, the `war` file property block should look like this:
 
 ```
 ...
@@ -184,7 +189,7 @@ This option lets you specify an initialization file with a list of commands for 
 #### Tips
 
 * To print column headers (disabled by default), set the hiveconf property `hive.cli.print.header` to true: `set hive.cli.print.header=true;`.
-* Hive does have command history, saved into a file `$HOME/.hivehistory`. Use the up and down arrow keys to scroll through previous commands.
+* Hive has a command history, saved into a file `$HOME/.hivehistory`. Use the up and down arrow keys to scroll through previous commands.
 * To run HDFS commands from within Hive CLI, drop the hdfs. For example:
 
 ```

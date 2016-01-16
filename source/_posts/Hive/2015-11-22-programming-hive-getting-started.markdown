@@ -15,7 +15,9 @@ Following up on [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/), this po
 
 ### Runtime Modes
 
-There are different runtime modes for Hadoop. Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using. However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.
+There are different runtime modes for Hadoop. 
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using. 
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.
 
 | Local Mode | Distributed Mode | Pseudodistributed Mode |
 | --- | --- | --- |
@@ -29,7 +31,10 @@ Pseudodistributed mode is mainly for developers working on personal machines or 
 
 ### Metastore Using JDBC
 
-Hive requires only one extra component that Hadoop does not already have; the metastore component. The metastore stores metadata such as table schema and partition information that you specify when you run commands such as create table x..., or alter table y..., etc. Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL. In `hive-site.xml` file, the metastore database configuration looks like this:
+Hive requires only one extra component that Hadoop does not already have; the metastore component. 
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as `create table x...`, or `alter table y...`, etc. 
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL. 
+In `hive-site.xml` file, the metastore database configuration looks like this:
 
 ``` xml
   <property>
@@ -50,5 +55,7 @@ Hive requires only one extra component that Hadoop does not already have; the me
   </property>
 ```
 
-The information stored in metastore is typically much smaller than the data stored in Hive. Therefore, you typically don’t need a powerful dedicated database server for the metastore. However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.
+The information stored in metastore is typically much smaller than the data stored in Hive. 
+Therefore, you typically don’t need a powerful dedicated database server for the metastore. 
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.
 

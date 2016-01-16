@@ -38,11 +38,11 @@ NOTE: Not metioned in the **Programming Hive** book, but the types `DECIMAL` and
 Besides primitive data types, Hive supports the following collection data types:
 
 - STRUCT: Analogous to a C `struct` or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
-    - Example: Declaration `struct<name:string,id:int>`. Literal `struct('John',1)`.
+    - Example: Declaration -> `struct<name:string,id:int>`. Literal -> `struct('John',1)`.
 - MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons['John'].
-    - Example: Declaration `map<string,int>`. Literal `map('John',1)`.
+    - Example: Declaration -> `map<string,int>`. Literal -> `map('John',1)`.
 - ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
-    - Example: Declaration `array<string>`. Literal `array('John','Peter')`.
+    - Example: Declaration -> `array<string>`. Literal -> `array('John','Peter')`.
 
 Relational databases don't usually support such collection types because they tend to break **normal form**. In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terarbytes).
 
