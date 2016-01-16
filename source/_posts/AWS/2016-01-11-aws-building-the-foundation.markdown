@@ -3,7 +3,7 @@ layout: post
 title: "AWS: Overview of Services"
 date: 2016-01-14 18:36:45 -0800
 comments: true
-published: false
+published: true
 categories: 
 - AWS
 ---
@@ -15,8 +15,8 @@ Personally, I am initially overwhelmed by the number of services offered as well
 This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:
 
 * AWS Infrastructure: Physical data centers and physical network connections.
-* Foundation Services: Infrastructures as Services. 
-* Platform Services: Platform as Services.
+* Foundation Services: Infrastructure Services (IaaS). 
+* Platform Services: Platform Services (PaaS).
 
 ### AWS Global Infrastructure
 
@@ -42,20 +42,15 @@ S3 stores your data in multiple availability zones within your region of choice.
 
 ### Foundation Services
 
-In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "(*Equivalent*: technology name)" string next to each service name. 
+In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "Use it like" column next to "AWS name" column.
 Note that they are just analogies, purely for illustration purposes. Some are not exactly equivalent since some of these AWS can work closely with each other.
+The official service names are in bold (e.g., EC2 and S3), while their respective long names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
 
-"To implement sophisticated solutions, you can integrate DynamoDB with other services as follows:
-•	Object index: Integrate DynamoDB with Amazon S3 to maintain an index of objects in your S3 bucket.
-•	Triggers: Integrate DynamoDB with AWS Lambda to automatically execute a custom function when item-level changes occur. For example, you can use this functionality to send a notification or to update an aggregate table every time a change occurs.
-•	Search: Integrate DynamoDB with Amazon Elasticsearch Service to enable free- text search of DynamoDB content. You can also integrate with Amazon CloudSearch to search DynamoDB content.
-•	Monitoring: Integrate DynamoDB with Amazon CloudWatch to view throughput and latency and send alarms when there is a sudden surge in usage.
-•	Fine-grained access control: Integrate DynamoDB with AWS Identity and Access Management (IAM) to grant access to DynamoDB resources and API operations."
- (AWS 110)
-
-AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
-
-
+The grouping of Amazon Web Services as follows is roughly for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
+For example, EC2 instances are usually in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
+In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets. 
+This Amazon DynamoDB have some database "triggers" implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
+These examples show that how these AWS offerings can work closely together in practice.
 
 #### Compute
 
@@ -64,14 +59,10 @@ AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
 | **Amazon EC2** <br>(Elastic Compute Cloud) | Application server | Remote, virtual server instances. |
 | **Amazon ELB** <br>(Elastic Load Balancing) |  | Load balancing.|
 | **AWS Lambda** |  | Like a cluster of one node.|
+| **Amazon EC2 <br>Container Service** | | Deployment Service |
+| **Auto Scaling** | | |
 
 <br>
-
-* **Amazon EC2 (Elastic Compute Cloud)** (*Equivalent*: Application server): Remote, virtual server instances.
-* **Amazon ELB (Elastic Load Balancing)**
-* **AWS Lambda**
-* **Amazon EC2 Container Service**
-* **Auto Scaling**
 
 More on EC2:
 
