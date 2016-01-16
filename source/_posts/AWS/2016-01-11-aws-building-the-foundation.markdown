@@ -15,42 +15,38 @@ Personally, I am initially overwhelmed by the number of services offered as well
 This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:
 
 * AWS Infrastructure: Physical data centers and physical network connections.
-* Foundation Services: Infrastructure Services (IaaS). 
-* Platform Services: Platform Services (PaaS).
+* Infrastructure Services (IaaS). 
+* Platform Services (PaaS).
 
 ### AWS Global Infrastructure
 
+AWS are available in many locations world-wide. These locations are divided into [regions and Availability Zones](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). 
+As of January 2016, there are 11 regions, each **region** contains two or more Availability Zones. 
+Your resources, such as EC2 instances, reside in the region of your choice.
+AWS regions are isolated from each other and you usually cannot access resources in another region. 
+Furthermore, some newer services may be available in some regions while not in others.
 
-http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
+Each **Availability Zone** (AZ) is basically a separate physical data center, and provides low latency connectivity to all other AZs in the same region. 
+Although you cannot access resources in another region, but you can seamlessly manage resources in different AZs within the same region. 
+It is recommended that you provision your resources across multiple AZs to achieve redundancy. When a single AZ has a problem, your resources will be still available in other AZs. 
+For example, S3 stores your data in multiple AZs within your region of choice.
 
-11 Regions: Each region has at least 2 AZs. Regions are separate from each other: e.g., you cannot access China or Government regions without special permissions.
+**Edge locations** serve requests for CloudFront and Route 53 services. CloudFront is a content delivery network 
+(CDN), while Route 53 is a DNS service. 
+Requests going to either one of these services will be automatically routed to the nearest edge location (out of 53 available edge locations, as of Jan 2016). This allows for low latency no matter where the end user is located.
 
-53 Edge locations: for CloudFront and Route 53 services.
+### Infrastructure Services
 
-Availability Zones: Physical data center.
-
-https://forums.aws.amazon.com/thread.jspa?threadID=91845
-
-An AWS region contains two or more availability zones. Each zone is basically a separate data center, and provides low latency connectivity to all other zones in the same region. Your resources, such as EC2 instances, reside in the region of your choice. The AWS regions are isolated from each other, but you can seamlessly manage resources in different availability zones within the same region.
-
-It is recommended that you provision your resources across multiple Availability Zones and get redundancy. If a single AZ has a problem, your resources and assets in other AZs will not be affected.
-
-Edge locations serve requests for CloudFront and Route 53. CloudFront is a content delivery network 
-(CDN), while Route 53 is a DNS service. Requests going to either one of these services will be routed to the nearest edge location automatically. This allows for low latency no matter where the end user is located.
-
-S3 stores your data in multiple availability zones within your region of choice.
-
-### Foundation Services
-
+AWS offerings are divided into two large groups: Infrastructure and Platform, which are further divided into different categories. 
 In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "Use it like" column next to "AWS name" column.
 Note that they are just analogies, purely for illustration purposes. Some are not exactly equivalent since some of these AWS can work closely with each other.
-The official service names are in bold (e.g., EC2 and S3), while their respective long names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
+The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
 
 The grouping of Amazon Web Services as follows is roughly for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
 For example, EC2 instances are usually in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
 In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets. 
 This Amazon DynamoDB have some database "triggers" implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
-These examples show that how these AWS offerings can work closely together in practice.
+These examples show that how these AWS offerings can be inter-dependent and inter-connected in practice.
 
 #### Compute
 
