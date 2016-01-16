@@ -52,92 +52,116 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **Amazon EC2** <br>(Elastic Compute Cloud) | Application server | Remote, virtual server instances. |
-| **Amazon ELB** <br>(Elastic Load Balancing) |  | Load balancing.|
+| **Amazon EC2** <br/>(Elastic Compute Cloud) | Application server | Remote, virtual server instances. <br/>[What is EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) <br/>[Instance types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) <br/>[Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) <br/>[Key Pairs](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) <br/>[EC2 and VPC](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html) <br/>[AMI](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instances-and-amis.html)
+| **Amazon ELB** <br/>(Elastic Load Balancing) |  | Incoming traffic load balancing. <br/>[ELB](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html) <br/>[ELB Terms and Concepts](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html)|
 | **AWS Lambda** |  | Like a cluster of one node.|
-| **Amazon EC2 <br>Container Service** | | Deployment Service |
-| **Auto Scaling** | | |
+| **Amazon EC2 <br/>Container Service** | | Deployment Service |
+| **Auto Scaling** | | Scaling <br/>[Auto Scaling Group](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/how-as-works.html)|
 
-<br>
-
-More on EC2:
-
-* [What is EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html)
-* [Instance types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
-* [Tags](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
-* [Key Pairs](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
-* [EC2 and VPC](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html)
-* [AMI](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instances-and-amis.html)
-* [ELB](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html)
-* [ELB Terms and Concepts](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html)
-* [Auto Scaling Group](http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/how-as-works.html)
+<br/>
 
 #### Networking
 
-* [**VPC**](http://aws.amazon.com/vpc/) (*Equivalent*: VLAN): Virtual Private Cloud, virtual networking environment. Interaction with EC2 instances as if you are in the same existing network. You can create private subnets and VPN tunnels between your home network and your AWS VPC.
-* **Amazon Route 53** (*Equivalent*: DNS server): DNS service.
-* **AWS Direct Connect**
-* **Amazon CloudFront** (*Equivalent*: CDN): CloudFront is a content delivery service, working like a cache for frequently accessed web pages or images to reduce latency.
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| [**VPC**](http://aws.amazon.com/vpc/) <br>(Virtual Private Cloud) | VLAN | Virtual networking environment. <br/>Interaction with EC2 instances as if you are in the same existing network. |
+| **Amazon Route 53** | DNS server | DNS service. |
+| **AWS Direct Connect** | | |
+| **Amazon CloudFront** | CDN | Content delivery service. <br/>Working like a cache for frequently accessed web pages or images to reduce latency. |
 
+<br/>
 #### Storage
+
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **Amazon EBS** | | |
+| **Amazon S3** | (*Equivalent*: FTP server) | |
+| **Glacier** | | |
+| **Elastic File System** | | |
+
+<br/>
 
 * **Amazon EBS**
 * **Amazon S3** (*Equivalent*: FTP server):
 * **Elastic File System** allows you to modify to the block level. EBS does not allow that. EBS cannot be connected to multiple EC2 instances. One Elastic File System instance can be connected to multiple EC2 instances.
 * **Glacier**: different from S3: in S3, files are frequently accessed. Glacier is a cold storage for infrequently accessed files, for archiving. It takes much longer to access Glacier files than S3.It is possible and actually recommended to bundle many files/objects into one archive before storing to Glacier.
 
-``` plain http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3
+http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3
+
 EBS means you need to manage a volume + machines to attach it to. You need to add space as it's filling up and perform backups (not saying you shouldn't back up your S3 data, just that it's not as critical).
 
 It also makes it harder to scale: when you want to add additional machines, you either need to pull off the images to a separate machine or clone the images across all. This also means you're adding a bottleneck: you'll have to manage your own upload process that will either upload to all machines or have a single machine managing it.
-```
 
 S3 is mostly recommended for static files: like a FTP service. You might want to use EBS if you have a private application that requires private read/write access to some storage.
 
 #### Administration & Security
 
-* [**AWS IAM**](http://aws.amazon.com/iam/): Manage users, keys, and certificates. You can set up additional users and new AWS keys, modify policies. 
-  * Follow this [Best Practices](http://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
-* **CloudWatch**: Monitoring metrics and performance.
-* **CloudTrail**: Logging calls to services.
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| [**AWS IAM**](http://aws.amazon.com/iam/)| | Manage users, keys, and certificates. <br/>You can set up additional users and new AWS keys, modify policies. <br/>Follow [Best Practices](http://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)|
+| **CloudWatch** | | Monitoring metrics and performance. |
+| **CloudTrail** | | Logging calls to services. |
+
+<br/>
 
 #### Applications
 
-* **WorkSpaces**
-* **WorkDocs**
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **WorkSpaces** | VirtualBox <br/>Remote Desktop | Desktop as a Service. <br/> Virtual desktop service with installed common applications. |
+| **WorkDocs** | | |
+
+<br/>
 
 ### Platform Services
 
 #### Databases
 
-* [**RDS**](somelinke) (*Equivalent*: MySQL, Oracle, any relational database): 
-* [**ElastiCache**](https://aws.amazon.com/elasticache/) (*Equivalent*: Memcached):
-  * You pay more for better performance. It can imporve performance of web applications by allowing you to retrieve information from memory-based cache nodes instead of relying entirely on slower disk-based databases. It supports Memcached and Redis caching engine.
-* **DynamoDB** (*Equivalent*: MongoDB): NoSQL database service.
-* **Redshift** (*Equivalent*: OLAP system): data warehouse service.
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| [**RDS**](somelinke) | (*Equivalent*: MySQL, Oracle, any relational database) | |
+| [**ElastiCache**](https://aws.amazon.com/elasticache/)| (*Equivalent*: Memcached) | Allow retrieving information from memory-based cache nodes instead of slower disk-based databases. <br/> It supports Memcached and Redis caching engine. |
+| **DynamoDB** | (*Equivalent*: MongoDB) | NoSQL database service |
+| **Redshift** | (*Equivalent*: OLAP system) | data warehouse service |
+
+<br/>
 
 #### Analytics
 
-* **Kinesis**
-* **EMR**
-* **Data Pipeline**
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **Kinesis** | | |
+| **EMR** | | |
+| **Data Pipeline** | | |
+
+<br/>
 
 #### App Services
 
-* **Cloud Search**
-* **SES**
-* **SWF**
-* **Elastic Transcoder**
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **Cloud Search** | | |
+| **SES** | | |
+| **SWF** | | |
+| **Elastic Transcoder** | | |
+
+<br/>
 
 #### Deployment & Management
 
-* **Code Commit** (*Equivalent*: Git, source control)
-* **Code Deploy**
-* **CloudFormation** (*Equivalent*: Chef)
-* **Elastic Beanstalk**
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **Code Commit** | Git | |
+| **Code Deploy** | | |
+| **CloudFormation** | Chef | Infrastructure as Code. <br/>Provisioning using source-controlled codes.|
+| **Elastic Beanstalk** | | |
+
+<br/>
 
 #### Mobile Services
 
-* **SNS**: notifications
-* **Cognito**: mobile authentication and data syncing.
-* **Mobile Analytics**
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **SNS** | | notifications |
+| **Cognito** | | mobile authentication and data syncing |
+| **Mobile Analytics** | | |
