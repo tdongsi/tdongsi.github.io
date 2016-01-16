@@ -1,8 +1,9 @@
 ---
 layout: post
 title: "AWS: Developing with Amazon DynamoDB"
-date: 2016-01-13 10:38:29 -0800
+date: 2016-01-15 10:38:29 -0800
 comments: true
+published: false
 categories:
 - AWS 
 - Database

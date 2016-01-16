@@ -1,9 +1,9 @@
 ---
 layout: post
 title: "AWS: Overview of Services"
-date: 2016-01-11 18:36:45 -0800
+date: 2016-01-14 18:36:45 -0800
 comments: true
-published: true
+published: false
 categories: 
 - AWS
 ---
@@ -58,6 +58,14 @@ AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
 
 
 #### Compute
+
+| AWS name | Use it like | Notes |
+| --- | --- | --- |
+| **Amazon EC2** <br>(Elastic Compute Cloud) | Application server | Remote, virtual server instances. |
+| **Amazon ELB** <br>(Elastic Load Balancing) |  | Load balancing.|
+| **AWS Lambda** |  | Like a cluster of one node.|
+
+<br>
 
 * **Amazon EC2 (Elastic Compute Cloud)** (*Equivalent*: Application server): Remote, virtual server instances.
 * **Amazon ELB (Elastic Load Balancing)**
