@@ -97,7 +97,6 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use
 
 
-
 #### Administration & Security
 
 | AWS name | Use it like | Notes |

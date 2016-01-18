@@ -6,6 +6,8 @@ comments: true
 categories: 
 - AWS
 - MacOSX
+- Java
+- Python
 ---
 
 First, you need to set up your AWS credentials on your Mac by creating the following files at the following specific locations:
@@ -17,7 +19,8 @@ MTVL1288aeea2-82:~ cdongsi$ touch ~/.aws/config
 ```
 
 In Windows, the locations of those files will be `C:\Users\USERNAME\.aws\credentials` and `C:\Users\USERNAME\.aws\config`, respectively.
-You *must* fill in your AWS access credentials (Access Key ID and Secret Access Key) into the file `credentials`. Optionally, you can set the default region in the `config` file. The content of the files will look like the following: 
+You *must* fill in your AWS access credentials (Access Key ID and Secret Access Key) into the file `credentials`. Optionally, you can set the default region in the `config` file. 
+The content of the files will look like the following: 
 
 ``` plain
 MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/credentials
@@ -29,6 +32,8 @@ MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/config
 [default]
 region=us-west-2
 ```
+
+### HelloAws with Java
 
 Now, you can install AWS Toolkit for Eclipse from [this link](http://aws.amazon.com/eclipse/). Follow the instruction in that page to install AWS Toolkit.
 
@@ -71,4 +76,53 @@ You have access to 4 Availability Zones.
 You have 0 Amazon EC2 instance(s) running.
 You have 0 Amazon SimpleDB domain(s)containing a total of 0 items.
 You have 0 Amazon S3 bucket(s), containing 0 objects with a total size of 0 bytes.
+```
+
+### HelloAws with Python
+
+To install [AWS SDK for Python](http://aws.amazon.com/sdk-for-python/), run the following the command as instructed in that page:
+
+```
+pip install boto3
+
+```
+
+In my case, I used a slightly different command to avoid permission errors on Mac OSX:
+
+```
+pip install boto3 --user
+```
+
+I use PyCharm/IntelliJ as IDE for Python and, apparently, there is no Python sample for it. In PyCharm, you can use the following Python script as your `HelloAws` program:
+
+``` python
+import boto3
+from botocore.exceptions import ClientError,NoCredentialsError
+import sys
+
+def getS3BucketNumber():
+
+    try:
+        s3 = boto3.resource('s3')
+        buckets = []
+    except NoCredentialsError:
+        print "No AWS Credentials"
+        sys.exit()
+
+    try:
+        bucket_num = len(list(s3.buckets.all()))
+        print "Number of buckets: " + str(bucket_num)
+        return bucket_num
+    except ClientError as ex:
+        print(ex)
+        return 0
+
+if __name__ == '__main__':
+    getS3BucketNumber()
+```
+
+Note that it is based on the [Quick start on Github](https://github.com/boto/boto3#quick-start). In PyCharm, running the above Python should print the following output:
+
+``` plain
+Number of buckets: 0
 ```

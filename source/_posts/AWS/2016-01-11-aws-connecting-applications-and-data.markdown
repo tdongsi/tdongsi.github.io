@@ -66,10 +66,10 @@ http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
 
 #### Example
 
+``` plain
 arn:aws:sns:us-west-2:558892968354:EmailSNSTopic
-
 arn:aws:sns:us-west-2:558892968354:OrderSNSTopic
-
+```
 
 ```
 You have subscribed your_email@work.com to the topic:
