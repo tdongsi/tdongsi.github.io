@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "AWS: Developing with Amazon S3"
-date: 2016-01-12 17:13:28 -0800
+date: 2016-01-18 17:13:28 -0800
 comments: true
 published: false
 categories: 
@@ -12,36 +12,28 @@ categories:
 
 http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
 
-### Lab 1
+### S3 Buckets and Objects
 
-``` bash
-MTVL1288aeea2-82:~ cdongsi$ chmod 400 ~/Downloads/qwikLABS-L1014-387088.pem
-MTVL1288aeea2-82:~ cdongsi$ ssh -i ~/Downloads/qwikLABS-L1014-387088.pem ec2-user@52.33.62.25
-The authenticity of host '52.33.62.25 (52.33.62.25)' can't be established.
-RSA key fingerprint is 59:40:98:24:8f:96:b4:13:95:c4:3d:f6:e0:87:be:2b.
-Are you sure you want to continue connecting (yes/no)? yes
-Warning: Permanently added '52.33.62.25' (RSA) to the list of known hosts.
+Files of any kind such as text, video, photo are stored as objects in S3 buckets. 
+The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
+A bucket can be *versioning-enabled*, it will store every version of every object in the bucket.
 
-       __|  __|_  )
-       _|  (     /   Amazon Linux AMI
-      ___|\___|___|
+Bucket naming tips:
 
-https://aws.amazon.com/amazon-linux-ami/2015.09-release-notes/
-11 package(s) needed for security, out of 27 available
-Run "sudo yum update" to apply all updates.
+* To ensure uniqueness, you might prefix the bucket name with the name of your organization.
+* Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.
 
+Each object in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and `!-_.*'/` are allowed in a key name.
 
-Credentials Profile file
-[ec2-user@ip-10-0-10-236 ~]$ cat ~/.aws/credentials
-[default]
-aws_access_key_id=ASYX4NadfasdCSUVOQlkjsldkjfa
-aws_secret_access_key=RSPh45sfadsf0yVYBv+xiTasdfas8n5cyZufUrptFaZ
+Object key naming tips:
 
-Default Region
-[ec2-user@ip-10-0-10-236 ~]$ cat ~/.aws/config
-[default]
-region = us-west-2
-```
+* Use `/` or other delimiters to logically group your objects. For example, `prog/java/arrays.html`. There is no hierarchy of objects or nested buckets in S3.
+
+### Operations on Objects
+
+PUT: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.
+
+GET: Retrieve a whole object or part of an object.
 
 ### Lab 2
 
