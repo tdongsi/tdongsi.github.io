@@ -19,7 +19,7 @@ Continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [po
 
 ### Partitioned Managed Tables
 
-In general, paritioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.
+In general, partitioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.
 
 In "Programming Hive", the authors present a hypothetical problem where one will regularly query some `employees` table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.
 

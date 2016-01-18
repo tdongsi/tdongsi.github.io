@@ -29,7 +29,9 @@ Note that from time to time, you could run into Kerberos GSI failure because the
 kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET
 ```
 
-You can also run a single SQL command from command line with `-c` option or, alternatively, a SQL script file with multiple commands with `-f` option. These options can be very useful to automate in shell/python scripts. Note that you can also parameterize your sripts by using `-v` option to assign variables inside your SQL scripts. 
+You can also run a single SQL command from command line with `-c` option or, alternatively, a SQL script file with multiple commands with `-f` option. 
+These options can be very useful to automate in shell/python scripts. 
+Note that you can also parameterize your scripts by using `-v` option to assign variables inside your SQL scripts. 
 
 ### Vsql meta commands
 

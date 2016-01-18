@@ -133,17 +133,14 @@ Note that Boto3 SDK for Python support ["Resource API"](http://boto3.readthedocs
 As opposed to "Service Client API" like AWS SDK for Java, Resource API provides a higher level interface to the service and it is easier to understand and simpler to use.
 
 For example, the generated example for AWS's Java SDK uses a Service Client API. It uses a class AmazonS3Client that controls the requests you make to the S3 service. 
-Meahwhile, the Boto3 SDK for Python has classes representing the conceptual resources (e.g., s3.Bucket) that you interact with when using the S3 service. 
+Meanwhile, the Boto3 SDK for Python has classes representing the conceptual resources (e.g., s3.Bucket) that you interact with when using the S3 service. 
 This is a higher level abstraction compared to a client class like AmazonS3Client making low-level calls to the service API.
 
 ### External Links
 
-Python
-
-* [Developer Guide](https://boto3.readthedocs.org/en/latest/guide/index.html)
-* [API Documentation](https://boto3.readthedocs.org/en/latest/reference/core/index.html)
-
-Java
-
-* [Developer Guide](http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/welcome.html)
-* [API Documentation](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html)
+* Python
+  * [Developer Guide](https://boto3.readthedocs.org/en/latest/guide/index.html)
+  * [API Documentation](https://boto3.readthedocs.org/en/latest/reference/core/index.html)
+* Java
+  * [Developer Guide](http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/welcome.html)
+  * [API Documentation](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html)

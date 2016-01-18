@@ -24,7 +24,7 @@ The following primitive data types are supported:
 - BOOLEAN
 - FLOAT
 - DOUBLE
-- STRING: Single or doublbe quotes can be used for literals.
+- STRING: Single or double quotes can be used for literals.
 - TIMESTAMP: Integer, float, or string.
     - Integer: For seconds from Unix epoch.
     - Float: Seconds from Unix epoch and nanoseconds.
@@ -33,7 +33,8 @@ The following primitive data types are supported:
 
 As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.
 
-NOTE: Not metioned in the **Programming Hive** book, but the types `DECIMAL` and `DATE` are introduced since Hive 0.13.0. In addition, the book claimed "Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects" but `VARCHAR` type, introduced in Hive 0.12.0, does exactly that.
+NOTE: Not mentioned in the **Programming Hive** book, but the types `DECIMAL` and `DATE` are introduced since Hive 0.13.0. 
+In addition, the book claimed "Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects" but `VARCHAR` type, introduced in Hive 0.12.0, does exactly that.
 
 Besides primitive data types, Hive supports the following collection data types:
 
@@ -44,7 +45,8 @@ Besides primitive data types, Hive supports the following collection data types:
 - ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
     - Example: Declaration -> `array<string>`. Literal -> `array('John','Peter')`.
 
-Relational databases don't usually support such collection types because they tend to break **normal form**. In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terarbytes).
+Relational databases don't usually support such collection types because they tend to break **normal form**. 
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).
 
 ### Text File Formats
 

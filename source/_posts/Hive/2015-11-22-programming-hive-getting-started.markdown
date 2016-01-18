@@ -21,7 +21,7 @@ However, even in distributed mode, Hive can decide on a per-query basis if it ca
 
 | Local Mode | Distributed Mode | Pseudodistributed Mode |
 | --- | --- | --- |
-| Filesystem references use local filesystem. | Filesystem referenes use HDFS. | Similar to distributed mode. |
+| Filesystem references use local filesystem. | Filesystem references use HDFS. | Similar to distributed mode. |
 | MapReduce tasks in same process. |  MapReduce tasks in separate <br>processes, managed by JobTracker service. | Similar to distributed mode.|
 | Default mode. | Usually configured for server clusters. | Like a cluster of one node.|
 

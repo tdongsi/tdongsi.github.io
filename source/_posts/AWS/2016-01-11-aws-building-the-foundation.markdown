@@ -10,7 +10,7 @@ categories:
 
 Amazon Web Services (AWS) is a collection of web services that deliver computing resources (hardware and software) to end-users over the Internet. 
 Not all AWS are equal but for AWS beginners, we usually don't know which are more important and which are secondary, supporting services. 
-Personally, I am initially overwhelmed by the number of services offered as well as large amount of documenation associated with each service.
+Personally, I am initially overwhelmed by the number of services offered as well as large amount of documentation associated with each service.
 
 This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:
 
@@ -74,10 +74,10 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| [**Amazon S3**](http://aws.amazon.com/s3/) <br/>(Simple Storage Service) | FTP server. | Object store. Not a file system like EBS. <br/> More on [S3 vs EBS](http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3).|
+| [**Amazon S3**](http://aws.amazon.com/s3/) <br/>(Simple Storage Service) | FTP server. | Object store. Not a file system like EBS. <br/> More on [S3 vs. EBS](http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3).|
 | **Amazon EBS** <br/>(Elastic Block Storage) | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. |
 | [**Glacier**](http://aws.amazon.com/glacier/) | [Tape backup](https://en.wikipedia.org/wiki/Memory_hierarchy). | Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.|
-| **Elastic File System** | File system. | Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on [EFS vs EBS vs S3](http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use).|
+| **Elastic File System** | File system. | Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on [EFS vs. EBS vs. S3](http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use).|
 
 <br/>
 

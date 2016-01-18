@@ -35,7 +35,7 @@ select table_schema, table_name from tables
 where table_schema = 'some_schema'
 ```
 
-Another useful system table in `v_catalog` shema is `USER_FUNCTIONS` which lists all user-defined functions and their function signatures in the database. 
+Another useful system table in `v_catalog` schema is `USER_FUNCTIONS` which lists all user-defined functions and their function signatures in the database. 
 
 ### Find all the empty (truncated) tables
 

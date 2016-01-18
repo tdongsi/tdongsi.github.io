@@ -170,9 +170,12 @@ sid                 	int                 	from deserializer
 Time taken: 0.315 seconds, Fetched: 1 row(s)
 ```
 
-### Managed tables vs External tables
+### Managed tables vs. External tables
 
-`CREATE TABLE` commands (without `EXTERNAL`) create *managed tables* or *internal tables*. It is internal/managed because the life cycle of their data is managed by Hive. By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). When we drop a mananged table with `DROP TABLE` command, the data in the table will be deleted.
+`CREATE TABLE` commands (without `EXTERNAL`) create *managed tables* or *internal tables*. 
+It is internal/managed because the life cycle of their data is managed by Hive. 
+By default, Hive stores data for these tables in a subdirectory under the directory defined by `hive.metastore.warehouse.dir`, as illustrated below (see [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/) for `SET` and `dfs` commands). 
+When we drop a managed table with `DROP TABLE` command, the data in the table will be deleted.
 
 ```
 hive> SET hive.metastore.warehouse.dir;
@@ -186,7 +189,12 @@ drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/colleg
 
 As mentioned in [Schema on Read](/blog/2015/11/26/programming-hive-data-types/), Hive does not have control over the underlying storage, even for *managed table*: for example, you can totally use another `dfs` command in the last example to modify files on HDFS.
 
-Managed tables are not convenient for sharing data with other tools. Instead, *external tables* can be defined to point to that data, but don't take ownership of data. In the `CREATE EXTERNAL TABLE` command example at the beginning of this post, the data files are in HDFS at `/data/stocks` and the external table will be created and populated by reading all comma-delimited data files in that location. The `LOCATION` clause is required for external table, to tell Hive where it is located. Dropping an external table does not delete the data since Hive does not *own* the data. However, the *metadata* for that table will be deleted.
+Managed tables are not convenient for sharing data with other tools. 
+Instead, *external tables* can be defined to point to that data, but don't take ownership of data. 
+In the `CREATE EXTERNAL TABLE` command example at the beginning of this post, the data files are in HDFS at `/data/stocks` and the external table will be created and populated by reading all comma-delimited data files in that location. 
+The `LOCATION` clause is required for external table, to tell Hive where it is located. 
+Dropping an external table does not delete the data since Hive does not *own* the data. 
+However, the *metadata* for that table will be deleted.
 
 To tell whether if a table is managed or external, use the command `DESCRIBE FORMATTED`. In the example in the last section, we see that the table `college.student` is a managed table because of its output:
 
