@@ -1,46 +1,44 @@
 ---
 layout: post
 title: "AWS: Connecting Applications and Data"
-date: 2016-01-11 18:37:02 -0800
+date: 2016-01-15 18:37:02 -0800
 comments: true
-published: false
+published: true
 categories: 
 - AWS
 ---
 
-Amazon Kinesis Streams.
+### [Amazon Resource Name](http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 
+The Amazon Resource Name (ARN) is used to uniquely identify an AWS resource. You will need to use ARNs to connect your services and data in AWS.
 
+Format:
 
-### Amazon Resource Name
+* arn:partition:service:region:account-id:resource
+* arn:partition:service:region:account-id:resourcetype/resource
+* arn:partition:service:region:account-id:resourcetype:resource
 
-Some services are global, such as S3. Those services do not require a region specified.
+Examples:
 
-"The components of the ARN are: •	Partition: The partition that the resource is in. For standard AWS regions, the
-partition is aws. If you have resources in other partitions, the partition is aws- partitionname. For example, the partition for resources in the China (Beijing) region is aws-cn.
-•	Service: The service namespace that identifies the AWS product (for example, s3, dynamodb).
-•	Region: The region that the resource resides in (for example, us-west-2). Note that the ARNs for some resources do not require a region, so this component might be omitted.
-•	Account: The ID of the AWS account that owns the resource, without the hyphens, for example, 123456789012. Note that the ARNs for some resources don't require an account number, so this component might be omitted.
-•	Resource, resourcetype:resource, or resourcetype/resource: The content of this part of the ARN varies by service. It often includes an indicator of the type of resource—for example, an Amazon DynamoDB table or Amazon S3 bucket — followed by a slash (/) or a colon (:), followed by the resource name itself (for example, table/accounts, survey_bucket/*) . Some services allows paths for resource names."
- (AWS 27)
+* Amazon DynamoDB table: `arn:aws:dynamodb:us-west-2:558892968354:table/accounts`
+* Amazon S3 bucket: `arn:aws:s3:::survey_bucket/*`
+* Amazon SNS topic: `arn:aws:sns:us-west-2:558892968354:EmailSNSTopic`
 
-AWS. Developing on AWS 2.0 (EN): Student Guide. AWS/Gilmore. VitalBook file.
+The components of the ARN are:
 
-http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
+* Partition: The partition that the resource is in. For standard AWS regions, the partition is `aws`. If you have resources in other partitions, the partition is `aws-[partitionname]`. For example, the partition for resources in the China region is `aws-cn`.
+* Service: The service namespace that identifies the AWS product (for example, `s3`, `sns`).
+* Region: The region that the resource resides in (for example, `us-west-2`). Some services are global, such as S3. Those services do not require a region specified.
+* Account: The ID of the AWS account that owns the resource, without the hyphens, for example, `558892968354`. Note that the ARNs for some resources don't require an account number.
+* `Resource`, `resourcetype:resource`, or `resourcetype/resource`: The content of this part of the ARN varies by service, as shown in examples above. Some services allows paths for resource names.
 
+### Services for connecting applications and data
 
-Example
-
-```
-arn:aws:sns:us-west-2:558892968354:EmailSNSTopic
-arn:aws:sns:us-west-2:558892968354:OrderSNSTopic
-```
-
-### SQS
+#### SQS
 
 http://en.clouddesignpattern.org/index.php/CDP:Queuing_Chain_Pattern
 
-### Kinesis
+#### Kinesis
 
 "You can use the Amazon Kinesis Streams API or the Amazon Kinesis Producer Library (KPL) to develop producers."
 
@@ -50,22 +48,23 @@ KCL: Kinesis Consumer Library
 
 Streams like a streaming map-reduce application.
 
-### SWF (Simple Workflow)
-
-#### Additional resources
+#### SWF (Simple Workflow)
 
 * https://www.youtube.com/watch?v=lBUQiek8Jqk
 
-### SQS
+#### SQS
 
 VisibilityTimeout is a soft locking mechanism.
 
-### SNS
+#### SNS
 
 Interesting example: Image Processing system.
 
+#### Lambda
 
-### Lab 5
+http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
+
+#### Example
 
 arn:aws:sns:us-west-2:558892968354:EmailSNSTopic
 
@@ -101,13 +100,9 @@ If you wish to stop receiving notifications from this topic, please click or vis
 https://sns.us-west-2.amazonaws.com/unsubscribe.html?SubscriptionArn={TopicARNcode}&Endpoint=myemail@gmail.com
 ```
 
-### Lambda
 
-http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
 
-### Wrap-up
 
-White papers.
 
 
 

@@ -43,7 +43,7 @@ Note that they are just analogies, purely for illustration purposes. Some are no
 The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
 
 The grouping of Amazon Web Services as follows is roughly for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
-For example, EC2 instances are usually in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
+For example, EC2 instances are usually deployed in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
 In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets. 
 This Amazon DynamoDB have some database "triggers" implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
 These examples show that how these AWS offerings can be inter-dependent and inter-connected in practice.
@@ -74,8 +74,8 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **Amazon EBS** | | |
-| **Amazon S3** | (*Equivalent*: FTP server) | |
+| **Amazon EBS** | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it |
+| **Amazon S3** | FTP server. | Object store. Not a file system like EBS. |
 | **Glacier** | | |
 | **Elastic File System** | | |
 
@@ -94,6 +94,10 @@ It also makes it harder to scale: when you want to add additional machines, you 
 
 S3 is mostly recommended for static files: like a FTP service. You might want to use EBS if you have a private application that requires private read/write access to some storage.
 
+http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use
+
+
+
 #### Administration & Security
 
 | AWS name | Use it like | Notes |
@@ -108,7 +112,7 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **WorkSpaces** | VirtualBox <br/>Remote Desktop | Desktop as a Service. <br/> Virtual desktop service with installed common applications. |
+| **WorkSpaces** | VirtualBox <br/>Remote Desktop | Desktop as a Service. <br/> Cloud-based desktop service with installed common applications. |
 | **WorkDocs** | | |
 
 <br/>
@@ -119,10 +123,10 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| [**RDS**](somelinke) | (*Equivalent*: MySQL, Oracle, any relational database) | |
-| [**ElastiCache**](https://aws.amazon.com/elasticache/)| (*Equivalent*: Memcached) | Allow retrieving information from memory-based cache nodes instead of slower disk-based databases. <br/> It supports Memcached and Redis caching engine. |
-| **DynamoDB** | (*Equivalent*: MongoDB) | NoSQL database service |
-| **Redshift** | (*Equivalent*: OLAP system) | data warehouse service |
+| [**RDS**](https://aws.amazon.com/rds/) | MySQL, PostgreSQL, etc. <br/>Relational databases. | Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.|
+| [**ElastiCache**](https://aws.amazon.com/elasticache/)| Memcached | For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. |
+| **DynamoDB** | MongoDB | NoSQL database service. |
+| **Redshift** | OLAP system | Data warehouse service. |
 
 <br/>
 
@@ -151,8 +155,8 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **Code Commit** | Git | |
-| **Code Deploy** | | |
+| **Code Commit** | Git | Source control service.|
+| **Code Deploy** | | Code deployment service. |
 | **CloudFormation** | Chef | Infrastructure as Code. <br/>Provisioning using source-controlled codes.|
 | **Elastic Beanstalk** | | |
 
@@ -162,6 +166,6 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **SNS** | | notifications |
-| **Cognito** | | mobile authentication and data syncing |
-| **Mobile Analytics** | | |
+| **SNS** | | Notifications. |
+| **Cognito** | | Mobile authentication and data syncing. |
+| **Mobile Analytics** | | Measure and analyze mobile application usage data. |
