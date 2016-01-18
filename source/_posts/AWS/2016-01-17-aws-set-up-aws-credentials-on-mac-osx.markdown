@@ -33,7 +33,7 @@ MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/config
 region=us-west-2
 ```
 
-### HelloAws with Java
+### HelloAws using Java
 
 Now, you can install AWS Toolkit for Eclipse from [this link](http://aws.amazon.com/eclipse/). Follow the instruction in that page to install AWS Toolkit.
 
@@ -78,7 +78,7 @@ You have 0 Amazon SimpleDB domain(s)containing a total of 0 items.
 You have 0 Amazon S3 bucket(s), containing 0 objects with a total size of 0 bytes.
 ```
 
-### HelloAws with Python
+### HelloAws using Python
 
 To install [AWS SDK for Python](http://aws.amazon.com/sdk-for-python/), run the following the command as instructed in that page:
 

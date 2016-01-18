@@ -1,9 +1,9 @@
 ---
 layout: post
 title: "AWS: Connecting Applications and Data"
-date: 2016-01-15 18:37:02 -0800
+date: 2016-01-19 18:37:02 -0800
 comments: true
-published: true
+published: false
 categories: 
 - AWS
 ---

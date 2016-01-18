@@ -39,10 +39,10 @@ Requests going to either one of these services will be automatically routed to t
 
 AWS offerings are divided into two large groups: Infrastructure and Platform, which are further divided into different categories. 
 In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "Use it like" column next to "AWS name" column.
-Note that they are just analogies, purely for illustration purposes. Some are not exactly equivalent since some of these AWS can work closely with each other.
+Note that they are just analogies, purely for illustration purposes.
 The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
 
-The grouping of Amazon Web Services as follows is roughly for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
+The grouping of Amazon Web Services as below is purely for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
 For example, EC2 instances are usually deployed in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
 In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets. 
 This Amazon DynamoDB have some database "triggers" implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
@@ -74,28 +74,20 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **Amazon EBS** | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it |
-| **Amazon S3** | FTP server. | Object store. Not a file system like EBS. |
-| **Glacier** | | |
-| **Elastic File System** | | |
+| **Amazon S3** | FTP server. | Object store. Not a file system like EBS. <br/> More on [S3 vs SBS](http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3).|
+| **Amazon EBS** | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. |
+| **Glacier** | [Tape backup](https://en.wikipedia.org/wiki/Memory_hierarchy). | Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.|
+| **Elastic File System** | File system. | Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on [EFS vs EBS vs S3](http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use).|
 
 <br/>
 
-* **Amazon EBS**
-* **Amazon S3** (*Equivalent*: FTP server):
-* **Elastic File System** allows you to modify to the block level. EBS does not allow that. EBS cannot be connected to multiple EC2 instances. One Elastic File System instance can be connected to multiple EC2 instances.
-* **Glacier**: different from S3: in S3, files are frequently accessed. Glacier is a cold storage for infrequently accessed files, for archiving. It takes much longer to access Glacier files than S3.It is possible and actually recommended to bundle many files/objects into one archive before storing to Glacier.
-
-http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3
-
+<!-- 
 EBS means you need to manage a volume + machines to attach it to. You need to add space as it's filling up and perform backups (not saying you shouldn't back up your S3 data, just that it's not as critical).
 
 It also makes it harder to scale: when you want to add additional machines, you either need to pull off the images to a separate machine or clone the images across all. This also means you're adding a bottleneck: you'll have to manage your own upload process that will either upload to all machines or have a single machine managing it.
 
 S3 is mostly recommended for static files: like a FTP service. You might want to use EBS if you have a private application that requires private read/write access to some storage.
-
-http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use
-
+-->
 
 #### Administration & Security
 
