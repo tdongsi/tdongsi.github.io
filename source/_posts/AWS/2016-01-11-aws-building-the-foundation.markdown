@@ -74,9 +74,9 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| **Amazon S3** | FTP server. | Object store. Not a file system like EBS. <br/> More on [S3 vs SBS](http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3).|
-| **Amazon EBS** | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. |
-| **Glacier** | [Tape backup](https://en.wikipedia.org/wiki/Memory_hierarchy). | Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.|
+| [**Amazon S3**](http://aws.amazon.com/s3/) <br/>(Simple Storage Service) | FTP server. | Object store. Not a file system like EBS. <br/> More on [S3 vs EBS](http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3).|
+| **Amazon EBS** <br/>(Elastic Block Storage) | Hard drive to EC2. | Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. |
+| [**Glacier**](http://aws.amazon.com/glacier/) | [Tape backup](https://en.wikipedia.org/wiki/Memory_hierarchy). | Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.|
 | **Elastic File System** | File system. | Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on [EFS vs EBS vs S3](http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use).|
 
 <br/>
@@ -114,10 +114,10 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
-| [**RDS**](https://aws.amazon.com/rds/) | MySQL, PostgreSQL, etc. <br/>Relational databases. | Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.|
+| [**RDS**](https://aws.amazon.com/rds/) <br/>(Relational Database Service) | MySQL, PostgreSQL, etc. <br/>Relational databases. | Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.|
 | [**ElastiCache**](https://aws.amazon.com/elasticache/)| Memcached | For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. |
-| **DynamoDB** | MongoDB | NoSQL database service. |
-| **Redshift** | OLAP system | Data warehouse service. |
+| [**DynamoDB**](https://aws.amazon.com/dynamodb/) | MongoDB | NoSQL database service. |
+| [**Redshift**](https://aws.amazon.com/redshift/) | OLAP system | Data warehouse service. |
 
 <br/>
 
