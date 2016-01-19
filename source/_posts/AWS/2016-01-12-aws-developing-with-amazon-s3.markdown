@@ -29,6 +29,7 @@ Bucket naming tips:
 Object key naming tips:
 
 * Use prefixes and `/` (or other delimiters) to logically group your objects. For example, `prog/java/arrays.html`. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
+  * However, the Amazon S3 console supports the [folder concept](http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html) for convenience and usability. Amazon S3 does this by using key name prefixes for objects.
 * For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See "Programming Considerations" section below.
 
 ### Operations on Objects
