@@ -10,6 +10,9 @@ categories:
 - Python
 ---
 
+Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data. 
+This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.
+
 ### S3 Buckets and Objects
 
 Files of any kind such as text, video, photo are stored as objects in S3 *buckets*. 
@@ -36,7 +39,7 @@ Basic operations on S3 objects and buckets are:
 * Get: Retrieve a whole object or part of an object.
 * [List Keys](http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html): List object keys by prefix and delimiter.
 * Delete: Delete one or more objects. 
-  * If versioning is not enabled, an object is permamently deleted by specifying its key. 
+  * If versioning is not enabled, an object is permanently deleted by specifying its key. 
   * If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.
   * If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a "404 Not Found" error by S3.
 * Restore: Restore an object archived on Amazon Glacier.
@@ -47,7 +50,7 @@ Advanced operations that you should know when situations arise.
 
 **Scenario 1**: You want to let users upload files to your buckets for some time duration. 
 **Solution 1**: You should never share your AWS credentials to let users upload files to your buckets. 
-Instead, generate a pre-signed URL with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time. 
+Instead, generate a **pre-signed URL** with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time. 
 You share this pre-signed URL to users who will use this to access your S3 buckets.
 
 **Scenario 2**: Encryption and strict data security is required.
@@ -65,12 +68,12 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
 ### Programming considerations
 
 * According to [this guideline](http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html), **avoid** using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object's metadata. See examples in the link for more information.
-* If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instad, handle [NoSuchBucket errors](http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html) when buckets do not exist.
+* If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle [NoSuchBucket errors](http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html) when buckets do not exist.
 * Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.
 * Cache bucket and key names if possible.
 * Set bucket region closest to latency-sensitive users.
 * Compress objects to reduce the size of data transferred and storage used.
-* Use an exponential backoff algorithm to retry after failed connection attempts. See [here](http://docs.aws.amazon.com/general/latest/gr/api-retries.html).
+* Use an exponential back-off algorithm to retry after failed connection attempts. See [here](http://docs.aws.amazon.com/general/latest/gr/api-retries.html).
 * Enable application logging. For example, [in Java](http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html).
 * Enable [server access logging](http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html).
 
