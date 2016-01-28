@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Set up three-node Vertica sandbox VMs on Mac"
-date: 2016-1-09 14:35:19 -0800
+date: 2016-1-29 14:35:19 -0800
 comments: true
 published: false
 categories: 
@@ -9,21 +9,16 @@ categories:
 - CentOS
 ---
 
-
-
-### Single-node VM versus three-node VM cluster
-
-I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, e.g., a corner case. 
+I have been using a **single-node** Vertica VM to run ETL tests for [sometime](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/).
 The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three nodes are the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
-Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder.
+Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the [previous blog post](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/).
 
-As my project moves to a new phase, the DDL scripts are disibuted into different folders. My original work-around for the problem `KSAFE 1` for single-node VM is becoming less practical. 
-In this blog post, I looked into setting up a Vertica cluster of **three** VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications. Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
+In this blog post, I looked into setting up a Vertica cluster of **three** VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications. 
+Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
 
 ## Installing new Vertica
 
-Download CentOS box from oxboxes.org. I used CentOS 6.
+Download CentOS box from [osboxes.org](http://www.osboxes.org/). I used CentOS 6.
 
 Make Network connection work for that CentOS box based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724). I added the following line to the end of my .vmx file:
 
@@ -67,43 +62,15 @@ SELinux appears to be enabled and not in permissive mode.
 
 1. https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm
 
-## Troubleshooting with older Vertica VM
+### Possibility of using older Vertica VM (CentOS 5)
 
-Download the Vertica VM from HP website.
+If you are like me and already downloaded the previous version of Vertica VM from HP website, you might consider cloning that VM and setting the clones using the steps above.
 
-In VMWare Fusion, create clone.
+Before going that route, here is some caution from my personal painful experience.
 
+* Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes without uninstalling and reinstalling Vertica. 
 
-```
-[dbadmin@vertica ~]$ /sbin/ip addr
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue 
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-    inet6 ::1/128 scope host 
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
-    link/ether 00:0c:29:2d:60:e7 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.5.133/24 brd 192.168.5.255 scope global eth0
-    inet6 fe80::20c:29ff:fe2d:60e7/64 scope link 
-       valid_lft forever preferred_lft forever
-```
-
-```
-[dbadmin@vertica ~]$ /sbin/ip addr
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue 
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-    inet6 ::1/128 scope host 
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
-    link/ether 00:0c:29:a6:98:5d brd ff:ff:ff:ff:ff:ff
-    inet 192.168.5.174/24 brd 192.168.5.255 scope global eth0
-    inet6 fe80::20c:29ff:fea6:985d/64 scope link 
-       valid_lft forever preferred_lft forever
-```
-
-
-```
+``` plain Error message when trying to expand
 [dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
 Vertica Analytic Database 7.1.1-0 Installation Tool
 
@@ -119,24 +86,15 @@ Installation FAILED with errors.
 Installation stopped before any changes were made.
 ```
 
-```
+The offical explaination from HP Vertica's documentation.
+
+{% blockquote %}
 If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.
-```
+{% endblockquote %}
 
+* Reinstalling latest version of Vertica on **CentOS 5** is NOT easy. CentOS 5 is offically dropped from support by HP Vertica.
 
-Uninstall vertica
-```
-[dbadmin@vertica myFile]$ rpm -e vertica-7.1.1-0
-error: can't create transaction lock on /var/lib/rpm/__db.000
-[dbadmin@vertica myFile]$ sudo !!
-sudo rpm -e vertica-7.1.1-0
-Shutting down vertica agent daemon
-Stopping vertica agent: vertica agent is already running, stopping...
-
-Deleting vertica autorestart support
-Deleting vertica agent support
-```
-
+You are forced to reinstall Vertica after encountering the error above. Then, you might encounter this error when trying to install the latest version of Vertica:
 
 ```
 ERROR with rpm_check_debug vs depsolve:
@@ -145,8 +103,6 @@ rpmlib(PayloadIsXz) is needed by vertica-7.2.1-0.x86_64
 Complete!
 ```
 
-`sudo yum -y update rpm`
+Running `sudo yum -y update rpm` does not work. CentOS 5 and CentOS 6 have wildly different versions of rpm (and rpmlib) and the CentOS 6 version has support for newer payload compression and a newer FileDigests version than the version of rpm (and rpmlib) on CentOS 5 can support.
 
-CentOS 5 and CentOS 6 have wildly different versions of rpm (and rpmlib) and the CentOS 6 version has support for newer payload compression and a newer FileDigests version than the version of rpm (and rpmlib) on CentOS 5 can support.
-
-`rpm -Uvh pathname`
+Since CentOS 5 is dropped from support by HP Vertica, you can expect this won't be resolved any time soon.
