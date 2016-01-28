@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="This process is simple and most people should know when developing a serious AWS application. Follow the following steps to enable MFA: Launch the &hellip;">
+  <meta name="description" content="Calendar types There are surprisingly many types of calendar. Regular Calendar: regular solar calendar date range as we know. Example: January 01, &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -74,6 +74,161 @@
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2016/01/27/python-post-1/">Mocking Current Date and Time in Python</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-01-27T17:36:53-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>27</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:36 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Calendar types</h3>
+
+<p>There are surprisingly many types of calendar.</p>
+
+<ol>
+<li><strong>Regular Calendar</strong>: regular solar calendar date range as we know.
+
+<ul>
+<li>Example: January 01, 2006 to December 31, 2006.</li>
+</ul>
+</li>
+<li><strong>Fiscal Calendar</strong>: a company’s selected calendar date range for required SEC financial statement filing.
+
+<ul>
+<li>Example: August 01, 2005 to July 31, 2006 is my company&rsquo;s fiscal year 2006.</li>
+</ul>
+</li>
+<li><strong>Tax Calendar</strong>: A number sequence representing weeks in a Tax year which begins right after the US Tax Day.
+
+<ul>
+<li>Example: April 16, 2005 to April 15, 2006.</li>
+</ul>
+</li>
+<li><strong>Retail Calendar</strong>: also known as <a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">4-5-5 Calendar</a> or 544 calendar. 544 describes the number of weeks for a given quarter. Each quarter begins with a 5 week &ldquo;month&rdquo;, followed by 2 four week &ldquo;months&rdquo;.
+
+<ul>
+<li>Example: July 31, 2005 to July 29, 2006.</li>
+<li>Why? This calendar ensures all 4 quarters in a calendar year are equal. This allows comparing weekly data (e.g., retail sales) to the prior year without correcting for times when regular calendar weeks break across months or quarters.</li>
+<li>How? It usually uses the same end month as the fiscal calendar and each retail week consists of Sunday through Saturday.
+
+<ul>
+<li>The retail year end is defined as &ldquo;the last Saturday of the month at the fiscal year end&rdquo;.</li>
+<li>If August 1st is Sunday, it is retail calendar&rsquo;s starting date. The Saturday July 31st is the last Saturday and end of the last retail year.</li>
+<li>If August 1st is Monday, then Saturday July 30th is end of the last retail year, and July 31st is the start of the current retail year.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>ISO calendar</strong>: provided in Python <code>datetime</code> module.
+
+<ul>
+<li>Example: January 02, 2006 to December 31, 2006.</li>
+<li>The first week of an ISO year is the first (Gregorian/regular) calendar week of a year containing a Thursday.</li>
+<li>Each week starts at Monday and ends at Sunday.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Out of the above calendar types, retail calendar has the seemingly more complex rules. However, this calendar type is frequently used in industries like retail and manufacturing for ease of planning around it.</p>
+
+<h3>Mocking current time in Python</h3>
+
+<p>Due to retail calendar&rsquo;s desirable characteristics, we may have code that work with retail calendars eventually.
+I ended up working with a utility Python module for retail calendar with functions which return values based on current time/date.
+For example, a utility function is to check a given date is in the current 544 year or quarter that works like this:</p>
+
+<figure class='code'><figcaption><span>Original version</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">end544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
+</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A probably better, more testable function would be something like this.</p>
+
+<figure class='code'><figcaption><span>More desirable</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
+</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some utility functions are even more complicated than this toy function.
+For those, I think calling <code>today</code> or <code>now</code> inside those functions is a bad design.
+They are essentially another <em>variable</em> in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter.
+In addition, being able to specify what &ldquo;today&rdquo; or &ldquo;now&rdquo; value is will make testing easier.
+For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.</p>
+
+<p>However, in reality, you sometimes have to live with the original utility Python module.
+Then, the workaround for it is to &ldquo;mock&rdquo; current date and time, i.e. overriding those returned by <code>today</code> and <code>now</code> methods with some specific values.
+In Python, it can be done by using some mocking framework, such as illustrated <a href="http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking">here</a>.
+Fortunately, my life was made even easier with <a href="https://github.com/spulec/freezegun"><code>freezegun</code> library</a>.
+Using this <code>freezegun</code> library, I can easily specify my &ldquo;current date&rdquo; as &ldquo;July 29, 2006&rdquo; by adding the following decorator with some string &ldquo;2006-07-29&rdquo; for that date.</p>
+
+<figure class='code'><figcaption><span>Unit test with mocking</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="nd">@freeze_time</span><span class="p">(</span><span class="s">&quot;2006-07-29&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">test_year544_end</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">    Mock today() at 2006-07-29</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="bp">self</span><span class="o">.</span><span class="n">_verify_544_methods</span><span class="p">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It should be noted that <code>freezegun</code> can mock <code>datetime</code> calls from other modules.
+With that, it seems good enough for testing with <code>datetime</code> calls.
+However, beware that I noticed some occasional failures when working with <code>time</code> module.
+After some investigation, I think time zones must be accounted for when mocking with <code>time</code> module.</p>
+
+<h3>External Links</h3>
+
+<ul>
+<li><a href="https://github.com/spulec/freezegun">freeze_gun</a></li>
+<li><a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">Retail Calendar</a></li>
+<li><a href="http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm">ISO Calendar</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2016/01/22/aws-developing-and-deploying-apps/">AWS: Setting Up Multi-Factor Authentication (MFA)</a></h1>
     
     
@@ -90,7 +245,7 @@
   </header>
 
 
-  <div class="entry-content"><p>This process is simple and most people should know when developing a serious AWS application. Follow the following steps to enable MFA:</p>
+  <div class="entry-content"><p>This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS:</p>
 
 <ul>
 <li>Launch the AWS Console with your AWS Account. From the AWS Console, select &ldquo;Identity &amp; Access Management&rdquo;.</li>
@@ -941,97 +1096,6 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">Using Virtual Machine for ETL Testing</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-10T23:49:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:49 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Vertica Virtual Machine as sandbox test environment</h3>
-
-<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer.
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
-The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
-If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
-
-<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
-Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
-Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
-Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.</p>
-
-<p>In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
-Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
-
-<h3>Single-node VM and KSAFE clause</h3>
-
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
-
-<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
-
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
-
-<ul>
-<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
-<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
-<li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
-
-<ul>
-<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
-</ul>
-</li>
-<li>Merge <code>local/develop</code> branch into <code>develop</code> branch. You will now have your tests with the latest codes in <code>develop</code> branch.</li>
-</ul>
-
-
-<h4>Find and replace a string in multiple files</h4>
-
-<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
-
-<ul>
-<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
-<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
-</ul>
-
-
-<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/2">&larr; Older</a>
@@ -1050,6 +1114,10 @@ The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> 
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/01/27/python-post-1/">Mocking Current Date and Time in Python</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/01/22/aws-developing-and-deploying-apps/">AWS: Setting Up Multi-Factor Authentication (MFA)</a>
       </li>
     
@@ -1063,10 +1131,6 @@ The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> 
     
       <li class="post">
         <a href="/blog/2016/01/14/aws-building-the-foundation/">AWS: Overview of Services</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">Using Virtual Machine for ETL Testing</a>
       </li>
     
   </ul>
@@ -1103,7 +1167,7 @@ The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> 
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (2)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (6)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (3)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (8)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (5)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (3)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (6)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (8)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (5)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
 </section>
 
 
