@@ -1,11 +1,11 @@
 ---
 layout: post
-title: "Mocking current time in Python"
+title: "Mocking current date and time in Python"
 date: 2016-01-27 17:36:53 -0800
 comments: true
 categories: 
 - Python
-- Mocking
+- Automation
 ---
 
 ### Calendar types
@@ -23,7 +23,7 @@ There are surprisingly many types of calendar.
    * Why? This calendar ensures all 4 quarters in a calendar year are equal. This allows comparing weekly data (e.g., retail sales) to the prior year without correcting for times when regular calendar weeks break across months or quarters.
    * How? It usually uses the same end month as the fiscal calendar and each retail week consists of Sunday through Saturday.
       * The retail year end is defined as "the last Saturday of the month at the fiscal year end".
-      * If August 1st is Sunday, it is retail calendar's starting date. The Satuday July 31st is the last Saturday and end of the last retail year.
+      * If August 1st is Sunday, it is retail calendar's starting date. The Saturday July 31st is the last Saturday and end of the last retail year.
       * If August 1st is Monday, then Saturday July 30th is end of the last retail year, and July 31st is the start of the current retail year.
 5. **ISO calendar**: provided in Python `datetime` module.
    * Example: January 02, 2006 to December 31, 2006.
@@ -59,16 +59,16 @@ def is_current_year_544(given_date, my_today = datetime.date.today()):
 ```
 
 Some utility functions are even more complicated than this toy function. 
-For those, I think calling `today` or `localtime` inside those functions is a bad design.
+For those, I think calling `today` or `now` inside those functions is a bad design.
 They are essentially another *variable* in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter. 
 In addition, being able to specify what "today" or "now" value is will make testing easier. 
-For example, I want to know how my Python modules work if it runs on a particular date, such as end of retail year July 29, 2006.
+For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.
 
 However, in reality, you sometimes have to live with the original utility Python module. 
 Then, the workaround for it is to "mock" current date and time, i.e. overriding those returned by `today` and `now` methods with some specific values.
 In Python, it can be done by using some mocking framework, such as illustrated [here](http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking).
 Fortunately, my life was made even easier with [`freezegun` library](https://github.com/spulec/freezegun). 
-Using this `freezegun` library, I can easily specify my "current date" as "end of retail year July 29, 2006" by adding the following decorator with some string "2006-07-29" for that date.
+Using this `freezegun` library, I can easily specify my "current date" as "July 29, 2006" by adding the following decorator with some string "2006-07-29" for that date.
 
 ``` python Unit test with mocking
     @freeze_time("2006-07-29")
@@ -80,8 +80,9 @@ Using this `freezegun` library, I can easily specify my "current date" as "end o
 ```
 
 It should be noted that `freezegun` can mock `datetime` calls from other modules. 
-The library seems good enough for testing with `datetime` calls. 
-However, I noticed some failures when working with `time` module where timezones have to be accounted for.
+With that, it seems good enough for testing with `datetime` calls. 
+However, beware that I noticed some occasional failures when working with `time` module.
+After some investigation, I think time zones must be accounted for when mocking with `time` module.
 
 ### External Links
 
