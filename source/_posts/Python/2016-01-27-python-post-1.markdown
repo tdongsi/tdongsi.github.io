@@ -56,8 +56,8 @@ For example, I want to know how my Python programs work if it runs on a particul
 A probably better, more testable function would be something like this. 
 
 ``` python More desirable
-def is_current_year_544(given_date, my_today = datetime.date.today()):
-    if year_start_544(my_today) <= given_date <= year_end_544(my_today):
+def is_current_year_544(given_date, run_date = datetime.date.today()):
+    if year_start_544(run_date) <= given_date <= year_end_544(run_date):
         return "Y"
     else:
         return "N"
