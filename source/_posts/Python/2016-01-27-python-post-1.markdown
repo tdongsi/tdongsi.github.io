@@ -14,6 +14,8 @@ There are surprisingly many types of calendar. Some of them are:
 
 1. **Regular Calendar**: regular solar calendar date range as we know. 
    * Example: January 01, 2006 to December 31, 2006.
+1. **Lunar Calendar**: based on cycles of the lunar phases.
+   * Example: January 29, 2006 to February 17, 2007.
 2. **Fiscal Calendar**: a company’s selected calendar date range for required SEC financial statement filing.
    * Example: August 01, 2005 to July 31, 2006 is my company's fiscal year 2006.
 3. **Tax Calendar**: A number sequence representing weeks in a Tax year which begins right after the US Tax Day.
