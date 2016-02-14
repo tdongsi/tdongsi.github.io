@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-01-29T12:19:44-08:00</updated>
+  <updated>2016-02-14T00:37:44-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,298 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-post-6/"/>
+    <updated>2016-02-13T23:52:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-post-6</id>
+    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.</p>
+
+<h3><code>NOT IN</code> is better than <code>NOT EXISTS</code></h3>
+
+<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
+So, for example above:</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+
+<p>Let&rsquo;s say you have an ETL that regularly inserts new data into an existing dimension table.</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
+It would be faster to instead use a <code>WHERE</code> clause to check if an entry exists.
+Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
+
+<p>For this performance tip, we make a slight change the ETL example in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
+
+<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
+In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
+
+<p>The solution for the above example is that since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
+Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to check for existence.</p>
+
+<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
+
+<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
+
+<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
+In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
+
+<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
+
+<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended:</p>
+
+<ol>
+<li>Create the temporary table first without a projection.</li>
+<li>Create a super projection with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
+</ol>
+
+
+<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from the source table like this:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
+</span><span class='line'><span class="k">AS</span><span class="p">(</span>
+</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
+</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
+Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+
+<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
+</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
+A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
+Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
+
+<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
+</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
+
+<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement.
+In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Mocking Current Date and Time in Python]]></title>
@@ -27,6 +319,14 @@
 
 <ul>
 <li>Example: January 01, 2006 to December 31, 2006.</li>
+</ul>
+</li>
+<li><a href="https://en.wikipedia.org/wiki/Lunar_calendar"><strong>Lunar Calendar</strong></a>: based on cycles of the lunar phases.
+
+<ul>
+<li>Example: January 29, 2006 to February 17, 2007.</li>
+<li>A lunar year is defined as 12 lunations, which is about 354 days.</li>
+<li>In every two or three years, a <a href="https://en.wikipedia.org/wiki/Lunisolar_calendar">thirteenth-month</a> (intercalary month or leap month) is added to bring the calendar year into synchronisation with the solar year.</li>
 </ul>
 </li>
 <li><strong>Fiscal Calendar</strong>: a company’s selected calendar date range for required SEC financial statement filing.
@@ -102,8 +402,8 @@ A probably better, more testable function would be something like this.</p>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">run_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">):</span>
 </span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
 </span><span class='line'>    <span class="k">else</span><span class="p">:</span>
 </span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
@@ -3074,223 +3374,6 @@ In the remaining sections of Chapter 1, the authors also discuss various related
 
 
 <p><br></p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[WordCount Example in Cloudera Quickstart VM]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/"/>
-    <updated>2015-11-20T11:47:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm</id>
-    <content type="html"><![CDATA[<p><a href="https://wiki.apache.org/hadoop/WordCount">WordCount</a> is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some &ldquo;Hello World&rdquo; example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic &ldquo;Hello World&rdquo; examples.</p>
-
-<p>Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as <a href="https://developer.yahoo.com/hadoop/tutorial/">this</a>). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.</p>
-
-<p>The purpose of this post is to help new users dive into Hadoop more easily. After reading this, you should be able to:</p>
-
-<ol>
-<li>Get started with a simple, local Hadoop sandbox for hands-on experiments.</li>
-<li>Perform some simple tasks in HDFS.</li>
-<li>Run the most basic example program WordCount, using your own input data.</li>
-</ol>
-
-
-<h3>Get your Hadoop sandbox</h3>
-
-<p>Nowadays, many companies provide Hadoop sandboxes for learning purpose, such as Cloudera, <a href="http://hortonworks.com/products/hortonworks-sandbox/">Hortonworks</a>. In this post, I used <a href="http://www.cloudera.com/content/www/en-us/documentation/enterprise/5-2-x/topics/cloudera_quickstart_vm.html">Cloudera Quickstart VM</a>. Download the VM and start it up in VirtualBox or VMWare Fusion.</p>
-
-<h3>Working with HDFS</h3>
-
-<p>Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" &gt; wordcount.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
-</span><span class='line'>Found 1 items
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 /user/cloudera/input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It should be noted that for a fresh Cloudera VM, there is a &ldquo;/user&rdquo; folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux&rsquo;s &ldquo;ls&rdquo; and HDFS&rsquo;s &ldquo;ls&rdquo; interact with those independently.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls /user
-</span><span class='line'>
-</span><span class='line'>ls: cannot access /user: No such file or directory
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user
-</span><span class='line'>Found 5 items
-</span><span class='line'>drwxr-xr-x   - cloudera cloudera          0 2014-12-18 07:08 /user/cloudera
-</span><span class='line'>drwxr-xr-x   - mapred   hadoop            0 2014-12-18 07:08 /user/history
-</span><span class='line'>drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
-</span><span class='line'>drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
-</span><span class='line'>drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To see the content of a file on HDFS, use cat subcommand:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/input/wordcount.txt
-</span><span class='line'>this is a hadoop tutorial test</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For large files, if you want to view just the first or last parts, there is no -more or -tail subcommand. Instead, pipe the output of the -cat subcommand through your local shell’s more, or tail. For example: <code>hdfs dfs -cat wc-out/* | more</code>.</p>
-
-<p>For more HDFS commands, check out links in References section below.</p>
-
-<h3>Running the WordCount example</h3>
-
-<p>Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.</p>
-
-<p>We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
-</span><span class='line'>lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
-</span><span class='line'>
-</span><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
-</span><span class='line'>Valid program names are:
-</span><span class='line'>  aggregatewordcount: An Aggregate based map/reduce program that counts the words in the input files.
-</span><span class='line'>  aggregatewordhist: An Aggregate based map/reduce program that computes the histogram of the words in the input files.
-</span><span class='line'>  bbp: A map/reduce program that uses Bailey-Borwein-Plouffe to compute exact digits of Pi.
-</span><span class='line'>  dbcount: An example job that count the pageview counts from a database.
-</span><span class='line'>  distbbp: A map/reduce program that uses a BBP-type formula to compute exact bits of Pi.
-</span><span class='line'>  grep: A map/reduce program that counts the matches of a regex in the input.
-</span><span class='line'>  join: A job that effects a join over sorted, equally partitioned datasets
-</span><span class='line'>  multifilewc: A job that counts words from several files.
-</span><span class='line'>  pentomino: A map/reduce tile laying program to find solutions to pentomino problems.
-</span><span class='line'>  pi: A map/reduce program that estimates Pi using a quasi-Monte Carlo method.
-</span><span class='line'>  randomtextwriter: A map/reduce program that writes 10GB of random textual data per node.
-</span><span class='line'>  randomwriter: A map/reduce program that writes 10GB of random data per node.
-</span><span class='line'>  secondarysort: An example defining a secondary sort to the reduce.
-</span><span class='line'>  sort: A map/reduce program that sorts the data written by the random writer.
-</span><span class='line'>  sudoku: A sudoku solver.
-</span><span class='line'>  teragen: Generate data for the terasort
-</span><span class='line'>  terasort: Run the terasort
-</span><span class='line'>  teravalidate: Checking results of terasort
-</span><span class='line'>  wordcount: A map/reduce program that counts the words in the input files.
-</span><span class='line'>  wordmean: A map/reduce program that counts the average length of the words in the input files.
-</span><span class='line'>  wordmedian: A map/reduce program that counts the median length of the words in the input files.
-</span><span class='line'>  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To run the WordCount example using the input file that we just moved to HDFS, use the following command:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
-</span><span class='line'>/user/cloudera/input/wordcount.txt /user/cloudera/output
-</span><span class='line'>
-</span><span class='line'>15/11/15 18:14:45 INFO client.RMProxy: Connecting to ResourceManager at /0.0.0.0:8032
-</span><span class='line'>15/11/15 18:14:46 INFO input.FileInputFormat: Total input paths to process : 1
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: number of splits:1
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens for job: job_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:46 INFO impl.YarnClientImpl: Submitted application application_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: The url to track the job: http://quickstart.cloudera:8088/proxy/application_1421372394109_0001/
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: Running job: job_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : false
-</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job:  map 0% reduce 0%
-</span><span class='line'>15/11/15 18:15:01 INFO mapreduce.Job:  map 100% reduce 0%
-</span><span class='line'>15/11/15 18:15:07 INFO mapreduce.Job:  map 100% reduce 100%
-</span><span class='line'>15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The output folder is specified as &ldquo;/user/cloudera/output&rdquo; in the above command. Finally, check the output of WordCount example in the output folder.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
-</span><span class='line'>
-</span><span class='line'>Found 2 items
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera          0 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera         43 2015-11-15 18:15 /user/cloudera/output/part-r-00000
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/output/part-r-00000
-</span><span class='line'>a     1
-</span><span class='line'>hadoop     1
-</span><span class='line'>is     1
-</span><span class='line'>test     1
-</span><span class='line'>this     1
-</span><span class='line'>tutorial     1</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Congratulations!! You just finished the first step of the journey into Hadoop.</p>
-
-<h3>Additional links</h3>
-
-<ol>
-<li><a href="http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/">http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/</a></li>
-<li><a href="http://wiki.apache.org/hadoop/WordCount">http://wiki.apache.org/hadoop/WordCount</a></li>
-<li><a href="https://developer.yahoo.com/hadoop/tutorial/">https://developer.yahoo.com/hadoop/tutorial/</a></li>
-</ol>
-
 ]]></content>
   </entry>
   
