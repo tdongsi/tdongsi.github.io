@@ -117,7 +117,7 @@ Those errors can be ignored but they must be caught accordingly to separate with
 Instead of creating temporary tables using `SELECT`, it is recommended:
 
 1. Create the temporary table first without a projection.
-1. Create a super projection with the correct column encodings and `ORDER BY` clause
+1. Create a super [projection](/blog/2016/02/07/vertica-post-7/) with the correct column encodings and `ORDER BY` clause
 1. Populate it using `INSERT /*+ direct */ INTO`. Note the `/*+ direct */` hint to write data directly to disk, bypassing memory.
 
 For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from the source table like this:
