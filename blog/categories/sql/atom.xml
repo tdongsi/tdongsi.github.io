@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-14T00:37:44-08:00</updated>
+  <updated>2016-02-14T00:47:18-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,194 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-post-6/"/>
+    <updated>2016-02-13T23:52:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-post-6</id>
+    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
+Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Veritca Best Practices</a>.</p>
+
+<h3><code>NOT IN</code> is better than <code>NOT EXISTS</code></h3>
+
+<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+
+<pre><code class="sql BAD">SELECT 'United States', 'English' 
+WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
+</code></pre>
+
+<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
+So, for example above:</p>
+
+<pre><code class="sql GOOD">SELECT 'United States', 'English' 
+WHERE 'United States' NOT IN (select country_name from dim_country)
+</code></pre>
+
+<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+
+<p>Let&rsquo;s say you have an ETL that regularly inserts new data into an existing dimension table.</p>
+
+<pre><code class="sql BAD">INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
+WHERE dc.country_id is NULL;
+</code></pre>
+
+<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
+It would be faster to instead use a <code>WHERE</code> clause to check if an entry exists.
+Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+
+<pre><code class="sql GOOD">INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
+</code></pre>
+
+<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
+
+<p>For this performance tip, we make a slight change the ETL example in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
+
+<pre><code class="sql BAD">INSERT INTO dim_country                    
+(
+    country_name,
+    country_language,
+) SELECT ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
+WHERE dc.country_name is NULL;
+</code></pre>
+
+<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
+
+<pre><code class="sql BETTER, but still BAD">INSERT INTO dim_country                    
+(
+    country_name,
+    country_language,
+) SELECT ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_country);;
+</code></pre>
+
+<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
+In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
+
+<p>The solution for the above example is that since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
+Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to check for existence.</p>
+
+<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
+
+<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
+
+<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
+In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
+
+<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
+
+<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended:</p>
+
+<ol>
+<li>Create the temporary table first without a projection.</li>
+<li>Create a super projection with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
+</ol>
+
+
+<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from the source table like this:</p>
+
+<pre><code class="sql BAD">CREATE TEMPORARY TABLE customer_last_temp 
+ON COMMIT PRESERVE ROWS
+AS(
+  select * from (
+    select *,
+    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+    from  stg_customer rpt 
+  ) t1 where t1.rank =1
+);
+</code></pre>
+
+<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
+Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+
+<pre><code class="sql Create a temporary table without projection">CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
+        customer_id                     int,
+        subscribe_date                  timestamp,
+        cancel_date                     timestamp,
+        last_modify_date                timestamp,
+)
+ON COMMIT PRESERVE ROWS NO PROJECTION;
+</code></pre>
+
+<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
+A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
+Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
+
+<pre><code class="sql Create a super projection">CREATE PROJECTION customer_last_temp_super (
+      customer_id ENCODING DELTARANGE_COMP 
+    , subscribe_date ENCODING GCDDELTA
+    , cancel_date ENCODING BLOCKDICT_COMP     
+    , last_modify_date ENCODING BLOCKDICT_COMP 
+)
+AS 
+SELECT customer_id 
+     , subscribe_date
+     , cancel_date
+     , last_modify_date
+  FROM customer_last_temp 
+ ORDER BY customer_id
+SEGMENTED BY HASH (customer_id) ALL NODES;
+</code></pre>
+
+<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
+
+<pre><code class="sql Populate the table">INSERT /*+ direct */ INTO customer_last_temp (
+      customer_id 
+    , subscribe_date 
+    , cancel_date 
+    , last_modify_date 
+)
+WITH t1 AS (
+    SELECT company_id 
+         , subscribe_date 
+         , cancel_date 
+         , last_modify_date 
+         , ROW_NUMBER() OVER (PARTITION BY customer_id 
+                                  ORDER BY last_modify_date DESC) AS rank 
+      FROM stg_customer AS rpt 
+)
+SELECT company_id 
+     , subscribe_date 
+     , cancel_date 
+     , last_modify_date 
+FROM t1
+WHERE t1.rank = 1;  
+</code></pre>
+
+<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement.
+In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
@@ -372,312 +560,6 @@ PARTITION(year = 2012, month = 1, day = 1);
 </code></pre>
 
 <p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 6): HiveQL Data Definition]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/"/>
-    <updated>2015-12-05T20:15:56-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table</id>
-    <content type="html"><![CDATA[<p>Continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
-
-<h3>Creating Tables</h3>
-
-<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
-
-<pre><code class="sql">/* NOTE: the LOCATION clause uses the default location */
-CREATE TABLE IF NOT EXISTS college.student (
-  name STRING COMMENT 'Student name',
-  sid INT COMMENT 'Student ID',
-)
-COMMENT 'Description of the table' TBLPROPERTIES ( 'creator' = 'me' )
-LOCATION '/user/hive/warehouse/college.db/student';
-
-/* 
- * copy the schema of an existing table
- * you can specify optional LOCATION but no other can be defined
- */
-CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
-
-/*
-* Create external table
-* Read all data files with comma-delimited format
-* from /data/stocks
-* LOCATION is required for external table
-*/
-CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
-  exchange        STRING,
-  symbol          STRING,
-  volume          INT,
-  price_adj_close FLOAT)
-ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
-LOCATION '/data/stocks';
-
-/*
-* Copy external table schema.
-*/
-CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
-LIKE stocks
-LOCATION '/path/to/data';
-
-/*
-* Drop table
-* For managed tables, the table metadata and data are deleted.
-* For external tables, the metadata is deleted but the data is not.
-*/
-DROP TABLE IF EXISTS college;
-</code></pre>
-
-<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
-
-<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
-
-<pre><code class="bash">hive&gt; use college;
-OK
-Time taken: 0.048 seconds
-
-
-/* Show list of tables in current database */
-hive&gt; show tables;
-OK
-apply
-college
-student
-Time taken: 0.031 seconds, Fetched: 3 row(s)
-
-/* Show list of tables in the specified database */
-hive&gt; show tables in college;
-OK
-apply
-college
-student
-Time taken: 0.034 seconds, Fetched: 3 row(s)
-
-/* use regex to search tables in current database */
-hive&gt; show tables '.*e.*';
-OK
-college
-student
-Time taken: 0.025 seconds, Fetched: 2 row(s)
-
-
-/* Show table properties */
-hive&gt; show tblproperties student;        
-OK
-COLUMN_STATS_ACCURATE   true
-comment List of students
-numFiles    1
-numRows 0
-rawDataSize 0
-totalSize   213
-transient_lastDdlTime   1421796179
-Time taken: 0.28 seconds, Fetched: 7 row(s)
-</code></pre>
-
-<p>You can use <code>DESCRIBE</code> command to display table information as shown below:
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; describe extended student;      &lt;br/&gt;
-</span><span class='line'>OK
-</span><span class='line'>sid                     int                     Student ID        &lt;br/&gt;
-</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
-</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
-</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;Detailed Table Information  Table(tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
-</span><span class='line'>sd:StorageDescriptor(cols:[FieldSchema(name:sid, type:int, comment:Student ID), FieldSchema(name:sname, type:string, comment:Student name), &hellip;
-</span><span class='line'>Time taken: 0.119 seconds, Fetched: 6 row(s)&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;/&lt;em&gt; more readable and verbose &lt;/em&gt;/
-</span><span class='line'>hive&gt; describe formatted student;
-</span><span class='line'>OK&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;h1&gt;col_name              data_type               comment&lt;/h1&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;sid                     int                     Student ID        &lt;br/&gt;
-</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
-</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
-</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;h1&gt;Detailed Table Information&lt;/h1&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;Database:               college                &lt;br/&gt;
-</span><span class='line'>Owner:                  cloudera               &lt;br/&gt;
-</span><span class='line'>CreateTime:             Tue Jan 20 15:22:58 PST 2015   &lt;br/&gt;
-</span><span class='line'>LastAccessTime:         UNKNOWN                &lt;br/&gt;
-</span><span class='line'>Protect Mode:           None                   &lt;br/&gt;
-</span><span class='line'>Retention:              0                      &lt;br/&gt;
-</span><span class='line'>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student &lt;br/&gt;
-</span><span class='line'>Table Type:             MANAGED_TABLE          &lt;br/&gt;
-</span><span class='line'>Table Parameters:      &lt;br/&gt;
-</span><span class='line'>    COLUMN_STATS_ACCURATE   true              &lt;br/&gt;
-</span><span class='line'>    comment                 List of students  &lt;br/&gt;
-</span><span class='line'>    numFiles                1                 &lt;br/&gt;
-</span><span class='line'>    numRows                 0                 &lt;br/&gt;
-</span><span class='line'>    rawDataSize             0                 &lt;br/&gt;
-</span><span class='line'>    totalSize               213               &lt;br/&gt;
-</span><span class='line'>    transient_lastDdlTime   1421796179&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;h1&gt;Storage Information&lt;/h1&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe &lt;br/&gt;
-</span><span class='line'>InputFormat:            org.apache.hadoop.mapred.TextInputFormat   &lt;br/&gt;
-</span><span class='line'>OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat &lt;br/&gt;
-</span><span class='line'>Compressed:             No                     &lt;br/&gt;
-</span><span class='line'>Num Buckets:            -1                     &lt;br/&gt;
-</span><span class='line'>Bucket Columns:         []                     &lt;br/&gt;
-</span><span class='line'>Sort Columns:           []                     &lt;br/&gt;
-</span><span class='line'>Storage Desc Params:       &lt;br/&gt;
-</span><span class='line'>    field.delim             ;                 &lt;br/&gt;
-</span><span class='line'>    serialization.format    ;                 &lt;br/&gt;
-</span><span class='line'>Time taken: 0.108 seconds, Fetched: 36 row(s)&lt;/p&gt;
-</span><span class='line'>
-</span><span class='line'>&lt;p&gt;/&lt;em&gt; see schema for a column &lt;/em&gt;/
-</span><span class='line'>hive&gt; describe student.sid;
-</span><span class='line'>OK
-</span><span class='line'>sid                     int                     from deserializer &lt;br/&gt;
-</span><span class='line'>Time taken: 0.315 seconds, Fetched: 1 row(s)</span></code></pre></td></tr></table></div></figure></p>
-
-<h3>Managed tables vs. External tables</h3>
-
-<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>.
-It is internal/managed because the life cycle of their data is managed by Hive.
-By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands).
-When we drop a managed table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
-
-<pre><code>hive&gt; SET hive.metastore.warehouse.dir;
-hive.metastore.warehouse.dir=/user/hive/warehouse
-hive&gt; dfs -ls /user/hive/warehouse/college.db;
-Found 3 items
-drwxrwxrwx   - hive hive          0 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
-drwxrwxrwx   - hive hive          0 2015-12-03 15:16 /user/hive/warehouse/college.db/college
-drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/college.db/student
-</code></pre>
-
-<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
-
-<p>Managed tables are not convenient for sharing data with other tools.
-Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data.
-In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location.
-The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located.
-Dropping an external table does not delete the data since Hive does not <em>own</em> the data.
-However, the <em>metadata</em> for that table will be deleted.</p>
-
-<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
-
-<pre><code>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student   
-Table Type:             MANAGED_TABLE 
-</code></pre>
-
-<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
-
-<h3>Altering Tables</h3>
-
-<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
-
-<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
-
-<pre><code class="sql">/* Renaming table */
-ALTER TABLE college RENAME TO university;
-
-/*
- * Change columns: rename, change its position, type, or comment.
- * The keyword COLUMN is optional, as well as COMMENT clause.
- * This command changes metadata only. 
- * The data has to be moved to match the new columns if needed.
- * Use FIRST, instead of AFTER, if the column is moved to first.
- */
-ALTER TABLE log_messages
-CHANGE COLUMN hms hours_minutes_seconds INT
-COMMENT 'New comment'
-AFTER severity;
-
-/*
- * Add columns, to the end of existing columns.
- * Use CHANGE COLUMN to rearrange if needed.
- */
-ALTER TABLE log_messages
-ADD COLUMNS (
-app_name STRING COMMENT 'New column 1',
-session_id INT COMMENT 'New column 2');
-
-/*
- * Remove all the existing columns and replaces with new 
- * specified columns.
- */
-ALTER TABLE log_messages
-REPLACE COLUMNS (
-app_name STRING COMMENT 'New column 1',
-session_id INT COMMENT 'New column 2');
-
-/* 
- * You can add table properties or set current properties,
- * but not remove them 
- */
-ALTER TABLE log_messages
-SET TBLPROPERTIES (
-'some_key' = 'some_value'
-);
-</code></pre>
 ]]></content>
   </entry>
   
