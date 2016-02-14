@@ -9,8 +9,7 @@ categories:
 - Performance
 ---
 
-In this blog post, I will list some bad SQL examples that give worse performance in Vertica and the recommended practices/workarounds for each case.
-Most of these optimization notes are learnt through interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants.
+Most of these optimization notes in this post are learnt through interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants.
 
 ### `NOT IN` is better than `NOT EXISTS`
 
@@ -99,11 +98,17 @@ However, such change still has bad performance because, in general, function cal
 In both examples above, calling functions like `LOWER` in `WHERE` and `JOIN` clauses will affect the performance of the ETLs.
 
 The solution for the above example is that since we control what goes into dimension tables, we can ensure that columns like `country_name` are always stored in lower-case. 
-Then, we can do the same when creating the temporary table such as `staging_table` that we are comparing to to check for existance.
+Then, we can do the same when creating the temporary table such as `staging_table` that we are comparing to check for existence.
 
-### `ANALYZE_STATISTICS`
+### Use  [ANALYZE_STATISTICS](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm)
 
-Note that an error might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running.
+Make sure to run `ANALYZE_STATISTICS` after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from `ANALYZE_STATISTICS`, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.
+
+Note that `ANALYZE_STATISTICS` is only supported on *local* temporary tables, but not on *global* temporary tables.
+In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running. 
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.
 
 ### Avoid creating temporary tables using `SELECT`
 
@@ -127,7 +132,7 @@ AS(
 );
 ```
 
-In this example, `last_modify_date` is the CDC column and `customer_id` is the primary key column. 
+In this example, `last_modify_date` is the [CDC](https://en.wikipedia.org/wiki/Change_data_capture) column and `customer_id` is the primary key column. 
 Although this SQL statement is simple and easy to understand, it is really slow for a large and growing `stg_customer` table that contains updates to all customers on multiple dates, with millions of *new* customer entries each day. 
 Instead, the recommended coding pattern is to create a temporary table first without a projection:
 
