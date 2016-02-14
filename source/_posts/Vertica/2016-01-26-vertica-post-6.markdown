@@ -1,50 +1,88 @@
 ---
 layout: post
 title: "Vertica: Performance Optimization Notes"
-date: 2016-01-26 23:52:44 -0800
+date: 2016-02-13 23:52:44 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Vertica
 - Performance
 ---
 
-### `NOT IN` better than `NOT EXISTS`
+Most of these optimization notes are learnt through interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants.
+
+### `NOT IN` is better than `NOT EXISTS`
+
+When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:
 
 ``` sql DON'T
-SELECT 'E2E', 'Pre_production' WHERE NOT EXISTS (SELECT 'x' FROM dim_environment WHERE environment_desc = 'E2E')
+SELECT 'United States', 'English' 
+WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
 ```
 
-For all such inserts, we have been told by Nexius that its better in Vertica to do NOT IN instead of NOT EXISTS. So for example:
+However, for all such inserts, we were recently informed that it is better **in Vertica** to do `NOT IN` instead of `NOT EXISTS`.
+So, for example above:
 
 ``` sql DO
-SELECT ... WHERE 'E2E' NOT IN (select environment_desc from dim_environment)
+SELECT 'United States', 'English' 
+WHERE 'United States' NOT IN (select country_name from dim_country)
 ```
 
+### Avoid using `LEFT JOIN` to check existence
+
+Let's say you have an ETL that regularly inserts new data into an existing dimension table.  
+
+``` sql DON'T
+INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
+WHERE dc.country_id is NULL;
 ```
-> +        ssp.employee_organization_level,
-> +        bf.intuit_function_key,
-> +        bt.intuit_business_title_key,
-> +        ssp.report_to_level_1,
-> +        ssp.report_to_level_2,
-> +        ssp.report_to_level_3,
-> +        ssp.report_to_level_4,
-> +        ssp.report_to_level_5,
-> +        ssp.report_to_level_6,
-> +        ssp.report_to_level_7,
-> +        ssp.report_to_level_8,
-> +        ssp.report_to_level_9
-> +        FROM stgetl_stg_people ssp 
-> +        JOIN dim_intuit_business_title bt ON ssp.business_title=bt.intuit_business_title_desc
-> +        JOIN dim_intuit_function bf ON isnull(ssp.function_type,'Not Defined')=bf.intuit_function_desc 
-> +        LEFT JOIN dim_intuit_employee die on die.employee_email=ssp.email_id 
+
+We are sometimes doing this `LEFT JOIN` only to determine whether or not an entry already exists in the table. 
+It would be faster to instead use a `WHERE` clause such as "WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country)". 
+Although it might sound counter-intuitive, but reducing `LEFT JOIN` operations like this has been regularly recommended.
+
+``` sql DO
+INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
 ```
 
-It seems you are doing this left join only to determine whether or not the employee already exists. It would be faster to instead use a WHERE clause such as WHERE ssp.email_id not in (select employee_email from dim_intuit_employee). I know it sounds counter-intuitive, but this is what Nexius has been recommending
+### Avoid functions in `WHERE` and `JOIN` clauses
 
-### Avoid functions in WHERE and JOIN clauses
+``` sql DON'T
+INSERT INTO 
+    dim_country                    
+    (
+        country_name,
+        country_language,
+    ) SELECT ssp.country_name,
+        ssp.country_language,
+        FROM staging_table ssp
+        LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
+        WHERE dc.country_name is NULL;
+```
 
-Same comment as before - try to avoid using LOWER function in WHERE and JOIN clauses - it affects performance. Since you control what goes into the DIM tables, you can ensure that these columns are always stored in lowercase, and do the same when creating the temporary table that you are comparing to.
+Note that `WHERE` clause should be used instead of `LEFT JOIN` as discussed above. Another thing I should 
+
+Try to avoid using `LOWER` function in WHERE and JOIN clauses - it affects performance. Since you control what goes into the DIM tables, you can ensure that these columns are always stored in lowercase, and do the same when creating the temporary table that you are comparing to.
 
 ### Creating temporary tables using SELECT
 
