@@ -66,7 +66,7 @@ FROM staging_table ssp
 WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
 ```
 
-### Avoid calling functions in `WHERE` and `JOIN` clauses
+### Avoid function calls in `WHERE` and `JOIN` clauses
 
 For this performance tip, we make a slight change the ETL example in the last section above where `country_id` column is removed. In this case, we can use a normalized `country_name` as the ID to check for existing entries in the table:
 
@@ -101,7 +101,96 @@ In both examples above, calling functions like `LOWER` in `WHERE` and `JOIN` cla
 The solution for the above example is that since we control what goes into dimension tables, we can ensure that columns like `country_name` are always stored in lower-case. 
 Then, we can do the same when creating the temporary table such as `staging_table` that we are comparing to to check for existance.
 
-### Creating temporary tables using SELECT
+### `ANALYZE_STATISTICS`
 
-General comment based on feedback from Nexius on other ETL scripts - when creating temporary tables using SELECT, they recommend creating the temporary table first without a projection, create a super projection with the correct column encodings and ORDER BY clause, and then populate it using INSERT INTO...SELECT FROM. That being said, I understand these are small tables, so this comment may not apply, but I at least wanted to point out this pattern that has been recommended. This applies to all temporary tables created in these scripts - I did not want to repeat it multiple times. If you want to see examples of such code, Ravi is in the process of modifying sbg_datasets/qbo/sql/qbo_company_etl.sql to do this
+Note that an error might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running.
+
+### Avoid creating temporary tables using `SELECT`
+
+Instead of creating temporary tables using `SELECT`, it is recommended:
+
+1. Create the temporary table first without a projection.
+1. Create a super projection with the correct column encodings and `ORDER BY` clause
+1. Populate it using `INSERT /*+ direct */ INTO`. Note the `/*+ direct */` hint to write data directly to disk, bypassing memory.
+
+For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from the source table like this:
+
+``` sql BAD
+CREATE TEMPORARY TABLE customer_last_temp 
+ON COMMIT PRESERVE ROWS
+AS(
+  select * from (
+    select *,
+    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+    from  stg_customer rpt 
+  ) t1 where t1.rank =1
+);
+```
+
+In this example, `last_modify_date` is the CDC column and `customer_id` is the primary key column. 
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing `stg_customer` table that contains updates to all customers on multiple dates, with millions of *new* customer entries each day. 
+Instead, the recommended coding pattern is to create a temporary table first without a projection:
+
+``` sql Create a temporary table without projection
+CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
+        customer_id                   	int,
+        subscribe_date               	timestamp,
+        cancel_date                  	timestamp,
+        last_modify_date             	timestamp,
+)
+ON COMMIT PRESERVE ROWS NO PROJECTION;
+```
+
+It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table. 
+A `LOCAL` temporary table is created, instead of `GLOBAL`, so that we can use `ANALYZE_STATISTICS` functions as discussed above. 
+Next, create a super projection with the correct column encodings and `ORDER BY` clause:
+
+``` sql Create a super projection
+CREATE PROJECTION customer_last_temp_super (
+      customer_id ENCODING DELTARANGE_COMP 
+    , subscribe_date ENCODING GCDDELTA
+    , cancel_date ENCODING BLOCKDICT_COMP     
+    , last_modify_date ENCODING BLOCKDICT_COMP 
+)
+AS 
+SELECT customer_id 
+     , subscribe_date
+     , cancel_date
+     , last_modify_date
+  FROM customer_last_temp 
+ ORDER BY customer_id
+SEGMENTED BY HASH (customer_id) ALL NODES;
+```
+
+Finally, insert "directly" into the temporary table:
+
+``` sql Populate the table
+INSERT /*+ direct */ INTO customer_last_temp (
+      customer_id 
+    , subscribe_date 
+    , cancel_date 
+    , last_modify_date 
+)
+WITH t1 AS (
+    SELECT company_id 
+         , subscribe_date 
+         , cancel_date 
+         , last_modify_date 
+         , ROW_NUMBER() OVER (PARTITION BY customer_id 
+                                  ORDER BY last_modify_date DESC) AS rank 
+      FROM stg_customer AS rpt 
+)
+SELECT company_id 
+     , subscribe_date 
+     , cancel_date 
+     , last_modify_date 
+FROM t1
+WHERE t1.rank = 1;  
+```
+
+The `WITH` clause is just a more readable way to write the sub-query in the original SQL statement. 
+In addition, the wildcard `*` in the original SQL query is also avoided, in case the table `stg_customer` is a very wide table.
+
+
+
 
