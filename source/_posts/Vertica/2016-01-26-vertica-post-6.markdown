@@ -32,7 +32,7 @@ WHERE 'United States' NOT IN (select country_name from dim_country)
 
 ### Avoid using `LEFT JOIN` to check existence
 
-Let's say you have an ETL that regularly inserts new data into an existing dimension table.  
+Let's say we have an ETL that regularly inserts new data into an existing dimension table.  
 
 ``` sql BAD
 INSERT INTO dim_country                    
@@ -109,7 +109,7 @@ Using this function, tables are analyzed for best performance in subsequent quer
 Without information from `ANALYZE_STATISTICS`, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.
 
 Note that `ANALYZE_STATISTICS` is only supported on *local* temporary tables, but not on *global* temporary tables.
-In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running. 
+In addition, when we add ANALYZE_STATISTICS function calls into our ETL scripts, errors might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running. 
 Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.
 
 ### Avoid creating temporary tables using `SELECT`
