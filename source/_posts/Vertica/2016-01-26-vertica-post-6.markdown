@@ -195,7 +195,7 @@ FROM t1
 WHERE t1.rank = 1;  
 ```
 
-The `WITH` clause is just a more readable way to write the sub-query in the original SQL statement. 
+The `WITH` clause is just a more readable way to write the sub-query in the original SQL statement (see [WITH clause](/blog/2016/02/03/vertica-post-8/)). 
 In addition, the wildcard `*` in the original SQL query is also avoided, in case the table `stg_customer` is a very wide table.
 
 

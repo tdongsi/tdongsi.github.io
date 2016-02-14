@@ -84,7 +84,7 @@ Finding daily total unique visitors from Clickstream data is easy and, by subtra
 Note that the total "defined" unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., "Rock" + "Instrumental") since some visitors will listen to both Rock and Instrumental music on the website.
 
 It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is a combination of top-down code structure and meaningful block names before code blocks, both are properties of `WITH` clause.
+The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of `WITH` clause.
 
 In the past, without `WITH` clause, we used to create `TEMPORARY TABLES` in Vertica to save the immediate steps.
 Now, we have a native SQL solution in `WITH` clause and a more powerful technique to create sub-queries.
