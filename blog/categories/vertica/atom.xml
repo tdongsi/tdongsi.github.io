@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-14T00:48:29-08:00</updated>
+  <updated>2016-02-14T14:27:27-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -38,7 +38,7 @@ WHERE 'United States' NOT IN (select country_name from dim_country)
 
 <h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
 
-<p>Let&rsquo;s say you have an ETL that regularly inserts new data into an existing dimension table.</p>
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
 
 <pre><code class="sql BAD">INSERT INTO dim_country                    
 (
@@ -111,7 +111,7 @@ Using this function, tables are analyzed for best performance in subsequent quer
 Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
 
 <p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+In addition, when we add ANALYZE_STATISTICS function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
 Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
 
 <h3>Avoid creating temporary tables using <code>SELECT</code></h3>
@@ -120,7 +120,7 @@ Those errors can be ignored but they must be caught accordingly to separate with
 
 <ol>
 <li>Create the temporary table first without a projection.</li>
-<li>Create a super projection with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
 <li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
 </ol>
 
@@ -198,6 +198,115 @@ WHERE t1.rank = 1;
 
 <p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement.
 In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/"/>
+    <updated>2016-02-07T00:50:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-post-7</id>
+    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
+Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
+
+<ol>
+<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
+<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
+<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
+</ol>
+
+
+<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
+For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
+Vertica creates a default super-projection when running CREATE TABLE statement.
+<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
+
+<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
+Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[WITH Clause in Vertica SQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/"/>
+    <updated>2016-02-03T00:50:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-post-8</id>
+    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
+<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
+Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
+For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+
+<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic. This will make our query much easier to read: we can read from top to bottom like reading a novel (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
+
+<p>For example, we can look into the following <code>SELECT</code> query:</p>
+
+<pre><code class="sql Hard to read">SELECT * FROM (
+  SELECT *,
+  row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+  FROM stg_customer
+) sorted_by_modify_date where sorted_by_modify_date.rank =1
+</code></pre>
+
+<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
+To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
+In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
+The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
+
+<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
+
+<pre><code class="sql Easy to read">WITH sorted_by_modify_date AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id 
+                                  ORDER BY last_modify_date DESC) AS rank 
+    FROM stg_customer
+)
+SELECT * FROM sorted_by_modify_date
+WHERE sorted_by_modify_date.rank = 1;  
+</code></pre>
+
+<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
+The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
+We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
+Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
+We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+
+<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
+
+<pre><code class="sql Traffic classification of a Music website">WITH Total_Traffic AS
+(
+    SELECT temp.* from temp as clickstream_data
+    where .... -- filtering
+)
+, Rock_Music as
+(
+    select * from Total_Traffic
+    WHERE lower(evar28) LIKE 'rock_mus%'
+)
+, Instrumental_Music as
+(
+    select * from Total
+    WHERE evar28 LIKE '%[ins_mus]%'
+)
+, Defined as
+(
+    select * from Rock_Music
+    UNION
+    select * from Instrumental_Music
+)
+select traffic_date_key
+, count(distinct visitor_id) as unique_visitor
+from Defined 
+group by traffic_date_key
+</code></pre>
+
+<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
+Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
+Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+
+<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
+The ease of reading is a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+
+<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
+Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
 ]]></content>
   </entry>
   
@@ -322,178 +431,6 @@ where anchor_table_schema = 'some_schema'
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
 <li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Tip: Using Vsql CLI]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/17/vertica-tip-using-vsql/"/>
-    <updated>2015-12-17T22:54:07-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/17/vertica-tip-using-vsql</id>
-    <content type="html"><![CDATA[<h3>Using vsql</h3>
-
-<p>You can connect to Vertica database with username and password. When doing this, note that the password might be seen in the command history.</p>
-
-<pre><code>vsql -h internal.vertica.net -p 5433 -d VMart -U vertica_user -w password 
-</code></pre>
-
-<p>Or you can connect to Vertica with Kerberos authentication.</p>
-
-<pre><code>vsql -h internal.vertica.net -p 5433 -d VMart -k KerberosServiceName -K KerberosHostName
-</code></pre>
-
-<p>Note that from time to time, you could run into Kerberos GSI failure because the ticket expired. This is how you can renew and extend the ticket: run the following command to refresh Kerberos cache for the headless account <code>vertica_user</code>.</p>
-
-<pre><code class="">kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET
-</code></pre>
-
-<p>You can also run a single SQL command from command line with <code>-c</code> option or, alternatively, a SQL script file with multiple commands with <code>-f</code> option.
-These options can be very useful to automate in shell/python scripts.
-Note that you can also parameterize your scripts by using <code>-v</code> option to assign variables inside your SQL scripts.</p>
-
-<h3>Vsql meta commands</h3>
-
-<p>Here is list of commonly used vsql <a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">meta commands</a>:</p>
-
-<pre><code>dbadmin=&gt; \dt — (list of all tables)
-dbadmin=&gt; \dt user* — (list of tables starting with user)
-dbadmin=&gt; \d tablename — (describe table)
-dbadmin=&gt; \dv — (list of all views)
-</code></pre>
-
-<p>Here are the vsql commands to export a file:</p>
-
-<pre><code>dbadmin=&gt; \o sample_users_lists.csv
-dbadmin=&gt; \f|
-dbadmin=&gt; select * from my_dwh.users limit 20;
-dbadmin=&gt; \o
-dbadmin=&gt; \q
-</code></pre>
-
-<h3>External links</h3>
-
-<ol>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/ConnectingToHPVertica/vsql/CommandLineOptions.htm">Command line options</a></li>
-<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">Meta Commands</a></li>
-<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands/TheDPATTERNMeta-commands.htm">Meta Commands: \d[Pattern]</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Tip: Best Practices]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/"/>
-    <updated>2015-12-16T23:12:06-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices</id>
-    <content type="html"><![CDATA[<p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
-
-<h3>General Tips and Tricks</h3>
-
-<h4>CREATE (INSERT)</h4>
-
-<ul>
-<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
-<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
-<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
-</ul>
-
-
-<pre><code class="sql DO NOT do this">create table to_schema.to_table_name
-as select * from from_schema.from_table_name;
-</code></pre>
-
-<pre><code class="sql DO this">CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
-INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
-</code></pre>
-
-<ul>
-<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
-</ul>
-
-
-<h4>READ</h4>
-
-<ul>
-<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
-<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
-</ul>
-
-
-<h4>UPDATE &amp; DELETE</h4>
-
-<ul>
-<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
-<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
-</ul>
-
-
-<pre><code class="sql">CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
-INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
-DROP TABLE src_table;
-ALTER TABLE temp_table RENAME TO src_table;
-</code></pre>
-
-<ul>
-<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
-</ul>
-
-
-<h3>Query plan</h3>
-
-<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about query plans by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
-
-<pre><code class="sql EXPLAIN statement">EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
-WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
-ORDER BY customer_name LIMIT 10;
-</code></pre>
-
-<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
-
-<pre><code class="bash Query Plan description">EXPLAIN SELECT
-customer_name,
-customer_state
-FROM customer_dimension
-WHERE customer_state in ('MA','NH')
-AND customer_gender = 'Male'
-ORDER BY customer_name
-LIMIT 10;
-Access Path:
-+-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
-|  Output Only: 10 tuples
-|  Execute on: Query Initiator
-| +---&gt; SORT [Cost: 370, Rows: 544] (PATH ID: 1)
-| |      Order: customer_dimension.customer_name ASC
-| |      Output Only: 10 tuples
-| |      Execute on: Query Initiator
-| | +---&gt; STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
-| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
-| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
-| | |      Filter: (customer_dimension.customer_gender = 'Male')
-| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
-| | |      Execute on: Query Initiator
-</code></pre>
-
-<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
-
-<ol>
-<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
-</ol>
-
-
-<h3>External Links</h3>
-
-<ol>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
-<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
 </ol>
 
 ]]></content>

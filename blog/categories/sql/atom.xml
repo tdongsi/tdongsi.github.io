@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-14T00:48:29-08:00</updated>
+  <updated>2016-02-14T14:27:27-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -38,7 +38,7 @@ WHERE 'United States' NOT IN (select country_name from dim_country)
 
 <h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
 
-<p>Let&rsquo;s say you have an ETL that regularly inserts new data into an existing dimension table.</p>
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
 
 <pre><code class="sql BAD">INSERT INTO dim_country                    
 (
@@ -111,7 +111,7 @@ Using this function, tables are analyzed for best performance in subsequent quer
 Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
 
 <p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+In addition, when we add ANALYZE_STATISTICS function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
 Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
 
 <h3>Avoid creating temporary tables using <code>SELECT</code></h3>
@@ -120,7 +120,7 @@ Those errors can be ignored but they must be caught accordingly to separate with
 
 <ol>
 <li>Create the temporary table first without a projection.</li>
-<li>Create a super projection with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
 <li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
 </ol>
 
@@ -198,6 +198,90 @@ WHERE t1.rank = 1;
 
 <p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement.
 In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[WITH Clause in Vertica SQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/"/>
+    <updated>2016-02-03T00:50:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-post-8</id>
+    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
+<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
+Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
+For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+
+<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic. This will make our query much easier to read: we can read from top to bottom like reading a novel (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
+
+<p>For example, we can look into the following <code>SELECT</code> query:</p>
+
+<pre><code class="sql Hard to read">SELECT * FROM (
+  SELECT *,
+  row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+  FROM stg_customer
+) sorted_by_modify_date where sorted_by_modify_date.rank =1
+</code></pre>
+
+<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
+To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
+In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
+The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
+
+<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
+
+<pre><code class="sql Easy to read">WITH sorted_by_modify_date AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id 
+                                  ORDER BY last_modify_date DESC) AS rank 
+    FROM stg_customer
+)
+SELECT * FROM sorted_by_modify_date
+WHERE sorted_by_modify_date.rank = 1;  
+</code></pre>
+
+<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
+The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
+We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
+Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
+We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+
+<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
+
+<pre><code class="sql Traffic classification of a Music website">WITH Total_Traffic AS
+(
+    SELECT temp.* from temp as clickstream_data
+    where .... -- filtering
+)
+, Rock_Music as
+(
+    select * from Total_Traffic
+    WHERE lower(evar28) LIKE 'rock_mus%'
+)
+, Instrumental_Music as
+(
+    select * from Total
+    WHERE evar28 LIKE '%[ins_mus]%'
+)
+, Defined as
+(
+    select * from Rock_Music
+    UNION
+    select * from Instrumental_Music
+)
+select traffic_date_key
+, count(distinct visitor_id) as unique_visitor
+from Defined 
+group by traffic_date_key
+</code></pre>
+
+<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
+Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
+Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+
+<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
+The ease of reading is a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+
+<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
+Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
 ]]></content>
   </entry>
   
@@ -431,135 +515,6 @@ select NaMe from my_table;
 <li><a href="https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html">Database Object Naming</a></li>
 </ol>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 7): Partitioned Tables]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/"/>
-    <updated>2015-12-06T21:09:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables</id>
-    <content type="html"><![CDATA[<!--
-Chapter 4
--->
-
-
-<p>Continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
-
-<h3>Partitioned Managed Tables</h3>
-
-<p>In general, partitioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.</p>
-
-<p>In &ldquo;Programming Hive&rdquo;, the authors present a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
-
-<pre><code class="sql">CREATE TABLE employees (
-  name         STRING,
-  salary       FLOAT,
-  subordinates ARRAY&lt;STRING&gt;,
-  deductions   MAP&lt;STRING, FLOAT&gt;,
-  address      STRUCT&lt;street:STRING, city:STRING, state:STRING, zip:INT&gt;
-)
-PARTITIONED BY (country STRING, state STRING);
-</code></pre>
-
-<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory <code>employees</code> under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
-
-<pre><code class="bash">...
-.../employees/country=CA/state=AB
-.../employees/country=CA/state=BC
-...
-.../employees/country=US/state=AL
-.../employees/country=US/state=AK
-...
-</code></pre>
-
-<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
-
-<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
-
-<pre><code class="sql">SHOW PARTITIONS college;
-
-/* DESCRIBE EXTENDED also shows partition keys */
-SHOW PARTITIONS employees PARTITION( country=‘US’);
-</code></pre>
-
-<h4>Strict mode</h4>
-
-<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
-
-<pre><code class="bash">hive&gt; set hive.mapred.mode;
-hive.mapred.mode=nonstrict
-
-hive&gt; set hive.mapred.mode = strict;
-hive&gt; SELECT e.name FROM employees e; /* does not work */
-</code></pre>
-
-<h3>Partitioned External Tables</h3>
-
-<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
-
-<pre><code class="sql">CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
-  hms             INT,
-  severity        STRING,
-  server          STRING,
-  process_id      INT,
-  message         STRING)
-PARTITIONED BY (year INT, month INT, day INT)
-ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t';
-
-ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
-LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
-
-DESCRIBE EXTENDED log_messages PARTITION (year=2012);
-</code></pre>
-
-<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
-
-<h4>Example use case of partitioned external tables</h4>
-
-<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
-
-<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:
-<code>bash
-     hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
-</code>
-2) Alter the table to point the partition to the S3 location:
-<code>sql
-     ALTER TABLE log_messages PARTITION(year = 2011, month = 12, day = 2)
-     SET LOCATION 's3n://ourbucket/logs/2011/01/02';
-</code>
-3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:
-<code>bash
-     hadoop fs -rmr /data/log_messages/2011/01/02
-</code></p>
-
-<h3>Altering Partitioned Tables</h3>
-
-<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
-
-<pre><code class="sql">/* Add partition */
-ALTER TABLE log_messages ADD IF NOT EXISTS
-PARTITION (year = 2011, month = 1)
-LOCATION ‘/logs/2011/01';
-
-/* Change partition location */
-ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
-SET LOCATION ‘/bucket/logs/2011/01’;
-
-/* Drop partition */
-ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
-
-/* Alter storage properties of partition */
-ALTER TABLE log_messages
-PARTITION(year = 2012, month = 1, day = 1)
-SET FILEFORMAT SEQUENCEFILE;
-
-/* Archive partition */
-ALTER TABLE log_messages ARCHIVE
-PARTITION(year = 2012, month = 1, day = 1);
-</code></pre>
-
-<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
 ]]></content>
   </entry>
   

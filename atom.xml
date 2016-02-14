@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-14T00:48:29-08:00</updated>
+  <updated>2016-02-14T14:27:27-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -44,7 +44,7 @@ So, for example above:</p>
 
 <h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
 
-<p>Let&rsquo;s say you have an ETL that regularly inserts new data into an existing dimension table.</p>
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
 
 <figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -161,7 +161,7 @@ Using this function, tables are analyzed for best performance in subsequent quer
 Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
 
 <p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when you add ANALYZE_STATISTICS function calls into your ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+In addition, when we add ANALYZE_STATISTICS function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
 Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
 
 <h3>Avoid creating temporary tables using <code>SELECT</code></h3>
@@ -170,7 +170,7 @@ Those errors can be ignored but they must be caught accordingly to separate with
 
 <ol>
 <li>Create the temporary table first without a projection.</li>
-<li>Create a super projection with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Create a super <a href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
 <li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
 </ol>
 
@@ -303,6 +303,155 @@ Next, create a super projection with the correct column encodings and <code>ORDE
 
 <p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement.
 In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/"/>
+    <updated>2016-02-07T00:50:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-post-7</id>
+    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
+Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
+
+<ol>
+<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
+<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
+<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
+</ol>
+
+
+<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
+For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
+Vertica creates a default super-projection when running CREATE TABLE statement.
+<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
+
+<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
+Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[WITH Clause in Vertica SQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/"/>
+    <updated>2016-02-03T00:50:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-post-8</id>
+    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
+<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
+Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
+For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+
+<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic. This will make our query much easier to read: we can read from top to bottom like reading a novel (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
+
+<p>For example, we can look into the following <code>SELECT</code> query:</p>
+
+<figure class='code'><figcaption><span>Hard to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>  <span class="k">FROM</span> <span class="n">stg_customer</span>
+</span><span class='line'><span class="p">)</span> <span class="n">sorted_by_modify_date</span> <span class="k">where</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
+To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
+In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
+The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
+
+<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
+
+<figure class='code'><figcaption><span>Easy to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">sorted_by_modify_date</span> <span class="k">AS</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>    <span class="k">FROM</span> <span class="n">stg_customer</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">sorted_by_modify_date</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
+The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
+We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
+Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
+We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+
+<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
+
+<figure class='code'><figcaption><span>Traffic classification of a Music website</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">Total_Traffic</span> <span class="k">AS</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="k">SELECT</span> <span class="n">temp</span><span class="p">.</span><span class="o">*</span> <span class="k">from</span> <span class="n">temp</span> <span class="k">as</span> <span class="n">clickstream_data</span>
+</span><span class='line'>    <span class="k">where</span> <span class="p">....</span> <span class="c1">-- filtering</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="p">,</span> <span class="n">Rock_Music</span> <span class="k">as</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total_Traffic</span>
+</span><span class='line'>    <span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">evar28</span><span class="p">)</span> <span class="k">LIKE</span> <span class="s1">&#39;rock_mus%&#39;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="p">,</span> <span class="n">Instrumental_Music</span> <span class="k">as</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total</span>
+</span><span class='line'>    <span class="k">WHERE</span> <span class="n">evar28</span> <span class="k">LIKE</span> <span class="s1">&#39;%[ins_mus]%&#39;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="p">,</span> <span class="k">Defined</span> <span class="k">as</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Rock_Music</span>
+</span><span class='line'>    <span class="k">UNION</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Instrumental_Music</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">select</span> <span class="n">traffic_date_key</span>
+</span><span class='line'><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">distinct</span> <span class="n">visitor_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_visitor</span>
+</span><span class='line'><span class="k">from</span> <span class="k">Defined</span>
+</span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">traffic_date_key</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
+Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
+Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+
+<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
+The ease of reading is a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+
+<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
+Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
 ]]></content>
   </entry>
   
@@ -3247,134 +3396,6 @@ On Cloudera Quickstart VM, the <code>war</code> file property block should look 
 <li>Set the property <code>set hive.exec.mode.local.auto=true;</code> to use local mode more aggressively and gain performance in Hive queries, especially when working with small data sets.</li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 1): Introduction]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/22/programming-hive-chapter-1/"/>
-    <updated>2015-11-22T17:22:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/22/programming-hive-chapter-1</id>
-    <content type="html"><![CDATA[<!---
-"Chapter 1: Introduction" of the "Programming Hive" book.
--->
-
-
-<p>This post is the first of many Hive tutorial posts. Most of these posts are based on the <strong>Programming Hive</strong> book, with some observations from my own experience with <a href="http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">Cloudera Quickstart VM</a>.</p>
-
-<p><img class="center" src="http://tdongsi.github.io/images/hive/cat.gif" title="Cover" ></p>
-
-<h3>Introduction</h3>
-
-<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.</p>
-
-<p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
-
-<p>HiveQL does not conform to the ANSI SQL standard (not many do), but it is quite close to MySQL dialect.</p>
-
-<h3>Hive within the Hadoop Ecosystem</h3>
-
-<p>A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my <a href="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/">last post</a> can be very involving when using the Hadoop Java API. The API requires Java developers to manage many low-level details, repetitive wiring to/from Mappers and Reducers. The WordCount example&rsquo;s Java implementation can be found <a href="https://wiki.apache.org/hadoop/WordCount">here</a>.</p>
-
-<p>Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL can be as simple as:</p>
-
-<figure class='code'><figcaption><span>WordCount example in HiveQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">docs</span> <span class="p">(</span><span class="n">line</span> <span class="n">STRING</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* Load text files into TABLE docs: each line as a row */</span>
-</span><span class='line'><span class="k">LOAD</span> <span class="k">DATA</span> <span class="n">INPATH</span> <span class="s1">&#39;wordcount.txt&#39;</span> <span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">docs</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">word_counts</span> <span class="k">AS</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">word</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="k">count</span>
-</span><span class='line'><span class="k">FROM</span>
-</span><span class='line'>   <span class="c1">-- explode will return rows of tokens</span>
-</span><span class='line'>  <span class="p">(</span><span class="k">SELECT</span> <span class="n">explode</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s1">&#39;\s&#39;</span><span class="p">))</span> <span class="k">AS</span> <span class="n">word</span>
-</span><span class='line'>   <span class="k">FROM</span> <span class="n">docs</span><span class="p">)</span> <span class="n">w</span>
-</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">word</span>
-</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">word</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<!--
-In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
--->
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Overview of MapReduce: Explaining WordCount Example]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/"/>
-    <updated>2015-11-21T02:37:20-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example</id>
-    <content type="html"><![CDATA[<p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below:</p>
-
-<!---
-(from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
-
-![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
--->
-
-
-<p><img class="center" src="http://tdongsi.github.io/images/hive/wordcount.png" title="Process Flow of WordCount Example" ></p>
-
-<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
-
-<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
-
-<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
-
-<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection (or a value when the collection has a single element). In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
-
-<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
-
-<table>
-<thead>
-<tr>
-<th> </th>
-<th> Mapper </th>
-<th> Shuffling </th>
-<th> Reducer </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Input</strong> </td>
-<td> <code>(offset, text_line)</code> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> <code>(token,[1,1,1,...])</code> </td>
-</tr>
-<tr>
-<td> <strong>Processing</strong> </td>
-<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
-<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
-<td> Sum all elements in collection </td>
-</tr>
-<tr>
-<td> <strong>Output</strong> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> Sorted <code>(token,[1,1,1,...])</code> </td>
-<td> <code>(token, count)</code> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
 ]]></content>
   </entry>
   
