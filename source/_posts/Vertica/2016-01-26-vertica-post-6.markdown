@@ -11,9 +11,9 @@ categories:
 ---
 
 Most of these optimization notes in this post are learnt through interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants. 
-Also see [Veritca Best Practices](/blog/2015/12/16/vertica-tip-best-practices/).
+Also see [Vertica Best Practices](/blog/2015/12/16/vertica-tip-best-practices/).
 
-### `NOT IN` is better than `NOT EXISTS`
+### `NOT IN` better than `NOT EXISTS`
 
 When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:
 
@@ -50,7 +50,7 @@ WHERE dc.country_id is NULL;
 ```
 
 We are sometimes doing `LEFT JOIN` like this only to determine whether or not an entry already exists in the table. 
-It would be faster to instead use a `WHERE` clause to check if an entry exists. 
+It would be faster to use a `WHERE` clause instead to perform that existence check. 
 Although it might sound counter-intuitive, but reducing `JOIN` operations like this has been regularly recommended.
 
 ``` sql GOOD
@@ -69,7 +69,7 @@ WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
 
 ### Avoid function calls in `WHERE` and `JOIN` clauses
 
-For this performance tip, we make a slight change the ETL example in the last section above where `country_id` column is removed. In this case, we can use a normalized `country_name` as the ID to check for existing entries in the table:
+For this performance tip, we make a slight change to the example ETL in the last section above where `country_id` column is removed. In this case, we can use a normalized `country_name` as the ID to check for existing entries in the table:
 
 ``` sql BAD
 INSERT INTO dim_country                    
@@ -99,8 +99,8 @@ WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_countr
 However, such change still has bad performance because, in general, function calls in `WHERE` and `JOIN` clauses should be avoided in Vertica. 
 In both examples above, calling functions like `LOWER` in `WHERE` and `JOIN` clauses will affect the performance of the ETLs.
 
-The solution for the above example is that since we control what goes into dimension tables, we can ensure that columns like `country_name` are always stored in lower-case. 
-Then, we can do the same when creating the temporary table such as `staging_table` that we are comparing to check for existence.
+The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like `country_name` are always stored in lower-case. 
+Then, we can do the same when creating the temporary table such as `staging_table` that we are comparing to for checking existence.
 
 ### Use  [ANALYZE_STATISTICS](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm)
 
@@ -109,18 +109,19 @@ Using this function, tables are analyzed for best performance in subsequent quer
 Without information from `ANALYZE_STATISTICS`, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.
 
 Note that `ANALYZE_STATISTICS` is only supported on *local* temporary tables, but not on *global* temporary tables.
-In addition, when we add ANALYZE_STATISTICS function calls into our ETL scripts, errors might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running. 
+In addition, when we add `ANALYZE_STATISTICS` function calls into our ETL scripts, errors might be thrown when a second `ANALYZE_STATISTICS` call is made while the first is still running. 
 Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.
 
 ### Avoid creating temporary tables using `SELECT`
 
-Instead of creating temporary tables using `SELECT`, it is recommended:
+Instead of creating temporary tables using `SELECT`, it is recommended to:
 
 1. Create the temporary table first without a projection.
 1. Create a super [projection](/blog/2016/02/07/vertica-post-7/) with the correct column encodings and `ORDER BY` clause
 1. Populate it using `INSERT /*+ direct */ INTO`. Note the `/*+ direct */` hint to write data directly to disk, bypassing memory.
+1. Run `ANALYZE_STATISTICS`. See the last section.
 
-For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from the source table like this:
+For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:
 
 ``` sql BAD
 CREATE TEMPORARY TABLE customer_last_temp 
