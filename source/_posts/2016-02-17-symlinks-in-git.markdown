@@ -3,30 +3,37 @@ layout: post
 title: "Symlinks in Git"
 date: 2016-02-17 11:28:11 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Git
 - MacOSX
+- Vertica
 ---
 
-The following error message for every single file:
+### Context
+
+I had folders with many symbolic links in them, linking to other files in the same Git repository.
+
+``` bash Before
+$ ls -l link
+... link -> /path/to/target
+```
+
+Unfortunately after committing into Git, they've turned into plain text files. 
+Note that even after committing and pushing into Git, the symlinks still work fine. 
+However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.
+
+``` bash After
+$ cat link
+/path/to/target
+```
+
+If you unknowningly try to run some symlinks linked to SQL scripts like that, you might endup with numerous errors like this: 
 
 ``` plain
 vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-vsql:schema_create.sql:1: LINE 1: /Users/cdongsi/Github/my_repo/db_schema/file...
+vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
 ``` 
-
-I had folders with many symbolic links in them. Unfortunately after committing into Git, they've turned into plain text files with the link target as the contents. That is:
-
-Before
-
-$ ll link
-... link -> /path/to/target
-
-After
-
-$ cat link
-/path/to/target
 
 ### How Git deals with symlinks
 
@@ -65,6 +72,16 @@ where `ls -d1 $folder/*` could be replaced with something that will list exactly
 ``` plain Include subfolders
 folder=/Users/cdongsi/Github/sbg_datasets/tests/datamart-qe/scripts/sql/vertica/dml/
 ls -d1 $folder/**/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+```
+
+```
+ls -d1 data/vertica/*.sql | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+
+ls -d1 bash/* | while read f; do
   ln -sf "$(cat $f)" "$f"
 done
 ```
