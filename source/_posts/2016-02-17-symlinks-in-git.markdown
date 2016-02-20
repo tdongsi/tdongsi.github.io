@@ -8,6 +8,7 @@ categories:
 - Git
 - MacOSX
 - Vertica
+- Bash
 ---
 
 ### Context
@@ -35,6 +36,43 @@ vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 
 vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
 ``` 
 
+
+### Restoring the symlinks
+
+Before going into lengthy discussion on how Git handles symlinks, the quick solution for the above problem is like this:
+
+``` bash
+folder=/Users/tdongsi/Github/my_repo/scripts/sql
+ls -d1 $folder/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+```
+
+where `ls -d1 $folder/*` should be replaced with some command that will list exactly the files you want, preferably in full path. 
+Note that `-f` option of `ln` command is required to replace the file with the symlink. For example:
+
+``` bash Examples
+ls -d1 vertica/*.sql | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+
+ls -d1 bash/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+```
+
+**Best practice notes**: I think that the following template is preferred to the more common `for f in $(ls *);` `do...done`:
+
+``` bash
+ls * | while read f; do
+  # command executed for each file
+done
+```
+
+This is the right way to handle all file names, especially with spaces, since "$f" will still work. 
+In addition, `$(cmd)` is the same as 'cmd' (backticks) but it can be nested, unlike using backticks. 
+It fact, it's the main reason why the backticks have been [deprecated](http://wiki.bash-hackers.org/scripting/obsolete) from Bash scripting. 
+
 ### How Git deals with symlinks
 
 http://stackoverflow.com/questions/1500772/getting-git-to-follow-symlinks-again
@@ -51,57 +89,9 @@ Work around: install hardlink.
 
 http://stackoverflow.com/questions/86402/how-can-i-get-git-to-follow-symlinks
 
+### Links
 
+Alternative ways
 
-### Restoring the symlinks
-
-http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files
-
-http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux
-
-
-```
-folder=/Users/cdongsi/Github/my_repo/scripts/sql/vertica/table/
-  ls -d1 $folder/* | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-```
-
-where `ls -d1 $folder/*` could be replaced with something that will list exactly the files you wanted.
-
-``` plain Include subfolders
-folder=/Users/cdongsi/Github/sbg_datasets/tests/datamart-qe/scripts/sql/vertica/dml/
-ls -d1 $folder/**/* | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-```
-
-```
-ls -d1 data/vertica/*.sql | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-
-ls -d1 bash/* | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-```
-
-
-`-f` is required to replace the file with the symlink.
-
-I find the
-
-```
-ls * | while read f; do
-  # command executed for each file
-done
-```
-
-construct very useful. As I know, this is the right way to handle all file names, e.g. if a file name has spaces then "$f" will still work (unlike with for f in $(ls *); do...done).
-
-FYI: $(cmd) is the same as cmd but it can be nested unlike ``.
-
-
-Links
-
-1. http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files
+1. [Restore symlinks](http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files)
+1. [List files](http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux)

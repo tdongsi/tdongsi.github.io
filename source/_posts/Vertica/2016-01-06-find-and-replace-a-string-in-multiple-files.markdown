@@ -9,6 +9,7 @@ categories:
 - MacOSX
 - Ubuntu
 - Git
+- Bash
 ---
 
 ### Vertica Virtual Machine as sandbox test environment
