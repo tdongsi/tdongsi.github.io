@@ -67,7 +67,7 @@ WITH Total_Traffic AS
     select * from Total
     WHERE evar28 LIKE '%[ins_mus]%'
 )
-, Defined as
+, Defined_Traffic as
 (
     select * from Rock_Music
     UNION
@@ -75,7 +75,7 @@ WITH Total_Traffic AS
 )
 select traffic_date_key
 , count(distinct visitor_id) as unique_visitor
-from Defined 
+from Defined_Traffic 
 group by traffic_date_key
 ```
 
