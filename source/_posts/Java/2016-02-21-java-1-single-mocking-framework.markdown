@@ -1,0 +1,22 @@
+---
+layout: post
+title: "Use JMockit ONLY"
+date: 2016-02-21 12:20:46 -0800
+comments: true
+categories: 
+- Java
+- JUnit
+- Automation
+- JMockit
+---
+
+The more generic title should be "Use a single mocking framework ONLY".
+Personally, it means that I should stop learning Wiremock's advanced features and learn JMockit (specifically JMockit 1.21) which is used at work.
+
+We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time. 
+Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
+It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM. 
+This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
+We might have tests that work fine locally but start failing when running in combination with others in unexpected order because different mocking frameworks take over the class loader in different order or in different ways.
+
+To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.
