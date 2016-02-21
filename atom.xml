@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-15T00:36:00-08:00</updated>
+  <updated>2016-02-20T21:13:49-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -14,10 +14,135 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Symlinks in Git]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
+    <updated>2016-02-20T11:28:11-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
+    <content type="html"><![CDATA[<h3>Context</h3>
+
+<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
+
+<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
+</span><span class='line'>... link -&gt; /path/to/target
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
+Note that even after committing and pushing into Git, the symlinks still work fine.
+However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
+
+<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
+</span><span class='line'>/path/to/target
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
+</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<h3>Restoring the symlinks</h3>
+
+<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
+</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
+Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
+
+<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span><span class='line'>
+</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Best practice notes</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="c"># command executed for each file</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is the right way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
+In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
+It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
+
+<h3>How Git deals with symlinks</h3>
+
+<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
+If false, symbolic links are checked out as small plain files that contain the link text.
+<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
+It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
+When you checkout a tree containing the link, it restores the object as a symlink.</p>
+
+<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
+It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
+
+<h3>Use hard links?</h3>
+
+<p>You can use hard links instead of symlinks (a.k.a., soft links).
+Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
+Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
+
+<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
+Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
+In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
+
+<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
+When you switch branches back and forth, Git remove the old files and create new ones.
+You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
+Eventually, the file and its hardl links may be out of sync, and appear like totally unrelated files to Git.
+Therefore, using hard links, at best, is just a temporary solution.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
+<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
+<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-post-6/"/>
+    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
     <updated>2016-02-13T23:52:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-post-6</id>
+    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
     <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
 Also see <a href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
 
@@ -309,9 +434,9 @@ In addition, the wildcard <code>*</code> in the original SQL query is also avoid
   
   <entry>
     <title type="html"><![CDATA[Vertica Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/"/>
+    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
     <updated>2016-02-07T00:50:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-post-7</id>
+    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
     <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
 Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
 
@@ -334,9 +459,9 @@ Database Designer is a tool provided by Vertica to help us find the optimal proj
   
   <entry>
     <title type="html"><![CDATA[WITH Clause in Vertica SQL]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/"/>
+    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/"/>
     <updated>2016-02-03T00:50:48-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-post-8</id>
+    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause</id>
     <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
 <code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
 Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
@@ -431,7 +556,7 @@ We can define multiple queries for multiple steps, and each of them can refer to
 </span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total</span>
 </span><span class='line'>    <span class="k">WHERE</span> <span class="n">evar28</span> <span class="k">LIKE</span> <span class="s1">&#39;%[ins_mus]%&#39;</span>
 </span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="k">Defined</span> <span class="k">as</span>
+</span><span class='line'><span class="p">,</span> <span class="n">Defined_Traffic</span> <span class="k">as</span>
 </span><span class='line'><span class="p">(</span>
 </span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Rock_Music</span>
 </span><span class='line'>    <span class="k">UNION</span>
@@ -439,7 +564,7 @@ We can define multiple queries for multiple steps, and each of them can refer to
 </span><span class='line'><span class="p">)</span>
 </span><span class='line'><span class="k">select</span> <span class="n">traffic_date_key</span>
 </span><span class='line'><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">distinct</span> <span class="n">visitor_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_visitor</span>
-</span><span class='line'><span class="k">from</span> <span class="k">Defined</span>
+</span><span class='line'><span class="k">from</span> <span class="n">Defined_Traffic</span>
 </span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">traffic_date_key</span>
 </span></code></pre></td></tr></table></div></figure>
 
@@ -3092,311 +3217,6 @@ In <code>hive-site.xml</code> file, the metastore database configuration looks l
 <p>The information stored in metastore is typically much smaller than the data stored in Hive.
 Therefore, you typically don’t need a powerful dedicated database server for the metastore.
 However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 2): Hive CLI]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli/"/>
-    <updated>2015-11-23T19:47:23-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/23/programming-hive-hive-cli</id>
-    <content type="html"><![CDATA[<p>This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
-
-<h3>Starting Hive with Cloudera Quickstart VM</h3>
-
-<p>On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as <code>hive-exec*.jar</code> and <code>hive-metastore*.jar</code>, can be found in <code>/usr/lib/hive/lib</code>.
-The Hive executables can be found in <code>/usr/lib/hive/bin</code>. Running <code>hive</code> without any parameter will start Hive&rsquo;s CLI.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
-</span><span class='line'>
-</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
-</span><span class='line'>hive&gt; CREATE TABLE x (a INT);
-</span><span class='line'>OK
-</span><span class='line'>Time taken: 3.032 seconds
-</span><span class='line'>hive&gt; SELECT * FROM x;
-</span><span class='line'>OK
-</span><span class='line'>Time taken: 0.465 seconds
-</span><span class='line'>hive&gt; SELECT *        
-</span><span class='line'>    &gt; FROM x;
-</span><span class='line'>OK
-</span><span class='line'>Time taken: 0.049 seconds
-</span><span class='line'>hive&gt; DROP TABLE x;
-</span><span class='line'>OK
-</span><span class='line'>Time taken: 0.348 seconds
-</span><span class='line'>hive&gt; exit;</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Hive services</h3>
-
-<p>The <code>hive</code> shell command is actually a wrapper to multiple Hive services, including the CLI.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help
-</span><span class='line'>Usage ./hive &lt;parameters&gt; --service serviceName &lt;service parameters&gt;
-</span><span class='line'>Service List: beeline cli help hiveserver2 hiveserver hwi jar lineage metastore metatool orcfiledump rcfilecat schemaTool version 
-</span><span class='line'>Parameters parsed:
-</span><span class='line'>  --auxpath : Auxillary jars 
-</span><span class='line'>  --config : Hive configuration directory
-</span><span class='line'>  --service : Starts specific service/component. cli is default
-</span><span class='line'>Parameters used:
-</span><span class='line'>  HADOOP_HOME or HADOOP_PREFIX : Hadoop install directory
-</span><span class='line'>  HIVE_OPT : Hive options
-</span><span class='line'>For help on a particular service:
-</span><span class='line'>  ./hive --service serviceName --help
-</span><span class='line'>Debug help:  ./hive --debug --help</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note the list of services following the line &ldquo;Service List&rdquo;.
-There are several services available, most notably <strong>cli, hwi, jar, metastore</strong>.
-You can use <code>--service name</code> option to invoke a service.
-CLI is the default service, not specifying any service in <code>hive</code> command will run CLI service, as shown in &ldquo;Starting Hive&rdquo; section above.</p>
-
-<p>For example, to run <a href="https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface">Hive Web Interface</a>, run the service <strong>hwi</strong>. On Cloudera Quickstart VM, you might encounter this error:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
-</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
-</span><span class='line'>15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
-</span><span class='line'>15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To fix that error, edit the config file <code>hive-site.xml</code> in the <code>config</code> folder (e.g., <code>/usr/lib/hive/conf/hive-site.xml</code> on Cloudera VM) to point to the right location of HWI&rsquo;s <code>war</code> file.
-On Cloudera Quickstart VM, the <code>war</code> file property block should look like this:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>...
-</span><span class='line'> &lt;property&gt;
-</span><span class='line'>    &lt;name&gt;hive.hwi.war.file&lt;/name&gt;
-</span><span class='line'>    &lt;value&gt;/lib/hive-hwi.jar&lt;/value&gt;
-</span><span class='line'>    &lt;description&gt;This is the WAR file with the jsp content for Hive Web Interface&lt;/description&gt;
-</span><span class='line'>  &lt;/property&gt;
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Running the <strong>hwi</strong> service again using <code>hive</code> command should work. In order to access the Hive Web Interface, go to <code>[Hive Server Address]</code>:9999/hwi on your web browser.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
-</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
-</span><span class='line'>15/11/23 20:31:27 INFO hwi.HWIServer: HWI is starting up
-</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Logging to org.slf4j.impl.Log4jLoggerAdapter(org.mortbay.log) via org.mortbay.log.Slf4jLog
-</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: jetty-6.1.26.cloudera.4
-</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Extract /usr/lib/hive/lib/hive-hwi.jar to /tmp/Jetty_0_0_0_0_9999_hive.hwi.0.13.1.cdh5.3.0.jar__hwi__.lcik1p/webapp
-</span><span class='line'>15/11/23 20:31:28 INFO mortbay.log: Started SocketConnector@0.0.0.0:9999</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Hive CLI</h3>
-
-<p>Available options for Hive CLI can be displayed as follows:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help --service cli
-</span><span class='line'>usage: hive
-</span><span class='line'> -d,--define &lt;key=value&gt;          Variable subsitution to apply to hive
-</span><span class='line'>                                  commands. e.g. -d A=B or --define A=B
-</span><span class='line'>    --database &lt;databasename&gt;     Specify the database to use
-</span><span class='line'> -e &lt;quoted-query-string&gt;         SQL from command line
-</span><span class='line'> -f &lt;filename&gt;                    SQL from files
-</span><span class='line'> -H,--help                        Print help information
-</span><span class='line'> -h &lt;hostname&gt;                    connecting to Hive Server on remote host
-</span><span class='line'>    --hiveconf &lt;property=value&gt;   Use value for given property
-</span><span class='line'>    --hivevar &lt;key=value&gt;         Variable subsitution to apply to hive
-</span><span class='line'>                                  commands. e.g. --hivevar A=B
-</span><span class='line'> -i &lt;filename&gt;                    Initialization SQL file
-</span><span class='line'> -p &lt;port&gt;                        connecting to Hive Server on port number
-</span><span class='line'> -S,--silent                      Silent mode in interactive shell
-</span><span class='line'> -v,--verbose                     Verbose mode (echo executed SQL to the
-</span><span class='line'>                                  console)</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>Hive variables and properties</h4>
-
-<p>The <code>--define key=value</code> option is equivalent to the <code>--hivevar key=value</code> option. Both let you define custom variables in the <code>hivevar</code> namespace, separate from three other built-in namespaces, <code>hiveconf</code>, <code>system</code>, and <code>env</code>. By convention, the Hive namespaces for variables and properties are as follows:</p>
-
-<ol>
-<li>hivevar: user-defined custom variables.</li>
-<li>hiveconf: Hive-specific configuration properties.</li>
-<li>system: Java configuration properties.</li>
-<li>env: (Read-only) environment variables by shell environment (e.g., bash).</li>
-</ol>
-
-
-<p>Inside Hive CLI, the command <code>SET</code> is used to display and change variables. For example:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
-</span><span class='line'>
-</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
-</span><span class='line'>hive&gt; set env:HOME; &lt;-- display HOME variable in env namespace
-</span><span class='line'>env:HOME=/home/cloudera
-</span><span class='line'>hive&gt; set; &lt;-- display all variables
-</span><span class='line'>...
-</span><span class='line'>hive&gt; set -v; &lt;-- display even more variables
-</span><span class='line'>...
-</span><span class='line'>hive&gt; set hivevar:foo=bar; &lt;-- set foo variable in hivevar namespace to bar</span></code></pre></td></tr></table></div></figure>
-
-
-<h4><code>-e query_string</code> and <code>-S</code> options</h4>
-
-<p><code>-e</code> option allows you to execute a list of semicolon-separated queries as an input string. <code>-S</code> option for silent mode will remove non-essential output. For example:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -e "SELECT * FROM mytable LIMIT 3";
-</span><span class='line'>OK
-</span><span class='line'>name1 10
-</span><span class='line'>name2 20
-</span><span class='line'>name3 30
-</span><span class='line'>Time taken: 4.955 seconds</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -S -e "select * FROM mytable LIMIT 3"
-</span><span class='line'>name1 10
-</span><span class='line'>name2 20
-</span><span class='line'>name3 30</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Tip</strong>: To quickly search for the full name of a property that you only remember part of its name, pipe the Hive&rsquo;s <code>SET</code> command output to grep. For example:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
-</span><span class='line'>hive.metastore.warehouse.dir=/user/hive/warehouse
-</span><span class='line'>hive.warehouse.subdir.inherit.perms=true</span></code></pre></td></tr></table></div></figure>
-
-
-<h4><code>-f script_file</code> option</h4>
-
-<p>This option allows you to execute one or more queries contained in a script file. If you are already within the Hive CLI, you can use the <code>SOURCE</code> command to execute a script file. For example:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ cat /path/to/file/withqueries.hql
-</span><span class='line'>SELECT x.* FROM src x;
-</span><span class='line'>$ hive
-</span><span class='line'>hive&gt; source /path/to/file/withqueries.hql;</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h4><code>-i filename</code> option</h4>
-
-<p>This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is the file <code>$HOME/.hiverc</code> if it exists.</p>
-
-<h4>Tips</h4>
-
-<ul>
-<li>To print column headers (disabled by default), set the hiveconf property <code>hive.cli.print.header</code> to true: <code>set hive.cli.print.header=true;</code>.</li>
-<li>Hive has a command history, saved into a file <code>$HOME/.hivehistory</code>. Use the up and down arrow keys to scroll through previous commands.</li>
-<li>To run HDFS commands from within Hive CLI, drop the hdfs. For example:</li>
-</ul>
-
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; dfs -ls input; 
-</span><span class='line'>Found 1 items
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>To run the bash shell commands from within Hive CLI, prefix <code>!</code> before the bash commands and terminate the line with a semicolon (;). Note that interactive commands, shell pipes <code>|</code>, and file globs <code>*</code> will not work. Example:</li>
-</ul>
-
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; !pwd;
-</span><span class='line'>hive&gt; /home/cloudera/temp</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>Set the property <code>set hive.exec.mode.local.auto=true;</code> to use local mode more aggressively and gain performance in Hive queries, especially when working with small data sets.</li>
-</ul>
-
 ]]></content>
   </entry>
   
