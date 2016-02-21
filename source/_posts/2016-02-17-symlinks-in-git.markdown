@@ -29,7 +29,7 @@ $ cat link
 /path/to/target
 ```
 
-If you unknowningly try to run some symlinks linked to SQL scripts like that, you might endup with numerous errors like this: 
+If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this: 
 
 ``` plain
 vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
@@ -39,7 +39,7 @@ vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file..
 
 ### Restoring the symlinks
 
-Before going into lengthy discussion on how Git handles symlinks, the quick solution for the above problem is like this:
+Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:
 
 ``` bash
 folder=/Users/tdongsi/Github/my_repo/scripts/sql
@@ -77,24 +77,31 @@ It fact, it's the main reason why the backticks have been [deprecated](http://wi
 
 How Git deals with symlinks is defined in the [git config](https://git-scm.com/docs/git-config) `core.symlinks`.
 If false, symbolic links are checked out as small plain files that contain the link text.
-[Otherwise](http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links), git just stores the contents of the link (i.e., the path of the file system) in a 'blob' just like it would for a normal file. 
+[Otherwise](http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links), Git just stores the contents of the link (i.e., the path of the file system) in a 'blob' just like it would for a normal file. 
 It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
 When you checkout a tree containing the link, it restores the object as a symlink.
 
 After the symlinks are checked out as plain text files, it is pretty much no way for Git to restore symlinks again (follow symlinks inside text files).
 It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?
 
-### Use hard links
+### Use hard links?
 
-In MacOS, hardlink will be lost
+You can use hard links instead of symlinks (a.k.a., soft links). 
+Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
+Git may see changes in both files if both the original file and the hard link are in the same repository.  
 
-Work around: install hardlink.
+One of the disadvantages is that the file will be created as a normal file during `git checkout`, because there is no way Git understand it as a link.
+Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
+In Mac OSX, hard links to directories are not supported. There is a [tool](https://github.com/selkhateeb/hardlink) to do that, but use it with caution.
 
-http://stackoverflow.com/questions/86402/how-can-i-get-git-to-follow-symlinks
+Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
+When you switch branches back and forth, Git remove the old files and create a new ones.
+You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
+Eventually, the two files may be out of sync, and appear like totally unrelated files to Git.
+Therefore, using hard links is a temporary solution, at best.
 
 ### Links
 
-Alternative ways
-
-1. [Restore symlinks](http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files)
-1. [List files](http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux)
+1. [Alternative ways to restore symlinks](http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files)
+1. [Alternative ways to list files](http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux)
+1. [Git design overview](https://git.wiki.kernel.org/index.php/Git)
