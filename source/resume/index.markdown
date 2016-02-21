@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Cuong DongSi"
-date: 2015-12-20 14:49
+date: 2016-02-20 14:49
 comments: true
 sharing: false
 footer: true
@@ -28,15 +28,16 @@ Checklist:
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  [Perl](/blog/categories/perl/).
+  [Perl](/blog/categories/perl/),
+  [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
-  SQLite, MySQL, 
+  [SQLite](/blog/categories/sqlite/), 
+  MySQL, 
   [Netezza](/blog/categories/netezza/),
   [Vertica](/blog/categories/vertica/), 
-  [Hive](/blog/categories/hive/), 
   [Cassandra](/blog/categories/cassandra/), 
-  InfiniteGraph, 
-  Objectivity/DB.
+  InfiniteGraph,
+  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/).
 * **Query Language**: 
   [SQL](/blog/categories/sql/), 
   XPath, 
@@ -50,26 +51,33 @@ Checklist:
   Apache Ant, 
   [Maven](/blog/categories/maven/), Gradle, JMeter.
 * **Web Apps**: 
-  HTML, Selenium, RestAssured, WireMock.
+  HTML, Selenium, RestAssured, JMockit.
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
   [Matplotlib](/blog/categories/matplotlib/).
-* **Platforms**: 
+* **OS & Platforms**: 
   [Windows](/blog/categories/windows/), 
-  Mac OS, 
+  [Mac OS](/blog/categories/macosx/), 
   [CentOS](/blog/categories/centos/),
   Ubuntu, SunOS, HP-UX,
-  Amazon Web Services.
+  [Amazon Web Services](/blog/categories/aws/).
 * **Tools**:
-  IntelliJ,
-  [Eclipse](/blog/categories/eclipse/), 
-  Visual Studio, 
-  Git, SourceTree, Perforce, Subversion, 
-  Jenkins, Tidal Scheduler, 
-  Confluence, JIRA, Trello, 
-  [Splunk](/download/training/COC_Searching_Splunk.pdf), 
-  Chef, vagrant.
+  * IDE:
+    IntelliJ, PyCharm,
+    [Eclipse](/blog/categories/eclipse/), 
+    Visual Studio.
+  * Version control:
+    [Git](/blog/categories/git/), 
+    [Github](https://github.com/tdongsi), 
+    SourceTree, 
+    Perforce, Subversion.
+  * Teamware:
+    MediaWiki, Confluence, JIRA, Trello.
+  * DevOps:
+    Jenkins, Tidal Scheduler, 
+    [Splunk](/download/training/COC_Searching_Splunk.pdf), 
+    Chef, vagrant.
 
 ### Education
 
@@ -94,7 +102,7 @@ Checklist:
 
 * Develop and automate test cases for backend infrastructure and services in QuickBooks Online
   and Small Business Group ecosystem.
-* Design and implement frameworks to facilitate automated testing of SQL scripts in **Big Data** projects. Work with developers on
+* Design and implement frameworks to facilitate automated testing in **Big Data** projects. Work with developers on
   project requirements to make informed testing decisions and develop appropriate test solutions.
 
 <!--
@@ -153,6 +161,8 @@ Lifelong learning and professional training after college.
 * [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk.
 * [Chef Fundamentals](/download/training/COC_Chef.pdf).
 * [Amazon](/download/training/COC_AWS.pdf) Web Services.
+  * [AWS Technical Essentials](https://aws.amazon.com/training/course-descriptions/essentials/)
+  * [Developing on AWS](https://aws.amazon.com/training/course-descriptions/developing/)
 * [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
 <!-- 

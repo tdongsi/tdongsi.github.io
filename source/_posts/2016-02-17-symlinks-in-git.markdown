@@ -7,7 +7,6 @@ published: true
 categories: 
 - Git
 - MacOSX
-- Vertica
 - Bash
 ---
 
