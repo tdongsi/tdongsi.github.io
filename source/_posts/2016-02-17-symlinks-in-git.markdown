@@ -75,11 +75,14 @@ It fact, it's the main reason why the backticks have been [deprecated](http://wi
 
 ### How Git deals with symlinks
 
-http://stackoverflow.com/questions/1500772/getting-git-to-follow-symlinks-again
+How Git deals with symlinks is defined in the [git config](https://git-scm.com/docs/git-config) `core.symlinks`.
+If false, symbolic links are checked out as small plain files that contain the link text.
+[Otherwise](http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links), git just stores the contents of the link (i.e., the path of the file system) in a 'blob' just like it would for a normal file. 
+It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
+When you checkout a tree containing the link, it restores the object as a symlink.
 
-No way for restoring symlinks to files.
-
-http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links
+After the symlinks are checked out as plain text files, it is pretty much no way for Git to restore symlinks again (follow symlinks inside text files).
+It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?
 
 ### Use hard links
 
