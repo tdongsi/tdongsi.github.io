@@ -28,6 +28,8 @@ Checklist:
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
+  Scala, 
+  *JavaScript*,
   [Perl](/blog/categories/perl/),
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
@@ -158,6 +160,7 @@ Checklist:
 
 Lifelong learning and professional training after college.
 
+* [Scala Seminar](/download/training/COC_Scala_Seminar.pdf).
 * [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk.
 * [Chef Fundamentals](/download/training/COC_Chef.pdf).
 * Amazon Web Services.
