@@ -160,9 +160,9 @@ Lifelong learning and professional training after college.
 
 * [Using](/download/training/COC_Using_Splunk.pdf) and [Searching](/download/training/COC_Searching_Splunk.pdf) with Splunk.
 * [Chef Fundamentals](/download/training/COC_Chef.pdf).
-* [Amazon](/download/training/COC_AWS.pdf) Web Services.
-  * [AWS Technical Essentials](https://aws.amazon.com/training/course-descriptions/essentials/)
-  * [Developing on AWS](https://aws.amazon.com/training/course-descriptions/developing/)
+* Amazon Web Services.
+  * [AWS Technical Essentials](https://aws.amazon.com/training/course-descriptions/essentials/): [COC](/download/training/COC_AWS_Essentials.pdf)
+  * [Developing on AWS](https://aws.amazon.com/training/course-descriptions/developing/): [COC](/download/training/COC_Developing_on_AWS.pdf)
 * [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
 <!-- 
