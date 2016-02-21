@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "WITH clause in Vertica SQL"
+title: "WITH clause in SQL"
 date: 2016-02-03 00:50:48 -0800
 comments: true
 categories: 
@@ -14,7 +14,8 @@ I am pleasantly surprised that Vertica SQL supports `WITH` clause, as documented
 Therefore, I do not usually expect `WITH` clause since it is a fairly recent feature in most SQL dialects. 
 For example: `WITH` clause support is only added into SQLite since Feb 2014.
 
-In summary, the `WITH` clause allows us to arrange sub-queries in a SQL query in order of human logic. This will make our query much easier to read: we can read from top to bottom like reading a novel (i.e., [literate programming](https://en.wikipedia.org/wiki/Literate_programming)). 
+In summary, the `WITH` clause allows us to arrange sub-queries in a SQL query in order of human logic. 
+This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., [literate programming](https://en.wikipedia.org/wiki/Literate_programming)). 
 
 For example, we can look into the following `SELECT` query:
 
