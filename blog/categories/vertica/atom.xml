@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-20T21:18:02-08:00</updated>
+  <updated>2016-02-21T12:37:20-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,104 +12,6 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
-  
-  <entry>
-    <title type="html"><![CDATA[Symlinks in Git]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
-    <updated>2016-02-20T11:28:11-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
-    <content type="html"><![CDATA[<h3>Context</h3>
-
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
-
-<pre><code class="bash Before">$ ls -l link
-... link -&gt; /path/to/target
-</code></pre>
-
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
-
-<pre><code class="bash After">$ cat link
-/path/to/target
-</code></pre>
-
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
-
-<pre><code class="plain">vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
-</code></pre>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<pre><code class="bash">folder=/Users/tdongsi/Github/my_repo/scripts/sql
-ls -d1 $folder/* | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-</code></pre>
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<pre><code class="bash Examples">ls -d1 vertica/*.sql | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-
-ls -d1 bash/* | while read f; do
-  ln -sf "$(cat $f)" "$f"
-done
-</code></pre>
-
-<p><strong>Best practice notes</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<pre><code class="bash">ls * | while read f; do
-  # command executed for each file
-done
-</code></pre>
-
-<p>This is the right way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hardl links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
-]]></content>
-  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
@@ -476,6 +378,63 @@ The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> 
 </code></pre>
 
 <p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/"/>
+    <updated>2015-12-18T21:39:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
+    <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
+
+<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
+
+<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
+
+<pre><code class="sql Query to list tables' sizes in a schema">select anchor_table_schema, anchor_table_name, sum(used_bytes)
+FROM v_monitor.column_storage
+where anchor_table_schema = 'some_schema'
+group by anchor_table_schema, anchor_table_name
+</code></pre>
+
+<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
+
+<h3>v_catalog schema and TABLES system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
+
+<pre><code class="sql Query to list all tables in a schema">select table_schema, table_name from tables
+where table_schema = 'some_schema'
+</code></pre>
+
+<p>Another useful system table in <code>v_catalog</code> schema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
+
+<h3>Find all the empty (truncated) tables</h3>
+
+<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
+
+<pre><code class="sql Query to find empty tables in a schema">select table_name
+from v_catalog.tables
+where table_schema = 'some_schema'
+EXCEPT
+select anchor_table_name
+from v_monitor.column_storage
+where anchor_table_schema = 'some_schema' 
+</code></pre>
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
+<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
+</ol>
+
 ]]></content>
   </entry>
   

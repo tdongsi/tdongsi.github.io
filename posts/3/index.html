@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation &hellip;">
+  <meta name="description" content="Vertica Virtual Machine as sandbox test environment When developing data-warehouse solutions in Vertica, you want to set up some test environment. &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -68,6 +68,97 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">Using Virtual Machine for ETL Testing</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-01-10T23:49:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:49 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Vertica Virtual Machine as sandbox test environment</h3>
+
+<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
+Ideally, you should have separate schema for each developer.
+However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
+The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
+If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
+
+<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to represent corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
+Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
+Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
+Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.</p>
+
+<p>In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
+Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
+
+<h3>Single-node VM and KSAFE clause</h3>
+
+<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
+
+<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+
+<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+
+<ul>
+<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
+<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
+<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
+<li>Add unit and functional tests to ETL scripts in this branch.</li>
+<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
+
+<ul>
+<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
+</ul>
+</li>
+<li>Merge <code>local/develop</code> branch into <code>develop</code> branch. You will now have your tests with the latest codes in <code>develop</code> branch.</li>
+</ul>
+
+
+<h4>Find and replace a string in multiple files</h4>
+
+<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
+
+<ul>
+<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
+<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
+</ul>
+
+
+<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -693,103 +784,6 @@ As a toy example, suppose you have the following data in the local filesystem:</
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/12/07/some-netezzas-nzsql-tips/">Some NZSQL Tips for New Netezza Users</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-12-07T11:11:06-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>7</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:11 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><ul>
-<li>By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">name</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">address</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
-</span><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">NaMe</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">adDresS</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>  are equivalent to:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">NAME</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">ADDRESS</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>  The same is true for <code>SELECT</code> statements. These two SQL statements:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">name</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
-</span><span class='line'><span class="k">select</span> <span class="n">NaMe</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>  are equivalent to:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">NAME</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>The best practice is that you should never care or override the above default behavior: your identifiers should be case-insensitive. Unfortunately, if you have to override the above default behavior, then you must surround the identifier with double-quotes whenever you reference it. For example, if you create a table using this statement:</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="ss">&quot;Name&quot;</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="ss">&quot;Address&quot;</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>
-then you must reference the identifiers by surrounding them with double-quotes. For example:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="ss">&quot;Name&quot;</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>The most perplexing feature for new Netezza users when reading a NZSQL script is probably the &ldquo;dot dot&rdquo; notation of database object names, i.e., the two dots in <code>my_dwh..companies</code>. It is simply the short-hand notation for database object names, <code>database-name..object-name</code>. The fully qualified form of object names in Netezza has <strong>three-level</strong> as <code>database-name.schema.object-name</code>. One example of using such notation is shown below:</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">from</span> <span class="p">(</span><span class="k">select</span> <span class="n">company_name</span> <span class="k">from</span> <span class="n">my_dwh</span><span class="p">..</span><span class="n">companies</span> <span class="k">where</span> <span class="n">company_name</span> <span class="k">like</span> <span class="s1">&#39;%e%&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">x</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>External Links</h4>
-
-<ol>
-<li><a href="https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html">Database Object Naming</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -810,6 +804,10 @@ then you must reference the identifiers by surrounding them with double-quotes. 
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/02/20/symlinks-in-git/">Symlinks in Git</a>
       </li>
     
@@ -823,10 +821,6 @@ then you must reference the identifiers by surrounding them with double-quotes. 
     
       <li class="post">
         <a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/01/27/python-post-1/">Mocking Current Date and Time in Python</a>
       </li>
     
   </ul>
@@ -863,7 +857,7 @@ then you must reference the identifiers by surrounding them with double-quotes. 
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (3)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (6)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (3)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (10)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (9)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (4)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (3)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (10)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (8)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
 </section>
 
 
