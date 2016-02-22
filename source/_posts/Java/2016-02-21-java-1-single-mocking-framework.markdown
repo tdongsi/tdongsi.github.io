@@ -10,8 +10,8 @@ categories:
 - JMockit
 ---
 
-The more generic title should be "Use a single mocking framework ONLY".
-Personally, it means that I should defer learning Wiremock's advanced features and learn JMockit (specifically JMockit 1.2x) which is used at work.
+A more general title would be "Use a single mocking framework ONLY".
+Personally, it just means that I should defer learning Wiremock's advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.
 
 We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time. 
 Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
