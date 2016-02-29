@@ -5,7 +5,7 @@ date: 2016-02-21 12:20:46 -0800
 comments: true
 categories: 
 - Java
-- JUnit
+- Testing
 - Automation
 - JMockit
 ---

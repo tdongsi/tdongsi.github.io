@@ -6,6 +6,7 @@ comments: true
 categories: 
 - Python
 - Automation
+- Testing
 ---
 
 ### Calendar types
