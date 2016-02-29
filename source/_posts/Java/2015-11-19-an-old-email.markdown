@@ -6,6 +6,7 @@ comments: true
 categories: 
 - Java
 - JUnit
+- Testing
 ---
 
 I found this email below (names redacted) in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me many significant lessons and insight, especially when I'm relatively early in my job/career:

@@ -10,6 +10,7 @@ categories:
 - Ubuntu
 - Git
 - Bash
+- Testing
 ---
 
 ### Vertica Virtual Machine as sandbox test environment
@@ -33,7 +34,7 @@ Using a Vertica VM as the sandbox test environment helps us minimize interferenc
 I have been using a **single-node** Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica's support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).
 
 The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
+The reason is that Vertica database with one or two hosts cannot be *k-safe* (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have `KSAFE 1` in `CREATE TABLE` statements to work.
 
 Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since `KSAFE 1` does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with **Git** is as follows:
 

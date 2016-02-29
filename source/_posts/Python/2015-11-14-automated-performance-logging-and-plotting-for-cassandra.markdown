@@ -10,6 +10,7 @@ categories:
 - Automation
 - Numpy
 - Matplotlib
+- Performance
 ---
 
 In this [mini-project](https://github.com/tdongsi/python/tree/master/PerformanceLog), I created a Python script (PerformanceLog.py) to record JMX values from a running Cassandra instance, using JMXTerm (http://wiki.cyclopsgroup.org/jmxterm/), and do the following:
