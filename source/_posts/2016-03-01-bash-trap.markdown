@@ -30,7 +30,8 @@ trap cleanup EXIT
 # Thousand lines of code here
 ```
 
-Putting the cleanup operations at the end of the bash script might not work in case of error since the bash script stops executing and those clean up commands never run.
+Putting the cleanup operations at the end of the bash script might not work in case of error. 
+Since the bash script already stops executing due to some fatal error, those clean up commands might never run.
 
 ``` bash DON'T DO THIS
 
@@ -51,27 +52,9 @@ fi
 For example, in Vertica, you should always run [`SELECT START_REFRESH()`](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm) 
 at the end of a deployment script, regardless of any error encountered during script execution.
 It is a good candidate for using `trap` statement.
-Putting commands at the end of the script will not work in case there is an error during deployment, and you might see "AHM Does Not Advance"-related errors (see this [post](/blog/2016/02/29/vertica-refresh-projections/)).
+Adding those commands at the end of the script will not work in case there is an error during deployment, and you might end up with "AHM Does Not Advance"-related errors (see this [post](/blog/2016/02/29/vertica-refresh-projections/)).
 
-Note that the signal names might be with or without prefix `SIG` or even replaced with numeric values for signal numbers, e.g., 2 for INT (see list below).
-
-``` plain List of signals
-MTVL1288aeea2-82:octopress tdongsi$ kill -l
- 1) SIGHUP	 2) SIGINT	 3) SIGQUIT	 4) SIGILL
- 5) SIGTRAP	 6) SIGABRT	 7) SIGEMT	 8) SIGFPE
- 9) SIGKILL	10) SIGBUS	11) SIGSEGV	12) SIGSYS
-13) SIGPIPE	14) SIGALRM	15) SIGTERM	16) SIGURG
-17) SIGSTOP	18) SIGTSTP	19) SIGCONT	20) SIGCHLD
-21) SIGTTIN	22) SIGTTOU	23) SIGIO	24) SIGXCPU
-25) SIGXFSZ	26) SIGVTALRM	27) SIGPROF	28) SIGWINCH
-29) SIGINFO	30) SIGUSR1	31) SIGUSR2
-
-OR 
-
-MTVL1288aeea2-82:octopress tdongsi$ man signal
-```
-
-### How many signals to trap
+### Trap multiple signals
 
 Note that many online examples for `trap` use a list of signals for cleanup tasks like this `trap cleanup INT TERM EXIT`, i.e., trapping not only EXIT signal but also INT and TERM signals. 
 I believe once `EXIT` signal is used, other signals such as `INT` or `TERM` are redundant for cleanup purposes.
@@ -110,13 +93,13 @@ MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
 trap 'echo TRAP CAPTURED' INT TERM EXIT
 sleep 3
 
-MTVL1288aeea2-82:code cdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
 [1] 7258
 TRAP CAPTURED
 TRAP CAPTURED
 [1]+  Exit 130                ./test_trap.sh
 
-MTVL1288aeea2-82:code cdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
 [1] 7278
 Terminated: 15
 TRAP CAPTURED
@@ -124,15 +107,42 @@ TRAP CAPTURED
 [1]+  Exit 143                ./test_trap.sh
 ```
 
-In short, you should know how `trap` works on your production system before listing multiple signals in its parameters.
+In short, you should know how `trap` works on your production system before listing multiple signals as its parameters, especially when coupled with `EXIT` signal.
 
-### Other usages
+### Other usage notes
 
-If one of the signals specified in `trap` statement is `DEBUG`, the list of COMMANDS specified 
+The signal names might be specified with or without prefix `SIG` or even with numeric values for signal numbers, e.g., 2 for INT (see list below).
+
+``` plain List of signals
+MTVL1288aeea2-82:octopress tdongsi$ kill -l
+ 1) SIGHUP	 2) SIGINT	 3) SIGQUIT	 4) SIGILL
+ 5) SIGTRAP	 6) SIGABRT	 7) SIGEMT	 8) SIGFPE
+ 9) SIGKILL	10) SIGBUS	11) SIGSEGV	12) SIGSYS
+13) SIGPIPE	14) SIGALRM	15) SIGTERM	16) SIGURG
+17) SIGSTOP	18) SIGTSTP	19) SIGCONT	20) SIGCHLD
+21) SIGTTIN	22) SIGTTOU	23) SIGIO	24) SIGXCPU
+25) SIGXFSZ	26) SIGVTALRM	27) SIGPROF	28) SIGWINCH
+29) SIGINFO	30) SIGUSR1	31) SIGUSR2
+
+OR 
+
+MTVL1288aeea2-82:octopress tdongsi$ man signal
+```
+
+If one of the signals specified in `trap` statement is `DEBUG`, the list of COMMANDS specified in `trap` statement will be executed after every simple command. 
+This is useful for debugging purpose. 
+The following example is taken from [here](http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html): 
+
+``` bash Tracing when a variable is used
+declare -t VARIABLE=value
+trap "echo VARIABLE is being used here." DEBUG
+
+# rest of the script
+```
 
 ### References
 
 1. [Signals and Traps](http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html)
-1. [Other uses](http://redsymbol.net/articles/bash-exit-traps/)
+1. [Other usages](http://redsymbol.net/articles/bash-exit-traps/)
 
 
