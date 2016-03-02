@@ -10,7 +10,7 @@ categories:
 ### Code snippet
 
 There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
-If you know Java or Python, this is equivalent to the `finally` clause that will execute after any exception is caught during execution. 
+In the context of Java or Python, this is similar to a `finally` clause that will execute after any exception is caught during execution. 
 
 ``` bash DO THIS
 # Setup trap to cleanup before exiting script
@@ -30,8 +30,7 @@ trap cleanup EXIT
 # Thousand lines of code here
 ```
 
-For example, in Vertica, you want to run [`SELECT START_REFRESH()`](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm) at the end of a deployment script, regardless of any error encountered during script execution.
-Putting such statement at the end of the script will not work since if there is an error, and you might see "AHM Does Not Advance"-related errors.
+Putting the cleanup operations at the end of the bash script might not work in case of error since the bash script stops executing and those clean up commands never run.
 
 ``` bash DON'T DO THIS
 
@@ -39,6 +38,7 @@ Putting such statement at the end of the script will not work since if there is 
 
 # Thousand lines of code here
 
+# This might not run when there is error
 echo "Removing temp files..."
 if [[ -f $CMD_TMPFILE ]] ; then
     rm $CMD_TMPFILE
@@ -48,11 +48,12 @@ if [[ -f $LOG_TMPFILE ]] ; then
 fi
 ```
 
+For example, in Vertica, you should always run [`SELECT START_REFRESH()`](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm) 
+at the end of a deployment script, regardless of any error encountered during script execution.
+It is a good candidate for using `trap` statement.
+Putting commands at the end of the script will not work in case there is an error during deployment, and you might see "AHM Does Not Advance"-related errors (see this [post](/blog/2016/02/29/vertica-refresh-projections/)).
 
-### What signals to trap
-
-Note that many examples for "trap" use a list of signals for cleanup tasks like this `trap cleanup INT TERM EXIT`, i.e., trapping not only EXIT signal but also INT and TERM signals. 
-The signal names might be with or without prefix `SIG` or even replaced with numeric values for signal numbers, e.g., 2 for INT (see list below).
+Note that the signal names might be with or without prefix `SIG` or even replaced with numeric values for signal numbers, e.g., 2 for INT (see list below).
 
 ``` plain List of signals
 MTVL1288aeea2-82:octopress tdongsi$ kill -l
@@ -70,9 +71,12 @@ OR
 MTVL1288aeea2-82:octopress tdongsi$ man signal
 ```
 
+### How many signals to trap
+
+Note that many online examples for `trap` use a list of signals for cleanup tasks like this `trap cleanup INT TERM EXIT`, i.e., trapping not only EXIT signal but also INT and TERM signals. 
 I believe once `EXIT` signal is used, other signals such as `INT` or `TERM` are redundant for cleanup purposes.
-`EXIT` or 0 signal is for when the shell exits, an event that also happens `INT` or `TERM` signal is received.
-It is easy to confirm that in the following tests:
+`EXIT` or 0 signal is invoked when the shell exits, an event that also happens when an `INT` or `TERM` signal is received.
+It is easy to confirm that with the following short bash script:
 
 ``` plain Trap tests in Mac OSX
 MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
@@ -92,8 +96,13 @@ TRAP CAPTURED
 ```
 
 As shown above, a lone `EXIT` is enough to capture `INT` and `TERM` signals. 
-Having said that, I understand that my tests can only verify bash on my Mac OSX.
+Having said that, I understand that my tests can only verify bash on Mac OSX.
 There are probably different shell variants on different operating systems which do not always work that way.
+
+The problem of those `trap` examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
+Listing multiple signals can make the `cleanup` steps executed twice, once for the signal such as `TERM` and once for `EXIT`, as shown in the modified experiment below.
+Not all cleanup steps could be and should be executed twice. 
+For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.
 
 ``` plain Problem of trapping multiple signals
 MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
@@ -115,12 +124,15 @@ TRAP CAPTURED
 [1]+  Exit 143                ./test_trap.sh
 ```
 
-To make sure the EXIT signal handler will not be executed twice (which is almost always not what you want) it should always set to be ignored or reset within the definition of the EXIT signal handler itself.
+In short, you should know how `trap` works on your production system before listing multiple signals in its parameters.
+
+### Other usages
+
+If one of the signals specified in `trap` statement is `DEBUG`, the list of COMMANDS specified 
 
 ### References
 
 1. [Signals and Traps](http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html)
-1. http://redsymbol.net/articles/bash-exit-traps/
-1. http://www.alittlemadness.com/2012/06/25/bash-tip-reliable-clean-up-with-trap/
+1. [Other uses](http://redsymbol.net/articles/bash-exit-traps/)
 
 
