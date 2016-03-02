@@ -5,10 +5,12 @@ date: 2016-03-01 00:07:48 -0800
 comments: true
 categories: 
 - Bash
-- Vertica
 ---
 
+### Code snippet
+
 There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
+If you know Java or Python, this is equivalent to the `finally` clause that will execute after any exception is caught during execution. 
 
 ``` bash DO THIS
 # Setup trap to cleanup before exiting script
@@ -28,6 +30,9 @@ trap cleanup EXIT
 # Thousand lines of code here
 ```
 
+For example, in Vertica, you want to run [`SELECT START_REFRESH()`](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm) at the end of a deployment script, regardless of any error encountered during script execution.
+Putting such statement at the end of the script will not work since if there is an error, and you might see "AHM Does Not Advance"-related errors.
+
 ``` bash DON'T DO THIS
 
 # Setup
@@ -43,31 +48,72 @@ if [[ -f $LOG_TMPFILE ]] ; then
 fi
 ```
 
-For example, in Vertica, you want to run 
 
 ### What signals to trap
 
-Note that many examples for "trap" use `trap cleanup INT TERM EXIT` for cleanup tasks, i.e., trapping not only EXIT signal but also INT and TERM signals.
-I believe applies whether the script finished normally or it finished because it received SIGINT or SIGTERM. An experiment also confirms my belief:
+Note that many examples for "trap" use a list of signals for cleanup tasks like this `trap cleanup INT TERM EXIT`, i.e., trapping not only EXIT signal but also INT and TERM signals. 
+The signal names might be with or without prefix `SIG` or even replaced with numeric values for signal numbers, e.g., 2 for INT (see list below).
 
-``` bash
-$ cat ./trap-exit
-#!/bin/bash
-trap 'echo TRAP' EXIT
-sleep 3
-$ ./trap-exit & sleep 1; kill -INT %1
-[1] 759
-TRAP
-[1]+  Interrupt               ./trap-exit
-$ ./trap-exit & sleep 1; kill -TERM %1
-[1] 773
-TRAP
-[1]+  Terminated              ./trap-exit
+``` plain List of signals
+MTVL1288aeea2-82:octopress tdongsi$ kill -l
+ 1) SIGHUP	 2) SIGINT	 3) SIGQUIT	 4) SIGILL
+ 5) SIGTRAP	 6) SIGABRT	 7) SIGEMT	 8) SIGFPE
+ 9) SIGKILL	10) SIGBUS	11) SIGSEGV	12) SIGSYS
+13) SIGPIPE	14) SIGALRM	15) SIGTERM	16) SIGURG
+17) SIGSTOP	18) SIGTSTP	19) SIGCONT	20) SIGCHLD
+21) SIGTTIN	22) SIGTTOU	23) SIGIO	24) SIGXCPU
+25) SIGXFSZ	26) SIGVTALRM	27) SIGPROF	28) SIGWINCH
+29) SIGINFO	30) SIGUSR1	31) SIGUSR2
+
+OR 
+
+MTVL1288aeea2-82:octopress tdongsi$ man signal
 ```
 
-http://stackoverflow.com/questions/8122779/is-it-necessary-to-specify-traps-other-than-exit
+I believe once `EXIT` signal is used, other signals such as `INT` or `TERM` are redundant for cleanup purposes.
+`EXIT` or 0 signal is for when the shell exits, an event that also happens `INT` or `TERM` signal is received.
+It is easy to confirm that in the following tests:
 
-What you have described, I believe, would actually execute cmd twice. Once for the signal (for example SIGTERM) and once more on exit (trap 0).
+``` plain Trap tests in Mac OSX
+MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo TRAP CAPTURED' EXIT
+sleep 3
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
+[1] 6613
+TRAP CAPTURED
+[1]+  Interrupt: 2            ./test_trap.sh
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
+[1] 6624
+TRAP CAPTURED
+[1]+  Terminated: 15          ./test_trap.sh
+```
+
+As shown above, a lone `EXIT` is enough to capture `INT` and `TERM` signals. 
+Having said that, I understand that my tests can only verify bash on my Mac OSX.
+There are probably different shell variants on different operating systems which do not always work that way.
+
+``` plain Problem of trapping multiple signals
+MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo TRAP CAPTURED' INT TERM EXIT
+sleep 3
+
+MTVL1288aeea2-82:code cdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
+[1] 7258
+TRAP CAPTURED
+TRAP CAPTURED
+[1]+  Exit 130                ./test_trap.sh
+
+MTVL1288aeea2-82:code cdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
+[1] 7278
+Terminated: 15
+TRAP CAPTURED
+TRAP CAPTURED
+[1]+  Exit 143                ./test_trap.sh
+```
 
 To make sure the EXIT signal handler will not be executed twice (which is almost always not what you want) it should always set to be ignored or reset within the definition of the EXIT signal handler itself.
 
