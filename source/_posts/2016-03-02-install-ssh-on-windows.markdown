@@ -19,7 +19,7 @@ Use OpenSSH installer from [here](http://www.mls-software.com/opensshd.html).
 Do NOT use OpenSSH for Windows from SourceForge, which is outdated, even though many top links from Google search "OpenSSH windows" point to it.
 Select "Configure as Domain User" when installing.
 
-(2) In the `PATH` environment variable, make sure that `$(SSH_DIR)\bin` folder comes before MKS and Cygwin's bins folder. 
+(2) In the `PATH` environment variable, make sure that `$(SSH_DIR)\bin` folder comes before MKS and Cygwin's bins folder, if applicable. 
 We need to use OpenSSH version of `chmod` and `chown`.
 
 (3) Edit the file `etc/passwd` inside `SSH_DIR` (defined above). 
@@ -85,7 +85,52 @@ Now, you can connect to this Windows machine `frak16` using password authenticat
 
 ### Set up public-key SSH
 
-### File transfer
+### Troubleshooting
+
+#### Ownership of `.ssh` folder
+
+You might encounter this problem when configuring public-key authentication. 
+If you try to run the server in debug mode, you might see the following messages:
+
+``` plain SSH server output in debug mode (sshd -d -d -d)
+debug2: input_userauth_request: try method publickey
+debug1: test whether pkalg/pkblob are acceptable
+debug1: temporarily_use_uid: 13331/10513 (e=13331/10513)
+debug1: trying public key file /cygdrive/c/space/oqa/.ssh/authorized_keys
+debug3: secure_filename: checking '/cygdrive/c/space/oqa/.ssh'
+Authentication refused: bad ownership or modes for directory /cygdrive/c/space/o
+qa/.ssh
+```
+
+In this case, it's an ownership problem on the SSH server. 
+You can try another location for `.ssh` folder on the SSH server to see if it resolves the problem.
+In most cases, you can manually fix the above problem by using the following commands:
+
+``` plain
+### Set the ownership to user oqa
+c:\space\oqa>chown -R oqa .
+c:\space\oqa>chmod -R 700 .ssh
+c:\space\oqa\.ssh>chmod 600 authorized_keys
+```
+
+Note that `chmod` from OpenSSH must be used, instead of `chmod` from MKS or Cygwin. 
+In addition, if there is a Local User `oqa`, remove that user so that `chown` will assign ownership to Domain User `oqa`.
+
+#### Outdated SSH installer
+
+```
+C:\space\cuongd>scp test.txt oqa@frak16:/cygdrive/c/space/oqa
+
+Received disconnect from 172.21.62.116: 2: fork failed: Resource temporarily una
+vailable
+lost connection
+```
+
+If you see errors like this, you probably used OpenSSH installer from Sourceforge. 
+That installer is out-dated and buggy. 
+Use the latest installer from [here](http://www.mls-software.com/opensshd.html) instead.
+
+#### File transfer
 
 File transfer:
 Putty:
@@ -102,5 +147,9 @@ C:\space\cuongd>scp -i C:\space\cuongd\.ssh\id_rsa test.txt oqa@frak16:/cygdrive
 Since OpenSSH for Windows is extracted from Cygwin, trying Cygwin-style command turns out to be a good idea.
 This command allows passwordless file transfer:
 C:\space\cuongd>scp -i /cygdrive/c/space/cuongd/.ssh/id_rsa test.txt oqa@frak16:/cygdrive/c/space/oqa
+
+### Links
+
+1. [Latest OpenSSH installer](http://www.mls-software.com/opensshd.html)
 
 
