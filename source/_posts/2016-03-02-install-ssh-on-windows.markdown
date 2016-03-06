@@ -33,7 +33,7 @@ oqa:unused_by_nt/2000/xp:13331:10513:oqa,U-OBJY\oqa,S-1-5-21-343818398-170853776
 
 (4) Edit `$(SSH_DIR)\etc\banner.txt` to include welcome message that you prefer, to make it less verbose and more informative. I would change it to include the current host name to indicate which host is currently connected.
 
-(5a) Run the following command for a test run:
+(5a) (Optional but recommended) Run SSH server is debug mode to verify that settings are correct. Run the following command for a test run:
 
 ```
 C:\space\cuongd\OpenSSH>usr\sbin\sshd -d -d -d
@@ -84,6 +84,37 @@ net start opensshd
 Now, you can connect to this Windows machine `frak16` using password authentication.
 
 ### Set up public-key SSH
+
+(1) If the client is already set up, it should have its public key file. Copy content of that file to `$(HOME_DIR)\.ssh\authorized_keys` file on the SSH server (e.g., `frak16`).
+
+If you don't have the public key file for the client, run `ssh-keygen -t rsa` on the client machine. 
+The client machine's public key file has the name like "id_rsa.pub".
+
+(2) On the SSH server (e.g., `frak16`), edit `$(SSH_DIR)\etc\sshd_config` to enable PubkeyAuthentication. The following lines must be enabled:
+
+``` plain sshd_config
+RSAAuthentication yes
+PubkeyAuthentication yes
+```
+
+(3) Recursively from `$(HOME_DIR)`, use `chown` to set ownership to `oqa` and `chmod` to set all folders and files in `$(HOME_DIR)\.ssh` to read-only.
+
+``` plain Set ownership and access
+### Set the ownership to user oqa
+c:\space\oqa>chown -R oqa .
+c:\space\oqa>chmod -R 700 .ssh
+c:\space\oqa\.ssh>chmod 600 authorized_keys
+```
+
+(4) Run SSH server in debug mode again to verify that public-key SSH settings are correct. 
+Run this command "ssh oqa@frakXX 'ipconfig'" from the client machine and verify its IP.
+
+(5) Start SSH server permanently by running, in an elevated Command Prompt. 
+As of 2015 Feb, I tried running SSH as a Windows service but it does not work reliably.
+
+``` plain Start SSH
+$(SSH_DIR)\usr\sbin\sshd.exe
+```
 
 ### Troubleshooting
 
@@ -188,6 +219,11 @@ Since OpenSSH for Windows is extracted from Cygwin, trying Cygwin-style command 
 ``` plain Password NOT required.
 C:\space\cuongd>scp -i /cygdrive/c/space/cuongd/.ssh/id_rsa test.txt oqa@frak16:/cygdrive/c/space/oqa
 ```
+
+#### Other tips
+
+* You may miss adding/setting some environment variables, e.g., `PATH`. After editing environment variables, you may need to restart your SSHD on a **new** Command Prompt windows to have those new environment variables in effect.
+* Remember to disable firewall on Windows machines.
 
 ### Links
 
