@@ -118,7 +118,7 @@ In addition, if there is a Local User `oqa`, remove that user so that `chown` wi
 
 #### Outdated SSH installer
 
-```
+``` plain
 C:\space\cuongd>scp test.txt oqa@frak16:/cygdrive/c/space/oqa
 
 Received disconnect from 172.21.62.116: 2: fork failed: Resource temporarily una
@@ -129,6 +129,42 @@ lost connection
 If you see errors like this, you probably used OpenSSH installer from Sourceforge. 
 That installer is out-dated and buggy. 
 Use the latest installer from [here](http://www.mls-software.com/opensshd.html) instead.
+
+#### Cannot bind any addresss
+
+You might find the following error message when connecting to an SSH server running in debug mode.
+
+``` plain
+debug1: rexec_argv[3]='-d'
+debug2: fd 3 setting O_NONBLOCK
+debug3: sock_set_v6only: set socket 3 IPV6_V6ONLY
+debug1: Bind to port 22 on ::.
+Bind to port 22 on :: failed: Address already in use.
+debug2: fd 3 setting O_NONBLOCK
+debug1: Bind to port 22 on 0.0.0.0.
+Bind to port 22 on 0.0.0.0 failed: Address already in use.
+Cannot bind any address.
+```
+
+If you installed Cygwin and/or MKS on your Windows SSH server, their SSH services (sshd for Cygwin and secshd for MKS) are probably using the port 22.
+Verify that by using the following command in Windows:
+
+``` plain Check service usage
+C:\space\cuongd\OpenSSH>netstat -b -a
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State
+  TCP    0.0.0.0:22             frak15:0               LISTENING
+[secshd.exe]
+  TCP    0.0.0.0:23             frak15:0               LISTENING
+[telnetd.exe]
+  TCP    0.0.0.0:135            frak15:0               LISTENING
+  RpcSs
+[svchost.exe]
+```
+
+You can turn off SSH services from Cygwin and MKS by going to Computer > Manage > Go to Services > Stop the relevant service (Windows 7).
 
 #### File transfer
 
