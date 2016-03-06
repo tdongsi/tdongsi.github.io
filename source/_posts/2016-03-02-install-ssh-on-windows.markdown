@@ -221,6 +221,9 @@ Since OpenSSH for Windows is extracted from Cygwin, trying Cygwin-style command 
 C:\space\cuongd>scp -i /cygdrive/c/space/cuongd/.ssh/id_rsa test.txt oqa@frak16:/cygdrive/c/space/oqa
 ```
 
+Note that files transferred over `scp` will not readable (mode 000), regardless of file mode on the sending host. 
+Therefore, remember to `chmod a+r` on the receiving host after file transfer, especially in an automation script, or you'll get errors related to file access/file not found.
+
 #### Other tips
 
 * You may miss adding/setting some environment variables, e.g., `PATH`. After editing environment variables, you may need to restart your SSHD on a **new** Command Prompt windows to have those new environment variables in effect.
