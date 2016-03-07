@@ -4,7 +4,6 @@ title: "Pushing local jar file into your local Maven (m2) repository"
 date: 2015-11-17 16:46:49 -0800
 comments: true
 categories:
-- Database
 - Vertica
 - JDBC
 - Maven

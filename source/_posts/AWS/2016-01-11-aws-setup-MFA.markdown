@@ -27,7 +27,7 @@ This process is simple and most people should use MFA when developing a serious 
 
 {% img center /images/aws/mfa/step4_signin.png 603 314 Screenshot %}
 
-* In the pop-up window, you are allowed to choose a virtual MFA device or a physical MFA device. The most convenient option is a virtual MFA device which only requires you to have a smartphone with some AWS MFA-compatible application. The list of AWS MFA applications are listed in [here](http://aws.amazon.com/iam/details/mfa/).
+* In the pop-up window, you are allowed to choose a virtual MFA device or a physical MFA device. The most convenient option is a virtual MFA device which only requires you to have a smartphone with some AWS MFA-compatible application. The list of AWS MFA-compatible applications are listed in [here](http://aws.amazon.com/iam/details/mfa/).
 
 {% img center /images/aws/mfa/step5_device.png Screenshot %}
 

@@ -69,7 +69,7 @@ def is_current_year_544(given_date, run_date = datetime.date.today()):
 ```
 
 However, in reality, you sometimes have to live with the original utility Python module. 
-Then, the workaround for unit testing it is to "mock" current date and time, i.e., overriding those returned by `today` and `now` methods with some specific values.
+Then, the workaround for unit testing is to "mock" current date and time, i.e., overriding those returned by `today` and `now` methods with some specific values.
 In Python, it can be done by using some mocking framework, such as illustrated [here](http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking).
 Fortunately, my life was made even easier with [`freezegun` library](https://github.com/spulec/freezegun). 
 To install `freezegun` on Mac OSX, simply run 
