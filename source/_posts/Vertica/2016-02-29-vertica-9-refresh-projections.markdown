@@ -25,7 +25,8 @@ The ancient history mark is the epoch prior to which historical data can be purg
 You cannot run any historical queries prior to the AHM.
 By default, Vertica advances the AHM at an interval of 5 minutes.
 
-There are scenarios that the ancient history marker does not advance: there is an unrefreshed projection. To find about the unrefreshed projection, use the following command:
+There are scenarios that the ancient history marker does not advance: there is an unrefreshed [projection](/blog/2016/02/07/vertica-7-projections/). 
+To find about the unrefreshed projection, use the following command:
 
 ```
 SELECT * FROM projections where is_up_to_date = 'f';
