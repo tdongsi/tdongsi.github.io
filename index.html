@@ -9,8 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="The more generic title should be &ldquo;Use a single mocking framework ONLY&rdquo;.
-Personally, it means that I should stop learning Wiremock&rsquo;s &hellip;">
+  <meta name="description" content="Code snippet There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -75,6 +74,320 @@ Personally, it means that I should stop learning Wiremock&rsquo;s &hellip;">
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2016/03/02/bash-trap/">Bash Trap</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-03-02T00:07:48-08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:07 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Code snippet</h3>
+
+<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
+In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
+
+<figure class='code'><figcaption><span>DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup trap to cleanup before exiting script</span>
+</span><span class='line'><span class="k">function</span> cleanup <span class="o">{</span>
+</span><span class='line'>    <span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
+</span><span class='line'>        rm <span class="nv">$CMD_TMPFILE</span>
+</span><span class='line'>    <span class="k">fi</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
+</span><span class='line'>        rm <span class="nv">$LOG_TMPFILE</span>
+</span><span class='line'>    <span class="k">fi</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="nb">trap </span>cleanup EXIT
+</span><span class='line'>
+</span><span class='line'><span class="c"># Setup</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Thousand lines of code here</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
+Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
+
+<figure class='code'><figcaption><span>DON'T DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Thousand lines of code here</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># This might not run when there is error</span>
+</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
+</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
+</span><span class='line'>    rm <span class="nv">$CMD_TMPFILE</span>
+</span><span class='line'><span class="k">fi</span>
+</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
+</span><span class='line'>    rm <span class="nv">$LOG_TMPFILE</span>
+</span><span class='line'><span class="k">fi</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
+at the end of a deployment script, regardless of any error encountered during script execution.
+It is a good candidate for using <code>trap</code> statement.
+Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="/blog/2016/02/29/vertica-refresh-projections/">post</a>).</p>
+
+<h3>Trap multiple signals</h3>
+
+<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
+I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
+<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
+It is easy to confirm that with the following short bash script:</p>
+
+<figure class='code'><figcaption><span>Trap tests in Mac OSX</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+</span><span class='line'>#!/bin/bash
+</span><span class='line'>trap 'echo SIGNAL CAPTURED' EXIT
+</span><span class='line'>sleep 3
+</span><span class='line'>
+</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
+</span><span class='line'>[1] 6613
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>[1]+  Interrupt: 2            ./test_trap.sh
+</span><span class='line'>
+</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
+</span><span class='line'>[1] 6624
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>[1]+  Terminated: 15          ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
+Having said that, I understand that my tests can only verify bash on Mac OSX.
+There are probably different shell variants on different operating systems which do not always work that way.</p>
+
+<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
+Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
+Not all cleanup steps could be and should be executed twice.
+For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
+
+<figure class='code'><figcaption><span>Problem of trapping multiple signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+</span><span class='line'>#!/bin/bash
+</span><span class='line'>trap 'echo SIGNAL CAPTURED' INT TERM EXIT
+</span><span class='line'>sleep 3
+</span><span class='line'>
+</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
+</span><span class='line'>[1] 7258
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>[1]+  Exit 130                ./test_trap.sh
+</span><span class='line'>
+</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
+</span><span class='line'>[1] 7278
+</span><span class='line'>Terminated: 15
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>SIGNAL CAPTURED
+</span><span class='line'>[1]+  Exit 143                ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
+
+<h3>Other usage notes</h3>
+
+<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
+
+<figure class='code'><figcaption><span>List of signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ kill -l
+</span><span class='line'> 1) SIGHUP     2) SIGINT   3) SIGQUIT  4) SIGILL
+</span><span class='line'> 5) SIGTRAP    6) SIGABRT  7) SIGEMT   8) SIGFPE
+</span><span class='line'> 9) SIGKILL   10) SIGBUS  11) SIGSEGV 12) SIGSYS
+</span><span class='line'>13) SIGPIPE   14) SIGALRM 15) SIGTERM 16) SIGURG
+</span><span class='line'>17) SIGSTOP   18) SIGTSTP 19) SIGCONT 20) SIGCHLD
+</span><span class='line'>21) SIGTTIN   22) SIGTTOU 23) SIGIO   24) SIGXCPU
+</span><span class='line'>25) SIGXFSZ   26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
+</span><span class='line'>29) SIGINFO   30) SIGUSR1 31) SIGUSR2
+</span><span class='line'>
+</span><span class='line'>OR 
+</span><span class='line'>
+</span><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ man signal</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
+This is useful for debugging purpose.
+The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
+
+<figure class='code'><figcaption><span>Tracing when a variable is used</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nb">declare</span> -t <span class="nv">VARIABLE</span><span class="o">=</span>value
+</span><span class='line'><span class="nb">trap</span> <span class="s2">&quot;echo VARIABLE is being used here.&quot;</span> DEBUG
+</span><span class='line'>
+</span><span class='line'><span class="c"># rest of the script</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>References</h3>
+
+<ol>
+<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
+<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
+<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-02-29T00:54:02-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>29</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:54 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
+
+<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
+The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
+The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
+
+<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>=&gt; select * from epochs;
+</span><span class='line'>
+</span><span class='line'>epoch_close_time            epoch_number
+</span><span class='line'>2016-03-04 21:44:24.192495    610131</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
+The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
+You cannot run any historical queries prior to the AHM.
+By default, Vertica advances the AHM at an interval of 5 minutes.</p>
+
+<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
+To find about the unrefreshed projection, use the following command:</p>
+
+<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>SELECT * FROM projections where is_up_to_date = 'f';</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
+However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
+AHM could lag behind at the create epoch of some unrefreshed projection.
+Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
+
+<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
+
+<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>select START_REFRESH();</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a></h1>
     
     
@@ -91,14 +404,14 @@ Personally, it means that I should stop learning Wiremock&rsquo;s &hellip;">
   </header>
 
 
-  <div class="entry-content"><p>The more generic title should be &ldquo;Use a single mocking framework ONLY&rdquo;.
-Personally, it means that I should stop learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.21) which is used at work.</p>
+  <div class="entry-content"><p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
+Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
 
 <p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
 Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
 It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
 This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
-We might have tests that work fine locally but start failing when running in combination with others in unexpected order because different mocking frameworks take over the class loader in different order or in different ways.</p>
+For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
 <p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
 </div>
@@ -567,196 +880,6 @@ In addition, the wildcard <code>*</code> in the original SQL query is also avoid
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/07/vertica-7-projections/">Vertica Projections</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-07T00:50:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>7</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
-
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-03T00:50:48-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>3</span><span class='date-suffix'>rd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
-<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
-Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
-For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
-
-<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
-This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
-
-<p>For example, we can look into the following <code>SELECT</code> query:</p>
-
-<figure class='code'><figcaption><span>Hard to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
-</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span> <span class="n">sorted_by_modify_date</span> <span class="k">where</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
-To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
-In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
-The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
-
-<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
-
-<figure class='code'><figcaption><span>Easy to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">sorted_by_modify_date</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">sorted_by_modify_date</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
-The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
-We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
-Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
-We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
-
-<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
-
-<figure class='code'><figcaption><span>Traffic classification of a Music website</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">Total_Traffic</span> <span class="k">AS</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">temp</span><span class="p">.</span><span class="o">*</span> <span class="k">from</span> <span class="n">temp</span> <span class="k">as</span> <span class="n">clickstream_data</span>
-</span><span class='line'>    <span class="k">where</span> <span class="p">....</span> <span class="c1">-- filtering</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Rock_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total_Traffic</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">evar28</span><span class="p">)</span> <span class="k">LIKE</span> <span class="s1">&#39;rock_mus%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Instrumental_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="n">evar28</span> <span class="k">LIKE</span> <span class="s1">&#39;%[ins_mus]%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Defined_Traffic</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Rock_Music</span>
-</span><span class='line'>    <span class="k">UNION</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Instrumental_Music</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">select</span> <span class="n">traffic_date_key</span>
-</span><span class='line'><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">distinct</span> <span class="n">visitor_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_visitor</span>
-</span><span class='line'><span class="k">from</span> <span class="n">Defined_Traffic</span>
-</span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">traffic_date_key</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
-Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
-Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
-
-<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
-
-<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
-Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/2">&larr; Older</a>
@@ -775,6 +898,14 @@ Now, we have a native SQL solution in <code>WITH</code> clause and a more powerf
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/03/02/bash-trap/">Bash Trap</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a>
       </li>
     
@@ -784,14 +915,6 @@ Now, we have a native SQL solution in <code>WITH</code> clause and a more powerf
     
       <li class="post">
         <a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/02/07/vertica-7-projections/">Vertica Projections</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a>
       </li>
     
   </ul>
@@ -828,7 +951,7 @@ Now, we have a native SQL solution in <code>WITH</code> clause and a more powerf
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (4)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (2)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (3)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (10)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (1)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (8)</a></li><li><a href='/blog/categories/windows/'>windows (1)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (10)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (9)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

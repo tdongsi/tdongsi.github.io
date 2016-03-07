@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-02-21T12:37:20-08:00</updated>
+  <updated>2016-03-06T16:47:08-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,54 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
+    <updated>2016-02-29T00:54:02-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
+    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
+
+<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
+The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
+The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
+
+<pre><code class="plain epochs table">=&gt; select * from epochs;
+
+epoch_close_time              epoch_number
+2016-03-04 21:44:24.192495  610131
+</code></pre>
+
+<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
+The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
+You cannot run any historical queries prior to the AHM.
+By default, Vertica advances the AHM at an interval of 5 minutes.</p>
+
+<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
+To find about the unrefreshed projection, use the following command:</p>
+
+<pre><code>SELECT * FROM projections where is_up_to_date = 'f';
+</code></pre>
+
+<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
+However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
+AHM could lag behind at the create epoch of some unrefreshed projection.
+Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
+
+<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
+
+<pre><code>select START_REFRESH();
+</code></pre>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
+</ol>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
@@ -338,7 +386,7 @@ Using a Vertica VM as the sandbox test environment helps us minimize interferenc
 <p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
 
 <p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
 
 <p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
 
@@ -378,63 +426,6 @@ The reason is that Vertica database with 1 or 2 hosts cannot be <em>k-safe</em> 
 </code></pre>
 
 <p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/"/>
-    <updated>2015-12-18T21:39:56-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
-    <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
-
-<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
-
-<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
-
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
-
-<pre><code class="sql Query to list tables' sizes in a schema">select anchor_table_schema, anchor_table_name, sum(used_bytes)
-FROM v_monitor.column_storage
-where anchor_table_schema = 'some_schema'
-group by anchor_table_schema, anchor_table_name
-</code></pre>
-
-<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
-
-<h3>v_catalog schema and TABLES system table</h3>
-
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
-
-<pre><code class="sql Query to list all tables in a schema">select table_schema, table_name from tables
-where table_schema = 'some_schema'
-</code></pre>
-
-<p>Another useful system table in <code>v_catalog</code> schema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
-
-<h3>Find all the empty (truncated) tables</h3>
-
-<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
-
-<pre><code class="sql Query to find empty tables in a schema">select table_name
-from v_catalog.tables
-where table_schema = 'some_schema'
-EXCEPT
-select anchor_table_name
-from v_monitor.column_storage
-where anchor_table_schema = 'some_schema' 
-</code></pre>
-
-<h3>External Links</h3>
-
-<ol>
-<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
-<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
-</ol>
-
 ]]></content>
   </entry>
   
