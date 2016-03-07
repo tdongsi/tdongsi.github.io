@@ -25,7 +25,7 @@ cd ~/.ssh
 [frak10-b13]$ ssh-keygen
 ```
 
-When you get "Enter passphrase (empty for no passphrase):" just hit enter for a null passphrase for now.
+When you get "Enter passphrase (empty for no passphrase):", you can hit enter for a null passphrase for now.
 The passphrase can be changed later by using the -p option.
 Note that from the `man` page: "USING GOOD, UNGUESSABLE PASSPHRASES IS STRONGLY RECOMMENDED.". 
 If `ssh-keygen` returns with "You must specify a key type (-t).", then add the flag "-t rsa".

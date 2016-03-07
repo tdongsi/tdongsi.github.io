@@ -10,7 +10,7 @@ categories:
 - SQL
 ---
 
-Most of these optimization notes in this post are learnt through interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants. 
+Most of these optimization notes in this post are learnt through our team's interaction with [Nexius](http://www.nexius.com/software-and-business-intelligence/) consultants. 
 Also see [Vertica Best Practices](/blog/2015/12/16/vertica-tip-best-practices/).
 
 ### `NOT IN` better than `NOT EXISTS`
