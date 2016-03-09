@@ -16,6 +16,21 @@ Even then, the workaround for running those DDL scripts in tests is easy enough,
 In this blog post, I looked into setting up a Vertica cluster of **three** VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications. 
 Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
 
+### Using Vertica VM from HPE support
+
+1. Download Vertica VM from [HPE support website](https://my.vertica.com/download/vertica/community-edition/).
+1. Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet. 
+   1. Username: dbadmin. Password: password. Root password: password. From [here](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm)
+1. Change the hostname to the shorter name
+1. Turn off
+1. Clone in VMWare Fusion. Full Clone.
+1. Start up 3 machines.
+1. Change the hostname of the two clones into something different: e.g., vertica72b and vertica72c.
+1. Make sure all 3 nodes can be connected to Internet, having some IP address.
+1. Obtain the IP addresses for each node (ip addr).
+
+
+
 ## Installing new Vertica
 
 Download CentOS box from [osboxes.org](http://www.osboxes.org/). I used CentOS 6.
