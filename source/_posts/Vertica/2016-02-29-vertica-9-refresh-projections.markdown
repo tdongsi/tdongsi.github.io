@@ -28,7 +28,7 @@ By default, Vertica advances the AHM at an interval of 5 minutes.
 There are scenarios that the ancient history marker does not advance: there is an unrefreshed [projection](/blog/2016/02/07/vertica-7-projections/). 
 To find about the unrefreshed projection, use the following command:
 
-```
+``` plain
 SELECT * FROM projections where is_up_to_date = 'f';
 ```
 
@@ -39,7 +39,7 @@ Therefore, we need to make sure we are **always** refreshing projections after c
 
 Generally, you can refresh a projection by executing the `START_REFRESH` meta-function, which is a background process, or the `REFRESH` meta-function, which is a foreground process.
 
-```
+``` plain
 select START_REFRESH();
 ```
 
