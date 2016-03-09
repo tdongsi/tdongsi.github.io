@@ -60,7 +60,7 @@ ls -d1 bash/* | while read f; do
 done
 ```
 
-**Best practice notes**: I think that the following template is preferred to the more commonly seen `for f in $(ls *);` `do...done`:
+**Best practice note**: I think that the following template is preferred to the more commonly seen `for f in $(ls *);` `do...done`:
 
 ``` bash
 ls * | while read f; do
@@ -68,7 +68,7 @@ ls * | while read f; do
 done
 ```
 
-This is the right way to handle all file names, especially with spaces, since `"$f"` will still work. 
+I think it is the better way to handle all file names, especially with spaces, since `"$f"` will still work. 
 In addition, `$(cmd)` is the same as `'cmd'` (backticks) but it can be nested, unlike using backticks. 
 It fact, it's the main reason why the backticks have been [deprecated](http://wiki.bash-hackers.org/scripting/obsolete) from Bash scripting. 
 

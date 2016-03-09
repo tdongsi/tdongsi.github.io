@@ -57,7 +57,7 @@ ALTER TABLE temp_table RENAME TO src_table;
 
 ### Query plan
 
-A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about query plans by prefixing the SQL query with the `EXPLAIN` command.
+A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about [query plans](https://my.vertica.com/docs/7.0.x/HTML/Content/Authoring/AdministratorsGuide/EXPLAIN/HowToGetQueryPlanInformation.htm) by prefixing the SQL query with the `EXPLAIN` command.
 
 ``` sql EXPLAIN statement
 EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
