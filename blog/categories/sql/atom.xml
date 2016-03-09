@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-07T00:48:34-08:00</updated>
+  <updated>2016-03-08T23:02:23-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -461,62 +461,131 @@ Access Path:
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Some NZSQL Tips for New Netezza Users]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/07/some-netezzas-nzsql-tips/"/>
-    <updated>2015-12-07T11:11:06-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/07/some-netezzas-nzsql-tips</id>
-    <content type="html"><![CDATA[<ul>
-<li>By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:</li>
-</ul>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 8): Data Manipulation in HiveQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/"/>
+    <updated>2015-12-12T23:34:38-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml</id>
+    <content type="html"><![CDATA[<!--
+<img class="center" src="/images/hive/cat.gif" title="Cover" >
+
+Chapter 5 of the book
+-->
 
 
-<pre><code class="sql">create table my_table (name varchar(80), address varchar(80));
-create table my_table (NaMe varchar(80), adDresS varchar(80));
+<p>This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem.</p>
+
+<h3>LOAD</h3>
+
+<p>Hive has no row-level insert, update, and delete operations. Instead, we use one of its many &ldquo;bulk&rdquo; load operations to put data into a table.</p>
+
+<pre><code class="sql Hive LOAD">&gt; LOAD DATA LOCAL INPATH '/home/ca-employees'
+OVERWRITE INTO TABLE employees
+PARTITION ( country = 'US', state = 'CA' ); -- remove this if the target is not partitioned
 </code></pre>
 
-<p>  are equivalent to:</p>
+<p>This <code>LOAD</code> command will first create the directory for the partition, if necessary, then copy the data to it.
+If the <code>LOCAL</code> keyword is specified, the path is assumed in the local filesystem.
+If you use the <code>OVERWRITE</code> keyword, any data present in the target directory will be removed.
+Without the keyword, the new files are added to the target directory.
+More details can be found <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML">here</a>.</p>
 
-<pre><code class="sql">create table my_table (NAME varchar(80), ADDRESS varchar(80));
+<h3>INSERT</h3>
+
+<p>The <code>INSERT</code> statement will load data into a table, as shown below:</p>
+
+<pre><code class="sql Hive INSERT">&gt; INSERT OVERWRITE TABLE employees
+PARTITION ( country = 'US', state = 'OR' )
+SELECT * FROM staged_employees se
+WHERE se.cnty = 'US' AND se.st = 'OR';
 </code></pre>
 
-<p>  The same is true for <code>SELECT</code> statements. These two SQL statements:</p>
+<p>If the keyword <code>OVERWRITE</code> is replaced with <code>INTO</code>, Hive appends the data instead of replaces it.</p>
 
-<pre><code class="sql">select name from my_table;
-select NaMe from my_table;
+<!--
+Hive also offers an alternative `INSERT` syntax that allows you to scan the input data once and split it multiple ways.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<p>Similar to other SQL dialects, you can also <code>CREATE TABLE</code> and insert <code>SELECT</code> query results into the new table in a single statement:</p>
+
+<pre><code class="sql">&gt; CREATE TABLE ca_employees
+AS SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
 </code></pre>
 
-<p>  are equivalent to:</p>
+<!--
+### Dynamic partition
 
-<pre><code class="sql">select NAME from my_table;
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+You can also mix dynamic and static partitions. The following query specifies a static value for the country (US) and a dynamic value for the state:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Dynamic partitioning is not enabled by default. When it is enabled, it works in “strict” mode by default.
+
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&gt; set hive.exec.dynamic.partition=true;
+</span><span class='line'>&gt; set hive.exec.dynamic.partition.mode=nonstrict;</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>Exporting data</h3>
+
+<p>If you want the data files as is, then exporting data can be as simple as copying the directories or files:</p>
+
+<pre><code class="bash">hadoop fs -cp source_path target_path
 </code></pre>
 
-<ul>
-<li>The best practice is that you should never care or override the above default behavior: your identifiers should be case-insensitive. Unfortunately, if you have to override the above default behavior, then you must surround the identifier with double-quotes whenever you reference it. For example, if you create a table using this statement:</li>
-</ul>
+<p>Otherwise, you can use <code>INSERT ... DIRECTORY ...</code> statement with associated <code>SELECT</code> statement to specify the data you want, as in this example:</p>
 
-
-<pre><code class="sql">create table my_table ("Name" varchar(80), "Address" varchar(80));
+<pre><code class="sql Export from Hive">&gt; INSERT OVERWRITE LOCAL DIRECTORY '/tmp/ca_employees'
+SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
 </code></pre>
-
-<p>then you must reference the identifiers by surrounding them with double-quotes. For example:</p>
-
-<pre><code class="sql">select "Name" from my_table;
-</code></pre>
-
-<ul>
-<li>The most perplexing feature for new Netezza users when reading a NZSQL script is probably the &ldquo;dot dot&rdquo; notation of database object names, i.e., the two dots in <code>my_dwh..companies</code>. It is simply the short-hand notation for database object names, <code>database-name..object-name</code>. The fully qualified form of object names in Netezza has <strong>three-level</strong> as <code>database-name.schema.object-name</code>. One example of using such notation is shown below:</li>
-</ul>
-
-
-<pre><code class="sql">select count(*) from (select company_name from my_dwh..companies where company_name like '%e%') as x;
-</code></pre>
-
-<h4>External Links</h4>
-
-<ol>
-<li><a href="https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html">Database Object Naming</a></li>
-</ol>
-
 ]]></content>
   </entry>
   

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Book | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/book/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-07T00:48:34-08:00</updated>
+  <updated>2016-03-08T23:02:23-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,135 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 8): Data Manipulation in HiveQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/"/>
+    <updated>2015-12-12T23:34:38-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml</id>
+    <content type="html"><![CDATA[<!--
+<img class="center" src="/images/hive/cat.gif" title="Cover" >
+
+Chapter 5 of the book
+-->
+
+
+<p>This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem.</p>
+
+<h3>LOAD</h3>
+
+<p>Hive has no row-level insert, update, and delete operations. Instead, we use one of its many &ldquo;bulk&rdquo; load operations to put data into a table.</p>
+
+<pre><code class="sql Hive LOAD">&gt; LOAD DATA LOCAL INPATH '/home/ca-employees'
+OVERWRITE INTO TABLE employees
+PARTITION ( country = 'US', state = 'CA' ); -- remove this if the target is not partitioned
+</code></pre>
+
+<p>This <code>LOAD</code> command will first create the directory for the partition, if necessary, then copy the data to it.
+If the <code>LOCAL</code> keyword is specified, the path is assumed in the local filesystem.
+If you use the <code>OVERWRITE</code> keyword, any data present in the target directory will be removed.
+Without the keyword, the new files are added to the target directory.
+More details can be found <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML">here</a>.</p>
+
+<h3>INSERT</h3>
+
+<p>The <code>INSERT</code> statement will load data into a table, as shown below:</p>
+
+<pre><code class="sql Hive INSERT">&gt; INSERT OVERWRITE TABLE employees
+PARTITION ( country = 'US', state = 'OR' )
+SELECT * FROM staged_employees se
+WHERE se.cnty = 'US' AND se.st = 'OR';
+</code></pre>
+
+<p>If the keyword <code>OVERWRITE</code> is replaced with <code>INTO</code>, Hive appends the data instead of replaces it.</p>
+
+<!--
+Hive also offers an alternative `INSERT` syntax that allows you to scan the input data once and split it multiple ways.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<p>Similar to other SQL dialects, you can also <code>CREATE TABLE</code> and insert <code>SELECT</code> query results into the new table in a single statement:</p>
+
+<pre><code class="sql">&gt; CREATE TABLE ca_employees
+AS SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
+</code></pre>
+
+<!--
+### Dynamic partition
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+You can also mix dynamic and static partitions. The following query specifies a static value for the country (US) and a dynamic value for the state:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Dynamic partitioning is not enabled by default. When it is enabled, it works in “strict” mode by default.
+
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&gt; set hive.exec.dynamic.partition=true;
+</span><span class='line'>&gt; set hive.exec.dynamic.partition.mode=nonstrict;</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>Exporting data</h3>
+
+<p>If you want the data files as is, then exporting data can be as simple as copying the directories or files:</p>
+
+<pre><code class="bash">hadoop fs -cp source_path target_path
+</code></pre>
+
+<p>Otherwise, you can use <code>INSERT ... DIRECTORY ...</code> statement with associated <code>SELECT</code> statement to specify the data you want, as in this example:</p>
+
+<pre><code class="sql Export from Hive">&gt; INSERT OVERWRITE LOCAL DIRECTORY '/tmp/ca_employees'
+SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Hive Tutorial (Pt. 7): Partitioned Tables]]></title>
@@ -243,7 +372,7 @@ Time taken: 0.28 seconds, Fetched: 7 row(s)
 </code></pre>
 
 <p>You can use <code>DESCRIBE</code> command to display table information as shown below:
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -635,82 +764,6 @@ STORED AS TEXTFILE;
 <li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
 </ol>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 3): Runtime Modes]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started/"/>
-    <updated>2015-11-24T18:24:30-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started</id>
-    <content type="html"><![CDATA[<p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
-
-<h3>Runtime Modes</h3>
-
-<p>There are different runtime modes for Hadoop.
-Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
-However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
-
-<table>
-<thead>
-<tr>
-<th> Local Mode </th>
-<th> Distributed Mode </th>
-<th> Pseudodistributed Mode </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> Filesystem references use local filesystem. </td>
-<td> Filesystem references use HDFS. </td>
-<td> Similar to distributed mode. </td>
-</tr>
-<tr>
-<td> MapReduce tasks in same process. </td>
-<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
-<td> Similar to distributed mode.</td>
-</tr>
-<tr>
-<td> Default mode. </td>
-<td> Usually configured for server clusters. </td>
-<td> Like a cluster of one node.</td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
-
-<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
-
-<h3>Metastore Using JDBC</h3>
-
-<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
-The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
-Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
-In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
-
-<pre><code class="xml">  &lt;property&gt;
-    &lt;name&gt;javax.jdo.option.ConnectionURL&lt;/name&gt;
-    &lt;value&gt;jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true&lt;/value&gt;
-    &lt;description&gt;JDBC connect string for a JDBC metastore&lt;/description&gt;
-  &lt;/property&gt;
-
-  &lt;property&gt;
-    &lt;name&gt;javax.jdo.option.ConnectionDriverName&lt;/name&gt;
-    &lt;value&gt;com.mysql.jdbc.Driver&lt;/value&gt;
-    &lt;description&gt;Driver class name for a JDBC metastore&lt;/description&gt;
-  &lt;/property&gt;
-
-  &lt;property&gt;
-    &lt;name&gt;javax.jdo.option.ConnectionUserName&lt;/name&gt;
-    &lt;value&gt;hive&lt;/value&gt;
-  &lt;/property&gt;
-</code></pre>
-
-<p>The information stored in metastore is typically much smaller than the data stored in Hive.
-Therefore, you typically don’t need a powerful dedicated database server for the metastore.
-However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
 ]]></content>
   </entry>
   

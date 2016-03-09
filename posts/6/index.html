@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a &hellip;">
+  <meta name="description" content="This post is the first of many Hive tutorial posts. Most of these posts are based on the Programming Hive book, with some observations from my own &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -68,6 +68,92 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/22/programming-hive-chapter-1/">Hive Tutorial (Pt. 1): Introduction</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-22T17:22:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>5:22 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><!---
+"Chapter 1: Introduction" of the "Programming Hive" book.
+-->
+
+
+<p>This post is the first of many Hive tutorial posts. Most of these posts are based on the <strong>Programming Hive</strong> book, with some observations from my own experience with <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">Cloudera Quickstart VM</a>.</p>
+
+<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<h3>Introduction</h3>
+
+<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.</p>
+
+<p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
+
+<p>HiveQL does not conform to the ANSI SQL standard (not many do), but it is quite close to MySQL dialect.</p>
+
+<h3>Hive within the Hadoop Ecosystem</h3>
+
+<p>A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my <a href="/blog/2015/11/21/explaining-wordcount-example/">last post</a> can be very involving when using the Hadoop Java API. The API requires Java developers to manage many low-level details, repetitive wiring to/from Mappers and Reducers. The WordCount example&rsquo;s Java implementation can be found <a href="https://wiki.apache.org/hadoop/WordCount">here</a>.</p>
+
+<p>Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL can be as simple as:</p>
+
+<figure class='code'><figcaption><span>WordCount example in HiveQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">docs</span> <span class="p">(</span><span class="n">line</span> <span class="n">STRING</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Load text files into TABLE docs: each line as a row */</span>
+</span><span class='line'><span class="k">LOAD</span> <span class="k">DATA</span> <span class="n">INPATH</span> <span class="s1">&#39;wordcount.txt&#39;</span> <span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">docs</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">word_counts</span> <span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">word</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="k">count</span>
+</span><span class='line'><span class="k">FROM</span>
+</span><span class='line'>   <span class="c1">-- explode will return rows of tokens</span>
+</span><span class='line'>  <span class="p">(</span><span class="k">SELECT</span> <span class="n">explode</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s1">&#39;\s&#39;</span><span class="p">))</span> <span class="k">AS</span> <span class="n">word</span>
+</span><span class='line'>   <span class="k">FROM</span> <span class="n">docs</span><span class="p">)</span> <span class="n">w</span>
+</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">word</span>
+</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">word</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
+-->
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -716,75 +802,6 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/">Pushing Local Jar File Into Your Local Maven (M2) Repository</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-17T16:46:49-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>4:46 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h4>Problem:</h4>
-
-<p>I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency.</p>
-
-<p>This post will also apply if you are behind a firewall and/or do not have external access for some reason.</p>
-
-<h4>Solution:</h4>
-
-<ul>
-<li>Download the jar file (e.g., the Vertica JDBC jar file).</li>
-<li>At the same directory as the jar file, run the following command to install the jar to the local Maven repository (running in a different directory seems not work).</li>
-</ul>
-
-
-<figure class='code'><figcaption><span>General Maven command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>mvn install:install-file -DgroupId<span class="o">=</span>&lt;GROUP_ID&gt; -DartifactId<span class="o">=</span>&lt;ARTIFACT_ID&gt; -Dversion<span class="o">=</span>&lt;VERSION&gt; -Dpackaging<span class="o">=</span>jar -Dfile<span class="o">=</span>&lt;LOCAL_PATH_FOR_JAR&gt; -DgeneratePom<span class="o">=</span><span class="nb">true</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Example:</p>
-
-<figure class='code'><figcaption><span>Example Maven command for Vertica JDBC</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>mvn install:install-file -DgroupId<span class="o">=</span>vertica -DartifactId<span class="o">=</span>vertica-jdbc -Dversion<span class="o">=</span>7.0.1 -Dpackaging<span class="o">=</span>jar -Dfile<span class="o">=</span>~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom<span class="o">=</span><span class="nb">true</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).</li>
-</ul>
-
-
-<p>If you want your Eclipse to start using this jar from your local repository:</p>
-
-<ul>
-<li>In Eclipse Luna on a Mac/Windows, go to Navigate > Show View > Other > Maven > Maven Repository.</li>
-<li>Open Local Repositories > Local Repository.</li>
-<li>Right click for the context menu > Rebuild Index.</li>
-</ul>
-
-
-<p>Now it should show up in “Add…” dialog in pom.xml edit.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/7">&larr; Older</a>
@@ -858,7 +875,7 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (8)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (9)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (7)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (10)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (9)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (11)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (9)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
