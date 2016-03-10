@@ -44,7 +44,20 @@ ethernet0.virtualDev = "e1000"
 1. http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/
 1. http://www.cyberciti.biz/faq/centos-ssh/
 
+
 ### Troubleshooting
+
+#### ETL fails
+
+```
+vsql:repo_home/qbo/sql/qbo_company_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+```
+
+1. https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf
+1. https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226
+
+Vertica recommends a minimum of 4GB of memory per core. i see that you have 2 cores and just 1 GB of memory. Memory allocation is very low. You need to have 2*4B = 8GB of memory. 
+
 
 #### S0180 "insufficient swap size"
 
