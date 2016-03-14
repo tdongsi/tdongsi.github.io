@@ -105,8 +105,9 @@ vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execu
 The comprehensive list of hardware requirements for Vertica can be found [here](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf).
 Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions. 
 In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.
-In this case, each of my VMs had two processor cores with only 4 GB in memory. 
-I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.
+
+In my case, each of my VMs had two processor cores with only 4 GB in memory. 
+To fix the error above, I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.
 
 ### Links
 

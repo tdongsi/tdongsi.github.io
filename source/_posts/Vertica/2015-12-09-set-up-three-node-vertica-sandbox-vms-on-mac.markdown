@@ -12,12 +12,12 @@ categories:
 ---
 
 I have been using a **single-node** Vertica VM to run ETL tests for [sometime](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/).
-The only minor problem is when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+The only minor problem is that when we add `KSAFE 1` in our DDL scripts (i.e., `CREATE TABLE` statements) for production purposes, it gives error on single-node VM when running DDL scripts to set up schema since single-node cluster is not k-safe.
 Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the [previous blog post](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/).
 
 In this blog post, I looked into setting up a Vertica cluster of **three** VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications. 
 Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
-This blog post documents some of my mistakes, going down the wrong paths, while trying to do so.
+This blog post documents some of my mistakes and wrong approaches while trying to do so.
 
 ### Using Vertica VM from HPE support?
 
@@ -29,7 +29,7 @@ Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are
    1. Username: dbadmin. Password: password. Root password: password. From [here](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm).
 1. Change the hostname to a shorter name.
 1. Turn off the VM.
-1. Clone in VMWare Fusion using "Create Full Clone" option (NOTE "Create Linked Clone").
+1. Clone in VMWare Fusion using "Create Full Clone" option (NOT "Create Linked Clone").
 1. Start up the three virtual machines.
 1. Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.
 1. Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (`ip addr` command).
@@ -72,7 +72,7 @@ Then, I clone that VM and configure the clones to make a three-node cluster of V
 #### Before installing Vertica
 
 Download CentOS VM from [osboxes.org](http://www.osboxes.org/). I used CentOS 6 VM. 
-Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+Note that CentOS 5 or older is no longer supported by Vertica HP (check out my attempt in the last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
 The following information may be useful when you prepare that CentOS VM before installing Vertica on it:
 
 ``` plain
@@ -81,7 +81,8 @@ Password: osboxes.org
 Root password: osboxes.org
 ```
 
-Note that Network connection may not work for that CentOS box. To make it work, I added the following line to the end of my `.vmx` file based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724):
+Note that Wired Network connection may not work for that CentOS box. 
+To make it work, I added the following line to the end of my `.vmx` file based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724):
 
 ``` plain
 ethernet0.virtualDev = "e1000"
@@ -122,11 +123,11 @@ echo deadline > /sys/block/sda/queue/scheduler
 echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
 ```
 
-Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check [this "Troubleshooting" post](/blog/2016/03/13/vertica-installation-troubleshooting-tips/).
+Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check [this "Troubleshooting" post](/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/).
 Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.
 
 After making sure Vertica is running on the three VMs, follow the steps from [here](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm) to create a Vertica database.
-Simply create a new empty schema in that database for unit testing purpose.
+Simply create a new empty schema in that VMart database for unit testing purpose.
 You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:
 
 ``` plain Vertica connection
@@ -157,6 +158,7 @@ Since CentOS 5 is dropped from support by HP Vertica, we can expect this error w
 
 I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
 The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.
+There is no apparent advantage of using CentOS 5 over CentOS 6.
 
 ### Links
 
