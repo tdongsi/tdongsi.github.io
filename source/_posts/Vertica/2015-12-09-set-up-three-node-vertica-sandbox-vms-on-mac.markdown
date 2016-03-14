@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Set up three-node Vertica sandbox VMs on Mac"
+title: "Set up three-node Vertica VM sandbox"
 date: 2016-03-12 14:35:19 -0800
 comments: true
 published: true
@@ -54,7 +54,7 @@ Installation FAILED with errors.
 Installation stopped before any changes were made.
 ```
 
-The offical explaination from HP Vertica's documentation (quoted from [here](https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm)):
+The official explanation from HP Vertica's documentation (quoted from [here](https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm)):
 
 {% blockquote %}
 If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.
@@ -232,13 +232,13 @@ vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execu
 [Vertica recommends](https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226) a minimum of 4GB of memory per processor core.
 The comprehensive list of hardware requirements for Vertica can be found [here](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf).
 Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions. 
-In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommmended.
+In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.
 In this case, each of my VMs had two processor cores with only 4 GB in memory. 
 I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.
 
 ### Using older CentOS for Vertica VM (CentOS 5)
 
-Installing latest version of Vertica on **CentOS 5** is NOT easy, if not impossible. CentOS 5 is offically dropped from support by HP Vertica.
+Installing latest version of Vertica on **CentOS 5** is NOT easy, if not impossible. CentOS 5 is officially dropped from support by HP Vertica.
 
 I tried to reinstall Vertica after encountering the error "Existing single-node localhost (loopback) cluster cannot be expanded" as mentioned above. 
 Then, I encountered this error when trying to install the latest version of Vertica (7.2):
