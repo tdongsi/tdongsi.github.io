@@ -22,21 +22,23 @@ This blog post documents some of my mistakes, going down the wrong paths, while 
 ### Using Vertica VM from HPE support?
 
 If you already downloaded Vertica VM from HP website, you might consider cloning that VM and configuring the clones to make a three-node VM cluster of Vertica.
-Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in going in that direction: 
+Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in that direction: 
 
 1. Download Vertica VM from [HPE support website](https://my.vertica.com/download/vertica/community-edition/).
 1. Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet. 
    1. Username: dbadmin. Password: password. Root password: password. From [here](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm).
 1. Change the hostname to a shorter name.
 1. Turn off the VM.
-1. Clone in VMWare Fusion using "Full Clone" option.
-1. Start up 3 machines.
-1. Change the hostname of the two clones into something different: e.g., vertica72b and vertica72c.
-1. Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (ip addr).
+1. Clone in VMWare Fusion using "Create Full Clone" option (NOTE "Create Linked Clone").
+1. Start up the three virtual machines.
+1. Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.
+1. Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (`ip addr` command).
 
-Depending on the version of VM that you download, you might be hit with the following problem:
+Depending on the version of VM that you downloaded, you might be hit with the following problem:
 
-* Vertica is already installed on that Vertica VM as a single-host cluster. You cannot expand the cluster to three VM nodes without uninstalling and reinstalling Vertica. 
+* Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes (without uninstalling and reinstalling Vertica). 
+
+You will get the following error message when trying to use Vertica tools to expand the cluster:
 
 ``` plain Error message when trying to expand
 [dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
@@ -60,7 +62,7 @@ The official explanation from HP Vertica's documentation (quoted from [here](htt
 If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.
 {% endblockquote %}
 
-This problem seems insurmountable to me unless you are a good Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.
+This problem seems insurmountable to me unless you are a Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.
 
 ### Installing Vertica Community Edition on a fresh VM
 
@@ -136,105 +138,7 @@ Password: password
 
 ### Troubleshooting tips
 
-In this section, I will list some problems that I encountered when installing and using the three-node VM cluster of Vertica and how to work around those.
-Each installation problem has a documentation page that is displayed in the error message, such as [this page](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150) for S0150 error.
-I listed the quick, single-command solutions here for reference purpose.
-However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.
-
-<!-- 
-#### S0180 "insufficient swap size"
-
-1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
-
-``` plain Adding swap fails
-[root@vertica72 osboxes]# swapoff /dev/sda2
-[root@vertica72 osboxes]# swapon -s
-[root@vertica72 osboxes]# swapon /swapfile
-swapon: /swapfile: swapon failed: Invalid argument
-```
-
-This is due to a bug
-
-1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
-
-
-1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
--->
-
-#### S0081: SELinux appears to be enabled and not in permissive mode
-
-``` plain
-FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
-SELinux appears to be enabled and not in permissive mode.
-```
-
-As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file `/etc/sysconfig/selinux` as root/sudo:
-
-``` plain 
-setenforce 0
-```
-
-#### S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling
-
-``` plain Error message
-FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
-These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
-```
-
-To fix this problem in CentOS 6, run this command as root/sudo:
-
-``` plain Fix until next reboot
-echo deadline > /sys/block/sda/queue/scheduler
-```
-
-Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as `/etc/rc.local`) like in this command.
-
-``` plain Permanent fix
-echo 'echo deadline > /sys/block/sda/queue/scheduler' >> /etc/rc.local
-```
-
-#### S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
-
-``` plain Error message
-FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
-Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
-```
-
-To fix this problem in CentOS 6, run this command as root/sudo:
-
-``` plain Fix until next reboot
-echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
-```
-
-The permanent fix is also available in the [documentation page](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310) in the error message above.
-
-#### S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems
-
-``` plain Error message
-FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
-Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 < 2048
-```
-To fix this problem in CentOS 6, run this command as root/sudo:
-
-``` plain Run this command
-/sbin/blockdev –setra 2048 /dev/sda
-```
-
-#### ETL fails with "ERROR 3587:  Insufficient resources to execute plan"
-
-After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:
-
-``` plain Error message
-vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
-[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
-```
-
-[Vertica recommends](https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226) a minimum of 4GB of memory per processor core.
-The comprehensive list of hardware requirements for Vertica can be found [here](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf).
-Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions. 
-In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.
-In this case, each of my VMs had two processor cores with only 4 GB in memory. 
-I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.
+Moved to a separte post.
 
 ### Using older CentOS for Vertica VM (CentOS 5)
 
@@ -262,6 +166,4 @@ The choice of using CentOS 5 to begin with is totally a personal choice: I have 
 
 1. [Three-node VM setup in VirtualBox](http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/)
 1. [CentOS SSH Installation And Configuration](http://www.cyberciti.biz/faq/centos-ssh/)
-1. Documentation pages for errors: e.g., [S0150](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150).
-   * Read pages like this to figure out fixes for problems encountered during Vertica installation.
-1. [Hardware Requirements for Vertica](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf)
+
