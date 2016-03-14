@@ -26,7 +26,7 @@ Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are
 
 1. Download Vertica VM from [HPE support website](https://my.vertica.com/download/vertica/community-edition/).
 1. Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet. 
-   1. Username: dbadmin. Password: password. Root password: password. From [here](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm)
+   1. Username: dbadmin. Password: password. Root password: password. From [here](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm).
 1. Change the hostname to a shorter name.
 1. Turn off the VM.
 1. Clone in VMWare Fusion using "Full Clone" option.
@@ -60,16 +60,26 @@ The offical explaination from HP Vertica's documentation (quoted from [here](htt
 If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.
 {% endblockquote %}
 
-The problem seems insurmountable to me unless you are a good Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.
+This problem seems insurmountable to me unless you are a good Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.
 
 ### Installing Vertica Community Edition on a fresh VM
+
+In this approach, I have to install Vertica (free Community Edition) from scratch on a fresh Linux VM. 
+Then, I clone that VM and configure the clones to make a three-node cluster of Vertica.
 
 #### Before installing Vertica
 
 Download CentOS VM from [osboxes.org](http://www.osboxes.org/). I used CentOS 6 VM. 
 Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+The following information may be useful when you prepare that CentOS VM before installing Vertica on it:
 
-Make Network connection work for that CentOS box based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724). I added the following line to the end of my .vmx file:
+``` plain
+Username: osboxes
+Password: osboxes.org
+Root password: osboxes.org
+```
+
+Note that Network connection may not work for that CentOS box. To make it work, I added the following line to the end of my `.vmx` file based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724):
 
 ``` plain
 ethernet0.virtualDev = "e1000"
@@ -82,20 +92,47 @@ Install and configure SSH on the CentOS VM, as detailed in [here](http://www.cyb
 Follow the steps in this [link](http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/) to set up a three-node Vertica VMs.
 Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
 Note that in VMWare Fusion, clone the VM using the option "Create Full Clone" (instead of "Create Linked Clone").
+In addition, to keep it consistent with single-node Vertica VM from HPE support website, you might want to create a new database user with username `dbadmin` and `password` as password.
+It will help when you need to switch back and forth from using three-node Vertica VM to single-node VM for unit testing purposes.
 
 #### After installing Vertica
 
-After Vertica installation and cluster rebooting, you might encounter one or more of the following issues:
+After Vertica installation and cluster rebooting, you might encounter one or more problems with the following error messages:
+
+``` plain Common issues after rebooting
+### Issue 1
+Network Connection is not available.
+
+### Issue 2
+FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+
+### Issue 3
+FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+```
+
+To resolve the above issues, use the following commands as superuser, in that order:
 
 ``` plain Use the following commands as superuser
 dhclient
-echo
-echo
+echo deadline > /sys/block/sda/queue/scheduler
+echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
 ```
 
+Those issues are the most common issues that I frequently encountered. For other issues and troubleshooting tips, check "Troubleshooting" section below.
 Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.
 
-TODO: Steps to create a database.
+After making sure Vertica is running on the three VMs, follow the steps from [here](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm) to create a Vertica database.
+Simply create a new empty schema in that database for unit testing purpose.
+You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:
+
+``` plain Vertica connection
+jdbc:vertica://[your_VM_IP_address]:5433/VMart
+
+Username: dbadmin
+Password: password
+```
 
 ### Troubleshooting
 
@@ -131,18 +168,18 @@ This is due to a bug
 
 1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
 
-#### S0081 "SELinux appears to be enabled and not in permissive mode"
+#### S0081: "SELinux appears to be enabled and not in permissive mode"
 
 ```
 FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
 SELinux appears to be enabled and not in permissive mode.
 ```
 
-1. http://geeks-cache.comoj.com/?p=560
+As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file `/etc/sysconfig/selinux` as root/sudo:
 
-
-
-1. https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm
+``` plain 
+setenforce 0
+```
 
 ### Using older CentOS for Vertica VM (CentOS 5)
 
