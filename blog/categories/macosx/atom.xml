@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Macosx | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/macosx/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-08T23:02:23-08:00</updated>
+  <updated>2016-03-13T22:33:22-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,169 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Set Up Three-node Vertica VM Sandbox]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/"/>
+    <updated>2016-03-12T14:35:19-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac</id>
+    <content type="html"><![CDATA[<p>I have been using a <strong>single-node</strong> Vertica VM to run ETL tests for <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">sometime</a>.
+The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">previous blog post</a>.</p>
+
+<p>In this blog post, I looked into setting up a Vertica cluster of <strong>three</strong> VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications.
+Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
+This blog post documents some of my mistakes, going down the wrong paths, while trying to do so.</p>
+
+<h3>Using Vertica VM from HPE support?</h3>
+
+<p>If you already downloaded Vertica VM from HP website, you might consider cloning that VM and configuring the clones to make a three-node VM cluster of Vertica.
+Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in that direction:</p>
+
+<ol>
+<li>Download Vertica VM from <a href="https://my.vertica.com/download/vertica/community-edition/">HPE support website</a>.</li>
+<li>Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet.
+
+<ol>
+<li>Username: dbadmin. Password: password. Root password: password. From <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm">here</a>.</li>
+</ol>
+</li>
+<li>Change the hostname to a shorter name.</li>
+<li>Turn off the VM.</li>
+<li>Clone in VMWare Fusion using &ldquo;Create Full Clone&rdquo; option (NOTE &ldquo;Create Linked Clone&rdquo;).</li>
+<li>Start up the three virtual machines.</li>
+<li>Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.</li>
+<li>Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (<code>ip addr</code> command).</li>
+</ol>
+
+
+<p>Depending on the version of VM that you downloaded, you might be hit with the following problem:</p>
+
+<ul>
+<li>Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes (without uninstalling and reinstalling Vertica).</li>
+</ul>
+
+
+<p>You will get the following error message when trying to use Vertica tools to expand the cluster:</p>
+
+<pre><code class="plain Error message when trying to expand">[dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
+Vertica Analytic Database 7.1.1-0 Installation Tool
+
+
+&gt;&gt; Validating options...
+
+
+Mapping hostnames in --add-hosts (-A) to addresses...
+Error: Existing single-node localhost (loopback) cluster cannot be expanded
+Hint: Move cluster to external address first. See online documentation.
+Installation FAILED with errors.
+
+Installation stopped before any changes were made.
+</code></pre>
+
+<p>The official explanation from HP Vertica&rsquo;s documentation (quoted from <a href="https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm">here</a>):</p>
+
+<p><blockquote><p>If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.</p></blockquote></p>
+
+<p>This problem seems insurmountable to me unless you are a Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.</p>
+
+<h3>Installing Vertica Community Edition on a fresh VM</h3>
+
+<p>In this approach, I have to install Vertica (free Community Edition) from scratch on a fresh Linux VM.
+Then, I clone that VM and configure the clones to make a three-node cluster of Vertica.</p>
+
+<h4>Before installing Vertica</h4>
+
+<p>Download CentOS VM from <a href="http://www.osboxes.org/">osboxes.org</a>. I used CentOS 6 VM.
+Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+The following information may be useful when you prepare that CentOS VM before installing Vertica on it:</p>
+
+<pre><code class="plain">Username: osboxes
+Password: osboxes.org
+Root password: osboxes.org
+</code></pre>
+
+<p>Note that Network connection may not work for that CentOS box. To make it work, I added the following line to the end of my <code>.vmx</code> file based on this <a href="https://www.centos.org/forums/viewtopic.php?f=47&amp;t=47724">link</a>:</p>
+
+<pre><code class="plain">ethernet0.virtualDev = "e1000"
+</code></pre>
+
+<p>Install and configure SSH on the CentOS VM, as detailed in <a href="http://www.cyberciti.biz/faq/centos-ssh/">here</a>.</p>
+
+<h4>Installing Vertica</h4>
+
+<p>Follow the steps in this <a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">link</a> to set up a three-node Vertica VMs.
+Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
+Note that in VMWare Fusion, clone the VM using the option &ldquo;Create Full Clone&rdquo; (instead of &ldquo;Create Linked Clone&rdquo;).
+In addition, to keep it consistent with single-node Vertica VM from HPE support website, you might want to create a new database user with username <code>dbadmin</code> and <code>password</code> as password.
+It will help when you need to switch back and forth from using three-node Vertica VM to single-node VM for unit testing purposes.</p>
+
+<h4>After installing Vertica</h4>
+
+<p>After Vertica installation and cluster rebooting, you might encounter one or more problems with the following error messages:</p>
+
+<pre><code class="plain Common issues after rebooting">### Issue 1
+Network Connection is not available.
+
+### Issue 2
+FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+
+### Issue 3
+FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+</code></pre>
+
+<p>To resolve the above issues, use the following commands as superuser, in that order:</p>
+
+<pre><code class="plain Use the following commands as superuser">dhclient
+echo deadline &gt; /sys/block/sda/queue/scheduler
+echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
+</code></pre>
+
+<p>Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check <a href="/blog/2016/03/13/vertica-installation-troubleshooting-tips/">this &ldquo;Troubleshooting&rdquo; post</a>.
+Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.</p>
+
+<p>After making sure Vertica is running on the three VMs, follow the steps from <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm">here</a> to create a Vertica database.
+Simply create a new empty schema in that database for unit testing purpose.
+You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:</p>
+
+<pre><code class="plain Vertica connection">jdbc:vertica://[your_VM_IP_address]:5433/VMart
+
+Username: dbadmin
+Password: password
+</code></pre>
+
+<h3>Using older CentOS for Vertica VM (CentOS 5)</h3>
+
+<p>Installing latest version of Vertica on <strong>CentOS 5</strong> is NOT easy, if not impossible. CentOS 5 is officially dropped from support by HP Vertica.</p>
+
+<p>I tried to reinstall Vertica after encountering the error &ldquo;Existing single-node localhost (loopback) cluster cannot be expanded&rdquo; as mentioned above.
+Then, I encountered this error when trying to install the latest version of Vertica (7.2):</p>
+
+<pre><code class="plain Vertica installation error in CentOS 5">ERROR with rpm_check_debug vs depsolve:
+rpmlib(FileDigests) is needed by vertica-7.2.1-0.x86_64
+rpmlib(PayloadIsXz) is needed by vertica-7.2.1-0.x86_64
+Complete!
+</code></pre>
+
+<p>Running <code>sudo yum -y update rpm</code> does not work.
+The reason is that CentOS 5 and CentOS 6 have very different versions of <code>rpm</code> and <code>rpmlib</code>.
+The CentOS 6 version has support for newer payload compression and a newer <code>FileDigests</code> version than the version of <code>rpm</code> on CentOS 5 can support.
+Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won&rsquo;t be resolved any time soon.</p>
+
+<p>I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">Three-node VM setup in VirtualBox</a></li>
+<li><a href="http://www.cyberciti.biz/faq/centos-ssh/">CentOS SSH Installation And Configuration</a></li>
+</ol>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Symlinks in Git]]></title>
@@ -62,14 +225,14 @@ ls -d1 bash/* | while read f; do
 done
 </code></pre>
 
-<p><strong>Best practice notes</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
+<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
 
 <pre><code class="bash">ls * | while read f; do
   # command executed for each file
 done
 </code></pre>
 
-<p>This is the right way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
+<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
 In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
 It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
 

@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="This post is the first of many Hive tutorial posts. Most of these posts are based on the Programming Hive book, with some observations from my own &hellip;">
+  <meta name="description" content="Following up on Hive CLI, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore. Runtime Modes There are &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -68,6 +68,444 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/24/programming-hive-getting-started/">Hive Tutorial (Pt. 3): Runtime Modes</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-24T18:24:30-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:24 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
+
+<h3>Runtime Modes</h3>
+
+<p>There are different runtime modes for Hadoop.
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
+
+<table>
+<thead>
+<tr>
+<th> Local Mode </th>
+<th> Distributed Mode </th>
+<th> Pseudodistributed Mode </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Filesystem references use local filesystem. </td>
+<td> Filesystem references use HDFS. </td>
+<td> Similar to distributed mode. </td>
+</tr>
+<tr>
+<td> MapReduce tasks in same process. </td>
+<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
+<td> Similar to distributed mode.</td>
+</tr>
+<tr>
+<td> Default mode. </td>
+<td> Usually configured for server clusters. </td>
+<td> Like a cluster of one node.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
+
+<h3>Metastore Using JDBC</h3>
+
+<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
+In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionURL<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>JDBC connect string for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionDriverName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>com.mysql.jdbc.Driver<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>Driver class name for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionUserName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>hive<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The information stored in metastore is typically much smaller than the data stored in Hive.
+Therefore, you typically don’t need a powerful dedicated database server for the metastore.
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive Tutorial (Pt. 2): Hive CLI</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-23T19:47:23-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>23</span><span class='date-suffix'>rd</span>, <span class='date-year'>2015</span></span> <span class='time'>7:47 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
+
+<h3>Starting Hive with Cloudera Quickstart VM</h3>
+
+<p>On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as <code>hive-exec*.jar</code> and <code>hive-metastore*.jar</code>, can be found in <code>/usr/lib/hive/lib</code>.
+The Hive executables can be found in <code>/usr/lib/hive/bin</code>. Running <code>hive</code> without any parameter will start Hive&rsquo;s CLI.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; CREATE TABLE x (a INT);
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 3.032 seconds
+</span><span class='line'>hive&gt; SELECT * FROM x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.465 seconds
+</span><span class='line'>hive&gt; SELECT *        
+</span><span class='line'>    &gt; FROM x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.049 seconds
+</span><span class='line'>hive&gt; DROP TABLE x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.348 seconds
+</span><span class='line'>hive&gt; exit;</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Hive services</h3>
+
+<p>The <code>hive</code> shell command is actually a wrapper to multiple Hive services, including the CLI.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help
+</span><span class='line'>Usage ./hive &lt;parameters&gt; --service serviceName &lt;service parameters&gt;
+</span><span class='line'>Service List: beeline cli help hiveserver2 hiveserver hwi jar lineage metastore metatool orcfiledump rcfilecat schemaTool version 
+</span><span class='line'>Parameters parsed:
+</span><span class='line'>  --auxpath : Auxillary jars 
+</span><span class='line'>  --config : Hive configuration directory
+</span><span class='line'>  --service : Starts specific service/component. cli is default
+</span><span class='line'>Parameters used:
+</span><span class='line'>  HADOOP_HOME or HADOOP_PREFIX : Hadoop install directory
+</span><span class='line'>  HIVE_OPT : Hive options
+</span><span class='line'>For help on a particular service:
+</span><span class='line'>  ./hive --service serviceName --help
+</span><span class='line'>Debug help:  ./hive --debug --help</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note the list of services following the line &ldquo;Service List&rdquo;.
+There are several services available, most notably <strong>cli, hwi, jar, metastore</strong>.
+You can use <code>--service name</code> option to invoke a service.
+CLI is the default service, not specifying any service in <code>hive</code> command will run CLI service, as shown in &ldquo;Starting Hive&rdquo; section above.</p>
+
+<p>For example, to run <a href="https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface">Hive Web Interface</a>, run the service <strong>hwi</strong>. On Cloudera Quickstart VM, you might encounter this error:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
+</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+</span><span class='line'>15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
+</span><span class='line'>15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To fix that error, edit the config file <code>hive-site.xml</code> in the <code>config</code> folder (e.g., <code>/usr/lib/hive/conf/hive-site.xml</code> on Cloudera VM) to point to the right location of HWI&rsquo;s <code>war</code> file.
+On Cloudera Quickstart VM, the <code>war</code> file property block should look like this:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>...
+</span><span class='line'> &lt;property&gt;
+</span><span class='line'>    &lt;name&gt;hive.hwi.war.file&lt;/name&gt;
+</span><span class='line'>    &lt;value&gt;/lib/hive-hwi.jar&lt;/value&gt;
+</span><span class='line'>    &lt;description&gt;This is the WAR file with the jsp content for Hive Web Interface&lt;/description&gt;
+</span><span class='line'>  &lt;/property&gt;
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Running the <strong>hwi</strong> service again using <code>hive</code> command should work. In order to access the Hive Web Interface, go to <code>[Hive Server Address]</code>:9999/hwi on your web browser.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
+</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+</span><span class='line'>15/11/23 20:31:27 INFO hwi.HWIServer: HWI is starting up
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Logging to org.slf4j.impl.Log4jLoggerAdapter(org.mortbay.log) via org.mortbay.log.Slf4jLog
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: jetty-6.1.26.cloudera.4
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Extract /usr/lib/hive/lib/hive-hwi.jar to /tmp/Jetty_0_0_0_0_9999_hive.hwi.0.13.1.cdh5.3.0.jar__hwi__.lcik1p/webapp
+</span><span class='line'>15/11/23 20:31:28 INFO mortbay.log: Started SocketConnector@0.0.0.0:9999</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Hive CLI</h3>
+
+<p>Available options for Hive CLI can be displayed as follows:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help --service cli
+</span><span class='line'>usage: hive
+</span><span class='line'> -d,--define &lt;key=value&gt;          Variable subsitution to apply to hive
+</span><span class='line'>                                  commands. e.g. -d A=B or --define A=B
+</span><span class='line'>    --database &lt;databasename&gt;     Specify the database to use
+</span><span class='line'> -e &lt;quoted-query-string&gt;         SQL from command line
+</span><span class='line'> -f &lt;filename&gt;                    SQL from files
+</span><span class='line'> -H,--help                        Print help information
+</span><span class='line'> -h &lt;hostname&gt;                    connecting to Hive Server on remote host
+</span><span class='line'>    --hiveconf &lt;property=value&gt;   Use value for given property
+</span><span class='line'>    --hivevar &lt;key=value&gt;         Variable subsitution to apply to hive
+</span><span class='line'>                                  commands. e.g. --hivevar A=B
+</span><span class='line'> -i &lt;filename&gt;                    Initialization SQL file
+</span><span class='line'> -p &lt;port&gt;                        connecting to Hive Server on port number
+</span><span class='line'> -S,--silent                      Silent mode in interactive shell
+</span><span class='line'> -v,--verbose                     Verbose mode (echo executed SQL to the
+</span><span class='line'>                                  console)</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Hive variables and properties</h4>
+
+<p>The <code>--define key=value</code> option is equivalent to the <code>--hivevar key=value</code> option. Both let you define custom variables in the <code>hivevar</code> namespace, separate from three other built-in namespaces, <code>hiveconf</code>, <code>system</code>, and <code>env</code>. By convention, the Hive namespaces for variables and properties are as follows:</p>
+
+<ol>
+<li>hivevar: user-defined custom variables.</li>
+<li>hiveconf: Hive-specific configuration properties.</li>
+<li>system: Java configuration properties.</li>
+<li>env: (Read-only) environment variables by shell environment (e.g., bash).</li>
+</ol>
+
+
+<p>Inside Hive CLI, the command <code>SET</code> is used to display and change variables. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; set env:HOME; &lt;-- display HOME variable in env namespace
+</span><span class='line'>env:HOME=/home/cloudera
+</span><span class='line'>hive&gt; set; &lt;-- display all variables
+</span><span class='line'>...
+</span><span class='line'>hive&gt; set -v; &lt;-- display even more variables
+</span><span class='line'>...
+</span><span class='line'>hive&gt; set hivevar:foo=bar; &lt;-- set foo variable in hivevar namespace to bar</span></code></pre></td></tr></table></div></figure>
+
+
+<h4><code>-e query_string</code> and <code>-S</code> options</h4>
+
+<p><code>-e</code> option allows you to execute a list of semicolon-separated queries as an input string. <code>-S</code> option for silent mode will remove non-essential output. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -e "SELECT * FROM mytable LIMIT 3";
+</span><span class='line'>OK
+</span><span class='line'>name1 10
+</span><span class='line'>name2 20
+</span><span class='line'>name3 30
+</span><span class='line'>Time taken: 4.955 seconds</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -S -e "select * FROM mytable LIMIT 3"
+</span><span class='line'>name1 10
+</span><span class='line'>name2 20
+</span><span class='line'>name3 30</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Tip</strong>: To quickly search for the full name of a property that you only remember part of its name, pipe the Hive&rsquo;s <code>SET</code> command output to grep. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
+</span><span class='line'>hive.metastore.warehouse.dir=/user/hive/warehouse
+</span><span class='line'>hive.warehouse.subdir.inherit.perms=true</span></code></pre></td></tr></table></div></figure>
+
+
+<h4><code>-f script_file</code> option</h4>
+
+<p>This option allows you to execute one or more queries contained in a script file. If you are already within the Hive CLI, you can use the <code>SOURCE</code> command to execute a script file. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ cat /path/to/file/withqueries.hql
+</span><span class='line'>SELECT x.* FROM src x;
+</span><span class='line'>$ hive
+</span><span class='line'>hive&gt; source /path/to/file/withqueries.hql;</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<h4><code>-i filename</code> option</h4>
+
+<p>This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is the file <code>$HOME/.hiverc</code> if it exists.</p>
+
+<h4>Tips</h4>
+
+<ul>
+<li>To print column headers (disabled by default), set the hiveconf property <code>hive.cli.print.header</code> to true: <code>set hive.cli.print.header=true;</code>.</li>
+<li>Hive has a command history, saved into a file <code>$HOME/.hivehistory</code>. Use the up and down arrow keys to scroll through previous commands.</li>
+<li>To run HDFS commands from within Hive CLI, drop the hdfs. For example:</li>
+</ul>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; dfs -ls input; 
+</span><span class='line'>Found 1 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>To run the bash shell commands from within Hive CLI, prefix <code>!</code> before the bash commands and terminate the line with a semicolon (;). Note that interactive commands, shell pipes <code>|</code>, and file globs <code>*</code> will not work. Example:</li>
+</ul>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; !pwd;
+</span><span class='line'>hive&gt; /home/cloudera/temp</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>Set the property <code>set hive.exec.mode.local.auto=true;</code> to use local mode more aggressively and gain performance in Hive queries, especially when working with small data sets.</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -474,334 +912,6 @@ In the remaining sections of Chapter 1, the authors also discuss various related
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/19/an-old-email/">An Old Email</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-19T00:41:40-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>19</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:41 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>I found this email below (names redacted) in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me many significant lessons and insight, especially when I&rsquo;m relatively early in my job/career:</p>
-
-<ol>
-<li>Code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.</li>
-<li>A small change in implementation approach can significantly improve testability of your code.</li>
-<li>Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together, as programmers having different roles (develop vs. test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
-
-<ul>
-<li>Organizational boundaries only dampen open collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.</li>
-</ul>
-</li>
-</ol>
-
-
-<hr />
-
-<p>Hi LeadDeveloper,</p>
-
-<p>I noticed the following problem with enum classes in Project_X. I know that it’s a long email, please bear with me.</p>
-
-<p>For example, the enum class AttributeVisibility is defined as follows:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">enum</span> <span class="n">AttributeVisibility</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">PublicVisibility</span><span class="o">(</span><span class="mi">1</span><span class="o">),</span>
-</span><span class='line'>  <span class="n">PrivateVisibility</span><span class="o">(</span><span class="mi">2</span><span class="o">),</span>
-</span><span class='line'>  <span class="n">ProtectedVisibility</span><span class="o">(</span><span class="mi">4</span><span class="o">);</span> <span class="c1">// Values to match ASM Opcodes</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">private</span> <span class="kt">int</span> <span class="n">value</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">private</span> <span class="nf">AttributeVisibility</span><span class="o">(</span><span class="kt">int</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>      <span class="n">value</span> <span class="o">=</span> <span class="n">v</span><span class="o">;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">public</span> <span class="kt">int</span> <span class="nf">getValue</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>      <span class="k">return</span> <span class="n">value</span><span class="o">;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">public</span> <span class="kd">static</span> <span class="n">AttributeVisibility</span> <span class="nf">getAttributeVisibility</span><span class="o">(</span><span class="kt">int</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>      <span class="k">switch</span> <span class="o">(</span><span class="n">value</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>      <span class="k">case</span> <span class="mi">1</span><span class="o">:</span>
-</span><span class='line'>          <span class="k">return</span> <span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">PublicVisibility</span><span class="o">;</span>
-</span><span class='line'>      <span class="k">case</span> <span class="mi">4</span><span class="o">:</span>
-</span><span class='line'>          <span class="k">return</span> <span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">ProtectedVisibility</span><span class="o">;</span>
-</span><span class='line'>      <span class="k">case</span> <span class="mi">2</span><span class="o">:</span>
-</span><span class='line'>          <span class="k">return</span> <span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">PrivateVisibility</span><span class="o">;</span>
-</span><span class='line'>      <span class="o">}</span>
-</span><span class='line'>      <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="s">&quot;Unable to determine AttributeVisibility&quot;</span><span class="o">);</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Similar to many other enum classes in Project_X, the public static method getAttributeVisibility() in this class uses switch statements to convert an integer to enum data type.</p>
-
-<p>There is nothing wrong with those classes now, but using switch statements is NOT a good practice, as explained below.</p>
-
-<p><em>(STOP: I would encourage blog readers to stop for a few minutes and think why. NOT in the original email)</em></p>
-
-<p>In the event of (1) we want to add a new instance, for example, PackageVisibility with value 8 into it, and (2) the developer is unaware of/forgets to update the getAttributeVisibility() method. The case for the new instance PackageVisibility is not added into the switch statement, and the getAttributeVisibility() method is now broken when the input is 8 and PackageVisibility instance is expected to return. One should never rule out that those events (1), (2) ever happen (i.e., they WILL happen) as the project Project_X is evolving.</p>
-
-<p>I believe the better way to do it is to use a map instead of a switch statement (after all, what can express a mapping better than a map?):</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">enum</span> <span class="n">AttributePreferred</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">PublicVisibility</span><span class="o">(</span><span class="mi">1</span><span class="o">),</span>
-</span><span class='line'>  <span class="n">PrivateVisibility</span><span class="o">(</span><span class="mi">2</span><span class="o">),</span>
-</span><span class='line'>  <span class="n">ProtectedVisibility</span><span class="o">(</span><span class="mi">4</span><span class="o">);</span> <span class="c1">// Values to match ASM Opcodes</span>
-</span><span class='line'>  <span class="c1">// PackageVisibility(8);</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">private</span> <span class="kd">static</span> <span class="n">Map</span><span class="o">&lt;</span><span class="n">Integer</span><span class="o">,</span> <span class="n">AttributePreferred</span><span class="o">&gt;</span> <span class="n">intToEnum</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HashMap</span><span class="o">&lt;&gt;();</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">static</span> <span class="o">{</span>
-</span><span class='line'>      <span class="k">for</span> <span class="o">(</span><span class="n">AttributePreferred</span> <span class="n">member</span> <span class="o">:</span> <span class="n">AttributePreferred</span><span class="o">.</span><span class="na">values</span><span class="o">())</span> <span class="o">{</span>
-</span><span class='line'>          <span class="n">intToEnum</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">member</span><span class="o">.</span><span class="na">getValue</span><span class="o">(),</span> <span class="n">member</span><span class="o">);</span>
-</span><span class='line'>      <span class="o">}</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">private</span> <span class="kt">int</span> <span class="n">value</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">private</span> <span class="nf">AttributePreferred</span><span class="o">(</span><span class="kt">int</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>      <span class="n">value</span> <span class="o">=</span> <span class="n">v</span><span class="o">;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">public</span> <span class="kt">int</span> <span class="nf">getValue</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>      <span class="k">return</span> <span class="n">value</span><span class="o">;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="kd">public</span> <span class="kd">static</span> <span class="n">AttributePreferred</span> <span class="nf">getAttributeVisibility</span><span class="o">(</span><span class="kt">int</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>      <span class="n">AttributePreferred</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">intToEnum</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">value</span><span class="o">);</span>
-</span><span class='line'>      <span class="k">if</span> <span class="o">(</span><span class="n">obj</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
-</span><span class='line'>          <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span>
-</span><span class='line'>                  <span class="s">&quot;Unable to determine AttributeVisibility&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>      <span class="k">return</span> <span class="n">obj</span><span class="o">;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Please note the static initialization block and the updated getAttributeVisibility method. In some enum classes that do not have the private value field such as DiskFormat, the intention may be concisely expressed by the ordinal() method in the static initialization block:</p>
-
-<figure class='code'><figcaption><span>DO NOT do this</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">static</span> <span class="o">{</span>
-</span><span class='line'>  <span class="k">for</span> <span class="o">(</span><span class="n">DiskFormat</span> <span class="n">member</span> <span class="o">:</span> <span class="n">DiskFormat</span><span class="o">.</span><span class="na">values</span><span class="o">())</span> <span class="o">{</span>
-</span><span class='line'>      <span class="n">intToEnum</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">member</span><span class="o">.</span><span class="na">ordinal</span><span class="o">(),</span> <span class="n">member</span><span class="o">);</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, using ordinal() method is strongly advised <strong>against</strong> (as indicated in JDK documentation <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html">http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html</a>). Instead, I would recommend that such enum class uses a private value field to specify a fixed integer value for each instance, similar to the class AttributeVisibility above.</p>
-
-<p>As a test engineer, I do have my stake to demand this change. Writing a unit test for such public method like getAttributeVisibility() is pointless, since it would not be better or more efficient than visually verifying it (see &ldquo;silly&rdquo; test below).</p>
-
-<figure class='code'><figcaption><span>Silly unit test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="c1">// How silly is this test?</span>
-</span><span class='line'><span class="nd">@Test</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">test</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">assertEquals</span><span class="o">(</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">PublicVisibility</span><span class="o">,</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">getAttributeVisibility</span><span class="o">(</span><span class="mi">1</span><span class="o">));</span>
-</span><span class='line'>  <span class="n">assertEquals</span><span class="o">(</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">ProtectedVisibility</span><span class="o">,</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">getAttributeVisibility</span><span class="o">(</span><span class="mi">4</span><span class="o">));</span>
-</span><span class='line'>  <span class="n">assertEquals</span><span class="o">(</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">PrivateVisibility</span><span class="o">,</span><span class="n">AttributeVisibility</span><span class="o">.</span><span class="na">getAttributeVisibility</span><span class="o">(</span><span class="mi">2</span><span class="o">));</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Even worse, that test won&rsquo;t help in the case that events (1)-(2) happen. In fact, when a developer fails to update the switch statement (event 2), it is not more likely or feasible that a test engineer will be able to visually verify it. It means that those enum classes may be broken any time due to changes. The only way to add confidence in those enum classes is to use the preferred implementation as explained above.</p>
-
-<p>In summary, testers will be helpless if a bug is introduced into one of the Project_X enum classes if the safer alternative is not used instead of switch statements.</p>
-
-<p>Best regards,</p>
-
-<p>Cuong</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/18/unicode-in-perl/">Unicode in Perl</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-18T15:40:20-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>3:40 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>For automation in Perl, Unicode can be tricky, especially when you want your automated jobs/tests to work across platforms (Windows and *nix). If you have a choice, another scripting language like Python may be better off in dealing with Unicode texts. If you don&rsquo;t have a choice and must use Perl (specifically Perl 5) like I used to, some of these tips may help get you started.</p>
-
-<p>The most common code snippet that I used in my Perl codes when dealing with Unicode texts is this Unicode preamble:</p>
-
-<figure class='code'><figcaption><span>Unicode preamble</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class='perl'><span class='line'><span class="c1">#!/usr/bin/env perl</span>
-</span><span class='line'><span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">##############################################################</span>
-</span><span class='line'><span class="c1">#### Unicode preamble</span>
-</span><span class='line'><span class="k">use</span> <span class="n">utf8</span><span class="p">;</span>      <span class="c1"># so literals and identifiers in Perl scripts can be in UTF-8</span>
-</span><span class='line'><span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>  <span class="c1"># on by default</span>
-</span><span class='line'><span class="k">use</span> <span class="n">warnings</span>  <span class="sx">qw(FATAL utf8)</span><span class="p">;</span>    <span class="c1"># fatalize encoding glitches</span>
-</span><span class='line'><span class="k">use</span> <span class="nb">open</span>      <span class="sx">qw(:std :utf8)</span><span class="p">;</span>    <span class="c1"># undeclared streams in UTF-8</span>
-</span><span class='line'><span class="k">use</span> <span class="n">charnames</span> <span class="sx">qw(:full :short)</span><span class="p">;</span>  <span class="c1"># unneeded in v5.16</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">##############################################################</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="s">&#39;你好世界&#39;</span><span class="p">;</span>
-</span><span class='line'><span class="k">my</span> <span class="nv">$checkPrint</span> <span class="o">=</span> <span class="s">&quot;Print Unicode variable: $name \n&quot;</span><span class="p">;</span>
-</span><span class='line'><span class="k">print</span> <span class="nv">$checkPrint</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The first two lines are standard and should be included in any Perl script. The rest are specifically for dealing with UTF-8 (the most commonly used encoding of Unicode). Another useful code snippet is for printing Unicode codepoints (Quiz: what is the difference between a codepoint and its encoding?):</p>
-
-<figure class='code'><figcaption><span>Print Unicode codepoints</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='perl'><span class='line'><span class="k">my</span> <span class="nv">$unicode_helloworld</span> <span class="o">=</span> <span class="s">&quot;\x{4F60}\x{597D}\x{4E16}\x{754C}&quot;</span><span class="p">;</span>
-</span><span class='line'><span class="k">print</span> <span class="s">&quot;Unicode codepoints: $unicode_helloworld\n&quot;</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>More recipes for working with Unicode in Perl 5 can be found in References below.</p>
-
-<p>One dilemma you might be facing when your Perl codes run in Windows is to choose which encoding for your script files: ANSI or UTF-8. In my own experience:</p>
-
-<ul>
-<li>If the script file encoding is ANSI, I usually have better luck in &ldquo;What you see is what you get&rdquo; department: for example, files created in filesystem have the filenames with same Unicode characters, such as Japanese/Chinese characters, in Perl scripts. The downside of ANSI encoding is when I try to do regex matching of those Japanese/Chinese characters, I get &ldquo;malformed regex&rdquo; error.</li>
-<li>If the script file encoding is UTF-8, the files created in filesystem usually have different Japanese/Chinese characters from those in Perl scripts. However, Japanese/Chinese characters in other places such as log files are matching with ones in Perl scripts. There is no &ldquo;malformed regex&rdquo; error when doing regex matching. However, that correctly formed regex matching may be useless if you need to do matching for output from filesystem such as &ldquo;ls&rdquo; command&rsquo;s output.</li>
-</ul>
-
-
-<!---
-Overall, I used ANSI encoding for my Perl scripts as my automation project at that time has to run on Windows/Linux/Mac and interacts regularly with filesystem.
--->
-
-
-<p>References:</p>
-
-<ol>
-<li><a href="http://perldoc.perl.org/perluniintro.html">http://perldoc.perl.org/perluniintro.html</a></li>
-<li><a href="https://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8">https://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8</a></li>
-<li><a href="http://www.perl.com/pub/2012/04/perlunicook-standard-preamble.html">http://www.perl.com/pub/2012/04/perlunicook-standard-preamble.html</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/7">&larr; Older</a>
@@ -822,6 +932,14 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/03/13/vertica-installation-troubleshooting-tips/">Vertica Installation: Troubleshooting Tips</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">Set Up Three-node Vertica VM Sandbox</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/03/02/bash-trap/">Bash Trap</a>
       </li>
     
@@ -831,14 +949,6 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
     
       <li class="post">
         <a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/02/20/symlinks-in-git/">Symlinks in Git</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a>
       </li>
     
   </ul>
@@ -875,7 +985,7 @@ Overall, I used ANSI encoding for my Perl scripts as my automation project at th
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (11)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (9)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (11)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

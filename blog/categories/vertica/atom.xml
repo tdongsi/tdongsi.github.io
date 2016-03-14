@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-08T23:02:23-08:00</updated>
+  <updated>2016-03-13T22:33:22-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,283 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Installation: Troubleshooting Tips]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/13/vertica-installation-troubleshooting-tips/"/>
+    <updated>2016-03-13T22:24:23-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/13/vertica-installation-troubleshooting-tips</id>
+    <content type="html"><![CDATA[<p>In this post, I will list some problems that I encountered when installing and using the <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node VM cluster of Vertica</a> and how to work around those.
+Each installation problem has a documentation page that is displayed in the error message, such as <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">this page</a> for S0150 error.
+I listed the quick, single-command solutions here for reference purpose.
+However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.</p>
+
+<!-- 
+#### S0180 "insufficient swap size"
+
+1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
+
+<figure class='code'><figcaption><span>Adding swap fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@vertica72 osboxes]# swapoff /dev/sda2
+</span><span class='line'>[root@vertica72 osboxes]# swapon -s
+</span><span class='line'>[root@vertica72 osboxes]# swapon /swapfile
+</span><span class='line'>swapon: /swapfile: swapon failed: Invalid argument</span></code></pre></td></tr></table></div></figure>
+
+This is due to a bug
+
+1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
+
+
+1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
+-->
+
+
+<h3>S0081: SELinux appears to be enabled and not in permissive mode</h3>
+
+<pre><code class="plain">FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
+SELinux appears to be enabled and not in permissive mode.
+</code></pre>
+
+<p>As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file <code>/etc/sysconfig/selinux</code> as root/sudo:</p>
+
+<pre><code class="plain ">setenforce 0
+</code></pre>
+
+<h3>S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling</h3>
+
+<pre><code class="plain Error message">FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Fix until next reboot">echo deadline &gt; /sys/block/sda/queue/scheduler
+</code></pre>
+
+<p>Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as <code>/etc/rc.local</code>) like in this command.</p>
+
+<pre><code class="plain Permanent fix">echo 'echo deadline &gt; /sys/block/sda/queue/scheduler' &gt;&gt; /etc/rc.local
+</code></pre>
+
+<h3>S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</h3>
+
+<pre><code class="plain Error message">FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Fix until next reboot">echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
+</code></pre>
+
+<p>The permanent fix is also available in the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310">documentation page</a> in the error message above.</p>
+
+<h3>S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems</h3>
+
+<pre><code class="plain Error message">FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
+Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 &lt; 2048
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Run this command">/sbin/blockdev –setra 2048 /dev/sda
+</code></pre>
+
+<h3>ETL fails with &ldquo;ERROR 3587:  Insufficient resources to execute plan&rdquo;</h3>
+
+<p>After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:</p>
+
+<pre><code class="plain Error message">vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
+[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+</code></pre>
+
+<p><a href="https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226">Vertica recommends</a> a minimum of 4GB of memory per processor core.
+The comprehensive list of hardware requirements for Vertica can be found <a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">here</a>.
+Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions.
+In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.
+In this case, each of my VMs had two processor cores with only 4 GB in memory.
+I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li>Documentation pages for errors: e.g., <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">S0150</a>.
+
+<ul>
+<li>Read pages like this to figure out fixes for problems encountered during Vertica installation.</li>
+</ul>
+</li>
+<li><a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">Hardware Requirements for Vertica</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Set Up Three-node Vertica VM Sandbox]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/"/>
+    <updated>2016-03-12T14:35:19-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac</id>
+    <content type="html"><![CDATA[<p>I have been using a <strong>single-node</strong> Vertica VM to run ETL tests for <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">sometime</a>.
+The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes which gives error on single-node VM when running DDL scripts to set up schema.
+Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">previous blog post</a>.</p>
+
+<p>In this blog post, I looked into setting up a Vertica cluster of <strong>three</strong> VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications.
+Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
+This blog post documents some of my mistakes, going down the wrong paths, while trying to do so.</p>
+
+<h3>Using Vertica VM from HPE support?</h3>
+
+<p>If you already downloaded Vertica VM from HP website, you might consider cloning that VM and configuring the clones to make a three-node VM cluster of Vertica.
+Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in that direction:</p>
+
+<ol>
+<li>Download Vertica VM from <a href="https://my.vertica.com/download/vertica/community-edition/">HPE support website</a>.</li>
+<li>Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet.
+
+<ol>
+<li>Username: dbadmin. Password: password. Root password: password. From <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm">here</a>.</li>
+</ol>
+</li>
+<li>Change the hostname to a shorter name.</li>
+<li>Turn off the VM.</li>
+<li>Clone in VMWare Fusion using &ldquo;Create Full Clone&rdquo; option (NOTE &ldquo;Create Linked Clone&rdquo;).</li>
+<li>Start up the three virtual machines.</li>
+<li>Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.</li>
+<li>Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (<code>ip addr</code> command).</li>
+</ol>
+
+
+<p>Depending on the version of VM that you downloaded, you might be hit with the following problem:</p>
+
+<ul>
+<li>Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes (without uninstalling and reinstalling Vertica).</li>
+</ul>
+
+
+<p>You will get the following error message when trying to use Vertica tools to expand the cluster:</p>
+
+<pre><code class="plain Error message when trying to expand">[dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
+Vertica Analytic Database 7.1.1-0 Installation Tool
+
+
+&gt;&gt; Validating options...
+
+
+Mapping hostnames in --add-hosts (-A) to addresses...
+Error: Existing single-node localhost (loopback) cluster cannot be expanded
+Hint: Move cluster to external address first. See online documentation.
+Installation FAILED with errors.
+
+Installation stopped before any changes were made.
+</code></pre>
+
+<p>The official explanation from HP Vertica&rsquo;s documentation (quoted from <a href="https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm">here</a>):</p>
+
+<p><blockquote><p>If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.</p></blockquote></p>
+
+<p>This problem seems insurmountable to me unless you are a Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.</p>
+
+<h3>Installing Vertica Community Edition on a fresh VM</h3>
+
+<p>In this approach, I have to install Vertica (free Community Edition) from scratch on a fresh Linux VM.
+Then, I clone that VM and configure the clones to make a three-node cluster of Vertica.</p>
+
+<h4>Before installing Vertica</h4>
+
+<p>Download CentOS VM from <a href="http://www.osboxes.org/">osboxes.org</a>. I used CentOS 6 VM.
+Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+The following information may be useful when you prepare that CentOS VM before installing Vertica on it:</p>
+
+<pre><code class="plain">Username: osboxes
+Password: osboxes.org
+Root password: osboxes.org
+</code></pre>
+
+<p>Note that Network connection may not work for that CentOS box. To make it work, I added the following line to the end of my <code>.vmx</code> file based on this <a href="https://www.centos.org/forums/viewtopic.php?f=47&amp;t=47724">link</a>:</p>
+
+<pre><code class="plain">ethernet0.virtualDev = "e1000"
+</code></pre>
+
+<p>Install and configure SSH on the CentOS VM, as detailed in <a href="http://www.cyberciti.biz/faq/centos-ssh/">here</a>.</p>
+
+<h4>Installing Vertica</h4>
+
+<p>Follow the steps in this <a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">link</a> to set up a three-node Vertica VMs.
+Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
+Note that in VMWare Fusion, clone the VM using the option &ldquo;Create Full Clone&rdquo; (instead of &ldquo;Create Linked Clone&rdquo;).
+In addition, to keep it consistent with single-node Vertica VM from HPE support website, you might want to create a new database user with username <code>dbadmin</code> and <code>password</code> as password.
+It will help when you need to switch back and forth from using three-node Vertica VM to single-node VM for unit testing purposes.</p>
+
+<h4>After installing Vertica</h4>
+
+<p>After Vertica installation and cluster rebooting, you might encounter one or more problems with the following error messages:</p>
+
+<pre><code class="plain Common issues after rebooting">### Issue 1
+Network Connection is not available.
+
+### Issue 2
+FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+
+### Issue 3
+FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+</code></pre>
+
+<p>To resolve the above issues, use the following commands as superuser, in that order:</p>
+
+<pre><code class="plain Use the following commands as superuser">dhclient
+echo deadline &gt; /sys/block/sda/queue/scheduler
+echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
+</code></pre>
+
+<p>Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check <a href="/blog/2016/03/13/vertica-installation-troubleshooting-tips/">this &ldquo;Troubleshooting&rdquo; post</a>.
+Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.</p>
+
+<p>After making sure Vertica is running on the three VMs, follow the steps from <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm">here</a> to create a Vertica database.
+Simply create a new empty schema in that database for unit testing purpose.
+You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:</p>
+
+<pre><code class="plain Vertica connection">jdbc:vertica://[your_VM_IP_address]:5433/VMart
+
+Username: dbadmin
+Password: password
+</code></pre>
+
+<h3>Using older CentOS for Vertica VM (CentOS 5)</h3>
+
+<p>Installing latest version of Vertica on <strong>CentOS 5</strong> is NOT easy, if not impossible. CentOS 5 is officially dropped from support by HP Vertica.</p>
+
+<p>I tried to reinstall Vertica after encountering the error &ldquo;Existing single-node localhost (loopback) cluster cannot be expanded&rdquo; as mentioned above.
+Then, I encountered this error when trying to install the latest version of Vertica (7.2):</p>
+
+<pre><code class="plain Vertica installation error in CentOS 5">ERROR with rpm_check_debug vs depsolve:
+rpmlib(FileDigests) is needed by vertica-7.2.1-0.x86_64
+rpmlib(PayloadIsXz) is needed by vertica-7.2.1-0.x86_64
+Complete!
+</code></pre>
+
+<p>Running <code>sudo yum -y update rpm</code> does not work.
+The reason is that CentOS 5 and CentOS 6 have very different versions of <code>rpm</code> and <code>rpmlib</code>.
+The CentOS 6 version has support for newer payload compression and a newer <code>FileDigests</code> version than the version of <code>rpm</code> on CentOS 5 can support.
+Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won&rsquo;t be resolved any time soon.</p>
+
+<p>I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">Three-node VM setup in VirtualBox</a></li>
+<li><a href="http://www.cyberciti.biz/faq/centos-ssh/">CentOS SSH Installation And Configuration</a></li>
+</ol>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
@@ -272,159 +549,6 @@ Vertica creates a default super-projection when running CREATE TABLE statement.
 
 <p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
 Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[WITH Clause in SQL]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/"/>
-    <updated>2016-02-03T00:50:48-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause</id>
-    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
-<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
-Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
-For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
-
-<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
-This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
-
-<p>For example, we can look into the following <code>SELECT</code> query:</p>
-
-<pre><code class="sql Hard to read">SELECT * FROM (
-  SELECT *,
-  row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
-  FROM stg_customer
-) sorted_by_modify_date where sorted_by_modify_date.rank =1
-</code></pre>
-
-<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
-To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
-In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
-The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
-
-<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
-
-<pre><code class="sql Easy to read">WITH sorted_by_modify_date AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id 
-                                  ORDER BY last_modify_date DESC) AS rank 
-    FROM stg_customer
-)
-SELECT * FROM sorted_by_modify_date
-WHERE sorted_by_modify_date.rank = 1;  
-</code></pre>
-
-<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
-The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
-We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
-Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
-We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
-
-<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
-
-<pre><code class="sql Traffic classification of a Music website">WITH Total_Traffic AS
-(
-    SELECT temp.* from temp as clickstream_data
-    where .... -- filtering
-)
-, Rock_Music as
-(
-    select * from Total_Traffic
-    WHERE lower(evar28) LIKE 'rock_mus%'
-)
-, Instrumental_Music as
-(
-    select * from Total
-    WHERE evar28 LIKE '%[ins_mus]%'
-)
-, Defined_Traffic as
-(
-    select * from Rock_Music
-    UNION
-    select * from Instrumental_Music
-)
-select traffic_date_key
-, count(distinct visitor_id) as unique_visitor
-from Defined_Traffic 
-group by traffic_date_key
-</code></pre>
-
-<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
-Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
-Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
-
-<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
-
-<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
-Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Using Virtual Machine for ETL Testing]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/"/>
-    <updated>2016-01-10T23:49:15-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files</id>
-    <content type="html"><![CDATA[<h3>Vertica Virtual Machine as sandbox test environment</h3>
-
-<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer.
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
-The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
-If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
-
-<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
-Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
-Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
-Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
-In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
-Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
-
-<h3>Single-node VM and KSAFE clause</h3>
-
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
-
-<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
-
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
-
-<ul>
-<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
-<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
-<li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
-
-<ul>
-<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
-</ul>
-</li>
-<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
-</ul>
-
-
-<h4>Find and replace a string in multiple files</h4>
-
-<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
-
-<pre><code>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
-</code></pre>
-
-<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
-
-<ul>
-<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
-<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
-</ul>
-
-
-<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
-
-<pre><code>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'
-</code></pre>
-
-<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
 ]]></content>
   </entry>
   
