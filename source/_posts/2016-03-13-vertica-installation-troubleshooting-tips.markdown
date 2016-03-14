@@ -8,7 +8,7 @@ categories:
 - CentOS
 ---
 
-In this section, I will list some problems that I encountered when installing and using the three-node VM cluster of Vertica and how to work around those.
+In this post, I will list some problems that I encountered when installing and using the [three-node VM cluster of Vertica](/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/) and how to work around those.
 Each installation problem has a documentation page that is displayed in the error message, such as [this page](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150) for S0150 error.
 I listed the quick, single-command solutions here for reference purpose.
 However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.

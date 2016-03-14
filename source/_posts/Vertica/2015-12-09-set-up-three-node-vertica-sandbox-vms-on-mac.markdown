@@ -122,7 +122,7 @@ echo deadline > /sys/block/sda/queue/scheduler
 echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
 ```
 
-Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check "Troubleshooting" section below.
+Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check [this "Troubleshooting" post](/blog/2016/03/13/vertica-installation-troubleshooting-tips/).
 Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.
 
 After making sure Vertica is running on the three VMs, follow the steps from [here](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm) to create a Vertica database.
@@ -135,10 +135,6 @@ jdbc:vertica://[your_VM_IP_address]:5433/VMart
 Username: dbadmin
 Password: password
 ```
-
-### Troubleshooting tips
-
-Moved to a separte post.
 
 ### Using older CentOS for Vertica VM (CentOS 5)
 
