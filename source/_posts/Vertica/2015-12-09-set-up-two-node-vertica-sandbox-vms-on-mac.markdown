@@ -8,6 +8,7 @@ categories:
 - Vertica
 - CentOS
 - VMWare
+- MacOSX
 ---
 
 I have been using a **single-node** Vertica VM to run ETL tests for [sometime](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/).
@@ -53,7 +54,7 @@ Installation FAILED with errors.
 Installation stopped before any changes were made.
 ```
 
-The offical explaination from HP Vertica's documentation. TODO: Citation
+The offical explaination from HP Vertica's documentation (quoted from [here](https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm)):
 
 {% blockquote %}
 If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.
@@ -63,25 +64,47 @@ The problem seems insurmountable to me unless you are a good Linux hacker and/or
 
 ### Installing Vertica Community Edition on a fresh VM
 
-Download CentOS box from [osboxes.org](http://www.osboxes.org/). I used CentOS 6 VM. 
-Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM is not stable in my experience (2016 Feb).
+#### Before installing Vertica
+
+Download CentOS VM from [osboxes.org](http://www.osboxes.org/). I used CentOS 6 VM. 
+Note that CentOS 5 or older is no longer supported by Vertica VM (see last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
 
 Make Network connection work for that CentOS box based on this [link](https://www.centos.org/forums/viewtopic.php?f=47&t=47724). I added the following line to the end of my .vmx file:
 
-```
+``` plain
 ethernet0.virtualDev = "e1000"
 ```
 
-1. http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/
-1. http://www.cyberciti.biz/faq/centos-ssh/
+Install and configure SSH on the CentOS VM, as detailed in [here](http://www.cyberciti.biz/faq/centos-ssh/).
 
+#### Installing Vertica
+
+Follow the steps in this [link](http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/) to set up a three-node Vertica VMs.
+Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
+Note that in VMWare Fusion, clone the VM using the option "Create Full Clone" (instead of "Create Linked Clone").
+
+#### After installing Vertica
+
+After Vertica installation and cluster rebooting, you might encounter one or more of the following issues:
+
+``` plain Use the following commands as superuser
+dhclient
+echo
+echo
+```
+
+Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.
+
+TODO: Steps to create a database.
 
 ### Troubleshooting
+
+In this section, I will list some problems that I encountered when using the three-node VM cluster of Vertica and how to work around those.
 
 #### ETL fails
 
 ```
-vsql:repo_home/qbo/sql/qbo_company_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
 ```
 
 1. https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf
@@ -136,6 +159,14 @@ Complete!
 ```
 
 Running `sudo yum -y update rpm` does not work. 
-The reason is that CentOS 5 and CentOS 6 have very different versions of `rpm` (and `rpmlib`). 
-The CentOS 6 version has support for newer payload compression and a newer FileDigests version than the version of rpm on CentOS 5 can support.
-Since CentOS 5 is dropped from support by HP Vertica, you can expect this error won't be resolved any time soon.
+The reason is that CentOS 5 and CentOS 6 have very different versions of `rpm` and `rpmlib`. 
+The CentOS 6 version has support for newer payload compression and a newer `FileDigests` version than the version of `rpm` on CentOS 5 can support.
+Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won't be resolved any time soon.
+
+I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applicaitons installed.
+
+### Links
+
+1. [Three-node VM setup in VirtualBox](http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/)
+1. [CentOS SSH Installation And Configuration](http://www.cyberciti.biz/faq/centos-ssh/)
