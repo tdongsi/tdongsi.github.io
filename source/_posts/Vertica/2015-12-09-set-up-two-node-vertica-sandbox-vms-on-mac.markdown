@@ -120,7 +120,7 @@ echo deadline > /sys/block/sda/queue/scheduler
 echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
 ```
 
-Those issues are the most common issues that I frequently encountered. For other issues and troubleshooting tips, check "Troubleshooting" section below.
+Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check "Troubleshooting" section below.
 Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.
 
 After making sure Vertica is running on the three VMs, follow the steps from [here](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm) to create a Vertica database.
@@ -183,8 +183,14 @@ These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1
 
 To fix this problem in CentOS 6, run this command as root/sudo:
 
-``` plain Run this command
+``` plain Fix until next reboot
 echo deadline > /sys/block/sda/queue/scheduler
+```
+
+Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as `/etc/rc.local`) like in this command.
+
+``` plain Permanent fix
+echo 'echo deadline > /sys/block/sda/queue/scheduler' >> /etc/rc.local
 ```
 
 #### S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
@@ -196,8 +202,22 @@ Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise�
 
 To fix this problem in CentOS 6, run this command as root/sudo:
 
-``` plain Run this command
+``` plain Fix until next reboot
 echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
+```
+
+The permanent fix is also available in the [documentation page](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310) in the error message above.
+
+#### S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems
+
+``` plain Error message
+FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
+Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 < 2048
+```
+To fix this problem in CentOS 6, run this command as root/sudo:
+
+``` plain Run this command
+/sbin/blockdev –setra 2048 /dev/sda
 ```
 
 #### ETL fails with "ERROR 3587:  Insufficient resources to execute plan"
@@ -205,7 +225,8 @@ echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
 After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:
 
 ``` plain Error message
-vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
+[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
 ```
 
 [Vertica recommends](https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226) a minimum of 4GB of memory per processor core.
@@ -220,7 +241,7 @@ I had to reconfigure the VMs to one processor core with 6 GB in memory each to g
 Installing latest version of Vertica on **CentOS 5** is NOT easy, if not impossible. CentOS 5 is offically dropped from support by HP Vertica.
 
 I tried to reinstall Vertica after encountering the error "Existing single-node localhost (loopback) cluster cannot be expanded" as mentioned above. 
-Then, you might encounter this error when trying to install the latest version of Vertica:
+Then, I encountered this error when trying to install the latest version of Vertica (7.2):
 
 ``` plain Vertica installation error in CentOS 5
 ERROR with rpm_check_debug vs depsolve:
@@ -235,9 +256,12 @@ The CentOS 6 version has support for newer payload compression and a newer `File
 Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won't be resolved any time soon.
 
 I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
-The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applicaitons installed.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.
 
 ### Links
 
 1. [Three-node VM setup in VirtualBox](http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/)
 1. [CentOS SSH Installation And Configuration](http://www.cyberciti.biz/faq/centos-ssh/)
+1. Documentation pages for errors: e.g., [S0150](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150).
+   * Read pages like this to figure out fixes for problems encountered during Vertica installation.
+1. [Hardware Requirements for Vertica](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf)
