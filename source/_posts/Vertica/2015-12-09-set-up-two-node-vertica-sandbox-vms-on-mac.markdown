@@ -134,27 +134,19 @@ Username: dbadmin
 Password: password
 ```
 
-### Troubleshooting
+### Troubleshooting tips
 
-In this section, I will list some problems that I encountered when using the three-node VM cluster of Vertica and how to work around those.
+In this section, I will list some problems that I encountered when installing and using the three-node VM cluster of Vertica and how to work around those.
+Each installation problem has a documentation page that is displayed in the error message, such as [this page](https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150) for S0150 error.
+I listed the quick, single-command solutions here for reference purpose.
+However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.
 
-#### ETL fails
-
-```
-vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
-```
-
-1. https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf
-1. https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226
-
-Vertica recommends a minimum of 4GB of memory per core. i see that you have 2 cores and just 1 GB of memory. Memory allocation is very low. You need to have 2*4B = 8GB of memory. 
-
-
+<!-- 
 #### S0180 "insufficient swap size"
 
 1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
 
-```
+``` plain Adding swap fails
 [root@vertica72 osboxes]# swapoff /dev/sda2
 [root@vertica72 osboxes]# swapon -s
 [root@vertica72 osboxes]# swapon /swapfile
@@ -167,10 +159,11 @@ This is due to a bug
 
 
 1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
+-->
 
-#### S0081: "SELinux appears to be enabled and not in permissive mode"
+#### S0081: SELinux appears to be enabled and not in permissive mode
 
-```
+``` plain
 FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
 SELinux appears to be enabled and not in permissive mode.
 ```
@@ -180,6 +173,47 @@ As mentioned in the HP Vertica documentation page, for CentOS 6, add the followi
 ``` plain 
 setenforce 0
 ```
+
+#### S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling
+
+``` plain Error message
+FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+```
+
+To fix this problem in CentOS 6, run this command as root/sudo:
+
+``` plain Run this command
+echo deadline > /sys/block/sda/queue/scheduler
+```
+
+#### S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+
+``` plain Error message
+FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+```
+
+To fix this problem in CentOS 6, run this command as root/sudo:
+
+``` plain Run this command
+echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled
+```
+
+#### ETL fails with "ERROR 3587:  Insufficient resources to execute plan"
+
+After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:
+
+``` plain Error message
+vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general [Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+```
+
+[Vertica recommends](https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226) a minimum of 4GB of memory per processor core.
+The comprehensive list of hardware requirements for Vertica can be found [here](https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf).
+Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions. 
+In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommmended.
+In this case, each of my VMs had two processor cores with only 4 GB in memory. 
+I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.
 
 ### Using older CentOS for Vertica VM (CentOS 5)
 
