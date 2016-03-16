@@ -104,10 +104,9 @@ TODO: Javascript
 
 **Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
 
-* Develop and automate test cases for backend infrastructure and services in QuickBooks Online
-  and Small Business Group ecosystem.
-* Design and implement frameworks to facilitate automated testing in **Big Data** projects. Work with developers on
-  project requirements to make informed testing decisions and develop appropriate test solutions.
+* Develop and automate test cases for backend infrastructure and services in QuickBooks Online and Small Business Group ecosystem.
+* Design and implement test frameworks to facilitate automated unit and functional testing in **Big Data** projects. 
+  Work with developers and data analysts on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
 
 <!--
 *Recent Projects and Achievements*:
@@ -123,7 +122,7 @@ TODO: Javascript
 
 * Developed and automated test cases, maintained and executed test suites for company’s
   database products, Objectivity and InfiniteGraph, and their various utility tools.
-* Designed and implemented frameworks to facilitate automated performance testing. Worked
+* Designed and implemented frameworks for automated performance testing. Worked
   with developers to make informed testing decisions and develop appropriate test solutions.
 * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
@@ -142,7 +141,7 @@ TODO: Javascript
 
 * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras,
   with applications targeted for smartphones and driverless car navigation systems.
-* Implemented innovative sensor-based navigation algorithms, based on probabilistic models and statistical inference methods, using C++ and Matlab. Designed and implemented pluggable sensor simulators for verifying and benchmarking performance of those navigation algorithms. 
+* Implemented sensor-based navigation algorithms, based on probabilistic models and statistical inference methods, using C++ and Matlab. Designed and implemented pluggable sensor simulators for verifying and benchmarking performance of those navigation algorithms. 
 * Proposed and implemented various numerical algorithms for problem solving, including convex
   optimization techniques, Gauss-Newton algorithm and its variants.
 * Achievements: Innovative algorithms for vision-aided inertial navigation, published at 2011
@@ -150,9 +149,8 @@ TODO: Javascript
 
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
-* Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial
-  research labs, headed by DSO National Laboratories.
-* Designed and developed different prototype software components for visual sensor modules.
+* Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
+* Designed, implemented and evaluated computer vision algorithms for visual sensor modules.
 * Designed and implemented an adaptive machine learning algorithm to identify drivable road
   surface from stereo images, by building statistical models of road appearance.
 * Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
