@@ -24,12 +24,14 @@ Checklist:
 
 ### Skills
 
+<!--
+TODO: Javascript
+-->
 * **Programming**: 
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  Scala, 
-  *JavaScript*,
+  Scala,
   [Perl](/blog/categories/perl/),
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
@@ -155,6 +157,7 @@ Checklist:
   surface from stereo images, by building statistical models of road appearance.
 * Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
   conferences. Linux drivers for Windows-native IEEE-1394 cameras.
+* My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
 
 ### Courseworks & Trainings
 
@@ -168,7 +171,6 @@ Lifelong learning and professional training after college.
   * [Developing on AWS](https://aws.amazon.com/training/course-descriptions/developing/): [COC](/download/training/COC_Developing_on_AWS.pdf)
 * [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
-<!-- 
 ### Publications
 
 * Estimator initialization in vision-aided inertial navigation with unknown camera-IMU calibration. IROS 2012. [PDF](/download/pubs/DongSi2012IROS.pdf)
@@ -178,6 +180,5 @@ Lifelong learning and professional training after college.
 * Motion tracking with fixed-lag smoothing: Algorithm and consistency analysis. ICRA 2011. [PDF](/download/pubs/DongSi2011ICRA.pdf)
   * Technical Report: [PDF](/download/pubs/ICRA11_TR.pdf)
 * Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
-* Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008.
-* Robust extraction of shady roads for vision-based UGV navigation. IROS 2008.
--->
+* Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008. [Technical report](/download/pubs/MEng.pdf)
+* Robust extraction of shady roads for vision-based UGV navigation. IROS 2008. [Technical report](/download/pubs/MEng.pdf)
