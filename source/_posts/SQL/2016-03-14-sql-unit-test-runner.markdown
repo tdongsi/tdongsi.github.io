@@ -28,7 +28,9 @@ We used some SQL clients such as SQuirreL as shown above, connected to Vertica u
 This process is pretty much manual. If an ETL is updated `n` times, we have to repeat this `n` times.
 Most of the test queries can only tests the **end results** of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final numbers should look like.
 If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
-Sometimes, some of these tests are pretty arbitrary, such as number of products sold in some channel is "unusually" high, which "seems" to indicate that ETL went wrong in some intermediate step.
+Sometimes, some of these tests are pretty heuristic and arbitrary, such as number of products sold in some channel is "unusually" high, which "seems" to indicate that ETL went wrong in some intermediate step.
+
+TODO: Table
 
 <!--
 Functions is not common. 
@@ -36,7 +38,36 @@ Functions is not common.
 
 ### Level 1: TestNG
 
-Remove arbitrariness, we narrow down to test queriers that have clear cut right or wrong.
+After some rounds of manual testing, we started looking into automating the process.
+Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation. 
+It is up to the QEs to organize and automate executing those SQL test queries. 
+Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
+The test SQL queries, eventually defined as Java strings in TestNG test cases, are sent to the databases such as Vertica through their respective JDBC interface for execution. 
+
+
+``` java Test quuery as constant SQL string
+public static final int DIM_REGION_COUNT = 245;
+
+@Test(enabled = true)
+public void validate_dim_region_count() {
+        // First test query
+        String query = "select count(*) from dim_region";
+        output = getJdbcConnection().executeQuery(query);
+        Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
+}
+```
+
+Here, the test queries are defined as constant SQL strings. 
+Note that the test query above is intended to be simple to avoid being distracting. 
+The actual test queries are usually more complex than that.
+The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
+We also remove heuristic tests that cannot be done using assertions.
+Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the end results.
+In addition, we add tests to verify intermediate steps in the ETL processes.
+
+The problem of this approach is that the SQL tests are heavily cluttered by supporting Java codes.
+This problem is getting worse when the SQL test query gets more complex. 
+When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source codes.
 
 Pro:
 It is automated. You can run multiple times with minimal effort.
