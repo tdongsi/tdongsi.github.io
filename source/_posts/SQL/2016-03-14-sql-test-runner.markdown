@@ -3,7 +3,7 @@ layout: post
 title: "Functional testing for Data Marts"
 date: 2016-03-16 23:18:33 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Vertica
 - Testing
@@ -11,12 +11,32 @@ categories:
 - Automation
 ---
 
-In this blog post, I will go over on different approaches that we could do to verify if a Data Mart is implemented correctly, and advantages and disadvantages associated with each approach.
+In this blog post, I will go over on different approaches over time that we did to verify if a data mart or data warehouse is implemented correctly, and advantages and disadvantages associated with each approach.
 
 ### Level 0: Manual testing
 
+Early on in Big Data projects, there was not much automation.
+Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
+There are not many tools available for automated testing of SQL scripts, especially for Vertica.
+
+We, quality engineers and data analysts, tested Data Marts by using a number of SQL queries as test queries.
+Data analysts who are *de facto* end-users and main testers provide those test queries based on their experience.
+
+{% img center /images/sql/SQuirreL.png Manual testing %}
+
+We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
+This process is pretty much manual. If an ETL is updated `n` times, we have to repeat this `n` times.
+Most of the test queries can only tests the **end results** of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final numbers should look like.
+If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
+Sometimes, some of these tests are pretty arbitrary, such as number of products sold in some channel is "unusually" high, which "seems" to indicate that ETL went wrong in some intermediate step.
+
+<!--
+Functions is not common. 
+-->
 
 ### Level 1: TestNG
+
+Remove arbitrariness, we narrow down to test queriers that have clear cut right or wrong.
 
 Pro:
 It is automated. You can run multiple times with minimal effort.
@@ -55,3 +75,6 @@ From QE side, I used Java and TestNG for test automation. I created a small test
 Big Data projects different from usual software engineering projects is that users, Data analysts, know more about the data than you.
 They are the much better testers than any typical QE engineer, and being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
 Being able to get help from them is good for testing.
+
+
+Data analysts, the de-facto end-users and testers, usually not familiar with any other languages than SQL.

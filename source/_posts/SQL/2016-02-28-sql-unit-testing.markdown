@@ -3,7 +3,7 @@ layout: post
 title: "SQL Unit testing"
 date: 2016-03-15 23:43:09 -0800
 comments: true
-published: false
+published: true
 categories: 
 - SQL
 - Automation
@@ -74,6 +74,13 @@ Readability:
 Not all analysts and developers are comfortable with Java. But nobody knows about the data better than analysts.
 If the data analysts are able to read unit test scripts and confirm the expectation, QEs will save lots of time translating business requirements from SQL/Java tests.
 
+### Single-node VM
+
+Remove KSAFE.
+
+Add a new test.
+
+Revert in Git.
 
 ### Extending SQL Test Runner
 
