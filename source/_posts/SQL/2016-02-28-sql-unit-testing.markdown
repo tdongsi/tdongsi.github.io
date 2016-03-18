@@ -11,10 +11,13 @@ categories:
 ---
 
 How to tell the story.
+<!--
+Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
+-->
 
 ### Brief overview of Data Mart functional testing
 
-Introductioin
+Introduction
 Data mart is a smaller version of data warehouse, help driving business decisions of a department in a large company.
 
 Level 0
@@ -63,6 +66,13 @@ What changes I make.
 1. New JSON block to run ETL script using VSQL
 
 Running ETL script through JDBC is probably not a good idea.
+
+Requirements of unit tests:
+[SBG Datamart - Unit tests]
+
+Readability:
+Not all analysts and developers are comfortable with Java. But nobody knows about the data better than analysts.
+If the data analysts are able to read unit test scripts and confirm the expectation, QEs will save lots of time translating business requirements from SQL/Java tests.
 
 
 ### Extending SQL Test Runner
