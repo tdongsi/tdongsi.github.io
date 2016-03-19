@@ -30,7 +30,11 @@ Most of the test queries can only tests the **end results** of ETL processes, wh
 If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
 Sometimes, some of these tests are pretty heuristic and arbitrary, such as number of products sold in some channel is "unusually" high, which "seems" to indicate that ETL went wrong in some intermediate step.
 
-TODO: Table
+* **Pros**:
+  1. Easy to get started.
+* **Cons**:
+  1. Time consuming for many tests with multiple runs.
+  1. Not repeatable.
 
 <!--
 Functions is not common. 
@@ -66,37 +70,33 @@ Instead, those tests will be verified during User-Acceptance Test phase where da
 In addition, we add tests to verify intermediate steps in the ETL processes.
 
 The problem of this approach is that the SQL tests are heavily cluttered by supporting Java codes.
-This problem is getting worse when the SQL test query gets more complex. 
+This problem is getting worse when the SQL test query gets more complex that cannot fit into a single line. 
 When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source codes.
 
-Pro:
-It is automated. You can run multiple times with minimal effort.
+``` java A complex test query
+ABC
+```
 
-Con:
-Java and SQL code are mixed together.
-Hard to read, hard to maintain.
+* **Pros**:
+  1. Automated, repeatable. Run multiple times with minimal additional effort.
+* **Cons**:
+  1. Java and SQL codes are cluttered together.
+  1. Hard to read, hard to maintain.
 
 ### Level 2: Properties files
 
 SQL code is separated. Java code is abstracted into utility.
 
-Pro:
-It is easier to go over/maintain SQL test queries.
-
-Con:
-Test queries and their assertions (expected ouputs) are not paired. 
-Hard to look up and update expected outputs.
-All queries have to be in a single line. Hard to read for long test queries. 
-
 TODO: Show WITH statements 
 
-### Level 3: Script files
+* **Pros**:
+  1. Automated, repeatable. Run multiple times with minimal additional effort.
+  1. It is easier to go over/maintain SQL test queries.
+* **Cons**:
+  1. Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.
+  1. All queries have to be in a single line. Hard to read for long test queries.
 
-Pro:
-It is automated.
-Java and SQL codes are separated.
-Assertions/Expected outputs are paired with test queries.
-Readable by data analysts.
+### Level 3: Script files
 
 In one of our Big Data projects, the developers are more comfortable with working in SQL. Not all of them are comfortable with working with Java or other languages (e.g., Python) that can make automated testing feasible.
 
@@ -109,3 +109,12 @@ Being able to get help from them is good for testing.
 
 
 Data analysts, the de-facto end-users and testers, usually not familiar with any other languages than SQL.
+
+* **Pros**:
+  1. Automated, repeatable. Run multiple times with minimal additional effort.
+  1. It is easier to go over/maintain SQL test queries.
+  1. Assertions/Expected outputs are paired with test queries.
+  1. Readable by data analysts.
+* **Cons**:
+  1. Slightly more complex setup to instantiate a SQL Test Runner.
+  1. Slightly longer running time.
