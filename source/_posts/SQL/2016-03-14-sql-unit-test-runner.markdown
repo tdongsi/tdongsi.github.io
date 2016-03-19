@@ -15,6 +15,12 @@ In this blog post, I will go over on different approaches over time that we did 
 
 ### Level 0: Manual testing
 
+* **Pros**:
+  1. Easy to get started.
+* **Cons**:
+  1. Time consuming for many tests with multiple runs.
+  1. Not repeatable.
+
 Early on in Big Data projects, there was not much automation.
 Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
 There are not many tools available for automated testing of SQL scripts, especially for Vertica.
@@ -30,17 +36,17 @@ Most of the test queries can only tests the **end results** of ETL processes, wh
 If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
 Sometimes, some of these tests are pretty heuristic and arbitrary, such as number of products sold in some channel is "unusually" high, which "seems" to indicate that ETL went wrong in some intermediate step.
 
-* **Pros**:
-  1. Easy to get started.
-* **Cons**:
-  1. Time consuming for many tests with multiple runs.
-  1. Not repeatable.
-
 <!--
 Functions is not common. 
 -->
 
 ### Level 1: TestNG
+
+* **Pros**:
+  1. Automated, repeatable. Run multiple times with minimal additional effort.
+* **Cons**:
+  1. Java and SQL codes are cluttered together.
+  1. Hard to read, hard to maintain.
 
 After some rounds of manual testing, we started looking into automating the process.
 Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation. 
@@ -103,13 +109,14 @@ When the number of SQL tests grows larger, it is hard to keep track of all SQL t
 				"group by traffic_date_key";
 ```
 
+### Level 2: Properties files
+
 * **Pros**:
   1. Automated, repeatable. Run multiple times with minimal additional effort.
+  1. It is easier to manage SQL test queries.
 * **Cons**:
-  1. Java and SQL codes are cluttered together.
-  1. Hard to read, hard to maintain.
-
-### Level 2: Properties files
+  1. Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.
+  1. All queries have to be in a single line. Hard to read for long test queries.
 
 In this level 2, the problem of Java and SQL codes mixed together is resolved.
 In this approach, SQL tests and supporting Java codes are partitioned, with SQL codes are contained in `.properties` files, separate from supporting Java codes in `.java` files. 
@@ -161,18 +168,20 @@ It is worth noting that most of test queries are expected to return zero row or 
 For example, test query to find all duplicate records which is expected to return zero row. 
 Even those simple assertions are encoded using Java and TestNG's library methods.
 
-* **Pros**:
-  1. Automated, repeatable. Run multiple times with minimal additional effort.
-  1. It is easier to go over/maintain SQL test queries.
-* **Cons**:
-  1. Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.
-  1. All queries have to be in a single line. Hard to read for long test queries.
-
 ### Level 3: Script files
 
+* **Pros**:
+  1. Automated, repeatable. Run multiple times with minimal additional effort.
+  1. It is easier to maintain SQL test queries.
+  1. Assertions/Expected outputs are paired with test queries.
+  1. Readable by data analysts.
+* **Cons**:
+  1. Slightly more complex setup to instantiate a SQL Test Runner.
+  1. Slightly longer running time.
 
 #### Motivation
-In recent projects, I tried to explore a way to improve readability of SQL tests. The main motivation for the next sections is my testing philosophy: In writing tests, prioritize readability when possible.
+
+In recent projects, I tried to explore a way to improve readability of SQL tests. The main motivation for this approach is my testing philosophy: In writing tests, prioritize readability when possible.
 Readable tests are easier to write, automate, and maintain. Those tests can be easily shared with developers for debugging purposes, especially in SQL.
 If you write a software, you have tests to validate it. If you write a test, how do you validate it? Only by making it readable, you can verify and maintain the test.
 Readable tests promote collaboration between developers and QEs.
@@ -203,11 +212,3 @@ Being able to get help from them is good for testing.
 
 Data analysts, the de-facto end-users and testers, usually not familiar with any other languages than SQL.
 
-* **Pros**:
-  1. Automated, repeatable. Run multiple times with minimal additional effort.
-  1. It is easier to go over/maintain SQL test queries.
-  1. Assertions/Expected outputs are paired with test queries.
-  1. Readable by data analysts.
-* **Cons**:
-  1. Slightly more complex setup to instantiate a SQL Test Runner.
-  1. Slightly longer running time.
