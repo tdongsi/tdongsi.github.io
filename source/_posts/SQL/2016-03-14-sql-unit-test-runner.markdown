@@ -59,7 +59,7 @@ The test SQL queries, defined as Java strings in TestNG test cases, are sent to 
 public static final int DIM_REGION_COUNT = 245;
 
 @Test(enabled = true)
-public void validate_dim_region_count() {
+public void validate_dim_region() {
         // First test query
         String query = "select count(*) from dim_region";
         int output = getJdbcConnection().executeQuery(query);
@@ -128,18 +128,20 @@ public static final int DIM_REGION_COUNT = 245;
 public static final String TEST_QUERY_RESOURCE = "test_queries.properties";
 
 @Test(enabled = true)
-public void validate_dim_region_count() {
+public void validate_dim_region() {
         // First test query
         String query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_count");
         int output = getJdbcConnection().executeQuery(query);
         Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
         
         // Second test query
+        query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_data");
 }
 ```
 
 ``` properties test_queries.properties
 dim_region_count=select count(*) from dim_region
+dim_region_data=another test query to verify data
 ```
 
 Using this approach, each test can have a name to express its purpose. 
@@ -182,7 +184,7 @@ Even those simple assertions are encoded using Java and TestNG's library methods
 
 In recent projects, I tried to explore a way to improve readability of SQL tests. The main motivation for this approach is my testing philosophy: **prioritize readability of tests when possible**.
 Readable tests are easier to write, automate, and maintain. 
-More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate it? 
+More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test? 
 It does not make sense to write tests for tests.
 Only by making tests **readable**, you can verify and maintain the tests.
 Readable tests promote collaboration between developers and QEs.
@@ -190,6 +192,8 @@ Readable tests can be easily shared with developers and data analysts for debugg
 If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.
 
 #### Implementation
+
+In this approach, I implemented a test framework (TODO: add link). The same tests shown in the last sections, using that framework, will look like this:
 
 ``` java Test query in test files
 private SqlTestRunner testRunner;
@@ -200,7 +204,7 @@ public void setup() {
 }
 
 @Test(enabled = true)
-public void validate_dim_region_count() {
+public void validate_dim_region() throws Exception {
         testRunner.runScript("testscript/dim_region.test");
 }
 ```
@@ -251,26 +255,29 @@ Complext test query follows.
 */
 ```
 
-The file that contains SQL test queries is conventionally named with .test extension. However, the file can be a text file with any name.
-As you can see, the benefits of approach (2) is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files. Each test case has a name associated with it: key string in .properties file and value of "name" key in .test file.
+The file that contains SQL test queries is conventionally named with `.test` extension. 
+However, the file can be a text file with any name.
+As you can see, the benefits of "Level 2" is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files. 
+Each test query has a name (that tells its purpose) associated with it: key string in `.properties` file and value of "name" key in `.test` file.
 
-In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed. The TestNG assertions, which are ubiquitous in previous approaches (1) and (2), are no longer present as it will be specified in .test file. The whole TestNG class will only contain code to initialize a connection to database and an instance of SQL test runner, all of which is one-time setup. As we continue writing functional tests, we can decide to group related tests into separate .test files, or keep all tests in a single .test file. As we add more .test files, we can just specify the path to the files as shown in Java code above.
-The main benefit of Unit Test Framework comes as readability of those tests improve in .test file. The expected outcomes of the SQL queries are specified in the same place, making the tests' intentions more obvious. Using various annotations specified in SBG Datamart - Unit tests, most of functional tests can be written in a clear manner.
+In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed. 
+The TestNG assertions, which are ubiquitous in previous "Level 1" and "Level 2" approaches, are no longer present.
+Instead, the expected outputs are specified in `.test` file, in the same JSON block with each SQL query. 
+The whole TestNG class will only contain code to initialize a connection to database and an instance of SQL Teset Runner (TODO:link), all of which is one-time setup. 
+As we continue writing functional tests, we can decide to keep all tests in a single `.test` file or group related tests into separate `.test` files. 
+If we add more `.test` files, we can just specify the path to the files, in TestNG test cases (i.e., `@Test` functions), as shown in Java code above.
 
-In the example above, the first test query's intention is clearer with assertion in the same location. In addition, compared with .properties file approach, the SQL query is now easier to read, due to line breaks. 
-If you have not noticed, the second test query's original intention is to assert that the counts of two queries are the same. In approach (1) or (2), EXCEPT operation is used to keep it into the same test case (and minimal Java code), which obfuscate the original intention. While it is possible that we can split the query into two queries and comparing the counts, it is probably not much clearer to most data engineers since assertions are done in Java. Instead of using EXCEPT operation, we use "equal" clause from Unit Test Framework to make the intention obvious: the two counts should be equal. It is true that we have additional SQL query, additional data transfer, and do comparison on our local computer. However, the additional computational time is totally justified with much better readability. Test readability will save (lots of) QE's time, in both developing and maintaining. In our philosophy, human time is million times more costly than computer time.
+The main advantage of this test framework is readability of those tests, as shown in `.test` file. 
+The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious. 
+In the example above, the first test query's intention is clearer with assertion in the same location. 
+In addition, compared with `.properties` file approach, the SQL query is now easier to read, due to line breaks, as shown in the second example. 
 
-SSSSSSSSSSS
-
-In one of our Big Data projects, the developers are more comfortable with working in SQL. Not all of them are comfortable with working with Java or other languages (e.g., Python) that can make automated testing feasible.
-
-From QE side, I used Java and TestNG for test automation. I created a small test framework that allows developers to inject SQL tests into their scripts. All test automation (in Java) is abstracted from developers, and they can add tests totally in SQL. The developers are slowly adopting that framework.
-
-
-Big Data projects different from usual software engineering projects is that users, Data analysts, know more about the data than you.
+All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL. 
+Big Data projects different from usual software engineering projects is that users, data analysts, know more about the data than you.
 They are the much better testers than any typical QE engineer, and being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
-Being able to get help from them is good for testing.
+If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.
 
-
-Data analysts, the de-facto end-users and testers, usually not familiar with any other languages than SQL.
-
+While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
+Even then, the additional computational time is totally justified with much better readability. 
+Test readability will save (lots of) QE's time, in both developing and maintaining. 
+In my opinion, human time is million times more costly than computer time.
