@@ -168,9 +168,24 @@ task :isolate, :filename do |t, args|
   end
 end
 
+# usage rake isolate_dir[my-post-dir]
+desc "Move all other folders than the one currently being worked on to a temporary stash location (stash) so regenerating the site happens much more quickly."
+task :isolate_dir, :filename do |t, args|
+  stash_dir = "#{source_dir}/#{stash_dir}"
+  FileUtils.mkdir(stash_dir) unless File.exist?(stash_dir)
+  Dir.glob("#{source_dir}/#{posts_dir}/*") do |post|
+    FileUtils.mv post, stash_dir unless post.include?(args.filename)
+  end
+end
+
 desc "Move all stashed posts back into the posts directory, ready for site generation."
 task :integrate do
   FileUtils.mv Dir.glob("#{source_dir}/#{stash_dir}/*.*"), "#{source_dir}/#{posts_dir}/"
+end
+
+desc "Move all stashed posts back into the posts directory, ready for site generation."
+task :integrate_dir do
+  FileUtils.mv Dir.glob("#{source_dir}/#{stash_dir}/*"), "#{source_dir}/#{posts_dir}/"
 end
 
 desc "Clean out caches: .pygments-cache, .gist-cache, .sass-cache"
