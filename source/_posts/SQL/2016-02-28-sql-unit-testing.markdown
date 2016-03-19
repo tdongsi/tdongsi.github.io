@@ -86,6 +86,10 @@ Add a new test.
 
 Revert in Git.
 
+### Adding  unit test
+
+Show SBG strategy.
+
 ### Extending SQL Test Runner
 
 Template Method design pattern

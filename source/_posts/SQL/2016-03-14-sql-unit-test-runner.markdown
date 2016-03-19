@@ -50,7 +50,7 @@ Functions is not common.
 
 After some rounds of manual testing, we started looking into automating the process.
 Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation. 
-The only difference is that it is up to the QEs to organize and automate the execution of the SQL test queries. 
+The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries. 
 Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
 The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution. 
 
@@ -63,7 +63,7 @@ public void validate_dim_region() {
         // First test query
         String query = "select count(*) from dim_region";
         int output = getJdbcConnection().executeQuery(query);
-        Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
         
         // Second test query
 }
@@ -132,7 +132,7 @@ public void validate_dim_region() {
         // First test query
         String query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_count");
         int output = getJdbcConnection().executeQuery(query);
-        Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
         
         // Second test query
         query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_data");

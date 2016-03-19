@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "Incremental data update"
+title: "Testing Incremental data update"
 date: 2016-03-17 17:46:40 -0700
 comments: true
-published: false
+published: true
 categories: 
 - SQL
 - Testing
@@ -12,7 +12,40 @@ categories:
 
 ### Incremental data update
 
-What incremental update?
+I go over evolution of Data Mart functional testing in the last blog post (TODO: link).
+In functional tests, you deployed the data marts, run the ETL, and run a bunch of SQL queries to verify.
+That kind of testing is sufficient if the input of the ETL is snapshots: TODO: how data is update.
+However, for performance reasons, sometimes the ETLs perform incremental date update: 
+Only updated records is appended.
+
+For example:
+
+One obvious risk is duplicate records: in standard approach, each input table is a snapshot with each record is unique in one row.
+In this incremental update approach, some records may have more than one row, and only the latest row is important.
+
+A sliding window. Older records is truncated.
+
+After being truncated, the data can get in.
+
+### Example scenario
+
+Day 1
+
+* stg_rptcompanyids -> region: US
+* stg_rptcompanycontactinfo -> email: before@mockdata.com
+
+Day 3
+
+* Email updated to after@mockdata.com
+
+Day 10
+
+* Data truncated from input_region and input_contactinfo
+
+Day 15
+
+* Email updated to beyond@mockdata.com
+
 
 ### Initial approach
 
@@ -40,4 +73,12 @@ I have every single time of doing it.
 
 Guess what? This is exactly unit testing.
 
+### Changes to SQL Test Runner
+
+Two changes
+
+1. Run the SQL scripts to set up data
+1. vsql
+
+What unit test looks like.
 
