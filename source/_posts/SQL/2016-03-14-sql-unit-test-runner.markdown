@@ -189,6 +189,66 @@ If the tests are readable and accessible to developers, they can easily run the 
 
 #### Implementation
 
+``` java Test query in test files
+private SqlTestRunner testRunner;
+
+@Before
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+}
+
+@Test(enabled = true)
+public void validate_dim_region_count() {
+        testRunner.runScript("testscript/dim_region.test");
+}
+```
+
+``` plain dim_region.test
+/* @Test
+{
+  "name" : "dim_region_count",
+  "query" : "select count(*) from dim_region",
+  "expected" : "245"
+}
+*/
+
+/* This is a comment.
+Complext test query follows.
+*/
+
+/* @Test
+{
+  "name" : "check_traffic",
+  "query" : "WITH Total_Traffic AS
+      (
+          SELECT temp.* from temp as clickstream_data
+          where .... -- filtering
+      )
+      , Rock_Music as
+      (
+          select * from Total_Traffic
+          WHERE lower(evar28) LIKE 'rock_mus%'
+      )
+      , Instrumental_Music as
+      (
+          select * from Total
+          WHERE evar28 LIKE '%[ins_mus]%'
+      )
+      , Defined_Traffic as
+      (
+          select * from Rock_Music
+          UNION
+          select * from Instrumental_Music
+      )
+      select traffic_date_key
+      , count(distinct visitor_id) as unique_visitor
+      from Defined_Traffic
+      group by traffic_date_key",
+  "expected" : "2016-03-16 123"
+}
+*/
+```
+
 The file that contains SQL test queries is conventionally named with .test extension. However, the file can be a text file with any name.
 As you can see, the benefits of approach (2) is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files. Each test case has a name associated with it: key string in .properties file and value of "name" key in .test file.
 

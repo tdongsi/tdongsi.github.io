@@ -3,7 +3,7 @@ layout: post
 title: "SQL Unit testing"
 date: 2016-03-15 23:43:09 -0800
 comments: true
-published: true
+published: false
 categories: 
 - SQL
 - Automation
@@ -28,6 +28,10 @@ Level 3
 Functional tests.
 
 Choose readability over grammar.
+
+Links:
+
+1. https://wiki.intuit.com/display/iea/Improve+readability+of+functional+tests+with+SQL+Test+Runner
 
 #### SQL Test Runner
 
