@@ -44,9 +44,9 @@ Functions is not common.
 
 After some rounds of manual testing, we started looking into automating the process.
 Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation. 
-It is up to the QEs to organize and automate executing those SQL test queries. 
+The only difference is that it is up to the QEs to organize and automate executing those SQL test queries. 
 Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
-The test SQL queries, eventually defined as Java strings in TestNG test cases, are sent to the databases such as Vertica through their respective JDBC interface for execution. 
+The test SQL queries, defined as Java strings in TestNG test cases, are sent to the databases such as Vertica through their respective JDBC interface for execution. 
 
 
 ``` java Test query as constant SQL string
@@ -58,16 +58,18 @@ public void validate_dim_region_count() {
         String query = "select count(*) from dim_region";
         int output = getJdbcConnection().executeQuery(query);
         Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
+        
+        // Second test query
 }
 ```
 
 Here, the test queries are defined as constant SQL strings. 
-Note that the test query above is intended to be simple to avoid being distracting. 
+Note that the test query above is intended to be simple to illustate the automation. 
 The actual test queries are usually more complex than that.
 The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
 We also remove heuristic tests that cannot be done using assertions.
-Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the end results.
-In addition, we add tests to verify intermediate steps in the ETL processes.
+Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
+In addition, we add tests to verify intermediate steps of the ETL processes.
 
 The problem of this approach is that the SQL tests are heavily cluttered by supporting Java codes.
 This problem is getting worse when the SQL test query gets more complex that cannot fit into a single line, such as one shown below.
@@ -124,30 +126,40 @@ public void validate_dim_region_count() {
         String query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_count");
         int output = getJdbcConnection().executeQuery(query);
         Assert.assertTrue("dim_region count:", output == DIM_REGION_COUNT);
+        
+        // Second test query
 }
 ```
 
 ``` properties test_queries.properties
 dim_region_count=select count(*) from dim_region
 ```
+
+Using this approach, one can get an overview of the SQL test queries by simply looking at the `properties` files.
+The supporting Java code that takes care of sending those test queries are abstracted into separate `java` files.
+
 The problems of the above approach are:
 
-* SQL test queries are really hard to read in properties file.
-  * Each SQL test string must be in a single line. Adding white spaces, such as newlines and tabs, for clarity is not possible since it will make the test case fail. 
-  * Unfortunately, it is very common that SQL test queries are long, with multiple JOIN statements, especially in data mart. 
+(1) SQL test queries are really hard to read in properties file.
+Each SQL test string must be in a single line. 
+Adding white spaces, such as newlines and tabs, for clarity is not possible since it will make the test case fail. 
+Unfortunately, it is very common that SQL test queries are long, with multiple JOIN statements, especially in data mart. 
 For illustration, it is easier to read the SQL queries in "Level 1" approach than in the properties file above, thanks to line breaks.
-* Parts of tests are still in Java (i.e., TestNG assertions), making them not readable and limiting their accessibility to developers.
-  * It is not clear what is the expected output of the test queries from the properties file. One still has to look it up in Java codes to understand and/or investigate a test failure.
 
-Having white spaces, e.g. to separate join statements, WILL definitely help readability of test cases. For hundreds of test cases, it is impossible to read in .properties file.
+Having white spaces, e.g. to separate join statements, WILL definitely help readability of test cases. 
+For hundreds of test cases, it is impossible to read in `.properties` file.
 
 ``` properties complex_test_queries.properties
 complex_query=WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE 'rock_mus%'), Instrumental_Music as (select * from Total WHERE evar28 LIKE '%[ins_mus]%'), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key
 ```
 
+(2) Parts of tests are still in Java (i.e., TestNG assertions), making them not maintainable and limiting their accessibility to data analysts.
+It is not clear what is the expected output of the test queries from the properties file. 
+One still has to look it up in Java codes to understand and/or investigate if there is a test failure.
 Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
 It is worth noting that most of test queries are expected to return zero row or 0 value. 
-For example, test query to find all duplicate records which is expected to return zero row. Even those simple assertion are encoded with TestNG's library methods.
+For example, test query to find all duplicate records which is expected to return zero row. 
+Even those simple assertions are encoded using Java and TestNG's library methods.
 
 * **Pros**:
   1. Automated, repeatable. Run multiple times with minimal additional effort.
@@ -157,6 +169,27 @@ For example, test query to find all duplicate records which is expected to retur
   1. All queries have to be in a single line. Hard to read for long test queries.
 
 ### Level 3: Script files
+
+
+#### Motivation
+In recent projects, I tried to explore a way to improve readability of SQL tests. The main motivation for the next sections is my testing philosophy: In writing tests, prioritize readability when possible.
+Readable tests are easier to write, automate, and maintain. Those tests can be easily shared with developers for debugging purposes, especially in SQL.
+If you write a software, you have tests to validate it. If you write a test, how do you validate it? Only by making it readable, you can verify and maintain the test.
+Readable tests promote collaboration between developers and QEs.
+If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.
+
+#### Implementation
+
+The file that contains SQL test queries is conventionally named with .test extension. However, the file can be a text file with any name.
+As you can see, the benefits of approach (2) is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files. Each test case has a name associated with it: key string in .properties file and value of "name" key in .test file.
+
+In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed. The TestNG assertions, which are ubiquitous in previous approaches (1) and (2), are no longer present as it will be specified in .test file. The whole TestNG class will only contain code to initialize a connection to database and an instance of SQL test runner, all of which is one-time setup. As we continue writing functional tests, we can decide to group related tests into separate .test files, or keep all tests in a single .test file. As we add more .test files, we can just specify the path to the files as shown in Java code above.
+The main benefit of Unit Test Framework comes as readability of those tests improve in .test file. The expected outcomes of the SQL queries are specified in the same place, making the tests' intentions more obvious. Using various annotations specified in SBG Datamart - Unit tests, most of functional tests can be written in a clear manner.
+
+In the example above, the first test query's intention is clearer with assertion in the same location. In addition, compared with .properties file approach, the SQL query is now easier to read, due to line breaks. 
+If you have not noticed, the second test query's original intention is to assert that the counts of two queries are the same. In approach (1) or (2), EXCEPT operation is used to keep it into the same test case (and minimal Java code), which obfuscate the original intention. While it is possible that we can split the query into two queries and comparing the counts, it is probably not much clearer to most data engineers since assertions are done in Java. Instead of using EXCEPT operation, we use "equal" clause from Unit Test Framework to make the intention obvious: the two counts should be equal. It is true that we have additional SQL query, additional data transfer, and do comparison on our local computer. However, the additional computational time is totally justified with much better readability. Test readability will save (lots of) QE's time, in both developing and maintaining. In our philosophy, human time is million times more costly than computer time.
+
+SSSSSSSSSSS
 
 In one of our Big Data projects, the developers are more comfortable with working in SQL. Not all of them are comfortable with working with Java or other languages (e.g., Python) that can make automated testing feasible.
 
