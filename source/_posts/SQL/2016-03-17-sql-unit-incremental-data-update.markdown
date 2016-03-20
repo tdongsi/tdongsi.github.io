@@ -51,38 +51,52 @@ For sliding window of one week data `D = 7` in the staging table `staging_compan
 
 Despite the changing number of rows with `ID = 123`, the daily ETL should always returns a company with `ID = 123` in some dimension table, with its email updated.
 
-### Initial approach
+### Initial functional tests
 
-What incremental update?
+Initially, verifying functionality of incremental data update of ETLs is very challenging.
+In the initial approach, we collected three sets of staging tables for three days, and then manually simulate each set as the current set before running the ETL.
+After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.
 
-How to test incremental update?
-You collect a set of three sets of data.
+That process is summarized as the following steps for each day:
 
-1. Manually set up the data.
-1. Manually run ETL.
-1. Most of the time, the difference in data between two dates are enough to check corner cases.
-1. Run ETL and tests on 6+ million records when 99.99% of data is the same.
+1. Manually set up the staging data (ETL input).
+1. Manually run the ETL.
+1. Run the corresponding set of automated functional tests.
 
-It takes lots of time to manually set up and run ETLs: about 4 hours for a proper sequence.
-It takes lots of mental energy to do it right.
-For very little return. After running it, you still don't know if ETL won't break if data is updated in another column.
-I have every single time of doing it.
+As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
+It is time consuming to manually set up and run ETLs: about 4 hours for a proper sequence.
+Besides time, it also takes lots of mental energy to do each of the step right and in order.
+Otherwise, the tests will fail for no apparent reason.
+Despite the effort involved, the return is very little.
+Most of the time, the difference in data between two dates are usually not enough to check all corner cases in ETL.
+After running it, you still don't know if a particular ETL will ever break if data is updated in some odd way in an infrequently updated column.
 
 ### Observations
 
-1. I only need a small number of records.
-1. I can create synthetic data to force rare logic branches and corner cases.
-1. Automatic setup.
-1. Automatic running ETL under test.
+The painful experience of testing incremental data update for ETLs leads to the following observations:
 
-Guess what? This is exactly unit testing.
+1. We should only need a small number of records to reduce ETL running time.
+1. We should create synthetic data to force rare logic branches and corner cases.
+1. We should have a way to set up data automatically.
+1. We should have a way to run the ETL under test automatically.
+
+Guess what? These points, especially small and synthetica data, leads to the argument that incremental data update should tested in unit tests, not in functional tests.
 
 ### Changes to SQL Test Runner
 
-Two changes
+I made two changes in the SQL Test Runner to make it more friendly to do unit testing SQL scripts:
 
-1. Run the SQL scripts to set up data
-1. vsql
+1. Run the SQL statements to set up data.
+1. Calling `vsql` to run a list of specified ETLs.
 
-What unit test looks like.
+With that, a unit test to verify our ETL (e.g., `company_etl.sql`) that updates email address incrementally (in the example scenario above) will look like this:
 
+``` java Calling unit test script
+TODO
+```
+
+``` sql Unit test for the example scenario
+TODO
+```
+
+TODO: The setup: an empty schema, or even better, a local VM.
