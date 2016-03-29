@@ -139,8 +139,8 @@ TODO: Javascript
 
 **Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
 
-* Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras,
-  with applications targeted for smartphones and driverless car navigation systems.
+* Designed and implemented sensor fusion algorithms for [accelerometers, gyroscopes, and cameras](/resume/mycar_2012.jpg),
+  with applications targeted for smartphones and [driverless car](/resume/mycarb_2012.jpg) navigation systems.
 * Implemented sensor-based navigation algorithms, based on probabilistic models and statistical inference methods, using C++ and Matlab. Designed and implemented pluggable sensor simulators for verifying and benchmarking performance of those navigation algorithms. 
 * Proposed and implemented various numerical algorithms for problem solving, including convex
   optimization techniques, Gauss-Newton algorithm and its variants.
@@ -150,7 +150,7 @@ TODO: Javascript
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
 * Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
-* Designed, implemented and evaluated computer vision algorithms for visual sensor modules.
+* Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg).
 * Designed and implemented an adaptive machine learning algorithm to identify drivable road
   surface from stereo images, by building statistical models of road appearance.
 * Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
