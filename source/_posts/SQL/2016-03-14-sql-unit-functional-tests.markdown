@@ -11,7 +11,7 @@ categories:
 - Automation
 ---
 
-In this blog post, I will go over on different approaches over time that we did to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.
+In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.
 
 ### Level 0: Manual testing
 
@@ -25,7 +25,7 @@ Early on in Big Data projects, there was not much automation.
 Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
 There are not many tools available for automated testing of SQL scripts, especially for Vertica.
 
-We, quality engineers and data analysts, tested Data Marts by using a number of SQL queries as test queries.
+At the beginning, quality engineers and data analysts tested Data Marts by using a number of SQL queries as test queries.
 Data analysts are *de facto* end-users and main testers and many of those test queries are based on their experience.
 
 {% img center /images/sql/SQuirreL.png Manual testing %}
@@ -34,7 +34,7 @@ We used some SQL clients such as SQuirreL as shown above, connected to Vertica u
 This process is pretty much manual. If an ETL is updated `n` times, we have to repeat this `n` times.
 Most of the test queries can only tests the **end results** of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
 If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
-Sometimes, some of these tests are pretty heuristic and arbitrary: this number of products sold in some channel is "unusually" high today, which "seems" to indicate that ETL went wrong in some intermediate step.
+Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is "unusually" high today, which "seems" to indicate that ETL went wrong in some intermediate step.
 
 <!--
 Functions is not common. 
@@ -69,11 +69,11 @@ public void validate_dim_region() {
 }
 ```
 
-Here, the test queries are defined as constant SQL strings. 
+Here, the test queries are defined as constant strings in Java. 
 Note that the test query above is intended to be simple to illustate the automation. 
 The actual test queries are usually more complex than that.
 The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
-We also remove heuristic tests that cannot be done using assertions.
+We also remove heuristic tests that cannot be verified using assertions.
 Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
 In addition, we add tests to verify intermediate steps of the ETL processes.
 
@@ -154,8 +154,7 @@ The problems of the above approach are:
 Each SQL test string must be in a single line. 
 Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid. 
 Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with [star schema](https://en.wikipedia.org/wiki/Star_schema). 
-For illustration, it is easier to read the SQL queries in "Level 1" approach than in the properties file above, thanks to line breaks.
-For hundreds of test cases, it is impossible to read in `.properties` file.
+For hundreds of test cases with complex queries like example below, it is impossible to read in `.properties` file.
 
 ``` properties complex_test_queries.properties
 complex_query=WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE 'rock_mus%'), Instrumental_Music as (select * from Total WHERE evar28 LIKE '%[ins_mus]%'), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key
@@ -167,7 +166,7 @@ If there is a test failure, one still has to look it up in Java codes to underst
 Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
 It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0. 
 For example, a common test query is to find all duplicate records, which is expected to has zero row returned. 
-Even those simple assertions are encoded using Java and TestNG's library methods.
+Even those simple assertions have to be encoded using Java and TestNG's library methods.
 
 ### Level 3: Script files
 
@@ -182,18 +181,21 @@ Even those simple assertions are encoded using Java and TestNG's library methods
 
 #### Motivation
 
-In recent projects, I tried to explore a way to improve readability of SQL tests. The main motivation for this approach is my testing philosophy: **prioritize readability of tests when possible**.
+In recent Big Data projects, I tried to explore a way to improve readability of SQL tests. 
+The main motivation for this "Level 3" is my testing philosophy: **prioritize readability of tests when possible**.
+
 Readable tests are easier to write, automate, and maintain. 
 More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test? 
 It does not make sense to write tests for tests.
 Only by making tests **readable**, you can verify and maintain the tests.
-Readable tests promote collaboration between developers and QEs.
-Readable tests can be easily shared with developers and data analysts for debugging purposes, especially in SQL.
+
+Readable tests also promote collaboration between developers, data analysts and QEs.
+Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
 If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.
 
 #### Implementation
 
-In this approach, I implemented a test framework (TODO: add link). The same tests shown in the last sections, using that framework, will look like this:
+In this approach, I implemented a [test framework](/blog/2016/03/28/sql-unit-test-runner/). The same tests shown in the last sections, using that framework, will look like this:
 
 ``` java Test query in test files
 private SqlTestRunner testRunner;
@@ -263,7 +265,7 @@ Each test query has a name (that tells its purpose) associated with it: key stri
 In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed. 
 The TestNG assertions, which are ubiquitous in previous "Level 1" and "Level 2" approaches, are no longer present.
 Instead, the expected outputs are specified in `.test` file, in the same JSON block with each SQL query. 
-The whole TestNG class will only contain code to initialize a connection to database and an instance of SQL Teset Runner (TODO:link), all of which is one-time setup. 
+The whole TestNG class will only contain code to initialize a connection to database and an instance of [SQL Test Runner](/blog/2016/03/28/sql-unit-test-runner/), all of which is one-time setup. 
 As we continue writing functional tests, we can decide to keep all tests in a single `.test` file or group related tests into separate `.test` files. 
 If we add more `.test` files, we can just specify the path to the files, in TestNG test cases (i.e., `@Test` functions), as shown in Java code above.
 
@@ -273,8 +275,8 @@ In the example above, the first test query's intention is clearer with assertion
 In addition, compared with `.properties` file approach, the SQL query is now easier to read, due to line breaks, as shown in the second example. 
 
 All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL. 
-Big Data projects different from usual software engineering projects is that users, data analysts, know more about the data than you.
-They are the much better testers than any typical QE engineer, and being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
+Big Data projects different from usual software engineering projects is that users, data analysts, know more about the data than typical quality engineers.
+Being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
 If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.
 
 While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.

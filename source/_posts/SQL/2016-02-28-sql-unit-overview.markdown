@@ -11,8 +11,10 @@ categories:
 ---
 
 Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
-The journey of automated testing in Data Mart projects is tough: we don't even know how to test Data Marts' functionality from the beginning.
-Even worse, we don't know what defines "unit testing" in Data Mart projects and how to enforce it on data engineers.
+The journey of automated testing in Data Mart projects is tough: most of the business logics are implemented in SQL scripts.
+We don't even know how to test Data Marts' functionality from the beginning: how do I know if the SQL script works or if data is correct.
+Even worse, we don't know what defines "unit testing" in Data Mart projects and could not enforce it on data engineers.
+We desperately need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
 
 <!--
 Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
@@ -20,13 +22,14 @@ Note that SQL scripts is only a small part of ETL processes. There are other scr
 
 ### Functional testing for Data Mart projects
 
-We gradually figured out automated functional testing and how to improve it. 
+We gradually figured out automated functional testing first and continued to improve it. 
 This [blog post](/blog/2016/03/16/sql-unit-test-runner/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
 
-#### SQL Test Runner
+### SQL Test Runner
 
-POJO
-Examples.
+In the last iteration of automated functional testing, supporting Java code is abstracted into a SQL Test Runner. 
+Quality engineers and data analysts can now write test queries and assertions in more readable test blocks.
+This blog post provides some examples.
 
 ### Incremental update testing
 
