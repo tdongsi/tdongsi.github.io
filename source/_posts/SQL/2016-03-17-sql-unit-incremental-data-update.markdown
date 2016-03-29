@@ -12,26 +12,33 @@ categories:
 
 ### Incremental data update
 
-I go over evolution of Data Mart functional testing in the last blog post (TODO: link).
-In functional tests, we deploy the data marts, run the ETL, and run a bunch of SQL test queries to verify.
-That kind of testing is sufficient if the input of the ETL is snapshot tables: data extracted by the ETL are the latest snapshot of the data.
+in the last [blog post](/blog/2016/03/16/sql-unit-functional-tests/), I go over evolution of functional testing in data mart projects.
+In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to verify.
+
+That kind of testing is sufficient if the input of the ETL is snapshot tables: data extracted by the ETL scripts are the latest snapshot of the data.
 Preparing this snapshot might be expensive, especially for daily ETLs, since those tables have to be truncated and reloaded with latest data.
 This can be every inefficient since out of millions of records, maybe less than one percent of those will be updated over a day interval.
+Therefore, for performance reasons, the ETLs usually perform **incremental data update**. 
+Some characteristics of "incremental data update" are as follows:
 
-Therefore, for performance reasons, sometimes the ETLs perform incremental data update: 
-only updated records are appended into some staging tables, used as input for those daily ETLs.
-For example, let's say there is a company record with ID = 123 and some attribute such as company email `before@mock.com` on Day 1.
-On Day 2, the company email is udpated to `after@mock.com`. 
-The original record of company 123 with `before@mock.com` is not necessarily removed from staging table.
-Instead, a new row with updated data (ID = 123, email = `after@mock.com`) is appended into the stagingt able.
+1) Only updated records are incrementally appended into some tables, used for staging purpose (a.k.a. staging tables). 
+These tables will be used as input for the ETLs.
+For example, let's say there is a company record with ID = 123 and some attribute such as master email `before@mock.com` on Day 1.
+On Day 2, the company email could be udpated to `after@mock.com`. 
+The original record of company 123 with `before@mock.com` is not necessarily removed from the staging table.
+Instead, a new row with updated data (ID = 123, email = `after@mock.com`) is appended into the staging table.
 
-Obviously, one risk of running ETL with incremental data update is duplicate records: we now have two rows for the same company `ID = 123`. 
-In standard approach with snapshot, each record is unique, meaning only one row with company `ID = 123`.
-
-In addition, in our data mart projects, we only keep a sliding window of some days of data in staging tables.
-Any records older than D days are truncated from those staging tables.
+2) To keep the size of input tables and ETL running time bounded, we usually keep only a number of days worth of data in the staging tables.
+In other words, any records older than some `D` days are truncated from those staging tables.
 For example, after `D = 7` days since Day 2, if the company `ID = 123` has no update, its records will be removed from the staging tables.
 Note that, after being truncated, that company `ID = 123` can be re-inserted into the staging table if some of its attribute is updated. 
+
+**Risks**: The ETLs with incremental data update is usually much more complex.
+Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company `ID = 123`. 
+In standard approach with snapshot, each record is almost guaranteed unique, meaning only one row with company `ID = 123`.
+On the other hand, when data for company `ID = 123` are truncated from the staging tables after `D` days (0 row), it simply means that there is no update to that company during the last `D` days.
+It means that the company should not be removed from the destination tables of the ETL even though the input staging tables contain no such row for `ID = 123`.
+The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.
 
 ### Example scenario
 
