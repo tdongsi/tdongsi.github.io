@@ -23,13 +23,14 @@ Note that SQL scripts is only a small part of ETL processes. There are other scr
 ### Functional testing for Data Mart projects
 
 We gradually figured out automated functional testing first and continued to improve it. 
-This [blog post](/blog/2016/03/16/sql-unit-test-runner/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
+This [blog post](/blog/2016/03/16/sql-unit-functional-tests/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
 
 ### SQL Test Runner
 
 In the last iteration of automated functional testing, supporting Java code is abstracted into a SQL Test Runner. 
 Quality engineers and data analysts can now write test queries and assertions in more readable test blocks.
-This blog post provides some examples.
+This [blog post](/blog/2016/03/28/sql-unit-test-runner/) provides some examples. 
+As you can see, many decision making during impelmentation is based on my motto: **prioritize test readability** when it makes sense.
 
 ### Incremental update testing
 
