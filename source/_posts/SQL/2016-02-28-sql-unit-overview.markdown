@@ -1,37 +1,27 @@
 ---
 layout: post
-title: "SQL Unit testing"
+title: "SQL testing in Data Marts"
 date: 2016-03-15 23:43:09 -0800
 comments: true
-published: false
+published: true
 categories: 
 - SQL
 - Automation
 - Testing
 ---
 
-How to tell the story.
+Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
+The journey of automated testing in Data Mart projects is tough: we don't even know how to test Data Marts' functionality from the beginning.
+Even worse, we don't know what defines "unit testing" in Data Mart projects and how to enforce it on data engineers.
+
 <!--
 Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
 -->
 
-### Brief overview of Data Mart functional testing
+### Functional testing for Data Mart projects
 
-Introduction
-Data mart is a smaller version of data warehouse, help driving business decisions of a department in a large company.
-
-Level 0
-Level 1
-Level 2
-Level 3
-
-Functional tests.
-
-Choose readability over grammar.
-
-Links:
-
-1. https://wiki.intuit.com/display/iea/Improve+readability+of+functional+tests+with+SQL+Test+Runner
+We gradually figured out automated functional testing and how to improve it. 
+This [blog post](/blog/2016/03/16/sql-unit-test-runner/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
 
 #### SQL Test Runner
 
