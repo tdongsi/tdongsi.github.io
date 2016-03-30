@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Testing Incremental data update"
-date: 2016-04-17 17:46:40 -0700
+date: 2016-04-10 17:46:40 -0700
 comments: true
 published: true
 categories: 
@@ -10,14 +10,17 @@ categories:
 - Automation
 ---
 
+One of challenges in SQL testing is "incremental data update" in ETL scripts.
+Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.
+
 ### Incremental data update
 
-in the last [blog post](/blog/2016/03/16/sql-unit-functional-tests/), I go over evolution of functional testing in data mart projects.
+In the last [blog post](/blog/2016/03/16/sql-unit-functional-tests/), I go over evolution of functional testing in data mart projects.
 In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to verify.
 
 That kind of testing is sufficient if the input of the ETL is snapshot tables: data extracted by the ETL scripts are the latest snapshot of the data.
 Preparing this snapshot might be expensive, especially for daily ETLs, since those tables have to be truncated and reloaded with latest data.
-This can be every inefficient since out of millions of records, maybe less than one percent of those will be updated over a day interval.
+This can be every inefficient since out of millions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
 Therefore, for performance reasons, the ETLs usually perform **incremental data update**. 
 Some characteristics of "incremental data update" are as follows:
 
@@ -58,10 +61,11 @@ For sliding window of one week data `D = 7` in the staging table `staging_compan
 
 Despite the changing number of rows with `ID = 123`, the daily ETL should always returns a company with `ID = 123` in some dimension table, with its email updated.
 
-### Initial functional tests
+### Initial functionality tests
 
-Initially, verifying functionality of incremental data update of ETLs is very challenging.
-In the initial approach, we collected three sets of staging tables for three days, and then manually simulate each set as the current set before running the ETL.
+Initially, verifying incremental data update of ETLs is very challenging.
+We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
+Specifically, we collected a few sets of staging tables for three days, and then manually simulate each set as the current day data before running the ETL.
 After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.
 
 That process is summarized as the following steps for each day:
@@ -71,12 +75,13 @@ That process is summarized as the following steps for each day:
 1. Run the corresponding set of automated functional tests.
 
 As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
-It is time consuming to manually set up and run ETLs: about 4 hours for a proper sequence.
-Besides time, it also takes lots of mental energy to do each of the step right and in order.
+It is time consuming to manually set up and run ETLs: for production-like data, the first few days can contain million rows for a whole history of data.
+Since we run ETLs multiple times to properly verify incremental update, the running times add up.
+Besides time, it also takes lots of mental energy to do each of the step right and in the correct order.
 Otherwise, the tests will fail for no apparent reason.
 Despite the effort involved, the return is very little.
-Most of the time, the difference in data between two dates are usually not enough to check all corner cases in ETL.
-After running it, you still don't know if a particular ETL will ever break if data is updated in some odd way in an infrequently updated column.
+Most of the time, the difference in data between two dates are usually not enough to verify all corner cases in ETL scripts.
+After running it, you still don't know if a particular ETL will ever break if some field is updated in some odd way in an infrequently updated column.
 
 ### Observations
 
@@ -87,9 +92,10 @@ The painful experience of testing incremental data update for ETLs leads to the 
 1. We should have a way to set up data automatically.
 1. We should have a way to run the ETL under test automatically.
 
-Guess what? These points, especially small and synthetica data, leads to the argument that incremental data update should tested in unit tests, not in functional tests.
+Guess what? These observations, especially small and synthetic data, sounds like unit testing. 
+It leads to my strong conviction that incremental data update should tested in a bunch of "unit tests", with mock data to force corner cases.
 
-### Changes to SQL Test Runner
+### Unit tests - preview
 
 I made two changes in the SQL Test Runner to make it more friendly to do unit testing SQL scripts:
 
@@ -102,8 +108,8 @@ With that, a unit test to verify our ETL (e.g., `company_etl.sql`) that updates 
 TODO
 ```
 
-``` sql Unit test for the example scenario
+``` sql Unit test for the example scenario in section above
 TODO
 ```
 
-TODO: The setup: an empty schema, or even better, a local VM.
+The setup will be discussed in the next blog post.

@@ -13,8 +13,8 @@ categories:
 Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
 The journey of automated testing in Data Mart projects is tough: most of the business logics are implemented in SQL scripts.
 We don't even know how to test Data Marts' functionality from the beginning: how do I know if the SQL script works or if data is correct.
-Even worse, we don't know what defines "unit testing" in Data Mart projects and could not enforce it on data engineers.
-We desperately need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
+Even worse, we don't know what defines "unit testing" in Data Mart projects and could not enforce it on data engineers and scientists (the developers).
+We need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
 
 <!--
 Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
@@ -27,34 +27,16 @@ This [blog post](/blog/2016/03/16/sql-unit-functional-tests/) documents the jour
 
 ### SQL Test Runner
 
-In the last iteration of automated functional testing, supporting Java code is abstracted into a SQL Test Runner. 
+In the latest iteration of automated testing, supporting Java code is abstracted into a SQL Test Runner. 
 Quality engineers and data analysts can now write test queries and assertions in more readable test blocks.
 This [blog post](/blog/2016/03/28/sql-unit-test-runner/) provides some examples. 
-As you can see, many decision making during impelmentation is based on my motto: **prioritize test readability** when it makes sense.
+As you can see, many decision-making during impelmentation is based on my motto: **prioritize test readability** when it makes sense.
 
-### Incremental update testing
+### Incremental data update
 
-What incremental update?
-
-How to test incremental update?
-You collect a set of three sets of data.
-
-1. Manually set up the data.
-1. Manually run ETL.
-1. Most of the time, the difference in data between two dates are enough to check corner cases.
-1. Run ETL and tests on 6+ million records when 99.99% of data is the same.
-
-It takes lots of time to manually set up and run ETLs: about 4 hours for a proper sequence.
-It takes lots of mental energy to do it right.
-For very little return. After running it, you still don't know if ETL won't break if data is updated in another column.
-I have every single time of doing it.
-
-1. I only need a small number of records.
-1. I can create synthetic data to force rare logic branches and corner cases.
-1. Automatic setup.
-1. Automatic running ETL under test.
-
-Guess what? This is exactly unit testing.
+One of biggest challenges in SQL testing is "incremental data update" in ETL scripts.
+Challenges in functional testing those motivates me to create a test framework to allow adding unit-like tests for those ETL scripts.
+This [blog post](/blog/2016/04/10/sql-unit-incremental-data-update/) discusses "incremental data update" and how it should be tested as a number of unit tests.
 
 ### Unit testing
 
@@ -83,6 +65,10 @@ Revert in Git.
 ### Adding  unit test
 
 Show SBG strategy.
+
+### Functional tests vs Unit tests
+
+This blog post highlight the difference between these two in the context of Big Data projects.
 
 ### Extending SQL Test Runner
 
