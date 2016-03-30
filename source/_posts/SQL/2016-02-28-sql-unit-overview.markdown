@@ -68,7 +68,8 @@ Show SBG strategy.
 
 ### Functional tests vs Unit tests
 
-This blog post highlight the difference between these two in the context of Big Data projects.
+This [blog post](/blog/2016/04/14/sql-unit-vs-functional/) recap the above sections by highlighting the difference between these two in the context of Big Data projects.
+It should be noted that two groups of tests complement each other in assuring quality and functionality of Big Data projects.
 
 ### Extending SQL Test Runner
 
