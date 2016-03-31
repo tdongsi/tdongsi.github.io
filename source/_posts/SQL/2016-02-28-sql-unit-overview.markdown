@@ -11,10 +11,14 @@ categories:
 ---
 
 Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
-The journey of automated testing in Data Mart projects is tough: most of the business logics are implemented in SQL scripts.
+The journey of automated testing in data mart as well as other Big Data projects is tough: most of the business logics are implemented in SQL scripts.
 We don't even know how to test Data Marts' functionality from the beginning: how do I know if the SQL script works or if data is correct.
-Even worse, we don't know what defines "unit testing" in Data Mart projects and could not enforce it on data engineers and scientists (the developers).
+Even worse, we don't know what defines "unit testing" for SQL scripts and could not enforce it on data engineers and scientists (the developers).
+The fact that most of data engineers and data analysts in my organization are more comfortable with SQL, not other languages like Java or Python, is another challenge in moving toward unit testing.
+
 We need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
+I recently gave a talk on the unit test framework that allows data engineers to verify their ETL scripts in SQL, their language of choice.
+I recap some of the key ideas and motivations when designing and implementing that test framework in a few blog posts.
 
 <!--
 Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
