@@ -25,7 +25,7 @@ Early on in Big Data projects, there was not much automation.
 Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
 There are not many tools available for automated testing of SQL scripts, especially for Vertica.
 
-At the beginning, quality engineers and data analysts tested Data Marts by using a number of SQL queries as test queries.
+At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
 Data analysts are *de facto* end-users and main testers and many of those test queries are based on their experience.
 
 {% img center /images/sql/SQuirreL.png Manual testing %}

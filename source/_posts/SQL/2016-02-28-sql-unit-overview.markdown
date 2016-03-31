@@ -12,7 +12,7 @@ categories:
 
 Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
 The journey of automated testing in data mart as well as other Big Data projects is tough: most of the business logics are implemented in SQL scripts.
-We don't even know how to test Data Marts' functionality from the beginning: how do I know if the SQL script works or if data is correct.
+We don't even know how to test data marts' functionality from the beginning: how do I know if the SQL script works or if data is correct.
 Even worse, we don't know what defines "unit testing" for SQL scripts and could not enforce it on data engineers and scientists (the developers).
 The fact that most of data engineers and data analysts in my organization are more comfortable with SQL, not other languages like Java or Python, is another challenge in moving toward unit testing.
 
@@ -63,7 +63,7 @@ If the data analysts are able to read unit test scripts and confirm the expectat
 Remove KSAFE.
 
 Add a new test.
-
+  
 Revert in Git.
 
 ### Adding  unit test
