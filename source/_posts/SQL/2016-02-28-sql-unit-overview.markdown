@@ -77,14 +77,6 @@ It should be noted that two groups of tests complement each other in assuring qu
 
 ### Extending SQL Test Runner
 
-Template Method design pattern
-Strategy pattern
-
-#### Example: Kobayashi testing
-
-Add a new JSON block.
-
-
-
-
+The unit test framework is designed based on [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle), and uses design patterns like Template Method and Strategy to make it easy to add new functionality should the need arises.
+For illustration, I will discuss how I recently added a new functionality to handle a new kind of tests.
 

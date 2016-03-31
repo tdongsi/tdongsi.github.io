@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Testing Incremental data update"
+title: "(Pt. 3) Testing Incremental data update"
 date: 2016-04-10 17:46:40 -0700
 comments: true
 published: true

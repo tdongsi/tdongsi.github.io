@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Functional testing for Data Marts"
+title: "(Pt. 1) Functional testing for Data Marts"
 date: 2016-03-16 23:18:33 -0700
 comments: true
 published: true
