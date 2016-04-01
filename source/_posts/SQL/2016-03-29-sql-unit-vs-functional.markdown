@@ -9,6 +9,8 @@ categories:
 - Testing
 ---
 
+For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+
 In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:
 
 |       | Functional tests      | Unit tests |

@@ -10,6 +10,8 @@ categories:
 - Automation
 ---
 
+For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+
 One of challenges in SQL testing is "incremental data update" in ETL scripts.
 Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.
 

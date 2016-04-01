@@ -11,6 +11,8 @@ categories:
 - Automation
 ---
 
+For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+
 In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.
 
 ### Level 0: Manual testing
