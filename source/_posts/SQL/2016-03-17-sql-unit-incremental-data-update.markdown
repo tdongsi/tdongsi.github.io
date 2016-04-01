@@ -233,7 +233,7 @@ VALUES (123,'beyond@mockdata.com',current_timestamp-3);
 */
 ```
 
-Running the unit test script above from TestNG will be similar as in functional tests (see "Level 3" [here](/blog/2016/03/16/sql-unit-functional-tests/)).
+Running the unit test script above from TestNG will be similar as in functional tests (see "Level 3" in [this post](/blog/2016/03/16/sql-unit-functional-tests/)).
 After one-time setup (in `@BeforeClass` and `@AfterClass` functions), there will be minimal Java code added (`@Test` functions):
 
 ``` java Calling unit test script

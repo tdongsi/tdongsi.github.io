@@ -58,7 +58,7 @@ Readability:
 Not all analysts and developers are comfortable with Java. But nobody knows about the data better than analysts.
 If the data analysts are able to read unit test scripts and confirm the expectation, QEs will save lots of time translating business requirements from SQL/Java tests.
 
-### Single-node VM
+#### Single-node VM
 
 Remove KSAFE.
 
@@ -66,9 +66,21 @@ Add a new test.
   
 Revert in Git.
 
-### Adding  unit test
+#### Adding  unit test
 
 Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
 
 ### Functional tests vs Unit tests
 
