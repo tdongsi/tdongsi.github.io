@@ -22,12 +22,12 @@ Here, I list out few mistakes to avoid and suggestions that frequently improve J
 
 1) Do NOT add loggings/printing to your tests. 
 Use TestNG assertions instead of checking screen output.
-Remove all the `System.out.println` statements from the test classes.
+Remove from the test classes all the `System.out.println` statements (that we might add when we start writing unit tests).
 The logs don't matter when we're running in parallel. 
 Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.
 
 2) Another common mistake is to override the default `System.out` by calling `System.setOut(PrintStream)` and verify by asserting against log statements. 
-This tactic is often used to verify expected method invocations, which will in turn generate some specific log entries.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
 For such behavior testing, consider using [Jmockit Verifications](https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html) instead of depending on output of logs generated.
 
 3) Mock logging and config classes if applicable. 
