@@ -15,7 +15,7 @@ categories:
 We have all seen it before: intermittent unit test failures.
 It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.
 
-In my experience, one of the most common causes is:
+In our experience, one of the most common causes is:
 **Class static initialization code that dynamically sets a static member variable from a config file value.**
 
 What happens locally?
