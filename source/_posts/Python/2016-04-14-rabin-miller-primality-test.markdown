@@ -27,13 +27,19 @@ For example, for the jamcoin 1001, a possible set of nontrivial divisors for the
 
 Bitcoin.
 
-Theorem: if p is a prime, let s be the maximal power of 2 dividing p-1, so that p-1 = 2^{s}d and d is odd. Then for any 1 \leq n \leq p-1, one of two things happens:
-
-n^d = 1 \mod p or
-n^{2^j d} = -1 \mod p for some 0 \leq j < s.
+Theorem: 
 
 
-``` python My implementation of Rabin-Miller test
+if p is a prime, let s be the maximal power of 2 dividing p-1, so that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:
+
+$$
+\begin{align}
+& n^d = 1 \mod p \mbox{ or} \\
+& n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j < s.
+\end{align}
+$$
+
+{% codeblock lang:python My implementation of Rabin-Miller test %} 
 import random
 
 def decompose(num):
@@ -100,9 +106,9 @@ def is_pseudo_prime(prime, trial=10):
             return False
 
     return True
-```
+{% endcodeblock %}
 
-``` python Modified Rabin-Miller test for finding a factor
+{% codeblock lang:python Modified Rabin-Miller test for finding a factor %}
 import random
 
 def find_factor(prime, trial=100):
@@ -167,4 +173,4 @@ def find_factor(prime, trial=100):
             return factor
 
     return 1
-```
+{% endcodeblock %}
