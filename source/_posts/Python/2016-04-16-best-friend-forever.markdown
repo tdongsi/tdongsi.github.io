@@ -26,10 +26,10 @@ Such number chains look like graphs or linked-lists and I would first try to plo
 {% img center /images/python/bff.png BFF example %}
 
 I initially thought that problem C is some dynamic programming problem and I tried to think in that direction.
-After looking at the graph for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
-The key observations that I can draw from the above graph are:
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:
 
-1. Each cycle in the directed graph is a candidate for solution circle.
+1. Each cycle in the directed graph is a candidate for the solution circle.
 1. If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
    * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we can still not create a larger circle.
    * The cycle is a candidate for solution itself.
@@ -47,7 +47,7 @@ Based on those observations, the solution is pretty "simple":
       1. Find the longest friends of friends chain that is connected to either kid in this cycle.
       1. Find the path length, add to path_sum, and update max_length if needed.
 
-Constructing the directed graph and finding cycles in steps 1-2 is done using [`networkx`](http://networkx.readthedocs.org/en/stable/) module, as shown below (together with plotting using `matlplotlib`). 
+Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using [`networkx`](http://networkx.readthedocs.org/en/stable/) module, as shown below (together with plotting using `matlplotlib`). 
 
 ``` python Construct and plot directed graph with networkx
 import matplotlib.pyplot as plt
@@ -101,11 +101,11 @@ It is not like I can implement [Johnson's algorithm](https://en.wikipedia.org/wi
 Note that one mistake we might make is to treat each "path" (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note **"one ore more"** in observation 3).
 The reason is that all the "paths" can be chained together to form a larger cycle (see graph below).
 My first solution was rejected for Small Input dataset due to this mistake.
-Again, by plotting test cases in the Small dataset, this following test case would came up and makes me realize my mistake:
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:
 
 {% img center /images/python/bff2.png All paths %}
 
 Some morals of the story: 
 
 * Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.
-* In real-world problem solving, you don't need to solve the problem in two hours. Even better, you don't need to re-invent the wheel. Therefore, it is better to methodically arrive at a solution, especially for a scalable solution (i.e., plotting, using libraries, testing if needed).
+* In real-world problem solving, you don't need to solve the problem in two hours. Even better, you don't need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).

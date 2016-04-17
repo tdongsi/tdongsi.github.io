@@ -24,10 +24,10 @@ Can you produce J different jamcoins of length N, along with proof that they are
 For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.
 {% endblockquote %}
 
-The name "jamcoin" is probably a play on Bitcoin, since it also deals with prime/compsite numbers, a topic commonly found in cryptography.
+The name "jamcoin" is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
 In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.
 
-The very first idea, trial division and building a sieve of primes for up to 10^16, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for [sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes), respectively).
+The very first idea, building a sieve of primes for up to 10^16 for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for [sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes), respectively).
 
 Note that we don't need to find all but only J of those jamcoins.
 Therefore, we can keep iterating over all possible "jam coins" to find the first J numbers that satisfy the conditions.
@@ -49,8 +49,8 @@ The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the 
 Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
 However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.
 
-Implementation of this algorithm in different languages can be found on Internet, such as [here](https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing).
-I re-implemented this algorithm in Python (shown below) since 1) it is simple enough, and 2) I want to avoid disqualification from Google Code Jam for plagiarism. 
+Implementation of this algorithm in different languages can be found on the web, such as [here](https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing).
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid's `gcd` algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism. 
 
 {% codeblock lang:python My implementation of Rabin-Miller test %} 
 import random
@@ -199,4 +199,4 @@ def find_factor(prime, trial=100):
 {% endcodeblock %}
 
 The final solution to the problem, using the modified Rabin-Miller test above, can be found in this [file](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) (search for CoinJam class).
-Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick (and the fact that J is small enough). 
+Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick (and the fact that J << number of all jamcoins with length N available). 
