@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Convert Python objects to JSON"
-date: 2016-04-21 22:09:50 -0700
+date: 2016-04-25 22:09:50 -0700
 comments: true
 categories: 
 - Python
