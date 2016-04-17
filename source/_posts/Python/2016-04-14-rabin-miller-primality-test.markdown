@@ -9,8 +9,7 @@ categories:
 - Math
 ---
 
-In Qualification Round of Google Code Jam 2016, there is an interesting [problem](https://code.google.com/codejam/contest/6254486/dashboard#s=p2).
-
+In Qualification Round of Google Code Jam 2016, there is an interesting [Coin Jam problem](https://code.google.com/codejam/contest/6254486/dashboard#s=p2).
 The summarized problem statement is as follows:
 
 {% blockquote %}
@@ -28,12 +27,12 @@ For example, for the jamcoin 1001, a possible set of nontrivial divisors for the
 The name "jamcoin" is probably a play on Bitcoin, since it also deals with prime/compsite numbers, a topic commonly found in cryptography.
 In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.
 
-The very first idea, building a sieve of primes for up to 10^16, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for [sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes), respectively).
+The very first idea, trial division and building a sieve of primes for up to 10^16, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for [sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes), respectively).
 
 Note that we don't need to find all but only J of those jamcoins.
 Therefore, we can keep iterating over all possible "jam coins" to find the first J numbers that satisfy the conditions.
 To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
-For reference, the Rabin-Miller primality test algorithm is based on the following [theorem](http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html): 
+For reference, the Rabin-Miller primality test is based on the following [theorem](http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html): 
 
 * If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:
 
@@ -42,9 +41,9 @@ For reference, the Rabin-Miller primality test algorithm is based on the followi
 &amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
 \end{align}\]</span></p>
 
-In Rabin-Miller test, we pick $k$ random samples of $n$ in the range $1 \leq n \leq p-1$.
+In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
 If p is not a prime, then it is at least a 3/4 chance that a randomly chosen $n$ will be a fail.
-For large $k$ independent tests, the probability that it passes all test is (1/4)^k ~ 0.
+For large $k$ independent tests, the probability that it passes all trials is (1/4)^k ~ 0.
 
 The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
 Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
@@ -52,7 +51,6 @@ However, if a number fails one of Rabin-Miller trial, we are sure that it is a c
 
 Implementation of this algorithm in different languages can be found on Internet, such as [here](https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing).
 I re-implemented this algorithm in Python (shown below) since 1) it is simple enough, and 2) I want to avoid disqualification from Google Code Jam for plagiarism. 
-The function `rabin_miller_trial` is nested in `is_pseudo_prime` to keep its function signature simple and it is unlikely reused anywhere else.
 
 {% codeblock lang:python My implementation of Rabin-Miller test %} 
 import random
@@ -81,10 +79,9 @@ def is_pseudo_prime(prime, trial=10):
     SMALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37,
                     43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
-    def rabin_miller_trial(prime, num):
+    def rabin_miller_trial(num):
         """ Check if prime pass the Rabin-Miller trial.
 
-        :param prime: a prospective prime.
         :param num: a random "witness" of primality.
 
         :return: True if composite, False if probably prime.
@@ -117,13 +114,25 @@ def is_pseudo_prime(prime, trial=10):
 
     for _ in xrange(trial):
         num = random.randint(2, prime - 2)
-        if rabin_miller_trial(prime, num):
+        if rabin_miller_trial(num):
             return False
 
     return True
 {% endcodeblock %}
 
+Some notes about this implementation:
+
+* The function `rabin_miller_trial` is nested inside `is_pseudo_prime` to keep its function signature simple, intuitive and it is unlikely reused anywhere else.
+* Use `pow(x, y, z)` in Python to compute more efficiently than `(x ** y % z)`.
+* `random.randint(2, prime - 2)` is used since it is useless to pick `1` and `p-1` and trials would be wasted.
+* Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.
+
+Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in [Wikipedia](https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test), we can modify the Rabin-Miller test to add greatest common divisor `gcd` calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.
+
 {% codeblock lang:python Modified Rabin-Miller test for finding a factor %}
+import fractions
 import random
 
 def find_factor(prime, trial=100):
@@ -138,10 +147,9 @@ def find_factor(prime, trial=100):
     SMALL_PRIMES = [ 2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,
                   43,  47,  53,  59,  61,  67,  71,  73,  79,  83,  89,  97, 101]
 
-    def rabin_miller_trial(prime, num):
+    def rabin_miller_trial(num):
         """ Find factor based on the Rabin-Miller trial.
 
-        :param prime: a prospective prime.
         :param num: a random "witness" of primality.
 
         :return: > 1 if composite, 1 if probably prime.
@@ -183,9 +191,12 @@ def find_factor(prime, trial=100):
 
     for _ in xrange(trial):
         num = random.randint(2, prime - 2)
-        factor = rabin_miller_trial(prime, num)
+        factor = rabin_miller_trial(num)
         if factor > 1:
             return factor
 
     return 1
 {% endcodeblock %}
+
+The final solution to the problem, using the modified Rabin-Miller test above, can be found in this [file](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) (search for CoinJam class).
+Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick (and the fact that J is small enough). 
