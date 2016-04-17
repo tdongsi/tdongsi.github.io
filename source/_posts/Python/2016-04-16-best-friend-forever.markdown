@@ -18,49 +18,94 @@ You want to form the largest possible circle of kids such that each kid in the c
 Give a line that contains N integers F1, F2, ..., FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.
 {% endblockquote %}
 
-I'm never a strong [sports programmer](https://en.wikipedia.org/wiki/Competitive_programming).
-So, I'd like to approach to the problem more methodically. 
-While the first three example test cases, provided in the problem statement, is straight forward, the last example is not so.
-First, I would try to plot out 
+I'm never a strong [sport programmer](https://en.wikipedia.org/wiki/Competitive_programming).
+I'd like to approach to the problem more methodically. 
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example `7 8 10 10 9 2 9 6 3 3` is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out: 
 
-TODO: insert image
+{% img center /images/python/bff.png BFF example %}
 
-After looking at the graph, it is immediately apparent to me that it is probably not some dynamic programming problem and I actually need some graph algorithm to solve it.
-The key observations from the above graph are:
+I initially thought that problem C is some dynamic programming problem and I tried to think in that direction.
+After looking at the graph for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The key observations that I can draw from the above graph are:
 
-1. Each cyle in the directed graph is a candidate for solution.
-1. If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satifies the requirements. 
-1. If the kids form a cycle with length == 2 (called as mutual BFFs in my code), then you can keep chaining kids who are friends of friends to those kids to form a path. You can create a circle from **one or more** such paths.
+1. Each cyle in the directed graph is a candidate for solution circle.
+1. If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satifies the requirements.
+   * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we can still not create a larger circle.
+   * The cycle is a candidate for solution itself.
+1. If the kids form a cycle with length == 2 (called "mutual BFFs" in my code), then you can keep chaining kids who are friends of friends to those kids to form a "path". You can create a circle from **one or more** "paths".
+   * In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10<-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.
+   * After comparing length with the other candidate (cycle 2->8->6->2), the "path" is the solution circle for this particular example.
 
 Based on those observations, the solution is pretty "simple":
 
-1. From the list of friends, construct a directed graph.
-1. Find all the simple cycles in the directed graph. 
-1. For each cyle found:
+1. From the list of BFFs, construct a directed graph.
+1. Find all the simple cycles in the directed graph. *<- I lied, this is not simple.*
+1. Initialize max_length = -1. For each simple cyle:
    1. If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.
    1. If cycle length is equal to 2.
       1. Find the longest friends of friends chain that is connected to either kid in this cycle.
-      1. Find the path length and udpate max_length if needed.
+      1. Find the path length, add to path_sum, and udpate max_length if needed.
 
-TODO: Correct the algorithm
+Constructing the directed graph and finding cycles in steps 1-2 is done using [`networkx`](http://networkx.readthedocs.org/en/stable/) module, as shown below (together with plotting using `matlplotlib`). 
 
-Constructing the directed graph, and finding cycles in it is done using TODO: Python module, as shown below (together with ). 
+``` python Construct and plot directed graph with networkx
+import matplotlib.pyplot as plt
+import networkx as nx
 
-TODO: code
+class Bff(object):
+    """
+    https://code.google.com/codejam/contest/4304486/dashboard#s=p2
+    """
+    def __init__(self, filename):
+        """ Initialize with the given filename.
 
-I know my solution will be probably not accepted in Code Jam (using external library), and that is fine :D. 
-It is not like I can implement Johnson's algorithm for finding cycles within two hours.
-This solution (TODO) is just to check my thinking is correct.
+        :param filename: input file path
+        :return:
+        """
+        self._filename = filename
+        pass
 
-Note that one mistake we can make is to treat each "path" as a circle candidate (NOTE: "one ore more" in observation 3).
-All the "paths" can be chained together to form a larger cycle.
-My first solution is rejected for Small Input dataset.
-Using the same plotting code above, plot more test cases in the given data set.
-This test case come up:
+    def draw(self, input):
+        """ Draw the string that represents the bff network.
 
-TODO: insert image
+        The input string contains N integers F1, F2, ..., FN, 
+        where Fi is the student ID number of the BFF
+        of the kid with student ID i.
 
-The moral of the story: 
-plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.
-In real-world problem solving, you don't need to solve the problem in two hours. Even better, you don't need to re-invent the wheel. It is better to arrive at a solution methodically, especially if the solution is scalable.
+        :param input: the string that represents the bff network.
+        :return:
+        """
+        # Construct the directed graph
+        bffs = [int(e.strip()) for e in input.split(' ')]
+        nodes = [i+1 for i in xrange(len(bffs))]
+        gr = nx.DiGraph()
+        gr.add_nodes_from(nodes)
+        gr.add_edges_from([e for e in zip(nodes, bffs)])
 
+        # nx.simple_cycles(gr)
+        nx.draw_networkx(gr)
+        plt.savefig(self._filename)
+
+def main():
+    plot = Bff("bff.png")
+    # plot.draw("2 1 6 3 8 4 6 5")
+    plot.draw("6 1 6 5 4 1 5 10 3 7")
+    pass
+```
+
+Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D. 
+It is not like I can implement [Johnson's algorithm](https://en.wikipedia.org/wiki/Johnson%27s_algorithm) for finding cycles within two hours.
+[My solution](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) is to check if my thinking is correct.
+
+Note that one mistake we might make is to treat each "path" (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note **"one ore more"** in observation 3).
+The reason is that all the "paths" can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by ploting test cases in the Small dataset, this following test case would came up and makes me realize my mistake:
+
+{% img center /images/python/bff2.png All paths %}
+
+Some morals of the story: 
+
+* Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.
+* In real-world problem solving, you don't need to solve the problem in two hours. Even better, you don't need to re-invent the wheel. Therefore, it is better to methodically arrive at a solution, especially for a scalable solutioin (i.e., plotting, using libraries, testing if needed).
