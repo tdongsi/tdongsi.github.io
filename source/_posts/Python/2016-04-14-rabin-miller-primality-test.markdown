@@ -9,13 +9,7 @@ categories:
 - Math
 ---
 
-In Qualification Round of Google Code Jam 2016, there is this [problem](https://code.google.com/codejam/contest/6254486/dashboard#s=p2).
-
-<!-- MathJax configuration -->
-<script type="text/javascript"
-src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://tdongsi.github.io/javascripts/MathJaxLocal.js">
-</script>
-<!-- End MathJax Configuration -->
+In Qualification Round of Google Code Jam 2016, there is an interesting [problem](https://code.google.com/codejam/contest/6254486/dashboard#s=p2).
 
 The summarized problem statement is as follows:
 
@@ -31,15 +25,34 @@ Can you produce J different jamcoins of length N, along with proof that they are
 For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.
 {% endblockquote %}
 
-Bitcoin.
+The name "jamcoin" is probably a play on Bitcoin, since it also deals with prime/compsite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.
 
-Theorem: 
+The very first idea, building a sieve of primes for up to 10^16, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for [sieve of Eratosthenes](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes), respectively).
 
-if p is a prime, let s be the maximal power of 2 dividing p-1, so that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:
+Note that we don't need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible "jam coins" to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test algorithm is based on the following [theorem](http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html): 
 
-1. *n*<sup>*d*</sup> = 1 `mod` *p*
-1. *n*<sup>2<sup>*j*</sup>*d*</sup> = −1 `mod` *p* for some $0 \leq j < s$
+* If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:
 
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+In Rabin-Miller test, we pick $k$ random samples of $n$ in the range $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a 3/4 chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all test is (1/4)^k ~ 0.
+
+The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.
+
+Implementation of this algorithm in different languages can be found on Internet, such as [here](https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing).
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough, and 2) I want to avoid disqualification from Google Code Jam for plagiarism. 
+The function `rabin_miller_trial` is nested in `is_pseudo_prime` to keep its function signature simple and it is unlikely reused anywhere else.
 
 {% codeblock lang:python My implementation of Rabin-Miller test %} 
 import random
