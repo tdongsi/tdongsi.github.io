@@ -11,6 +11,12 @@ categories:
 
 In Qualification Round of Google Code Jam 2016, there is this [problem](https://code.google.com/codejam/contest/6254486/dashboard#s=p2).
 
+<!-- MathJax configuration -->
+<script type="text/javascript"
+src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML,http://tdongsi.github.io/javascripts/MathJaxLocal.js">
+</script>
+<!-- End MathJax Configuration -->
+
 The summarized problem statement is as follows:
 
 {% blockquote %}
@@ -29,15 +35,11 @@ Bitcoin.
 
 Theorem: 
 
-
 if p is a prime, let s be the maximal power of 2 dividing p-1, so that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:
 
-$$
-\begin{align}
-& n^d = 1 \mod p \mbox{ or} \\
-& n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j < s.
-\end{align}
-$$
+1. *n*<sup>*d*</sup> = 1 `mod` *p*
+1. *n*<sup>2<sup>*j*</sup>*d*</sup> = −1 `mod` *p* for some $0 \leq j < s$
+
 
 {% codeblock lang:python My implementation of Rabin-Miller test %} 
 import random
