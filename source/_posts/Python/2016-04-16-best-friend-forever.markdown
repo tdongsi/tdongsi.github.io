@@ -25,14 +25,14 @@ Such number chains look like graphs or linked-lists and I would first try to plo
 
 {% img center /images/python/bff.png BFF example %}
 
-I initially thought that problem C is some dynamic programming problem and I tried to think in that direction.
+I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
 After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
 The above plot also gives me some key observations to solve the problem:
 
 1. Each cycle in the directed graph is a candidate for the solution circle.
 1. If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
-   * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we can still not create a larger circle.
-   * The cycle is a candidate for solution itself.
+   * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle.
+   * The cycle is a candidate for solution itself. Some cycles can get really large.
 1. If the kids form a cycle with length == 2 (called "mutual BFFs" in my code), then you can keep chaining kids who are friends of friends to those kids to form a "path". You can create a circle from **one or more** "paths".
    * In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10<-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.
    * After comparing length with the other candidate (cycle 2->8->6->2), the "path" is the solution circle for this particular example.

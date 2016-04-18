@@ -122,7 +122,7 @@ def is_pseudo_prime(prime, trial=10):
 
 Some notes about this implementation:
 
-* The function `rabin_miller_trial` is nested inside `is_pseudo_prime` to keep its function signature simple, intuitive and it is unlikely reused anywhere else.
+* Because the function `rabin_miller_trial` is unlikely reused anywhere else, it is nested inside `is_pseudo_prime` to keep its function signature simple, intuitive.
 * Use `pow(x, y, z)` in Python to compute more efficiently than `(x ** y % z)`.
 * `random.randint(2, prime - 2)` is used since it is useless to pick `1` and `p-1` and trials would be wasted.
 * Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.
@@ -199,4 +199,5 @@ def find_factor(prime, trial=100):
 {% endcodeblock %}
 
 The final solution to the problem, using the modified Rabin-Miller test above, can be found in this [file](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) (search for CoinJam class).
-Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick (and the fact that J << number of all jamcoins with length N available). 
+Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10^N).
+If J is much larger and close to the number of all jamcoins with length N available, then using modified Rabin-Miller test is probably required.
