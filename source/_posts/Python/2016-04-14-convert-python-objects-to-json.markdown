@@ -39,7 +39,7 @@ String jsonInString = mapper.writerWithDefaultPrettyPrinter()
 ```
 
 The output is shown below. 
-Note that the keys (e.g., "type", "host") appear in the order as defined in the Config class.
+Note that the keys (e.g., "type", "host") appear in the same order as defined in the `Config` class.
 
 ``` json JSON representation of Config object
 {
@@ -51,9 +51,9 @@ Note that the keys (e.g., "type", "host") appear in the order as defined in the 
 }
 ```
 
-In Python, we have `json` module.
+In Python, we have `json` module. TODO: add more
 
-``` python Pretty print
+``` python First attempt at JSON serialization
 class Config(object):
     pass
 
@@ -113,8 +113,38 @@ def main():
 
 ```
 
-Ordering
+Note that `json.dump(config, config_file)` does not work.
 
-``` python Pretty print with ordering
-Hello
+``` python JSON serialization error
+TypeError: <__main__.Config object at 0x10ab824d0> is not JSON serializable
+```
+
+`json.dump(config.__dict__, config_file)` will not work either if any attribute of the `config` object is a complex object (e.g., `source` and `target` attributes in this example).
+
+The solution is to define TODO
+
+``` python Correct options
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+```
+
+``` python Pretty print without ordering
+{
+    "source": {
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH", 
+        "host": "192.168.5.184", 
+        "password": "password", 
+        "type": "hive", 
+        "user": "cloudera"
+    }, 
+    "queries": "TODO", 
+    "target": {
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart", 
+        "host": "192.168.5.174", 
+        "password": "password", 
+        "type": "vertica", 
+        "user": "dbadmin"
+    }, 
+    "testName": "count"
+}
 ```
