@@ -32,6 +32,12 @@ Design patterns:
 Open to extension: new testing needs will arise.
 Close to modifications: all the old tests are passing with old test runners.
 
+Test frameworks should be closed to modifications. 
+If we have a few hundred tests are running fine, we don't want them to suddenly fail just because we want to add a new feature to the test framework.
+That is confusing and counter-productive for anyone who are using it.
+At the same time, the test framework should be open to extension: ability to address new testing needs.
+SQL Testing is a very new area, and I am not sure if the current test framework is capable for testing different kinds of ETLs.
+
 
 The behaviors of the test runners should NOT be inherited. 
 Instead, they should be encapsulated in classes that implement CodeStrategy to handle SQL statements or TestStrategy to handle test blocks `/* @Test {...} */`.
