@@ -10,17 +10,48 @@ categories:
 
 In Java, it is pretty straight forward to convert Java objects (POJO) to JSON using [Jackson library](https://github.com/FasterXML/jackson).
 
+``` java Example POJO
+public class Config {
+	
+	public String type;
+	public String host;
+	public String user;
+	public String password;
+	public String url;
+	
+}
+```
+
 ``` java Jackson examples
 ObjectMapper mapper = new ObjectMapper();
-Config obj = new Config();
+Config conn = new Config();
+conn.type = "hive";
+conn.host = "192.168.5.184";
+conn.user = "cloudera";
+conn.password = "password";
+conn.url = "jdbc:hive2://192.168.5.184:10000/DWH";
 
 // POJO to JSON in file
 mapper.writeValue(new File("config.json"), obj);
 // POJO to JSON in String
-String jsonInString = mapper.writeValueAsString(obj);
+String jsonInString = mapper.writerWithDefaultPrettyPrinter()
+		.writeValueAsString(conn);
 ```
 
-In Python, `json` module.
+The output is shown below. 
+Note that the keys (e.g., "type", "host") appear in the order as defined in the Config class.
+
+``` json JSON representation of Config object
+{
+  "type" : "hive",
+  "host" : "192.168.5.184",
+  "user" : "cloudera",
+  "password" : "password",
+  "url" : "jdbc:hive2://192.168.5.184:10000/DWH"
+}
+```
+
+In Python, we have `json` module.
 
 ``` python Pretty print
 class Config(object):
