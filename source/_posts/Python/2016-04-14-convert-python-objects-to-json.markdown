@@ -110,14 +110,27 @@ def main():
     FILE_NAME = "hive_vertica_count.json"
     query_generator = generate_count_queries()
     create_config_file(FILE_NAME, query_generator)
-
 ```
 
-Note that `json.dump(config, config_file)` does not work.
+Note that `json.dump(config, config_file)` will fail with the following error:
 
 ``` python JSON serialization error
 TypeError: <__main__.Config object at 0x10ab824d0> is not JSON serializable
 ```
+
+As the message indicates, `Config` object is not JSON serializable. 
+`json.dump` expects a serializable object such as one of Python standard object types (see table below).
+
+TODO: table
+Python	JSON
+dict	object
+list, tuple	array
+str, unicode	string
+int, long, float	number
+True	true
+False	false
+None	null
+
 
 `json.dump(config.__dict__, config_file)` will not work either if any attribute of the `config` object is a complex object (e.g., `source` and `target` attributes in this example).
 
@@ -137,7 +150,7 @@ The solution is to define TODO
         "type": "hive", 
         "user": "cloudera"
     }, 
-    "queries": "TODO", 
+    "queries": "...", 
     "target": {
         "url": "jdbc:vertica://192.168.5.174:5433/VMart", 
         "host": "192.168.5.174", 
@@ -148,3 +161,59 @@ The solution is to define TODO
     "testName": "count"
 }
 ```
+
+`sort_keys` option in `json.dump` is not good since the key is sorted by its name, not its appearance. 
+We usually want to see the source and target databases before knowing what kind of tests and details of test queries.
+
+To have the key name appears in order as defined when converting to JSON, we have two options.
+
+### Option 1: use OrderedDict as your base class
+
+The first option is just a workaround: Extend OrderedDict and use `object["att"]` instead of `object.att`.
+
+``` python Example of using OrderedDict as your Config class
+class OrderedConfig(collections.OrderedDict):
+    pass
+
+def ordered_config_file(filename, query_generator):
+
+    hive_source = OrderedConfig()
+    hive_source["type"] = "hive"
+    hive_source["url"] = "jdbc:hive2://192.168.5.184:10000/DWH"
+    vertica_target = OrderedConfig()
+    vertica_target["type"] = "vertica"
+    vertica_target["url"] = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    config = OrderedConfig()
+    config["source"] = hive_source
+    config["target"] = vertica_target
+    config["testName"] = "count"
+    config["queries"] = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, indent=4)
+```
+
+Note that you can dump your object file directly since it now behaves like a dicitionary.
+
+``` json Pretty print
+{
+    "source": {
+        "type": "hive", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+```
+
+### Option 2: use OrderedDict as your attribute dictionary.
+
+Now it is superior to Java. You can add new custom attributes if needed without having to define a new class. 
+
+`__dict__ = OrderedDict()` will not work. On the opposite, it is a catastrophic failure since now you cannot add attributes now. TODO: cite link.
+
