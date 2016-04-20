@@ -217,3 +217,118 @@ Now it is superior to Java. You can add new custom attributes if needed without 
 
 `__dict__ = OrderedDict()` will not work. On the opposite, it is a catastrophic failure since now you cannot add attributes now. TODO: cite link.
 
+``` python Modified Config class
+class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+```
+
+``` python Modified JSON dump
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+```
+
+The output
+
+``` json Pretty print with ordering
+{
+    "source": {
+        "type": "hive", 
+        "host": "192.168.5.184", 
+        "user": "cloudera", 
+        "password": "password", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "host": "192.168.5.174", 
+        "user": "dbadmin", 
+        "password": "password", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+```
+
+``` python Full code
+import collections
+import json
+
+class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+
+    pass
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+
+if __name__ == "__main__":
+    main()
+```
