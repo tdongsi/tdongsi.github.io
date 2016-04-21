@@ -8,17 +8,17 @@ categories:
 - Java
 ---
 
-In the JSON output shown in the last section, the keys are out of order.
+In the JSON output shown in the last [post](/blog/2016/04/21/convert-python-objects-to-json/), the keys are printed out of order since they are unordered in the dictionary `__dict__`.
 In theory, it does not matter when converting to/from JSON.
-However, it sometimes makes sense to look for two keys in JSON next to each other or one key before another, i.e., keys are ordered.
-For example, in the `Config` object above, it is better to see `source` and `target` keys side by side, or get to know what kind of tests from `testName` key before reading details of tests in `queries` key.
-`sort_keys` option in `json.dump` is not applicable here since the keys will be then sorted by their names, not their order of appearance like we do in the Java example. 
+However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
+For example, in the `Config` object in the last post, it is better to see `source` and `target` configurations side by side and, then, get to know what kind of tests from `testName` key before reading details of tests in `queries` key.
+Setting `sort_keys` option in `json.dump` is not applicable here since the keys will be sorted by their names, not their order of appearance like we do in the Java example. 
 
 To have the keys appear in order as defined when converting to JSON, we have two options:
 
 ### Option 1: use OrderedDict as your base class
 
-The first option is just a quick and dirty workaround: our `Config` class should extend `collections.OrderedDict` class and, in the code, we refer to `object["att"]` instead of `object.att`.
+This option is just a quick and dirty workaround: our `Config` class should extend `collections.OrderedDict` class and, in the code, we refer to `object["att"]` instead of `object.att`.
 
 ``` python Example of using OrderedDict as your Config class
 class OrderedConfig(collections.OrderedDict):
@@ -77,7 +77,7 @@ class Config(object):
 ```
 
 I got an empty object as my JSON output.
-It can be pretty confusing since we can still refer to attributes using standard notation `object.att` and correctly retrieve value.
+It can be pretty confusing since we can still refer to attributes using standard notation `object.att` and correctly retrieve values.
 After searching the web, I finally figured out that it is a known bug, as documented [here](https://mail.python.org/pipermail/python-bugs-list/2006-April/033155.html).
 It says that if `__dict__` is not an actual `dict()`, then it is ignored, and attribute lookup fails if using that dictionary directly.
 
