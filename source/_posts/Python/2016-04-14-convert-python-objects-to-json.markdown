@@ -15,13 +15,11 @@ The following code will convert an example POJO to JSON:
 
 ``` java Example POJO
 public class Config {
-	
 	public String type;
 	public String host;
 	public String user;
 	public String password;
 	public String url;
-	
 }
 ```
 
@@ -58,7 +56,7 @@ This will become important later when we try to convert Python objects to JSON.
 ### JSON serialization in Python
 
 In Python, we have `json` module to convert a *serializable* object to JSON format.
-The first attempt at JSON serlaization in Python may look something like this, with a slightly complex Python object is used as an example:
+The first attempt at JSON serialization in Python may look like this, with a slightly complex Python object is intentionally used as an example:
 
 ``` python First attempt at JSON serialization
 class Config(object):
@@ -126,7 +124,7 @@ TypeError: <__main__.Config object at 0x10ab824d0> is not JSON serializable
 ```
 
 As the message indicates, `Config` object is not JSON serializable. 
-`json.dump` expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.
+`json.dump` function expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.
 
 | Python | JSON |
 | --- | --- |
@@ -140,9 +138,9 @@ As the message indicates, `Config` object is not JSON serializable.
 
 <br>
 
-The solution is to specify the `default` parameter with a function that returns object's `__dict__` attribute.
+The solution for that problem is to specify the `default` parameter with a function that returns object's `__dict__` attribute.
 `__dict__` is the internal attribute dictionary that contains all attributes associated with an object.
-Object attribute references are translated to lookups in this dictionary, e.g., `C.x` is translated to `C.__dict__["x"]`.
+Object attribute references are translated to lookups in this dictionary, e.g., `o.x` is translated to `o.__dict__["x"]`.
 
 ``` python Correct options
     with open(filename, 'w') as config_file:
@@ -171,7 +169,7 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 ```
 
 Note that simply using `json.dump(config.__dict__, config_file)` will NOT work either if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
-Note that for more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `dump` function.
+Note that for more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `json.dump` function.
 
 ### Unordered keys in JSON output
 
@@ -179,9 +177,9 @@ In the JSON output shown in the last section, the keys are out of order.
 In theory, it does not matter when converting to/from JSON.
 However, it sometimes makes sense to look for two keys in JSON next to each other or one key before another, i.e., keys are ordered.
 For example, in the `Config` object above, it is better to see `source` and `target` keys side by side, or get to know what kind of tests from `testName` key before reading details of tests in `queries` key.
-`sort_keys` option in `json.dump` is not applicable since the keys will be then sorted by their names, not their order of appearance like we do in Java. 
+`sort_keys` option in `json.dump` is not applicable here since the keys will be then sorted by their names, not their order of appearance like we do in the Java example. 
 
-To have the key name appears in order as defined when converting to JSON, we have two options:
+To have the keys appear in order as defined when converting to JSON, we have two options:
 
 #### Option 1: use OrderedDict as your base class
 
@@ -211,7 +209,7 @@ def ordered_config_file(filename, query_generator):
 ```
 
 We have some extra typing, but in general, it is good enough for some configuration objects.
-Note that you can now dump your configuration object directly into file since it now behaves like a dictionary.
+Note that you can now dump your configuration object directly into file because it now behaves like a dictionary.
 
 ``` json Pretty print
 {
@@ -230,9 +228,26 @@ Note that you can now dump your configuration object directly into file since it
 
 #### Option 2: use OrderedDict as your attribute dictionary.
 
-TODO
+In order to refer to attributes directly as `object.att` and still get JSON ordered like in the Java example, it will need some works.
+Note that the obvious solution `__dict__ = OrderedDict()` will not work due to a Python bug. 
 
- `__dict__ = OrderedDict()` will not work. On the opposite, it is a catastrophic failure since now you cannot add attributes now. TODO: cite link.
+``` python Failed attempt due to a Python bug
+class Config(object):
+   def __init__(self):
+       self.__dict__ = collections.OrderedDict()
+       
+
+  with open(filename, 'w') as config_file:
+      json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+```
+
+I got an empty object as my JSON output.
+It can be pretty confusing since we can still refer to attributes using standard notation `object.att` and correctly retrieve value.
+After searching the web, I finally figured out that it is a known bug, as documented [here](https://mail.python.org/pipermail/python-bugs-list/2006-April/033155.html).
+It says that if `__dict__` is not an actual `dict()`, then it is ignored, and attribute lookup fails if using that dictionary directly.
+
+To work around that problem, we have to use `OrderedDict` as an attribute in `__dict__` and modify `__getattr__` and `__setattr__` methods to use this `OrderDict` instead.
+The modified `Config` class and modified `default=` parameter is shown below.
 
 ``` python Modified Config class
 class Config(object):
@@ -254,7 +269,7 @@ class Config(object):
         json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
 ```
 
-The output
+The JSON output now has the keys appear in the order as they are defined, similar to Jackson example above:
 
 ``` json Pretty print with ordering
 {
@@ -277,7 +292,10 @@ The output
 }
 ```
 
-Now it is superior to Java. You can add new custom attributes if needed without having to define a new class.
+With that, for configuration editing purposes, using the Python object to JSON conversion is more convenient than Java (POJO) to JSON conversion. 
+We can add new custom attributes if needed without having to define a new class.
+The `Config` class is all you need for all configuration writing.
+The full working code for converting Python object to JSON is shown below.
 
 ``` python Full code
 import collections
