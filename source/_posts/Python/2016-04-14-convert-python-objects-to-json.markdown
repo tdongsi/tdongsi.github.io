@@ -8,7 +8,10 @@ categories:
 - Java
 ---
 
+### JSON serialization in Java
+
 In Java, it is pretty straight forward to convert Java objects (POJO) to JSON using [Jackson library](https://github.com/FasterXML/jackson).
+The following code will convert an example POJO to JSON:
 
 ``` java Example POJO
 public class Config {
@@ -38,8 +41,9 @@ String jsonInString = mapper.writerWithDefaultPrettyPrinter()
 		.writeValueAsString(conn);
 ```
 
-The output is shown below. 
+The JSON output is shown below. 
 Note that the keys (e.g., "type", "host") appear in the same order as defined in the `Config` class.
+This will become important later when we try to convert Python objects to JSON.
 
 ``` json JSON representation of Config object
 {
@@ -51,7 +55,10 @@ Note that the keys (e.g., "type", "host") appear in the same order as defined in
 }
 ```
 
-In Python, we have `json` module. TODO: add more
+### JSON serialization in Python
+
+In Python, we have `json` module to convert a *serializable* object to JSON format.
+The first attempt at JSON serlaization in Python may look something like this, with a slightly complex Python object is used as an example:
 
 ``` python First attempt at JSON serialization
 class Config(object):
@@ -112,29 +119,30 @@ def main():
     create_config_file(FILE_NAME, query_generator)
 ```
 
-Note that `json.dump(config, config_file)` will fail with the following error:
+This first attempt with `json.dump(config, config_file)` will fail with the following error:
 
 ``` python JSON serialization error
 TypeError: <__main__.Config object at 0x10ab824d0> is not JSON serializable
 ```
 
 As the message indicates, `Config` object is not JSON serializable. 
-`json.dump` expects a serializable object such as one of Python standard object types (see table below).
+`json.dump` expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.
 
-TODO: table
-Python	JSON
-dict	object
-list, tuple	array
-str, unicode	string
-int, long, float	number
-True	true
-False	false
-None	null
+| Python | JSON |
+| --- | --- |
+| dict | object |
+| list, tuple | array |
+| str, unicode | string |
+| int, long, float | number |
+| True | true |
+| False | false |
+| None | null |
 
+<br>
 
-`json.dump(config.__dict__, config_file)` will not work either if any attribute of the `config` object is a complex object (e.g., `source` and `target` attributes in this example).
-
-The solution is to define TODO
+The solution is to specify the `default` parameter with a function that returns object's `__dict__` attribute.
+`__dict__` is the internal attribute dictionary that contains all attributes associated with an object.
+Object attribute references are translated to lookups in this dictionary, e.g., `C.x` is translated to `C.__dict__["x"]`.
 
 ``` python Correct options
     with open(filename, 'w') as config_file:
@@ -162,14 +170,22 @@ The solution is to define TODO
 }
 ```
 
-`sort_keys` option in `json.dump` is not good since the key is sorted by its name, not its appearance. 
-We usually want to see the source and target databases before knowing what kind of tests and details of test queries.
+Note that simply using `json.dump(config.__dict__, config_file)` will NOT work either if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
+Note that for more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `dump` function.
 
-To have the key name appears in order as defined when converting to JSON, we have two options.
+### Unordered keys in JSON output
 
-### Option 1: use OrderedDict as your base class
+In the JSON output shown in the last section, the keys are out of order.
+In theory, it does not matter when converting to/from JSON.
+However, it sometimes makes sense to look for two keys in JSON next to each other or one key before another, i.e., keys are ordered.
+For example, in the `Config` object above, it is better to see `source` and `target` keys side by side, or get to know what kind of tests from `testName` key before reading details of tests in `queries` key.
+`sort_keys` option in `json.dump` is not applicable since the keys will be then sorted by their names, not their order of appearance like we do in Java. 
 
-The first option is just a workaround: Extend OrderedDict and use `object["att"]` instead of `object.att`.
+To have the key name appears in order as defined when converting to JSON, we have two options:
+
+#### Option 1: use OrderedDict as your base class
+
+The first option is just a quick and dirty workaround: our `Config` class should extend `collections.OrderedDict` class and, in the code, we refer to `object["att"]` instead of `object.att`.
 
 ``` python Example of using OrderedDict as your Config class
 class OrderedConfig(collections.OrderedDict):
@@ -194,7 +210,8 @@ def ordered_config_file(filename, query_generator):
         json.dump(config, config_file, indent=4)
 ```
 
-Note that you can dump your object file directly since it now behaves like a dicitionary.
+We have some extra typing, but in general, it is good enough for some configuration objects.
+Note that you can now dump your configuration object directly into file since it now behaves like a dictionary.
 
 ``` json Pretty print
 {
@@ -211,11 +228,11 @@ Note that you can dump your object file directly since it now behaves like a dic
 }
 ```
 
-### Option 2: use OrderedDict as your attribute dictionary.
+#### Option 2: use OrderedDict as your attribute dictionary.
 
-Now it is superior to Java. You can add new custom attributes if needed without having to define a new class. 
+TODO
 
-`__dict__ = OrderedDict()` will not work. On the opposite, it is a catastrophic failure since now you cannot add attributes now. TODO: cite link.
+ `__dict__ = OrderedDict()` will not work. On the opposite, it is a catastrophic failure since now you cannot add attributes now. TODO: cite link.
 
 ``` python Modified Config class
 class Config(object):
@@ -259,6 +276,8 @@ The output
     "queries": "..."
 }
 ```
+
+Now it is superior to Java. You can add new custom attributes if needed without having to define a new class.
 
 ``` python Full code
 import collections
