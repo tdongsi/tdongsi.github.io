@@ -27,7 +27,7 @@ Note that SQL scripts is only a small part of ETL processes. There are other scr
 ### Functional testing for Data Mart projects
 
 We gradually figured out automated functional testing first and continued to improve it. 
-This [blog post](/blog/2016/03/16/sql-unit-functional-tests/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
+This [blog post](/blog/2016/03/20/sql-unit-functional-tests/) documents the journey of automated functional testing, the rationale after each cycle of its evolution.
 
 ### SQL Test Runner
 
@@ -44,43 +44,14 @@ This [blog post](/blog/2016/04/10/sql-unit-incremental-data-update/) discusses "
 
 ### Unit testing
 
-What changes I make.
+This [blog post](http://localhost:4000/blog/2016/04/12/sql-unit-testing/) goes into details of SQL Unit Testing.
+Keep this in mind, the main users of this test framework are data engineers (developers) and data analysts (testers).
+Not all data engineers and analysts are comfortable with writing tests in Java or Python.
+This SQL Test framework will allow them to write their tests in SQL, by hiding all Java automation details.
 
-1. Mix of SQL code and test blocks.
-1. New JSON block to run ETL script using VSQL
-
-Running ETL script through JDBC is probably not a good idea.
-
-Requirements of unit tests:
-[SBG Datamart - Unit tests]
-
-Readability:
-Not all analysts and developers are comfortable with Java. But nobody knows about the data better than analysts.
-If the data analysts are able to read unit test scripts and confirm the expectation, QEs will save lots of time translating business requirements from SQL/Java tests.
-
-#### Single-node VM
-
-Remove KSAFE.
-
-Add a new test.
-  
-Revert in Git.
-
-#### Adding  unit test
-
-Show SBG strategy.
-
-#### Other usages
-
-You can insert into the ETL script to verify step by step.
-However, there is only one set of mock data. 
-In unit testing, you might want multiple setup of mock data for different scenarios.
-=> the other way is actually more flexible
-
-Assumptions:
-
-1. No ;
-1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+Note that data analysts are really critical in validating data warehouses/datamarts. 
+They are the most direct users and no one understands the data better than analysts.
+If the data analysts are able to read unit test scripts and confirm the expectation, quality engineers will save lots of time translating business requirements into SQL/Java tests.
 
 ### Functional tests vs Unit tests
 
@@ -89,6 +60,8 @@ It should be noted that two groups of tests complement each other in assuring qu
 
 ### Extending SQL Test Runner
 
-The unit test framework is designed based on [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle), and uses design patterns like Template Method and Strategy to make it easy to add new functionality should the need arises.
+SQL testing for ETL process is a pretty new area to me.
+Therefore, the SQL Unit Test framework must be able to support any new testing needs should they arise.
+This [blog post](/blog/2016/04/16/sql-unit-extension/) explains how to extend the test framework to add new functionality or features. 
+The SQL Unit Test framework is designed based on [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle), and uses design patterns like Template Method and Strategy to make it easy to add new functionality.
 For illustration, I will discuss how I recently added a new functionality to handle a new kind of tests.
-
