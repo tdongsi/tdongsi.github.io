@@ -30,8 +30,8 @@ SQL Unit Testing in ETL context is a pretty new area for us.
 Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
 The test framework should be flexible enough to add new capability for new testing needs for different kinds of ETLs.
 
-These two requirements are also known as [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle).
-Besides that principle, SQL Test Runner codes also use **Template Method** and **Strategy** design patterns frequently.
+These two are also known as [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle).
+Besides that principle, SQL Test Runner codes also use **Template Method** and **Strategy** design patterns.
 Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.
 
 
@@ -90,9 +90,62 @@ Instead, we should create a new test runner class with new class extend TestStra
 
 ### Example
 
-Adding parity tests in the same database.
+Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following queries return completely matching rows and columns:
 
-Set theory
+``` plain Data parity checks
+select col1, col2 from old_table_name
+
+matches
+ 
+select col3, col4 from new_table_name
+```
+
+The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one. 
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed to be within the memory limit, it is still time-consuming to do data transfer for the two SQL returns, join the columns to prepare for comparison row by row. 
+Moreover, note that these expensive operations are carried out on the client side, the test execution machine (e.g., our computer).
+
+The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in [this post](/blog/2016/03/28/sql-unit-test-runner/):
+
+``` plain Test blocks for data parity check
+/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+```
+
+Using these two queries, we shift most of computing works to the Vertica server side, which will save us computation time (since Vertica server machine is usually much more powerful), data transfer time, and assertion check time.
+The two tables (or projections) have the same data if both of the two test cases pass. 
+Although we have one additional test case, most of computation works (`EXCEPT` operations) are executed on the Vertica server. 
+Moreover, in most of the cases when the tests pass, the data transfer is minimal (zero row).
+
+The two SQL queries is based on the following set theory identities:
+
+
+
+If "Table_A EXCEPT Table_B" returns nothing, it indicates that data in Table_A is a subset of data in Table_B. Similarly for "Table_B EXCEPT Table_A". We also have a set theory theorem which states that "If set A is a subset of B and B is a subset of A, then A = B". Therefore, if two test cases pass, it means that the data set in Table_A is equal to the data set in Table_B.
+
+LIMIT clause.
 
 Add new JSON.
+
 Use the old code to handle the old POJOs.
