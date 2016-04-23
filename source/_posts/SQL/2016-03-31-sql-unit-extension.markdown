@@ -138,13 +138,16 @@ The two tables (or projections) have the same data if both of the two test cases
 Although we have one additional test case, most of computation works (`EXCEPT` operations) are executed on the Vertica server. 
 Moreover, in most of the cases when the tests pass, the data transfer is minimal (zero row).
 
-The two SQL queries is based on the following set theory identities:
+The two SQL test queries is based on the following set theory identities:
 
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
 
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
 
-If "Table_A EXCEPT Table_B" returns nothing, it indicates that data in Table_A is a subset of data in Table_B. Similarly for "Table_B EXCEPT Table_A". We also have a set theory theorem which states that "If set A is a subset of B and B is a subset of A, then A = B". Therefore, if two test cases pass, it means that the data set in Table_A is equal to the data set in Table_B.
+If `Table_A EXCEPT Table_B` returns nothing, it indicates that data in `Table_A` is a subset of data in `Table_B`. Similarly for `Table_B EXCEPT Table_A`. Therefore, if two test cases pass, it means that the data in `Table_A` is equal to the data in `Table_B`.
 
 LIMIT clause.
+
 
 Add new JSON.
 
