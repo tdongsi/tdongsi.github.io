@@ -35,7 +35,7 @@ The SQL Test Runner will:
    * As shown in [this](/blog/2016/04/10/sql-unit-incremental-data-update/) and [this](/blog/2016/04/16/sql-unit-extension/), we can add custom JSON for different testing needs.
 1. Send the query to the database, and get the actual output from the database.
 1. Compare actual output with the expected output, raise `AssertionError` if needed.
-   * Note that the TestRunner can either exit immediately or run all test queries and list all `AssertionError`s at the end.
+   * Note that the TestRunner can either exit immediately upon `AssertionError` or run all test queries and list all `AssertionError`s at the end.
    
 TODO: new line in JSON
 
@@ -67,6 +67,77 @@ The actual and expected output is pre-processed to replace all whitespace charac
               20 Table
               30 Twin Bed
               40 King Bed"
+}
+*/
+```
+
+In many situations, the row count of a table is not definitely known.
+However, we still know that its row count should fall in some number range, such as larger than 100.
+The Test Runner allows you to add some simple logical expression in "expected" clause.
+It is tester's responsibility to make sure the test query returns some numbers and the logical expression makes sense.
+
+``` plain Expected output with logical expression
+/* @Test
+-- This is same as "expected" : "5"
+{
+   "name":"test_count_operator_equal",
+   "query":"select count(*) from dim_product;",
+   "expected":"== 5"
+}
+*/
+
+/* @Test
+-- There must be some entries, at least 10, in the table.
+-- Evaluated as: actual value > 10
+{
+   "name":"test_count_operator",
+   "query":"select count(*) from dim_product;",
+   "expected":"> 10"
+}
+*/
+```
+
+Note that in the examples above, inline comments can be added into test block using SQL's `--` inline comment notation.
+
+``` plain "file" key to execute shared statements
+/* @Test
+{
+    "name":"test_file_multiple",
+    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+            "testscript/sql/vertica/dim_product_table_create.sql"],
+    "query":"select count(1) from dim_product;",
+    "expected":"0"
+}
+*/
+```
+
+``` plain Some other uses
+/* @Test
+-- Just want to make sure the query can execute
+{
+    "name":"test_ignore_output",
+    "query":"select * from dim_product order by product_key;",
+}
+*/
+
+/* @Test
+-- Run some setup scripts
+{
+    "name":"test_file_multiple",
+    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+            "testscript/sql/vertica/dim_product_table_create.sql"]
+}
+*/
+```
+
+As explained in more details in this post (TODO: add link), "equal" can be used to compare two projections.
+
+``` plain "equal" clause
+/* @Test
+{
+    "name":"test_count_equivalent",
+    "query":"select product_key, cost from dim_product WHERE ...;",
+    "equal":"select product_key, cost from dim_inventory WHERE ...;"
 }
 */
 ```
