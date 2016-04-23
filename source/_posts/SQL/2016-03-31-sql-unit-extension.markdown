@@ -88,7 +88,9 @@ It will break the current suite of tests for Vertica.
 We should not also subclass the current test runner, in favor of composition.
 Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
 
-### Example
+### Example: Extending for data parity checks
+
+#### Background of data parity checks
 
 Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
 In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
@@ -133,12 +135,7 @@ The more efficient way for this data parity check is to use these two SQL test q
 */
 ```
 
-Using these two queries, we shift most of computing works to the Vertica server side, which will save us computation time (since Vertica server machine is usually much more powerful), data transfer time, and assertion check time.
-The two tables (or projections) have the same data if both of the two test cases pass. 
-Although we have one additional test case, most of computation works (`EXCEPT` operations) are executed on the Vertica server. 
-Moreover, in most of the cases when the tests pass, the data transfer is minimal (zero row).
-
-The two SQL test queries is based on the following set theory identities:
+The two SQL test queries is based on the following [set theory identities](https://en.wikipedia.org/wiki/Algebra_of_sets):
 
 <p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
 
@@ -146,8 +143,18 @@ The two SQL test queries is based on the following set theory identities:
 
 If `Table_A EXCEPT Table_B` returns nothing, it indicates that data in `Table_A` is a subset of data in `Table_B`. Similarly for `Table_B EXCEPT Table_A`. Therefore, if two test cases pass, it means that the data in `Table_A` is equal to the data in `Table_B`.
 
-LIMIT clause.
+Using these two queries, we shift most of computing works (`EXCEPT` operations) to the Vertica server side. 
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In summary, this will save us lots of computation time (since Vertica server machine is usually much more powerful), data transfer time, and assertion check time.
 
+The `limit 20` clause is also for minimizing data transfer and local computation works.
+When the expected return of the test SQL query is nothing (i.e., `"expected" : ""`), we should always add LIMIT clause to the query. 
+This will save some test-running time and make your log file cleaner when something went wrong and caused the test to fail.
+For example, if there are 100000 additional, erroneous rows of data in `new_table_name` for some reason, the test case "parity_check_reverse" will fail. 
+However, instead of transferring 100000 rows, only 20 of those will be sent to the local host (test machine), thanks to the `LIMIT` clauses. 
+In addition, the log file of the Test Runner will NOT be flooded with 100000 rows of erroneous data while 20 sample rows are probably enough to investigate what happened.
+
+#### Extending SQL Test Runner
 
 Add new JSON.
 
