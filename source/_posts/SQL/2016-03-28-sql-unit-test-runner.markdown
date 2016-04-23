@@ -37,11 +37,50 @@ The SQL Test Runner will:
 1. Compare actual output with the expected output, raise `AssertionError` if needed.
    * Note that the TestRunner can either exit immediately upon `AssertionError` or run all test queries and list all `AssertionError`s at the end.
    
-TODO: new line in JSON
+As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in "query" clause) for aligning and formatting the query, especially when the query is long and complex.
+
+``` plain Example complex test query
+/* @Test
+{
+  "name" : "check_traffic",
+  "query" : "WITH Total_Traffic AS
+      (
+          SELECT temp.* from temp as clickstream_data
+          where .... -- filtering
+      )
+      , Rock_Music as
+      (
+          select * from Total_Traffic
+          WHERE lower(evar28) LIKE 'rock_mus%'
+      )
+      , Instrumental_Music as
+      (
+          select * from Total
+          WHERE evar28 LIKE '%[ins_mus]%'
+      )
+      , Defined_Traffic as
+      (
+          select * from Rock_Music
+          UNION
+          select * from Instrumental_Music
+      )
+      select traffic_date_key
+      , count(distinct visitor_id) as unique_visitor
+      from Defined_Traffic
+      group by traffic_date_key",
+  "expected" : "2016-03-16 123"
+}
+*/
+```
+
+Note that in pure JSON, newlines are NOT allowed and the above JSON when deserializing directly will report syntax errors.
+However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
+Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (`\s+`) in test block with a single space (` `).
+The additional computation is minimal and it is quite a good trade-off for much better *readability* of the test scripts.
 
 ### Example usage
 
-This section list some *lame* examples to illustrate some standard, common usage of test blocks.
+This section list some simple examples to illustrate some standard, common usage of test blocks.
 
 ``` plain Compare test query's output with expected output
 /* @Test
@@ -56,7 +95,7 @@ This section list some *lame* examples to illustrate some standard, common usage
 Multiple rows, multiple columns can also be used as expected output.
 All output of the test query will be normalized to String before comparison.
 For **readability**, we can add whitespaces and newlines into expected output string to align rows and columns.
-The actual and expected output is pre-processed to replace all whitespace characters (`\s+`) with a single space (` `).
+Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (`\s+`) with a single space (` `).
 
 ``` plain Expected output with multiple rows, multiple columns
 /* @Test
@@ -72,7 +111,7 @@ The actual and expected output is pre-processed to replace all whitespace charac
 ```
 
 In many situations, the row count of a table is not definitely known.
-However, we still know that its row count should fall in some number range, such as larger than 100.
+However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
 The Test Runner allows you to add some simple logical expression in "expected" clause.
 It is tester's responsibility to make sure the test query returns some numbers and the logical expression makes sense.
 
@@ -98,6 +137,8 @@ It is tester's responsibility to make sure the test query returns some numbers a
 ```
 
 Note that in the examples above, inline comments can be added into test block using SQL's `--` inline comment notation.
+In addition to "name", "query" and "expected", you can add a list of script files to be executed in a "file" clause, as shown in the following example.
+The test query will be executed after all the scripts have been executed.
 
 ``` plain "file" key to execute shared statements
 /* @Test
@@ -111,12 +152,41 @@ Note that in the examples above, inline comments can be added into test block us
 */
 ```
 
+In practice, you should use the above "file" clause for:
+
+* Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables for synthetic data.
+* Reusing the most common tests (e.g., count, constraint checks).
+* Making the original test scripts less cluttered with repeated SQL queries or statements.
+
+For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class: 
+
+``` java
+/**
+ * POJO for simple JSON test block
+ * 
+ * @author tdongsi
+ */
+public class NameQueryExpected {
+	// Test name
+	public String name;
+	// File lists to run
+	public List<String> file;
+	// Test query in SQL
+	public String query;
+	// Expected output of the test query above
+	public String expected;
+}
+```
+
+Note that all attributes in POJO are optional, NOT required to be defined at all time.
+The most commonly used is ("name", "query", "expected") combination, but you can see others such as the following: 
+
 ``` plain Some other uses
 /* @Test
--- Just want to make sure the query can execute
+-- Just want to make sure this query can be executed. Outputs can vary.
 {
-    "name":"test_ignore_output",
-    "query":"select * from dim_product order by product_key;",
+    "name": "test_ignore_output",
+    "query": "select * from dim_product order by product_key;",
 }
 */
 
@@ -130,15 +200,36 @@ Note that in the examples above, inline comments can be added into test block us
 */
 ```
 
-As explained in more details in this post (TODO: add link), "equal" can be used to compare two projections.
+### Advanced usage
+
+Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:
+
+``` java 
+/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author cdongsi
+ */
+public class NameQueryEqual {
+	// Test name. NOTE: This is ignored when comparing two POJOs.
+	public String name;
+	// File lists to run
+	public List<String> file;
+	// Test query in SQL
+	public String query;
+	// Equivalent query in SQL
+	public String equal;
+}
+```
+
+As explained in more details in [this post](/blog/2016/04/16/sql-unit-extension/), "equal" is a recently added capability to easiliy compare two tables or projections from tables.
 
 ``` plain "equal" clause
 /* @Test
 {
-    "name":"test_count_equivalent",
+    "name":"test_data_equivalent",
     "query":"select product_key, cost from dim_product WHERE ...;",
     "equal":"select product_key, cost from dim_inventory WHERE ...;"
 }
 */
 ```
-
