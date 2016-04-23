@@ -222,7 +222,7 @@ public class NameQueryEqual {
 }
 ```
 
-As explained in more details in [this post](/blog/2016/04/16/sql-unit-extension/), "equal" is a recently added capability to easily compare two tables or projections from tables.
+As explained in more details in [this post](/2016/04/17/sql-unit-data-parity/), "equal" is a recently added capability to easily compare two tables or projections from tables.
 
 ``` plain "equal" clause
 /* @Test
