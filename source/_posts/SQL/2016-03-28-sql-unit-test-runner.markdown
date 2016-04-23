@@ -35,7 +35,7 @@ The SQL Test Runner will:
    * As shown in [this](/blog/2016/04/10/sql-unit-incremental-data-update/) and [this](/blog/2016/04/16/sql-unit-extension/), we can add custom JSON for different testing needs.
 1. Send the query to the database, and get the actual output from the database.
 1. Compare actual output with the expected output, raise `AssertionError` if needed.
-   * Note that the TestRunner can either exit immediately upon `AssertionError` or run all test queries and list all `AssertionError`s at the end.
+   * Note that the Test Runner can either exit immediately upon `AssertionError` or run all test queries and list all `AssertionError`s at the end.
    
 As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in "query" clause) for aligning and formatting the query, especially when the query is long and complex.
 
@@ -208,7 +208,7 @@ Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as fol
 /**
  * POJO for JSON test block comparing two projections
  * 
- * @author cdongsi
+ * @author tdongsi
  */
 public class NameQueryEqual {
 	// Test name. NOTE: This is ignored when comparing two POJOs.
@@ -222,7 +222,7 @@ public class NameQueryEqual {
 }
 ```
 
-As explained in more details in [this post](/blog/2016/04/16/sql-unit-extension/), "equal" is a recently added capability to easiliy compare two tables or projections from tables.
+As explained in more details in [this post](/blog/2016/04/16/sql-unit-extension/), "equal" is a recently added capability to easily compare two tables or projections from tables.
 
 ``` plain "equal" clause
 /* @Test
