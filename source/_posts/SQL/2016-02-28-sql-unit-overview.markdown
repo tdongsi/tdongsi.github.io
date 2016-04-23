@@ -60,8 +60,8 @@ It should be noted that two groups of tests complement each other in assuring qu
 
 ### Extending SQL Test Runner
 
-SQL testing for ETL process is a pretty new area to me.
-Therefore, the SQL Unit Test framework must be able to support any new testing needs should they arise.
+SQL testing for ETL process is a pretty new area to us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
 This [blog post](/blog/2016/04/16/sql-unit-extension/) explains how to extend the test framework to add new functionality or features. 
 The SQL Unit Test framework is designed based on [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle), and uses design patterns like Template Method and Strategy to make it easy to add new functionality.
 For illustration, I will discuss how I recently added a new functionality to handle a new kind of tests.
