@@ -211,7 +211,7 @@ Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as fol
  * @author tdongsi
  */
 public class NameQueryEqual {
-	// Test name. NOTE: This is ignored when comparing two POJOs.
+	// Test name.
 	public String name;
 	// File lists to run
 	public List<String> file;

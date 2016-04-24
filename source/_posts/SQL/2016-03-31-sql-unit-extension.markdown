@@ -87,3 +87,7 @@ If we need a test runner that is able to run an ETL script in **Netezza** databa
 It will break the current suite of tests for Vertica.
 We should not also subclass the current test runner, in favor of composition.
 Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
+
+### Example
+
+See [here](/blog/2016/04/17/sql-unit-data-parity/).
