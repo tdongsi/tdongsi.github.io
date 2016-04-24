@@ -9,7 +9,8 @@ categories:
 - Testing
 ---
 
-For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+Navigation: [Overview](/blog/2016/03/16/sql-unit-overview/), 
+[Pt 1](/blog/2016/03/20/sql-unit-functional-tests/).
 
 In this blog post, I shows some example test cases using the SQL Test Runner, introduced in "Level 3" in [this post](/blog/2016/03/20/sql-unit-functional-tests/).
 As it is mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: **prioritize readability of tests when possible**.

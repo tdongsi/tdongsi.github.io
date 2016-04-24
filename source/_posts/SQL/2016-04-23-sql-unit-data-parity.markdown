@@ -8,11 +8,17 @@ categories:
 - SQL
 - Automation
 - Testing
-- Vertica
 - Java
+- Database
 ---
 
-For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+Navigation: [Overview](/blog/2016/03/16/sql-unit-overview/), 
+[Pt 1](/blog/2016/03/20/sql-unit-functional-tests/), 
+[Pt 2](/blog/2016/03/28/sql-unit-test-runner/), 
+[Pt 3](/blog/2016/04/10/sql-unit-incremental-data-update/), 
+[Pt 4](/blog/2016/04/12/sql-unit-testing/), 
+[Pt 5](/blog/2016/04/14/sql-unit-vs-functional/), 
+[Pt 6](/blog/2016/04/16/sql-unit-extension/).
 
 As an example to discussion in [this post](/blog/2016/04/16/sql-unit-extension/), I will discuss how I recently added a new functionality to handle a new kind of tests.
 
@@ -71,7 +77,7 @@ If `Table_A EXCEPT Table_B` query returns nothing, it indicates that data in `Ta
 Similarly for `Table_B EXCEPT Table_A` query. 
 Therefore, if two test cases pass, it means that the data in `Table_A` is equal to the data in `Table_B`.
 
-Using these two queries, we shift most of computing works (`EXCEPT` operations) to the Vertica server side, which is faster since Vertica server cluster is usually much more powerful than our individual computers. 
+Using these two queries, we shift most of computing works (`EXCEPT` operations) to the database server side, which is faster since the server cluster is usually much more powerful than our individual computers. 
 Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
 In short, this will save us lots of computation time, data transfer time, and assertion check time.
 

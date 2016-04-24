@@ -10,7 +10,12 @@ categories:
 - Java
 ---
 
-For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
+Navigation: [Overview](/blog/2016/03/16/sql-unit-overview/), 
+[Pt 1](/blog/2016/03/20/sql-unit-functional-tests/), 
+[Pt 2](/blog/2016/03/28/sql-unit-test-runner/), 
+[Pt 3](/blog/2016/04/10/sql-unit-incremental-data-update/), 
+[Pt 4](/blog/2016/04/12/sql-unit-testing/), 
+[Pt 5](/blog/2016/04/14/sql-unit-vs-functional/).
 
 In this post, I will discuss the design of the SQL Test Runner.
 From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
