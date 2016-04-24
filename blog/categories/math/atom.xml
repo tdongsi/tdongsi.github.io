@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Math | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/math/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-04-24T02:23:36-07:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Rabin-Miller Primality Test]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test/"/>
+    <updated>2016-04-20T22:07:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test</id>
+    <content type="html"><![CDATA[<p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p></p><p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p></p><p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p></p><p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote></p>
+
+<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+
+<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
+
+<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
+
+<ul>
+<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
+</ul>
+
+
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+
+<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
+
+<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
+
+<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
+
+<p><figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Decompose</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span> <span class="n">where</span> <span class="n">d</span> <span class="ow">is</span> <span class="n">odd</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="n">where</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">exp = 0</span>
+</span><span class='line'><span class="sd">while num &amp;amp; 1 == 0:  # check num % 2 == 0 but probably faster</span>
+</span><span class='line'><span class="sd">    num &amp;gt;&amp;gt;= 1</span>
+</span><span class='line'><span class="sd">    exp += 1</span>
+</span><span class='line'><span class="sd">return exp, num</span>
+</span><span class='line'><span class="sd">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;p&gt;def is_pseudo_prime(prime, trial=10):</span>
+</span><span class='line'><span class="sd">    &amp;ldquo;&amp;rdquo;&amp;ldquo; Rabin Miller test of primality.&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;pre&gt;&lt;code&gt;:param prime: the input number.</span>
+</span><span class='line'><span class="sd">:param trial: Number of Rabin-Miller trial.</span>
+</span><span class='line'><span class="sd">:return: True if all trials passed, False if not.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
+</span><span class='line'>                <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For next iterations, -1 implies prime, 1 implies composite</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Labor saving steps</span>
+</span><span class='line'><span class="k">if</span> <span class="n">prime</span> <span class="o">&amp;</span><span class="n">lt</span><span class="p">;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'><span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>Some notes about this implementation:</p>
+
+<ul>
+<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
+<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
+<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
+<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
+</ul>
+
+
+<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
+
+<p><figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Modify</span> <span class="n">Rabin</span> <span class="n">Miller</span> <span class="n">test</span> <span class="n">of</span> <span class="n">primality</span> <span class="n">to</span> <span class="n">find</span> <span class="n">factor</span> <span class="n">of</span> <span class="n">composite</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">prime</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="n">param</span> <span class="n">trial</span><span class="p">:</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trials</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">prime</span> <span class="p">(</span><span class="nb">all</span> <span class="n">trials</span> <span class="n">passed</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="o">.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="sd">SMALL_PRIMES = [ 2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,</span>
+</span><span class='line'><span class="sd">              43,  47,  53,  59,  61,  67,  71,  73,  79,  83,  89,  97, 101]</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">def rabin_miller_trial(num):</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span> <span class="n">Find</span> <span class="n">factor</span> <span class="n">based</span> <span class="n">on</span> <span class="n">the</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trial</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">a</span> <span class="n">random</span> <span class="s">&quot;witness&quot;</span> <span class="n">of</span> <span class="n">primality</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="p">,</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">probably</span> <span class="n">prime</span><span class="o">.</span>
+</span><span class='line'>    <span class="s">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s">    num = pow(num, remainder, prime)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'><span class="s">    if num == 1 or num == prime - 1:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    else:</span>
+</span><span class='line'><span class="s">        gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">        if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">            return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For next iterations, -1 implies prime, 1 implies composite</span>
+</span><span class='line'><span class="s">    for _ in xrange(exponent):</span>
+</span><span class='line'><span class="s">        num = pow(num, 2, prime)</span>
+</span><span class='line'><span class="s">        if num == prime - 1:</span>
+</span><span class='line'><span class="s">            return 1</span>
+</span><span class='line'><span class="s">        else:</span>
+</span><span class='line'><span class="s">            gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">            if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">                return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # It is a composite, but could not find a factor</span>
+</span><span class='line'><span class="s">    return -1</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Labor saving steps</span>
+</span><span class='line'><span class="s">if prime &amp;lt; 2:</span>
+</span><span class='line'><span class="s">    raise ValueError(&quot;Unexpected input&quot;)</span>
+</span><span class='line'><span class="s">for p in SMALL_PRIMES:</span>
+</span><span class='line'><span class="s">    if p * p &amp;gt; prime:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    if prime % p == 0:</span>
+</span><span class='line'><span class="s">        return p</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="s">exponent, remainder = decompose(prime - 1)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">for _ in xrange(trial):</span>
+</span><span class='line'><span class="s">    num = random.randint(2, prime - 2)</span>
+</span><span class='line'><span class="s">    factor = rabin_miller_trial(num)</span>
+</span><span class='line'><span class="s">    if factor &amp;gt; 1:</span>
+</span><span class='line'><span class="s">        return factor</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">return 1</span>
+</span><span class='line'><span class="s">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">&lt;p&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
+Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
+If J is much larger and close to the number of all jamcoins with length N available, then using modified Rabin-Miller test is probably required.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed to be within the memory limit, it is still time-consuming to do data transfer for the two SQL returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, the test execution machine (e.g., our computers).</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If <code>Table_A EXCEPT Table_B</code> query returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the Vertica server side, which is faster since Vertica server cluster is usually much more powerful than our individual computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+When something went wrong and caused the test to fail, this will save some waiting time and make your log file cleaner .
+For example, if there are 100000 additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring 100000 rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with 100000 rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, with about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, from the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular structure of SQL Test Runner.
+We only need to extract the two projections from <code>NameQueryEqual</code> POJO, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> POJOs, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> POJOs to it.
+Note that this is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
+  
+</feed>

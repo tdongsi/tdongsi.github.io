@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Sql | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/sql/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-15T22:20:20-07:00</updated>
+  <updated>2016-04-24T02:23:36-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -14,578 +14,672 @@
 
   
   <entry>
-    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
-    <updated>2016-02-13T23:52:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
-    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
 
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+<h3>Background of data parity checks</h3>
 
-<pre><code class="sql BAD">SELECT 'United States', 'English' 
-WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
 </code></pre>
 
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
+<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed to be within the memory limit, it is still time-consuming to do data transfer for the two SQL returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, the test execution machine (e.g., our computers).</p>
 
-<pre><code class="sql GOOD">SELECT 'United States', 'English' 
-WHERE 'United States' NOT IN (select country_name from dim_country)
+<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
 </code></pre>
 
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
 
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
 
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
-WHERE dc.country_id is NULL;
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If <code>Table_A EXCEPT Table_B</code> query returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the Vertica server side, which is faster since Vertica server cluster is usually much more powerful than our individual computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+When something went wrong and caused the test to fail, this will save some waiting time and make your log file cleaner .
+For example, if there are 100000 additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring 100000 rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with 100000 rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, with about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
 </code></pre>
 
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, from the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
 
-<pre><code class="sql GOOD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
-</code></pre>
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
-WHERE dc.country_name is NULL;
-</code></pre>
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<pre><code class="sql BETTER, but still BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_country);;
-</code></pre>
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
+<p>Implementation of this new feature is summarized in the following steps:</p>
 
 <ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
 </ol>
 
 
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
 
-<pre><code class="sql BAD">CREATE TEMPORARY TABLE customer_last_temp 
-ON COMMIT PRESERVE ROWS
-AS(
-  select * from (
-    select *,
-    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
-    from  stg_customer rpt 
-  ) t1 where t1.rank =1
-);
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
 </code></pre>
 
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
 
-<pre><code class="sql Create a temporary table without projection">CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
-        customer_id                     int,
-        subscribe_date                  timestamp,
-        cancel_date                     timestamp,
-        last_modify_date                timestamp,
-)
-ON COMMIT PRESERVE ROWS NO PROJECTION;
-</code></pre>
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<pre><code class="sql Create a super projection">CREATE PROJECTION customer_last_temp_super (
-      customer_id ENCODING DELTARANGE_COMP 
-    , subscribe_date ENCODING GCDDELTA
-    , cancel_date ENCODING BLOCKDICT_COMP     
-    , last_modify_date ENCODING BLOCKDICT_COMP 
-)
-AS 
-SELECT customer_id 
-     , subscribe_date
-     , cancel_date
-     , last_modify_date
-  FROM customer_last_temp 
- ORDER BY customer_id
-SEGMENTED BY HASH (customer_id) ALL NODES;
-</code></pre>
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<pre><code class="sql Populate the table">INSERT /*+ direct */ INTO customer_last_temp (
-      customer_id 
-    , subscribe_date 
-    , cancel_date 
-    , last_modify_date 
-)
-WITH t1 AS (
-    SELECT company_id 
-         , subscribe_date 
-         , cancel_date 
-         , last_modify_date 
-         , ROW_NUMBER() OVER (PARTITION BY customer_id 
-                                  ORDER BY last_modify_date DESC) AS rank 
-      FROM stg_customer AS rpt 
-)
-SELECT company_id 
-     , subscribe_date 
-     , cancel_date 
-     , last_modify_date 
-FROM t1
-WHERE t1.rank = 1;  
-</code></pre>
-
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular structure of SQL Test Runner.
+We only need to extract the two projections from <code>NameQueryEqual</code> POJO, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> POJOs, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> POJOs to it.
+Note that this is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[WITH Clause in SQL]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/"/>
-    <updated>2016-02-03T00:50:48-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause</id>
-    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
-<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
-Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
-For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+    <title type="html"><![CDATA[(Pt. 6) Extending SQL Test Runner]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/"/>
+    <updated>2016-04-16T17:49:34-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
-This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
 
-<p>For example, we can look into the following <code>SELECT</code> query:</p>
+<h3>Design Overview of SQL Test Runner</h3>
 
-<pre><code class="sql Hard to read">SELECT * FROM (
-  SELECT *,
-  row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
-  FROM stg_customer
-) sorted_by_modify_date where sorted_by_modify_date.rank =1
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
+
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
+
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <strong>Template Method</strong> and <strong>Strategy</strong> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
+
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple parsing and workflow provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), subsequently delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+
+<pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
+private TestStrategy testHandler;
+private JdbcConnection connection;
+
+@Override
+public final void runScript(String filePath) throws IOException, SQLException {
+    SoftAssert sAssert = new SoftAssert();
+
+    // Read in the SQL script
+    String content = SqlTestUtility.readFile(filePath);
+
+    // Remove comments
+    String sqlCode = TestBlockUtility.removeComments(content);
+
+    Matcher m = TestBlockUtility.testBlockRegex.matcher(sqlCode);
+    int startIndex = 0;
+    while (m.find()) {
+
+        String currentSql = sqlCode.substring(startIndex, m.start());
+        if ( currentSql.trim().length() &gt; 0 )
+            codeHandler.runSqlCode(currentSql, connection);;
+
+        testHandler.runTest( m.group(), connection, sAssert );
+
+        startIndex = m.end();
+    }
+
+    codeHandler.runSqlCode(sqlCode.substring(startIndex), connection );
+    sAssert.assertAll();
+}
 </code></pre>
 
-<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
-To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
-In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
-The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
 
-<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
+<pre><code class="sql Example unit test script">-- This will be handled by some CodeStrategy class
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
+VALUES (123,current_timestamp-19,'US');
 
-<pre><code class="sql Easy to read">WITH sorted_by_modify_date AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id 
-                                  ORDER BY last_modify_date DESC) AS rank 
-    FROM stg_customer
-)
-SELECT * FROM sorted_by_modify_date
-WHERE sorted_by_modify_date.rank = 1;  
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+-- This will be handled by some TestStrategy class
+/* @Test
+-- First ETL run
+{
+    "name" : "Day1_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day1_check_email_address",
+    "query" : "select company_id, email_address from dim_company",
+    "expected" : "123 before@mockdata.com"
+}
+*/
 </code></pre>
 
-<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
-The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
-We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
-Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
-We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
 
-<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
-
-<pre><code class="sql Traffic classification of a Music website">WITH Total_Traffic AS
-(
-    SELECT temp.* from temp as clickstream_data
-    where .... -- filtering
-)
-, Rock_Music as
-(
-    select * from Total_Traffic
-    WHERE lower(evar28) LIKE 'rock_mus%'
-)
-, Instrumental_Music as
-(
-    select * from Total
-    WHERE evar28 LIKE '%[ins_mus]%'
-)
-, Defined_Traffic as
-(
-    select * from Rock_Music
-    UNION
-    select * from Instrumental_Music
-)
-select traffic_date_key
-, count(distinct visitor_id) as unique_visitor
-from Defined_Traffic 
-group by traffic_date_key
+<pre><code class="java Example TestRunner">/**
+ * Test runner that uses Vertica JDBC connection.
+ * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
+ * 
+ * @author tdongsi
+ */
+public class VerticaRunner extends BaseTestRunner implements TestRunner {
+    public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
+        this.setCodeHandler(new SqlCodeHandler());
+        this.setTestHandler(new VerticaTestHandler(vsqlPath));
+        this.setConnection(jdbcConn);
+    }
+}
 </code></pre>
 
-<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
-Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
-Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+<h3>Extending Test Runner</h3>
 
-<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.</p>
 
-<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
-Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/"/>
-    <updated>2015-12-18T21:39:56-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
-    <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
+    <title type="html"><![CDATA[(Pt. 5) Big Data: Functional Tests vs. Unit Tests]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional/"/>
+    <updated>2016-04-14T17:21:12-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
+<p>In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:</p>
 
-<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
+<table>
+<thead>
+<tr>
+<th>       </th>
+<th> Functional tests      </th>
+<th> Unit tests </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Data         </td>
+<td> Production-like data </td>
+<td> Mock (synthetic) data </td>
+</tr>
+<tr>
+<td> Environment  </td>
+<td> Pre-production. Tables deployed once. </td>
+<td> Local VM. Regular setup/teardown. </td>
+</tr>
+<tr>
+<td> Coverage     </td>
+<td> Passive: Coverage depends on diverse real data. </td>
+<td> Active: Mock data created to force corner cases. </td>
+</tr>
+<tr>
+<td> Example usage </td>
+<td> Snapshot testing </td>
+<td> Incrementa data update testing </td>
+</tr>
+</tbody>
+</table>
 
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
 
-<pre><code class="sql Query to list tables' sizes in a schema">select anchor_table_schema, anchor_table_name, sum(used_bytes)
-FROM v_monitor.column_storage
-where anchor_table_schema = 'some_schema'
-group by anchor_table_schema, anchor_table_name
-</code></pre>
+<p><br></p>
 
-<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
+<p>It should be noted that functional and unit tests are complementary to each other.
+Certain aspects of ETLs can be better verified as functional tests while others of the same ETLs should be verified as unit tests.
+For example, as discussed in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this post</a>, unit tests are better suited for testing incremental data update in ETL scripts.</p>
 
-<h3>v_catalog schema and TABLES system table</h3>
-
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
-
-<pre><code class="sql Query to list all tables in a schema">select table_schema, table_name from tables
-where table_schema = 'some_schema'
-</code></pre>
-
-<p>Another useful system table in <code>v_catalog</code> schema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
-
-<h3>Find all the empty (truncated) tables</h3>
-
-<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
-
-<pre><code class="sql Query to find empty tables in a schema">select table_name
-from v_catalog.tables
-where table_schema = 'some_schema'
-EXCEPT
-select anchor_table_name
-from v_monitor.column_storage
-where anchor_table_schema = 'some_schema' 
-</code></pre>
-
-<h3>External Links</h3>
-
-<ol>
-<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
-<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
-</ol>
-
+<p>On the other hand, for example, an ETL that performs some kind of classification, such as categorizing user types based on some clickstream patterns, should be tested in functional tests.
+If there are more than 20 categories, it could become daunting to generate and maintain synthetic data for each of those categories.
+Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
+Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
+Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Vertica Tip: Best Practices]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/"/>
-    <updated>2015-12-16T23:12:06-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices</id>
-    <content type="html"><![CDATA[<p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
+    <title type="html"><![CDATA[(Pt. 4) SQL Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing/"/>
+    <updated>2016-04-12T17:45:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<h3>General Tips and Tricks</h3>
+<!-- 
+Changes I made:
+1. Mix of SQL code and test blocks.
+1. New JSON block to run ETL script using VSQL
 
-<h4>CREATE (INSERT)</h4>
+I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
 
-<ul>
-<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
-<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
-<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
-</ul>
+Running ETL script through JDBC is probably not a good idea.
 
+Requirements of unit tests:
 
-<pre><code class="sql DO NOT do this">create table to_schema.to_table_name
-as select * from from_schema.from_table_name;
-</code></pre>
+Readability:
 
-<pre><code class="sql DO this">CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
-INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
-</code></pre>
+#### Single-node VM
 
-<ul>
-<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
-</ul>
+Remove KSAFE.
 
-
-<h4>READ</h4>
-
-<ul>
-<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
-<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
-</ul>
-
-
-<h4>UPDATE &amp; DELETE</h4>
-
-<ul>
-<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
-<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
-</ul>
-
-
-<pre><code class="sql">CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
-INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
-DROP TABLE src_table;
-ALTER TABLE temp_table RENAME TO src_table;
-</code></pre>
-
-<ul>
-<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
-</ul>
-
-
-<h3>Query plan</h3>
-
-<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about <a href="https://my.vertica.com/docs/7.0.x/HTML/Content/Authoring/AdministratorsGuide/EXPLAIN/HowToGetQueryPlanInformation.htm">query plans</a> by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
-
-<pre><code class="sql EXPLAIN statement">EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
-WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
-ORDER BY customer_name LIMIT 10;
-</code></pre>
-
-<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
-
-<pre><code class="bash Query Plan description">EXPLAIN SELECT
-customer_name,
-customer_state
-FROM customer_dimension
-WHERE customer_state in ('MA','NH')
-AND customer_gender = 'Male'
-ORDER BY customer_name
-LIMIT 10;
-Access Path:
-+-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
-|  Output Only: 10 tuples
-|  Execute on: Query Initiator
-| +---&gt; SORT [Cost: 370, Rows: 544] (PATH ID: 1)
-| |      Order: customer_dimension.customer_name ASC
-| |      Output Only: 10 tuples
-| |      Execute on: Query Initiator
-| | +---&gt; STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
-| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
-| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
-| | |      Filter: (customer_dimension.customer_gender = 'Male')
-| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
-| | |      Execute on: Query Initiator
-</code></pre>
-
-<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
-
-<ol>
-<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
-</ol>
-
-
-<h3>External Links</h3>
-
-<ol>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
-<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
-</ol>
-
-]]></content>
-  </entry>
+Add a new test.
   
-  <entry>
-    <title type="html"><![CDATA[Hive Tutorial (Pt. 8): Data Manipulation in HiveQL]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/"/>
-    <updated>2015-12-12T23:34:38-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml</id>
-    <content type="html"><![CDATA[<!--
-<img class="center" src="/images/hive/cat.gif" title="Cover" >
+Revert in Git.
 
-Chapter 5 of the book
+#### Adding  unit test
+
+Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+
+
 -->
 
 
-<p>This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem.</p>
+<p>TODO indefinitely.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 3) Testing Incremental Data Update]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/"/>
+    <updated>2016-04-10T17:46:40-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<h3>LOAD</h3>
+<p>One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
+Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.</p>
 
-<p>Hive has no row-level insert, update, and delete operations. Instead, we use one of its many &ldquo;bulk&rdquo; load operations to put data into a table.</p>
+<h3>Incremental data update</h3>
 
-<pre><code class="sql Hive LOAD">&gt; LOAD DATA LOCAL INPATH '/home/ca-employees'
-OVERWRITE INTO TABLE employees
-PARTITION ( country = 'US', state = 'CA' ); -- remove this if the target is not partitioned
+<p>In the last <a href="/blog/2016/03/16/sql-unit-functional-tests/">blog post</a>, I go over evolution of functional testing in data mart projects.
+In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to validate the tables.</p>
+
+<p>That kind of testing would be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are the latest snapshot of the data.
+Preparing this snapshot might be expensive, especially for daily ETLs, since those tables have to be truncated and reloaded with latest data.
+This can be every inefficient since out of millions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
+Therefore, for performance reasons, the ETLs usually perform <strong>incremental data update</strong>.
+Some characteristics of &ldquo;incremental data update&rdquo; are as follows:</p>
+
+<p>1) Only updated records are incrementally appended into some tables, used for staging purpose (a.k.a. staging tables).
+These tables will be used as input for those ETLs with incremental update.
+For example, let&rsquo;s say there is a company record with ID = 123 and some attribute such as master email <code>before@mock.com</code> on Day 1.
+On Day 2, the company email could be udpated to <code>after@mock.com</code>.
+The original record of company 123 with <code>before@mock.com</code> is not necessarily removed from the staging table.
+Instead, a new row with updated data (ID = 123, email = <code>after@mock.com</code>) is appended into the staging table.</p>
+
+<p>2) To keep the size of input tables and ETL running time bounded, we usually keep only a number of days worth of data in the staging tables.
+In other words, any records older than some <code>D</code> days are truncated from those staging tables.
+For example, after <code>D = 7</code> days since Day 2, if the company <code>ID = 123</code> has no update, its records will be removed from the staging tables.
+Note that, after being truncated, that company <code>ID = 123</code> can be re-inserted into the staging table if some of its attribute is updated.</p>
+
+<p><strong>Risks</strong>: The ETLs with incremental data update are usually much more complex.
+Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company <code>ID = 123</code>.
+In standard approach with snapshot, each record is almost guaranteed unique on primary key, meaning only one row with company <code>ID = 123</code>.
+On the other hand, when data for company <code>ID = 123</code> are truncated from the staging tables after <code>D</code> days (0 row), it simply means that there is no update to that company during the last <code>D</code> days.
+It means that the company should not be removed from the destination tables of the ETL even though the input staging tables contain no such row for <code>ID = 123</code>.
+The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.</p>
+
+<h3>Example scenario</h3>
+
+<p>For sliding window of one week data <code>D = 7</code> in the staging tables <code>stg_company_id</code> and <code>stg_company_contact</code>, the company with <code>ID = 123</code> may have its email address updated like this:</p>
+
+<ul>
+<li>Day 1
+
+<ul>
+<li><code>stg_company_id</code> -> ID: 123, region: US.</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#x62;&#x65;&#102;&#x6f;&#114;&#101;&#x40;&#109;&#x6f;&#99;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#99;&#111;&#x6d;&#46;">&#x62;&#x65;&#x66;&#x6f;&#x72;&#101;&#x40;&#x6d;&#111;&#99;&#107;&#x64;&#x61;&#116;&#x61;&#46;&#99;&#111;&#109;&#x2e;</a> (same company)</li>
+</ul>
+</li>
+<li>Day 3
+
+<ul>
+<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#116;&#x6f;&#x3a;&#97;&#x66;&#116;&#x65;&#114;&#x40;&#109;&#111;&#x63;&#x6b;&#x64;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;">&#x61;&#x66;&#x74;&#x65;&#x72;&#x40;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#116;&#97;&#x2e;&#99;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li><code>stg_company_id</code> has one row with ID = 123.</li>
+<li><code>stg_company_contact</code> has two rows with ID = 123.</li>
+</ul>
+</li>
+<li>Day 10
+
+<ul>
+<li>Data truncated from <code>stg_company_contact</code> as there is no update.</li>
+<li>Data is also truncated from <code>stg_company_id</code> since Day 8 for the same reason.</li>
+<li><code>stg_company_id</code> and <code>stg_company_contact</code> has zero row with ID = 123.</li>
+</ul>
+</li>
+<li>Day 15
+
+<ul>
+<li>Email updated to <a href="&#109;&#97;&#105;&#x6c;&#x74;&#x6f;&#x3a;&#98;&#101;&#x79;&#111;&#x6e;&#100;&#64;&#109;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#97;&#46;&#x63;&#111;&#109;&#46;">&#x62;&#101;&#x79;&#x6f;&#110;&#x64;&#x40;&#x6d;&#111;&#99;&#107;&#100;&#x61;&#116;&#x61;&#46;&#99;&#x6f;&#x6d;&#46;</a></li>
+<li><code>stg_company_id</code> has zero row with ID = 123.</li>
+<li><code>stg_company_contact</code> has one row with ID = 123.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Despite the changing number of rows with <code>ID = 123</code>, the daily ETL should always returns a company with <code>ID = 123</code> in its output, the dimension table <code>dim_company</code>, with the <code>email_address</code> column updated accordingly.</p>
+
+<h3>Initial functionality tests</h3>
+
+<p>Initially, verifying incremental data update of ETLs is very challenging.
+We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
+Specifically, we collected a few sets of staging tables for three days, and then manually simulate each set as the current day data before running the ETL.
+After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.</p>
+
+<p>That process is summarized as the following steps for each day:</p>
+
+<ol>
+<li>Manually set up the staging data (ETL input).</li>
+<li>Manually run the ETL.</li>
+<li>Run the corresponding set of automated functional tests.</li>
+</ol>
+
+
+<p>As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
+It is time consuming to manually set up and run ETLs: for production-like data, the first few days can contain millions of rows for historical data.
+Since we run ETLs multiple times to properly verify incremental update, the running times add up.
+Besides being time-consuming, the process also takes lots of mental energy to do each of the steps right, in the correct order.
+Otherwise, the tests will fail for no apparent reason.</p>
+
+<p>Despite the effort involved, the return is very little.
+Most of the time, the difference in data between a few days or weeks are usually not enough to verify all corner cases in ETL scripts.
+After running tests, we still don&rsquo;t know if a particular ETL will ever break if some infrequently updated column is updated in some particular way.</p>
+
+<h3>Observations</h3>
+
+<p>The painful experience of testing incremental data update for ETLs with production-like data leads to the following observations:</p>
+
+<ol>
+<li>We should only need a small number of records to reduce ETL running time.</li>
+<li>We should create synthetic data to force rare logic branches and corner cases.</li>
+<li>We should have a way to set up data automatically.</li>
+<li>We should have a way to run the ETL under test automatically.</li>
+</ol>
+
+
+<p>These observations, especially small and synthetic data, sounds like unit testing.
+It leads to my strong conviction that incremental data update should tested in a bunch of &ldquo;unit tests&rdquo;, with mock data to force corner cases.</p>
+
+<h3>Unit tests - first look</h3>
+
+<p>I made two changes in the SQL Test Runner to make it easier to do unit testing SQL scripts in Vertica:</p>
+
+<ol>
+<li>Add ability to run the SQL statements to set up data.</li>
+<li>Add ability to call <code>vsql</code> to run a list of specified ETLs.</li>
+</ol>
+
+
+<p>With that, a unit test to verify our ETL (e.g., <code>my_etl.sql</code>) that updates email address incrementally (in the example scenario above) will look like this:</p>
+
+<pre><code class="sql Unit test for the example scenario in section above">/****************************
+* Day 1
+****************************/
+
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+/* @Test
+-- First ETL run
+{
+    "name" : "Day1_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day1_check_email_address",
+    "query" : "select company_id, email_address from dim_company",
+    "expected" : "123 before@mockdata.com"
+}
+*/
+
+/**********************************************************
+Day 3: Email updated in stg_company_contact
+**********************************************************/
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'after@mockdata.com',current_timestamp-12);
+
+
+/* @Test
+-- Day 3 ETL run
+{
+    "name" : "Day3_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day3_check_count",
+    "query" : "select count(*) from dim_company",
+    "expected" : "1"
+}
+*/
+
+/* @Test
+{
+    "name" : "Day3_check_email_address",
+    "query" : "select email_address from dim_company",
+    "expected" : "after@mockdata.com"
+}
+*/
+
+/**********************************************************
+Day 10: Data truncated from staging table
+**********************************************************/
+
+TRUNCATE TABLE stg_company_id;
+TRUNCATE TABLE stg_company_contact;
+
+/* @Test
+-- This ETL run should have no effect
+{
+    "name" : "Day10_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day10_check_count",
+    "query" : "select count(*) from dim_company",
+    "expected" : "1"
+}
+*/
+
+/* @Test
+{
+    "name" : "Day10_check_email_address",
+    "query" : "select email_address from dim_company",
+    "expected" : "after@mockdata.com"
+}
+*/
+
+/**********************************************************
+Day 15: Another update in email
+**********************************************************/
+
+-- Email is updated
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'beyond@mockdata.com',current_timestamp-3);
+
+
+/* @Test
+-- Day 15 ETL run
+{
+    "name" : "Day15_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day15_check_count",
+    "query" : "select count(*) from dim_company",
+    "expected" : "1"
+}
+*/
+
+/* @Test
+{
+    "name" : "Day15_check_email_address",
+    "query" : "select email_address from dim_company",
+    "expected" : "beyond@mockdata.com"
+}
+*/
 </code></pre>
 
-<p>This <code>LOAD</code> command will first create the directory for the partition, if necessary, then copy the data to it.
-If the <code>LOCAL</code> keyword is specified, the path is assumed in the local filesystem.
-If you use the <code>OVERWRITE</code> keyword, any data present in the target directory will be removed.
-Without the keyword, the new files are added to the target directory.
-More details can be found <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML">here</a>.</p>
+<p>Running the unit test script above from TestNG will be similar as in functional tests (see &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/16/sql-unit-functional-tests/">this post</a>).
+After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> functions), there will be minimal Java code added (<code>@Test</code> functions):</p>
 
-<h3>INSERT</h3>
+<pre><code class="java Calling unit test script">@BeforeClass
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+}
 
-<p>The <code>INSERT</code> statement will load data into a table, as shown below:</p>
-
-<pre><code class="sql Hive INSERT">&gt; INSERT OVERWRITE TABLE employees
-PARTITION ( country = 'US', state = 'OR' )
-SELECT * FROM staged_employees se
-WHERE se.cnty = 'US' AND se.st = 'OR';
+@Test(enabled = true)
+public void validate_dim_region() throws Exception {
+        testRunner.runScript("unittests/etl_incremental_update_email.test");
+}
 </code></pre>
 
-<p>If the keyword <code>OVERWRITE</code> is replaced with <code>INTO</code>, Hive appends the data instead of replaces it.</p>
-
-<!--
-Hive also offers an alternative `INSERT` syntax that allows you to scan the input data once and split it multiple ways.
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
-</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
-</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">)</span>
-</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
-</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">)</span>
-</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
--->
-
-
-<p>Similar to other SQL dialects, you can also <code>CREATE TABLE</code> and insert <code>SELECT</code> query results into the new table in a single statement:</p>
-
-<pre><code class="sql">&gt; CREATE TABLE ca_employees
-AS SELECT name, salary, address
-FROM employees
-WHERE se.state = 'CA';
-</code></pre>
-
-<!--
-### Dynamic partition
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
-</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-You can also mix dynamic and static partitions. The following query specifies a static value for the country (US) and a dynamic value for the state:
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
-</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-Dynamic partitioning is not enabled by default. When it is enabled, it works in “strict” mode by default.
-
-<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>&gt; set hive.exec.dynamic.partition=true;
-</span><span class='line'>&gt; set hive.exec.dynamic.partition.mode=nonstrict;</span></code></pre></td></tr></table></div></figure>
--->
-
-
-<h3>Exporting data</h3>
-
-<p>If you want the data files as is, then exporting data can be as simple as copying the directories or files:</p>
-
-<pre><code class="bash">hadoop fs -cp source_path target_path
-</code></pre>
-
-<p>Otherwise, you can use <code>INSERT ... DIRECTORY ...</code> statement with associated <code>SELECT</code> statement to specify the data you want, as in this example:</p>
-
-<pre><code class="sql Export from Hive">&gt; INSERT OVERWRITE LOCAL DIRECTORY '/tmp/ca_employees'
-SELECT name, salary, address
-FROM employees
-WHERE se.state = 'CA';
-</code></pre>
+<p>The full setup for unit testing will be discussed in the next blog post.</p>
 ]]></content>
   </entry>
   

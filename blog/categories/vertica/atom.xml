@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-15T22:20:20-07:00</updated>
+  <updated>2016-04-24T02:23:36-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,520 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed to be within the memory limit, it is still time-consuming to do data transfer for the two SQL returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, the test execution machine (e.g., our computers).</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If <code>Table_A EXCEPT Table_B</code> query returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the Vertica server side, which is faster since Vertica server cluster is usually much more powerful than our individual computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+When something went wrong and caused the test to fail, this will save some waiting time and make your log file cleaner .
+For example, if there are 100000 additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring 100000 rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with 100000 rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, with about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, from the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular structure of SQL Test Runner.
+We only need to extract the two projections from <code>NameQueryEqual</code> POJO, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> POJOs, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> POJOs to it.
+Note that this is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 4) SQL Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing/"/>
+    <updated>2016-04-12T17:45:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<!-- 
+Changes I made:
+1. Mix of SQL code and test blocks.
+1. New JSON block to run ETL script using VSQL
+
+I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
+
+Running ETL script through JDBC is probably not a good idea.
+
+Requirements of unit tests:
+
+Readability:
+
+#### Single-node VM
+
+Remove KSAFE.
+
+Add a new test.
+  
+Revert in Git.
+
+#### Adding  unit test
+
+Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+
+
+-->
+
+
+<p>TODO indefinitely.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 1) Functional Testing for Data Marts]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/"/>
+    <updated>2016-03-20T23:18:33-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.</p>
+
+<h3>Level 0: Manual testing</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Easy to get started.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Time consuming for many tests with multiple runs.</li>
+<li>Not repeatable.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>Early on in Big Data projects, there was not much automation.
+Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
+There are not many tools available for automated testing of SQL scripts, especially for Vertica.</p>
+
+<p>At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
+Data analysts are <em>de facto</em> end-users and main testers and many of those test queries are based on their experience.</p>
+
+<p><img class="center" src="/images/sql/SQuirreL.png" title="Manual testing" ></p>
+
+<p>We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
+This process is pretty much manual. If an ETL is updated <code>n</code> times, we have to repeat this <code>n</code> times.
+Most of the test queries can only tests the <strong>end results</strong> of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
+If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
+Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is &ldquo;unusually&rdquo; high today, which &ldquo;seems&rdquo; to indicate that ETL went wrong in some intermediate step.</p>
+
+<!--
+Functions is not common. 
+-->
+
+
+<h3>Level 1: TestNG</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Java and SQL codes are cluttered together.</li>
+<li>Hard to read, hard to maintain.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>After some rounds of manual testing, we started looking into automating the process.
+Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation.
+The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries.
+Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
+The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution.</p>
+
+<pre><code class="java Test query as constant Java string">public static final int DIM_REGION_COUNT = 245;
+
+@Test(enabled = true)
+public void validate_dim_region() {
+        // First test query
+        String query = "select count(*) from dim_region";
+        int output = getJdbcConnection().executeQuery(query);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
+
+        // Second test query
+}
+</code></pre>
+
+<p>Here, the test queries are defined as constant strings in Java.
+Note that the test query above is intended to be simple to illustate the automation.
+The actual test queries are usually more complex than that.
+The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
+We also remove heuristic tests that cannot be verified using assertions.
+Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
+In addition, we add tests to verify intermediate steps of the ETL processes.</p>
+
+<p>The problem of this approach is that the SQL tests are heavily cluttered by Java codes.
+This problem is getting worse when the test queries are usually more complex that they cannot fit into single lines, such as one shown below.
+When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source files.</p>
+
+<pre><code class="java A complex SQL query as Java string">        String query = "WITH Total_Traffic AS\n" + 
+                "(\n" + 
+                "    SELECT temp.* from temp as clickstream_data\n" + 
+                "    where filter_key = 1\n" + 
+                ")\n" + 
+                ", Rock_Music as\n" + 
+                "(\n" + 
+                "    select * from Total_Traffic\n" + 
+                "    WHERE lower(evar28) LIKE 'rock_mus%'\n" + 
+                ")\n" + 
+                ", Instrumental_Music as\n" + 
+                "(\n" + 
+                "    select * from Total\n" + 
+                "    WHERE evar28 LIKE '%[ins_mus]%'\n" + 
+                ")\n" + 
+                ", Defined_Traffic as\n" + 
+                "(\n" + 
+                "    select * from Rock_Music\n" + 
+                "    UNION\n" + 
+                "    select * from Instrumental_Music\n" + 
+                ")\n" + 
+                "select traffic_date_key\n" + 
+                ", count(distinct visitor_id) as unique_visitor\n" + 
+                "from Defined_Traffic\n" + 
+                "group by traffic_date_key";
+</code></pre>
+
+<h3>Level 2: Properties files</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+<li>It is easier to manage SQL test queries. Each test has a name.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.</li>
+<li>All queries have to be in a single line. Hard to read for long test queries.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>For the next step, we tried to resolve the problem of Java and SQL codes mixed together.
+In this approach, SQL tests and Java codes are partitioned, with SQL queries are contained in <code>.properties</code> files, separate from supporting Java codes in <code>.java</code> files.
+The SQL test queries will be read by TestNG test cases, using key strings, before sending to database for execution.
+The same example above, when organized in this approach, will be as follows:</p>
+
+<pre><code class="java Test query in properties file">public static final int DIM_REGION_COUNT = 245;
+public static final String TEST_QUERY_RESOURCE = "test_queries.properties";
+
+@Test(enabled = true)
+public void validate_dim_region() {
+        // First test query
+        String query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_count");
+        int output = getJdbcConnection().executeQuery(query);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
+
+        // Second test query
+        query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_data");
+}
+</code></pre>
+
+<pre><code class="properties test_queries.properties">dim_region_count=select count(*) from dim_region
+dim_region_data=another test query to verify data
+</code></pre>
+
+<p>Using this approach, each test can have a name to express its purpose.
+One can get an overview of the SQL test queries by simply looking at the <code>properties</code> file.
+The supporting Java code that executes those test queries are abstracted into separate <code>java</code> files and can be ignored.</p>
+
+<p>The problems of the above approach are:</p>
+
+<p>(1) SQL test queries are really hard to read in <code>properties</code> file.
+Each SQL test string must be in a single line.
+Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid.
+Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with <a href="https://en.wikipedia.org/wiki/Star_schema">star schema</a>.
+For hundreds of test cases with complex queries like example below, it is impossible to read in <code>.properties</code> file.</p>
+
+<pre><code class="properties complex_test_queries.properties">complex_query=WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE 'rock_mus%'), Instrumental_Music as (select * from Total WHERE evar28 LIKE '%[ins_mus]%'), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key
+</code></pre>
+
+<p>(2) Parts of tests are still in Java (in TestNG assertions), making them hard to maintain and less accessible to data analysts.
+From the <code>properties</code> file, it is not clear what is the expected output of the SQL queries.
+If there is a test failure, one still has to look it up in Java codes to understand and investigate.
+Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
+It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0.
+For example, a common test query is to find all duplicate records, which is expected to has zero row returned.
+Even those simple assertions have to be encoded using Java and TestNG&rsquo;s library methods.</p>
+
+<h3>Level 3: Script files</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+<li>It is easier to maintain SQL test queries.</li>
+<li>Assertions/Expected outputs are paired with test queries.</li>
+<li>Readable by data analysts.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Slightly more complex setup to instantiate a SQL Test Runner.</li>
+<li>Slightly longer running time.</li>
+</ol>
+</li>
+</ul>
+
+
+<h4>Motivation</h4>
+
+<p>In recent Big Data projects, I tried to explore a way to improve readability of SQL tests.
+The main motivation for this &ldquo;Level 3&rdquo; is my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
+
+<p>Readable tests are easier to write, automate, and maintain.
+More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test?
+It does not make sense to write tests for tests.
+Only by making tests <strong>readable</strong>, you can verify and maintain the tests.</p>
+
+<p>Readable tests also promote collaboration between developers, data analysts and QEs.
+Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
+If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.</p>
+
+<h4>Implementation</h4>
+
+<p>In this approach, I implemented a <a href="/blog/2016/03/28/sql-unit-test-runner/">test framework</a>. The same tests shown in the last sections, using that framework, will look like this:</p>
+
+<pre><code class="java Test query in test files">private SqlTestRunner testRunner;
+
+@Before
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+}
+
+@Test(enabled = true)
+public void validate_dim_region() throws Exception {
+        testRunner.runScript("testscript/dim_region.test");
+}
+</code></pre>
+
+<pre><code class="plain dim_region.test">/* @Test
+{
+  "name" : "dim_region_count",
+  "query" : "select count(*) from dim_region",
+  "expected" : "245"
+}
+*/
+
+/* This is a comment.
+Complext test query follows.
+*/
+
+/* @Test
+{
+  "name" : "check_traffic",
+  "query" : "WITH Total_Traffic AS
+      (
+          SELECT temp.* from temp as clickstream_data
+          where .... -- filtering
+      )
+      , Rock_Music as
+      (
+          select * from Total_Traffic
+          WHERE lower(evar28) LIKE 'rock_mus%'
+      )
+      , Instrumental_Music as
+      (
+          select * from Total
+          WHERE evar28 LIKE '%[ins_mus]%'
+      )
+      , Defined_Traffic as
+      (
+          select * from Rock_Music
+          UNION
+          select * from Instrumental_Music
+      )
+      select traffic_date_key
+      , count(distinct visitor_id) as unique_visitor
+      from Defined_Traffic
+      group by traffic_date_key",
+  "expected" : "2016-03-16 123"
+}
+*/
+</code></pre>
+
+<p>The file that contains SQL test queries is conventionally named with <code>.test</code> extension.
+However, the file can be a text file with any name.
+As you can see, the benefits of &ldquo;Level 2&rdquo; is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files.
+Each test query has a name (that tells its purpose) associated with it: key string in <code>.properties</code> file and value of &ldquo;name&rdquo; key in <code>.test</code> file.</p>
+
+<p>In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed.
+The TestNG assertions, which are ubiquitous in previous &ldquo;Level 1&rdquo; and &ldquo;Level 2&rdquo; approaches, are no longer present.
+Instead, the expected outputs are specified in <code>.test</code> file, in the same JSON block with each SQL query.
+The whole TestNG class will only contain code to initialize a connection to database and an instance of <a href="/blog/2016/03/28/sql-unit-test-runner/">SQL Test Runner</a>, all of which is one-time setup.
+As we continue writing functional tests, we can decide to keep all tests in a single <code>.test</code> file or group related tests into separate <code>.test</code> files.
+If we add more <code>.test</code> files, we can just specify the path to the files, in TestNG test cases (i.e., <code>@Test</code> functions), as shown in Java code above.</p>
+
+<p>The main advantage of this test framework is readability of those tests, as shown in <code>.test</code> file.
+The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious.
+In the example above, the first test query&rsquo;s intention is clearer with assertion in the same location.
+In addition, compared with <code>.properties</code> file approach, the SQL query is now easier to read, due to line breaks, as shown in the second example.</p>
+
+<p>All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL.
+Big Data projects different from usual software engineering projects is that users, data analysts, know more about the data than typical quality engineers.
+Being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
+If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.</p>
+
+<p>While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
+Even then, the additional computational time is totally justified with much better readability.
+Test readability will save (lots of) QE&rsquo;s time, in both developing and maintaining.
+In my opinion, human time is million times more costly than computer time.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica Installation: Troubleshooting Tips]]></title>
@@ -290,268 +804,6 @@ There is no apparent advantage of using CentOS 5 over CentOS 6.</p>
 <li><a href="http://www.cyberciti.biz/faq/centos-ssh/">CentOS SSH Installation And Configuration</a></li>
 </ol>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
-    <updated>2016-02-29T00:54:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
-    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
-
-<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
-The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
-The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
-
-<pre><code class="plain epochs table">=&gt; select * from epochs;
-
-epoch_close_time              epoch_number
-2016-03-04 21:44:24.192495  610131
-</code></pre>
-
-<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
-The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
-You cannot run any historical queries prior to the AHM.
-By default, Vertica advances the AHM at an interval of 5 minutes.</p>
-
-<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
-To find about the unrefreshed projection, use the following command:</p>
-
-<pre><code class="plain">SELECT * FROM projections where is_up_to_date = 'f';
-</code></pre>
-
-<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
-However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
-AHM could lag behind at the create epoch of some unrefreshed projection.
-Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
-
-<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
-
-<pre><code class="plain">select START_REFRESH();
-</code></pre>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
-    <updated>2016-02-13T23:52:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
-    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
-
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
-
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
-
-<pre><code class="sql BAD">SELECT 'United States', 'English' 
-WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
-</code></pre>
-
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
-
-<pre><code class="sql GOOD">SELECT 'United States', 'English' 
-WHERE 'United States' NOT IN (select country_name from dim_country)
-</code></pre>
-
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
-
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
-
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
-WHERE dc.country_id is NULL;
-</code></pre>
-
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
-
-<pre><code class="sql GOOD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
-</code></pre>
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
-WHERE dc.country_name is NULL;
-</code></pre>
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<pre><code class="sql BETTER, but still BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_country);;
-</code></pre>
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
-
-<ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
-</ol>
-
-
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
-
-<pre><code class="sql BAD">CREATE TEMPORARY TABLE customer_last_temp 
-ON COMMIT PRESERVE ROWS
-AS(
-  select * from (
-    select *,
-    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
-    from  stg_customer rpt 
-  ) t1 where t1.rank =1
-);
-</code></pre>
-
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
-
-<pre><code class="sql Create a temporary table without projection">CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
-        customer_id                     int,
-        subscribe_date                  timestamp,
-        cancel_date                     timestamp,
-        last_modify_date                timestamp,
-)
-ON COMMIT PRESERVE ROWS NO PROJECTION;
-</code></pre>
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<pre><code class="sql Create a super projection">CREATE PROJECTION customer_last_temp_super (
-      customer_id ENCODING DELTARANGE_COMP 
-    , subscribe_date ENCODING GCDDELTA
-    , cancel_date ENCODING BLOCKDICT_COMP     
-    , last_modify_date ENCODING BLOCKDICT_COMP 
-)
-AS 
-SELECT customer_id 
-     , subscribe_date
-     , cancel_date
-     , last_modify_date
-  FROM customer_last_temp 
- ORDER BY customer_id
-SEGMENTED BY HASH (customer_id) ALL NODES;
-</code></pre>
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<pre><code class="sql Populate the table">INSERT /*+ direct */ INTO customer_last_temp (
-      customer_id 
-    , subscribe_date 
-    , cancel_date 
-    , last_modify_date 
-)
-WITH t1 AS (
-    SELECT company_id 
-         , subscribe_date 
-         , cancel_date 
-         , last_modify_date 
-         , ROW_NUMBER() OVER (PARTITION BY customer_id 
-                                  ORDER BY last_modify_date DESC) AS rank 
-      FROM stg_customer AS rpt 
-)
-SELECT company_id 
-     , subscribe_date 
-     , cancel_date 
-     , last_modify_date 
-FROM t1
-WHERE t1.rank = 1;  
-</code></pre>
-
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
-    <updated>2016-02-07T00:50:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
-    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
-
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
 ]]></content>
   </entry>
   

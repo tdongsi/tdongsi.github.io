@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Matplotlib | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/matplotlib/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-15T22:20:20-07:00</updated>
+  <updated>2016-04-24T02:23:36-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,134 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Best Friend Forever]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/18/best-friend-forever/"/>
+    <updated>2016-04-18T15:44:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/18/best-friend-forever</id>
+    <content type="html"><![CDATA[<p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, &hellip;, FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote></p>
+
+<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
+I&rsquo;d like to approach to the problem more methodically.
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
+
+<p><img class="center" src="/images/python/bff.png" title="BFF example" ></p>
+
+<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:</p>
+
+<ol>
+<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
+<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
+
+<ul>
+<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle.</li>
+<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
+</ul>
+</li>
+<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
+
+<ul>
+<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
+<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
+
+<ol>
+<li>From the list of BFFs, construct a directed graph.</li>
+<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
+<li>Initialize max_length = -1. For each simple cycle:
+
+<ol>
+<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
+<li>If cycle length is equal to 2.
+
+<ol>
+<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
+<li>Find the path length, add to path_sum, and update max_length if needed.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+
+
+<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
+
+<pre><code class="python Construct and plot directed graph with networkx">import matplotlib.pyplot as plt
+import networkx as nx
+
+class Bff(object):
+    """
+    https://code.google.com/codejam/contest/4304486/dashboard#s=p2
+    """
+    def __init__(self, filename):
+        """ Initialize with the given filename.
+
+        :param filename: input file path
+        :return:
+        """
+        self._filename = filename
+        pass
+
+    def draw(self, input):
+        """ Draw the string that represents the bff network.
+
+        The input string contains N integers F1, F2, ..., FN, 
+        where Fi is the student ID number of the BFF
+        of the kid with student ID i.
+
+        :param input: the string that represents the bff network.
+        :return:
+        """
+        # Construct the directed graph
+        bffs = [int(e.strip()) for e in input.split(' ')]
+        nodes = [i+1 for i in xrange(len(bffs))]
+        gr = nx.DiGraph()
+        gr.add_nodes_from(nodes)
+        gr.add_edges_from([e for e in zip(nodes, bffs)])
+
+        # nx.simple_cycles(gr)
+        nx.draw_networkx(gr)
+        plt.savefig(self._filename)
+
+def main():
+    plot = Bff("bff.png")
+    # plot.draw("2 1 6 3 8 4 6 5")
+    plot.draw("6 1 6 5 4 1 5 10 3 7")
+    pass
+</code></pre>
+
+<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
+It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
+<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
+
+<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one ore more&rdquo;</strong> in observation 3).
+The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
+
+<p><img class="center" src="/images/python/bff2.png" title="All paths" ></p>
+
+<p>Some morals of the story:</p>
+
+<ul>
+<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
+<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Automated Performance Logging and Plotting for Cassandra]]></title>

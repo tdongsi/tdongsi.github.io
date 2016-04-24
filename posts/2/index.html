@@ -9,10 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Context I had folders with many symbolic links in them, linking to other files in the same Git repository. Before1
-2
-$ ls -l link
-... link -&gt; / &hellip;">
+  <meta name="description" content="For overview, see here. In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -34,6 +32,36 @@ $ ls -l link
 <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
   
 
 </head>
@@ -77,7 +105,7 @@ $ ls -l link
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/02/20/symlinks-in-git/">Symlinks in Git</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/04/16/sql-unit-extension/">(Pt. 6) Extending SQL Test Runner</a></h1>
     
     
       <p class="meta">
@@ -86,573 +114,41 @@ $ ls -l link
 
 
 
-<time class='entry-date' datetime='2016-02-20T11:28:11-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:28 am</span></time>
+<time class='entry-date' datetime='2016-04-16T17:49:34-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:49 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><h3>Context</h3>
+  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
 
-<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
-</span><span class='line'>... link -&gt; /path/to/target
-</span></code></pre></td></tr></table></div></figure>
+<h3>Design Overview of SQL Test Runner</h3>
 
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
 
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
 
-<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
-</span><span class='line'>/path/to/target
-</span></code></pre></td></tr></table></div></figure>
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
 
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <strong>Template Method</strong> and <strong>Strategy</strong> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
 
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple parsing and workflow provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), subsequently delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
-</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  <span class="c"># command executed for each file</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hardl links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-13T23:52:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>13</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:52 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
-
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
-
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
-
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
-
-<ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
-</ol>
-
-
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
-</span><span class='line'><span class="k">AS</span><span class="p">(</span>
-</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
-</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span><span class='line'><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
-
-<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
-</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">AS</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
-</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/07/vertica-7-projections/">Vertica Projections</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-07T00:50:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>7</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
-
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-03T00:50:48-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>3</span><span class='date-suffix'>rd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
-<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
-Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
-For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
-
-<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
-This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
-
-<p>For example, we can look into the following <code>SELECT</code> query:</p>
-
-<figure class='code'><figcaption><span>Hard to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
-</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span> <span class="n">sorted_by_modify_date</span> <span class="k">where</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
-To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
-In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
-The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
-
-<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
-
-<figure class='code'><figcaption><span>Easy to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">sorted_by_modify_date</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">sorted_by_modify_date</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
-The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
-We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
-Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
-We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
-
-<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
-
-<figure class='code'><figcaption><span>Traffic classification of a Music website</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Template Method for running test scripts in BaseTestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -677,43 +173,159 @@ We can define multiple queries for multiple steps, and each of them can refer to
 <span class='line-number'>23</span>
 <span class='line-number'>24</span>
 <span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">Total_Traffic</span> <span class="k">AS</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">temp</span><span class="p">.</span><span class="o">*</span> <span class="k">from</span> <span class="n">temp</span> <span class="k">as</span> <span class="n">clickstream_data</span>
-</span><span class='line'>    <span class="k">where</span> <span class="p">....</span> <span class="c1">-- filtering</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Rock_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total_Traffic</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">evar28</span><span class="p">)</span> <span class="k">LIKE</span> <span class="s1">&#39;rock_mus%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Instrumental_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="n">evar28</span> <span class="k">LIKE</span> <span class="s1">&#39;%[ins_mus]%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Defined_Traffic</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Rock_Music</span>
-</span><span class='line'>    <span class="k">UNION</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Instrumental_Music</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">select</span> <span class="n">traffic_date_key</span>
-</span><span class='line'><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">distinct</span> <span class="n">visitor_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_visitor</span>
-</span><span class='line'><span class="k">from</span> <span class="n">Defined_Traffic</span>
-</span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">traffic_date_key</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">CodeStrategy</span> <span class="n">codeHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">TestStrategy</span> <span class="n">testHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">JdbcConnection</span> <span class="n">connection</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Override</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">runScript</span><span class="o">(</span><span class="n">String</span> <span class="n">filePath</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">,</span> <span class="n">SQLException</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">SoftAssert</span> <span class="n">sAssert</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SoftAssert</span><span class="o">();</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Read in the SQL script</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">content</span> <span class="o">=</span> <span class="n">SqlTestUtility</span><span class="o">.</span><span class="na">readFile</span><span class="o">(</span><span class="n">filePath</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Remove comments</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">sqlCode</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">removeComments</span><span class="o">(</span><span class="n">content</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">Matcher</span> <span class="n">m</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">testBlockRegex</span><span class="o">.</span><span class="na">matcher</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">);</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">startIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>  <span class="k">while</span> <span class="o">(</span><span class="n">m</span><span class="o">.</span><span class="na">find</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">String</span> <span class="n">currentSql</span> <span class="o">=</span> <span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">,</span> <span class="n">m</span><span class="o">.</span><span class="na">start</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span> <span class="n">currentSql</span><span class="o">.</span><span class="na">trim</span><span class="o">().</span><span class="na">length</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">)</span>
+</span><span class='line'>          <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">currentSql</span><span class="o">,</span> <span class="n">connection</span><span class="o">);;</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">testHandler</span><span class="o">.</span><span class="na">runTest</span><span class="o">(</span> <span class="n">m</span><span class="o">.</span><span class="na">group</span><span class="o">(),</span> <span class="n">connection</span><span class="o">,</span> <span class="n">sAssert</span> <span class="o">);</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">startIndex</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="na">end</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">),</span> <span class="n">connection</span> <span class="o">);</span>
+</span><span class='line'>  <span class="n">sAssert</span><span class="o">.</span><span class="na">assertAll</span><span class="o">();</span>
+</span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
-Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
-Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
 
-<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+<figure class='code'><figcaption><span>Example unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- This will be handled by some CodeStrategy class</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- This will be handled by some TestStrategy class</span>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
-Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
+
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
+
+<figure class='code'><figcaption><span>Example TestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * Test runner that uses Vertica JDBC connection.</span>
+</span><span class='line'><span class="cm"> * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">VerticaRunner</span> <span class="kd">extends</span> <span class="n">BaseTestRunner</span> <span class="kd">implements</span> <span class="n">TestRunner</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="nf">VerticaRunner</span><span class="o">(</span><span class="n">JdbcConnection</span> <span class="n">jdbcConn</span><span class="o">,</span> <span class="n">String</span> <span class="n">vsqlPath</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setCodeHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">SqlCodeHandler</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setTestHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">VerticaTestHandler</span><span class="o">(</span><span class="n">vsqlPath</span><span class="o">));</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setConnection</span><span class="o">(</span><span class="n">jdbcConn</span><span class="o">);</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Extending Test Runner</h3>
+
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.</p>
+
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
 </div>
   
   
@@ -726,7 +338,7 @@ Now, we have a native SQL solution in <code>WITH</code> clause and a more powerf
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/01/27/python-1-mock-datetime-freezegun/">Mocking Current Date and Time in Python</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/04/14/sql-unit-vs-functional/">(Pt. 5) Big Data: Functional Tests vs. Unit Tests</a></h1>
     
     
       <p class="meta">
@@ -735,152 +347,952 @@ Now, we have a native SQL solution in <code>WITH</code> clause and a more powerf
 
 
 
-<time class='entry-date' datetime='2016-01-27T17:36:53-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>27</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:36 pm</span></time>
+<time class='entry-date' datetime='2016-04-14T17:21:12-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:21 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><h3>Calendar types</h3>
+  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
 
-<p>There are surprisingly many types of calendar. Some of them are:</p>
+<p>In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:</p>
+
+<table>
+<thead>
+<tr>
+<th>       </th>
+<th> Functional tests      </th>
+<th> Unit tests </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Data         </td>
+<td> Production-like data </td>
+<td> Mock (synthetic) data </td>
+</tr>
+<tr>
+<td> Environment  </td>
+<td> Pre-production. Tables deployed once. </td>
+<td> Local VM. Regular setup/teardown. </td>
+</tr>
+<tr>
+<td> Coverage     </td>
+<td> Passive: Coverage depends on diverse real data. </td>
+<td> Active: Mock data created to force corner cases. </td>
+</tr>
+<tr>
+<td> Example usage </td>
+<td> Snapshot testing </td>
+<td> Incrementa data update testing </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>It should be noted that functional and unit tests are complementary to each other.
+Certain aspects of ETLs can be better verified as functional tests while others of the same ETLs should be verified as unit tests.
+For example, as discussed in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this post</a>, unit tests are better suited for testing incremental data update in ETL scripts.</p>
+
+<p>On the other hand, for example, an ETL that performs some kind of classification, such as categorizing user types based on some clickstream patterns, should be tested in functional tests.
+If there are more than 20 categories, it could become daunting to generate and maintain synthetic data for each of those categories.
+Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
+Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
+Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/12/sql-unit-testing/">(Pt. 4) SQL Unit Testing</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-12T17:45:42-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:45 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<!-- 
+Changes I made:
+1. Mix of SQL code and test blocks.
+1. New JSON block to run ETL script using VSQL
+
+I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
+
+Running ETL script through JDBC is probably not a good idea.
+
+Requirements of unit tests:
+
+Readability:
+
+#### Single-node VM
+
+Remove KSAFE.
+
+Add a new test.
+  
+Revert in Git.
+
+#### Adding  unit test
+
+Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+
+
+-->
+
+
+<p>TODO indefinitely.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/10/sql-unit-incremental-data-update/">(Pt. 3) Testing Incremental Data Update</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-10T17:46:40-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:46 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
+Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.</p>
+
+<h3>Incremental data update</h3>
+
+<p>In the last <a href="/blog/2016/03/16/sql-unit-functional-tests/">blog post</a>, I go over evolution of functional testing in data mart projects.
+In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to validate the tables.</p>
+
+<p>That kind of testing would be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are the latest snapshot of the data.
+Preparing this snapshot might be expensive, especially for daily ETLs, since those tables have to be truncated and reloaded with latest data.
+This can be every inefficient since out of millions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
+Therefore, for performance reasons, the ETLs usually perform <strong>incremental data update</strong>.
+Some characteristics of &ldquo;incremental data update&rdquo; are as follows:</p>
+
+<p>1) Only updated records are incrementally appended into some tables, used for staging purpose (a.k.a. staging tables).
+These tables will be used as input for those ETLs with incremental update.
+For example, let&rsquo;s say there is a company record with ID = 123 and some attribute such as master email <code>before@mock.com</code> on Day 1.
+On Day 2, the company email could be udpated to <code>after@mock.com</code>.
+The original record of company 123 with <code>before@mock.com</code> is not necessarily removed from the staging table.
+Instead, a new row with updated data (ID = 123, email = <code>after@mock.com</code>) is appended into the staging table.</p>
+
+<p>2) To keep the size of input tables and ETL running time bounded, we usually keep only a number of days worth of data in the staging tables.
+In other words, any records older than some <code>D</code> days are truncated from those staging tables.
+For example, after <code>D = 7</code> days since Day 2, if the company <code>ID = 123</code> has no update, its records will be removed from the staging tables.
+Note that, after being truncated, that company <code>ID = 123</code> can be re-inserted into the staging table if some of its attribute is updated.</p>
+
+<p><strong>Risks</strong>: The ETLs with incremental data update are usually much more complex.
+Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company <code>ID = 123</code>.
+In standard approach with snapshot, each record is almost guaranteed unique on primary key, meaning only one row with company <code>ID = 123</code>.
+On the other hand, when data for company <code>ID = 123</code> are truncated from the staging tables after <code>D</code> days (0 row), it simply means that there is no update to that company during the last <code>D</code> days.
+It means that the company should not be removed from the destination tables of the ETL even though the input staging tables contain no such row for <code>ID = 123</code>.
+The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.</p>
+
+<h3>Example scenario</h3>
+
+<p>For sliding window of one week data <code>D = 7</code> in the staging tables <code>stg_company_id</code> and <code>stg_company_contact</code>, the company with <code>ID = 123</code> may have its email address updated like this:</p>
+
+<ul>
+<li>Day 1
+
+<ul>
+<li><code>stg_company_id</code> -> ID: 123, region: US.</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#x3a;&#x62;&#101;&#102;&#111;&#114;&#101;&#x40;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#x74;&#97;&#x2e;&#x63;&#x6f;&#x6d;&#46;">&#x62;&#x65;&#102;&#111;&#114;&#x65;&#x40;&#109;&#111;&#99;&#x6b;&#x64;&#97;&#x74;&#x61;&#46;&#x63;&#111;&#x6d;&#46;</a> (same company)</li>
+</ul>
+</li>
+<li>Day 3
+
+<ul>
+<li>Email updated to <a href="&#109;&#97;&#105;&#x6c;&#x74;&#111;&#58;&#97;&#x66;&#x74;&#x65;&#x72;&#64;&#x6d;&#x6f;&#99;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#111;&#x6d;">&#x61;&#102;&#116;&#101;&#x72;&#x40;&#109;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#x74;&#x61;&#46;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li><code>stg_company_id</code> has one row with ID = 123.</li>
+<li><code>stg_company_contact</code> has two rows with ID = 123.</li>
+</ul>
+</li>
+<li>Day 10
+
+<ul>
+<li>Data truncated from <code>stg_company_contact</code> as there is no update.</li>
+<li>Data is also truncated from <code>stg_company_id</code> since Day 8 for the same reason.</li>
+<li><code>stg_company_id</code> and <code>stg_company_contact</code> has zero row with ID = 123.</li>
+</ul>
+</li>
+<li>Day 15
+
+<ul>
+<li>Email updated to <a href="&#x6d;&#97;&#x69;&#x6c;&#x74;&#x6f;&#58;&#98;&#101;&#x79;&#111;&#110;&#100;&#x40;&#x6d;&#x6f;&#x63;&#107;&#100;&#x61;&#116;&#x61;&#46;&#x63;&#111;&#x6d;&#46;">&#98;&#101;&#x79;&#111;&#x6e;&#x64;&#x40;&#109;&#111;&#99;&#107;&#100;&#97;&#116;&#97;&#x2e;&#99;&#x6f;&#109;&#x2e;</a></li>
+<li><code>stg_company_id</code> has zero row with ID = 123.</li>
+<li><code>stg_company_contact</code> has one row with ID = 123.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Despite the changing number of rows with <code>ID = 123</code>, the daily ETL should always returns a company with <code>ID = 123</code> in its output, the dimension table <code>dim_company</code>, with the <code>email_address</code> column updated accordingly.</p>
+
+<h3>Initial functionality tests</h3>
+
+<p>Initially, verifying incremental data update of ETLs is very challenging.
+We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
+Specifically, we collected a few sets of staging tables for three days, and then manually simulate each set as the current day data before running the ETL.
+After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.</p>
+
+<p>That process is summarized as the following steps for each day:</p>
 
 <ol>
-<li><strong>Regular Calendar</strong>: regular solar calendar date range as we know.
+<li>Manually set up the staging data (ETL input).</li>
+<li>Manually run the ETL.</li>
+<li>Run the corresponding set of automated functional tests.</li>
+</ol>
+
+
+<p>As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
+It is time consuming to manually set up and run ETLs: for production-like data, the first few days can contain millions of rows for historical data.
+Since we run ETLs multiple times to properly verify incremental update, the running times add up.
+Besides being time-consuming, the process also takes lots of mental energy to do each of the steps right, in the correct order.
+Otherwise, the tests will fail for no apparent reason.</p>
+
+<p>Despite the effort involved, the return is very little.
+Most of the time, the difference in data between a few days or weeks are usually not enough to verify all corner cases in ETL scripts.
+After running tests, we still don&rsquo;t know if a particular ETL will ever break if some infrequently updated column is updated in some particular way.</p>
+
+<h3>Observations</h3>
+
+<p>The painful experience of testing incremental data update for ETLs with production-like data leads to the following observations:</p>
+
+<ol>
+<li>We should only need a small number of records to reduce ETL running time.</li>
+<li>We should create synthetic data to force rare logic branches and corner cases.</li>
+<li>We should have a way to set up data automatically.</li>
+<li>We should have a way to run the ETL under test automatically.</li>
+</ol>
+
+
+<p>These observations, especially small and synthetic data, sounds like unit testing.
+It leads to my strong conviction that incremental data update should tested in a bunch of &ldquo;unit tests&rdquo;, with mock data to force corner cases.</p>
+
+<h3>Unit tests - first look</h3>
+
+<p>I made two changes in the SQL Test Runner to make it easier to do unit testing SQL scripts in Vertica:</p>
+
+<ol>
+<li>Add ability to run the SQL statements to set up data.</li>
+<li>Add ability to call <code>vsql</code> to run a list of specified ETLs.</li>
+</ol>
+
+
+<p>With that, a unit test to verify our ETL (e.g., <code>my_etl.sql</code>) that updates email address incrementally (in the example scenario above) will look like this:</p>
+
+<figure class='code'><figcaption><span>Unit test for the example scenario in section above</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
+</span><span class='line'><span class="cm">* Day 1</span>
+</span><span class='line'><span class="cm">****************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 3: Email updated in stg_company_contact</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;after@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">12</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- Day 3 ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 10: Data truncated from staging table</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_id</span><span class="p">;</span>
+</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_contact</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- This ETL run should have no effect</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 15: Another update in email</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Email is updated</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;beyond@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- Day 15 ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;beyond@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Running the unit test script above from TestNG will be similar as in functional tests (see &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/16/sql-unit-functional-tests/">this post</a>).
+After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> functions), there will be minimal Java code added (<code>@Test</code> functions):</p>
+
+<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The full setup for unit testing will be discussed in the next blog post.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/03/28/sql-unit-test-runner/">(Pt. 2) SQL Test Runner</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-03-28T23:42:09-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>28</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:42 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/20/sql-unit-functional-tests/">this post</a>.
+As it is mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
+
+<h3>Overview</h3>
+
+<p>In this test framework, a test block is defined in the following format: comment block opening <code>/*</code> followed by <code>@Test</code>, and a JSON object with some specified keys in the next subsection, closed by comment block closing <code>*/</code>.</p>
+
+<figure class='code'><figcaption><span>Example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name":"test_count",
+</span><span class='line'>  "query":"select count(1) from dim_product",
+</span><span class='line'>  "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The SQL Test Runner will:</p>
+
+<ol>
+<li>Pick up the test blocks, annotated as above.</li>
+<li>Extract the JSON to retrieve the test query and expected output.
 
 <ul>
-<li>Example: January 01, 2006 to December 31, 2006.</li>
+<li>As shown in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this</a> and <a href="/blog/2016/04/16/sql-unit-extension/">this</a>, we can add custom JSON for different testing needs.</li>
 </ul>
 </li>
-<li><a href="https://en.wikipedia.org/wiki/Lunar_calendar"><strong>Lunar Calendar</strong></a>: based on cycles of the lunar phases.
+<li>Send the query to the database, and get the actual output from the database.</li>
+<li>Compare actual output with the expected output, raise <code>AssertionError</code> if needed.
 
 <ul>
-<li>Example: January 29, 2006 to February 17, 2007.</li>
-<li>A lunar year is defined as 12 lunations, which is about 354 days.</li>
-<li>In every two or three years, a <a href="https://en.wikipedia.org/wiki/Lunisolar_calendar">thirteenth-month</a> (intercalary month or leap month) is added to bring the calendar year into synchronisation with the solar year.</li>
-</ul>
-</li>
-<li><strong>Fiscal Calendar</strong>: a company’s selected calendar date range for required SEC financial statement filing.
-
-<ul>
-<li>Example: August 01, 2005 to July 31, 2006 is my company&rsquo;s fiscal year 2006.</li>
-</ul>
-</li>
-<li><strong>Tax Calendar</strong>: A number sequence representing weeks in a Tax year which begins right after the US Tax Day.
-
-<ul>
-<li>Example: April 16, 2005 to April 15, 2006.</li>
-</ul>
-</li>
-<li><strong>Retail Calendar</strong>: also known as <a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">4-4-5 Calendar</a> or 544 calendar. 544 describes the number of weeks for a given quarter. Each quarter begins with a 5 week &ldquo;month&rdquo;, followed by 2 four week &ldquo;months&rdquo;.
-
-<ul>
-<li>Example: July 31, 2005 to July 29, 2006.</li>
-<li>Why? This calendar ensures all 4 quarters in a calendar year are equal. This allows comparing weekly data (e.g., retail sales) to the prior year without correcting for times when regular calendar weeks break across months or quarters.</li>
-<li>How? It usually uses the same end month as the fiscal calendar and each retail week consists of Sunday through Saturday.
-
-<ul>
-<li>The retail year end is defined as &ldquo;the last Saturday of the month at the fiscal year end&rdquo;.</li>
-<li>If August 1st is Sunday, it is retail calendar&rsquo;s starting date. The Saturday July 31st is the last Saturday and end of the last retail year.</li>
-<li>If August 1st is Monday, then Saturday July 30th is end of the last retail year, and July 31st is the start of the current retail year.</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><strong>ISO calendar</strong>: provided in Python <code>datetime</code> module.
-
-<ul>
-<li>Example: January 02, 2006 to December 31, 2006.</li>
-<li>The first week of an ISO year is the first (Gregorian/regular) calendar week of a year containing a Thursday.</li>
-<li>Each week starts at Monday and ends at Sunday.</li>
+<li>Note that the Test Runner can either exit immediately upon <code>AssertionError</code> or run all test queries and list all <code>AssertionError</code>s at the end.</li>
 </ul>
 </li>
 </ol>
 
 
-<p>Out of the above calendar types, retail calendar seems to have more complex rules. However, this calendar type is frequently used in industries like retail and manufacturing for ease of planning around it.</p>
+<p>As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in &ldquo;query&rdquo; clause) for aligning and formatting the query, especially when the query is long and complex.</p>
 
-<h3>Mocking current time in Python</h3>
-
-<p>Due to retail calendar&rsquo;s desirable characteristics, we may have code that work with retail calendars in commercial applications eventually.
-I ended up working with a utility Python module for retail calendar with functions which return values based on current time/date.
-For example, a utility function to check if a given date is in the current 544 year works like this:</p>
-
-<figure class='code'><figcaption><span>Original version</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example complex test query</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">):</span>
-</span><span class='line'>    <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
-</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name" : "check_traffic",
+</span><span class='line'>  "query" : "WITH Total_Traffic AS
+</span><span class='line'>      (
+</span><span class='line'>          SELECT temp.* from temp as clickstream_data
+</span><span class='line'>          where .... -- filtering
+</span><span class='line'>      )
+</span><span class='line'>      , Rock_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total_Traffic
+</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
+</span><span class='line'>      )
+</span><span class='line'>      , Instrumental_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total
+</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
+</span><span class='line'>      )
+</span><span class='line'>      , Defined_Traffic as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Rock_Music
+</span><span class='line'>          UNION
+</span><span class='line'>          select * from Instrumental_Music
+</span><span class='line'>      )
+</span><span class='line'>      select traffic_date_key
+</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
+</span><span class='line'>      from Defined_Traffic
+</span><span class='line'>      group by traffic_date_key",
+</span><span class='line'>  "expected" : "2016-03-16 123"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
 
 
-<p>Some utility functions in that module are even more complicated than this example function.
-For those, I think calling <code>today</code> or <code>now</code> inside those functions is a bad design.
-They are essentially another <em>variable</em> in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter.
-In addition, being able to specify what &ldquo;today&rdquo; or &ldquo;now&rdquo; value is will make automated unit testing easier.
-For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.
-A probably better, more testable function would be something like this.</p>
+<p>Note that in pure JSON, newlines are NOT allowed and the above JSON when deserializing directly will report syntax errors.
+However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
+Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (<code>\s+</code>) in test block with a single space (<code></code>).
+The additional computation is minimal and it is quite a good trade-off for much better <em>readability</em> of the test scripts.</p>
 
-<figure class='code'><figcaption><span>More desirable</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">run_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
-</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
+<h3>Example usage</h3>
 
+<p>This section list some simple examples to illustrate some standard, common usage of test blocks.</p>
 
-<p>However, in reality, you sometimes have to live with the original utility Python module.
-Then, the workaround for unit testing is to &ldquo;mock&rdquo; current date and time, i.e., overriding those returned by <code>today</code> and <code>now</code> methods with some specific values.
-In Python, it can be done by using some mocking framework, such as illustrated <a href="http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking">here</a>.
-Fortunately, my life was made even easier with <a href="https://github.com/spulec/freezegun"><code>freezegun</code> library</a>.
-To install <code>freezegun</code> on Mac OSX, simply run</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>pip install freezegun</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using this <code>freezegun</code> library, I can easily specify my &ldquo;current date&rdquo; as &ldquo;July 29, 2006&rdquo; by adding the following decorator with some string &ldquo;2006-07-29&rdquo; for that date.</p>
-
-<figure class='code'><figcaption><span>Unit test with mocking</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Compare test query's output with expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="nd">@freeze_time</span><span class="p">(</span><span class="s">&quot;2006-07-29&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="k">def</span> <span class="nf">test_year544_end</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    Mock today() at 2006-07-29</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="bp">self</span><span class="o">.</span><span class="n">_verify_544_methods</span><span class="p">()</span>
-</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
 
 
-<p>For full usage of <code>freezegun</code>, refer to its <a href="https://github.com/spulec/freezegun">quickstart guide</a>.
-It should be noted that <code>freezegun</code> can mock <code>datetime</code> calls from other modules and it works great for testing with <code>datetime</code> calls.
-However, you might encounter some occasional failures in your unit tests when working with <code>time</code> module.
-From my personal experience, in those cases, note that time zones must be accounted for when mocking with <code>time</code> module by specifying <code>tz_offset</code> in the decorator <code>freeze_time</code>.</p>
+<p>Multiple rows, multiple columns can also be used as expected output.
+All output of the test query will be normalized to String before comparison.
+For <strong>readability</strong>, we can add whitespaces and newlines into expected output string to align rows and columns.
+Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (<code>\s+</code>) with a single space (<code></code>).</p>
 
-<h3>External Links</h3>
+<figure class='code'><figcaption><span>Expected output with multiple rows, multiple columns</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'> "name":"test_data",
+</span><span class='line'> "query":"select price, product from dim_product order by product_key;",
+</span><span class='line'> "expected":"10 Chair
+</span><span class='line'>              20 Table
+</span><span class='line'>              30 Twin Bed
+</span><span class='line'>              40 King Bed"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In many situations, the row count of a table is not definitely known.
+However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
+The Test Runner allows you to add some simple logical expression in &ldquo;expected&rdquo; clause.
+It is tester&rsquo;s responsibility to make sure the test query returns some numbers and the logical expression makes sense.</p>
+
+<figure class='code'><figcaption><span>Expected output with logical expression</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- This is same as "expected" : "5"
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator_equal",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"== 5"
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- There must be some entries, at least 10, in the table.
+</span><span class='line'>-- Evaluated as: actual value &gt; 10
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"&gt; 10"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in the examples above, inline comments can be added into test block using SQL&rsquo;s <code>--</code> inline comment notation.
+In addition to &ldquo;name&rdquo;, &ldquo;query&rdquo; and &ldquo;expected&rdquo;, you can add a list of script files to be executed in a &ldquo;file&rdquo; clause, as shown in the following example.
+The test query will be executed after all the scripts have been executed.</p>
+
+<figure class='code'><figcaption><span>"file" key to execute shared statements</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"],
+</span><span class='line'>    "query":"select count(1) from dim_product;",
+</span><span class='line'>    "expected":"0"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In practice, you should use the above &ldquo;file&rdquo; clause for:</p>
 
 <ul>
-<li><a href="https://github.com/spulec/freezegun">freeze_gun</a></li>
-<li><a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">Retail Calendar</a></li>
-<li><a href="http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm">ISO Calendar</a></li>
+<li>Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables for synthetic data.</li>
+<li>Reusing the most common tests (e.g., count, constraint checks).</li>
+<li>Making the original test scripts less cluttered with repeated SQL queries or statements.</li>
 </ul>
+
+
+<p>For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for simple JSON test block</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryExpected</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Expected output of the test query above</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">expected</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that all attributes in POJO are optional, NOT required to be defined at all time.
+The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) combination, but you can see others such as the following:</p>
+
+<figure class='code'><figcaption><span>Some other uses</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- Just want to make sure this query can be executed. Outputs can vary.
+</span><span class='line'>{
+</span><span class='line'>    "name": "test_ignore_output",
+</span><span class='line'>    "query": "select * from dim_product order by product_key;",
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- Run some setup scripts
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"]
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Advanced usage</h3>
+
+<p>Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name.</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As explained in more details in <a href="/2016/04/17/sql-unit-data-parity/">this post</a>, &ldquo;equal&rdquo; is a recently added capability to easily compare two tables or projections from tables.</p>
+
+<figure class='code'><figcaption><span>"equal" clause</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_data_equivalent",
+</span><span class='line'>    "query":"select product_key, cost from dim_product WHERE ...;",
+</span><span class='line'>    "equal":"select product_key, cost from dim_inventory WHERE ...;"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
 
 </div>
   
@@ -909,23 +1321,23 @@ From my personal experience, in those cases, note that time zones must be accoun
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/">Vertica Installation: Troubleshooting Tips</a>
+        <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">Convert Python Objects to JSON (Ordered Keys)</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">Set Up Three-node Vertica VM Sandbox</a>
+        <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/03/02/bash-trap/">Bash Trap</a>
+        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a>
+        <a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a>
+        <a href="/blog/2016/04/17/sql-unit-data-parity/">(Pt. 7) Extending for Data Parity Checks</a>
       </li>
     
   </ul>
@@ -962,7 +1374,7 @@ From my personal experience, in those cases, note that time zones must be accoun
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (11)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (2)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (8)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (14)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

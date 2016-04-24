@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="(1) Log into a Linux system (for CentOS, v5.8 or better) with your user account. (2) Go to the directory ~/.ssh. If such directory is not present, &hellip;">
+  <meta name="description" content="This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -31,6 +31,36 @@
 <link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 <link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
   
 
 </head>
@@ -74,7 +104,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/03/02/install-ssh-on-linux/">Set Up Public-key SSH on Linux</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Hive Tutorial (Pt. 5): HiveQL Data Definition</a></h1>
     
     
       <p class="meta">
@@ -83,62 +113,293 @@
 
 
 
-<time class='entry-date' datetime='2015-03-02T10:57:26-08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>10:57 am</span></time>
+<time class='entry-date' datetime='2015-12-02T18:32:21-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>6:32 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>(1) Log into a Linux system (for CentOS, v5.8 or better) with your user account.</p>
+  <div class="entry-content"><p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
 
-<p>(2) Go to the directory <code>~/.ssh</code>. If such directory is not present, create one and set the permissions to 755.</p>
+<h3>Databases</h3>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mkdir ~/.ssh
-</span><span class='line'>chmod 755 ~/.ssh
-</span><span class='line'>cd ~/.ssh</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span><span class="p">;</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="s1">&#39;h.*&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/my/preferred/directory&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add comments to table */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="s1">&#39;A college admission database&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* show comments */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add properties */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;CD&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="o">=</span> <span class="s1">&#39;today&#39;</span> <span class="p">);</span>
+</span><span class='line'><span class="cm">/* show properties */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">EXTENDED</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* set working database */</span>
+</span><span class='line'><span class="n">USE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* this will show tables in this database */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">TABLES</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* Drop tables if there is any table in the database */</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span> <span class="k">CASCADE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* You can set additional key-value pairs in properties.</span>
+</span><span class='line'><span class="cm"> * No other metadata about the database can be changed. No way to delete a DB PROPERTY.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="s1">&#39;editor&#39;</span> <span class="o">=</span> <span class="s1">&#39;DC&#39;</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>(3) Generate your private and public keys</p>
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[frak10-b13]$ ssh-keygen</span></code></pre></td></tr></table></div></figure>
-
-
-<p>When you get &ldquo;Enter passphrase (empty for no passphrase):&rdquo;, you can hit enter for a null passphrase for now.
-The passphrase can be changed later by using the -p option.
-Note that from the <code>man</code> page: &ldquo;USING GOOD, UNGUESSABLE PASSPHRASES IS STRONGLY RECOMMENDED.&rdquo;.
-If <code>ssh-keygen</code> returns with &ldquo;You must specify a key type (-t).&rdquo;, then add the flag &ldquo;-t rsa&rdquo;.</p>
-
-<p>(4) The ssh-keygen tool stores the private key in <code>$HOME/.ssh/id_rsa</code> and the public key in <code>$HOME/.ssh/id_rsa.pub</code> in the user’s home directory.
-The user should then copy the contents of <code>id_rsa.pub</code> to the <code>$HOME/.ssh/authorized_keys</code> file in his home directory on the <strong>remote</strong> machine.
-Verify that you have and authorized_keys file in ~/.ssh. If not create one and set the permissions:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>cat id_rsa.pub &gt;&gt; authorized_keys
-</span><span class='line'>chmod 644 ~/.ssh/authorized_keys</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Verify that you have a known_hosts file <code>~/.ssh/known_hosts</code>.
-If not, you can begin to populate this file by doing an ssh session to the system you want to connect to and
-answer <code>yes</code> to this question:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>The authenticity of host 'reda64 (172.21.32.38)' can't be established.
-</span><span class='line'>RSA key fingerprint is 3f:39:60:a8:b6:c7:37:e6:a6:ff:f5:d2:0b:fc:86:83.
-</span><span class='line'>Are you sure you want to continue connecting (yes/no)?</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; describe database default<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>default   Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+</span><span class='line'>Time taken: 0.01 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>hive&gt; describe database college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college       hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+</span><span class='line'>Time taken: 0.011 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive        <span class="m">213</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive         <span class="m">66</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</span></code></pre></td></tr></table></div></figure>
 
 
-<h3>Links</h3>
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.cli.print.current.db<span class="o">=</span><span class="nb">true</span><span class="p">;</span>
+</span><span class='line'>hive <span class="o">(</span>default<span class="o">)</span>&gt; USE college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.278 seconds
+</span><span class='line'>hive <span class="o">(</span>college<span class="o">)</span>&gt;
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/26/programming-hive-data-types/">Hive Tutorial (Pt. 4): Data Types</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-26T18:01:37-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:01 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers different data types and file formats supported by Hive.</p>
+
+<h3>Data Types</h3>
+
+<p>The following primitive data types are supported:</p>
+
+<ul>
+<li>TINYINT: 1 byte signed integer</li>
+<li>SMALLINT: 2 bytes</li>
+<li>INT: 4 bytes</li>
+<li>BIGINT: 8 bytes</li>
+<li>BOOLEAN</li>
+<li>FLOAT</li>
+<li>DOUBLE</li>
+<li>STRING: Single or double quotes can be used for literals.</li>
+<li>TIMESTAMP: Integer, float, or string.
+
+<ul>
+<li>Integer: For seconds from Unix epoch.</li>
+<li>Float: Seconds from Unix epoch and nanoseconds.</li>
+<li>String: JDBC-compliant java.sql.Timestamp format convention, i.e. YYYY-MM-DD hh:mm:ss.fffffffff</li>
+</ul>
+</li>
+<li>BINARY: array of bytes. Used to include arbitrary bytes and prevent Hive from attempting to parse them.</li>
+</ul>
+
+
+<p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
+
+<p>NOTE: Not mentioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0.
+In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+
+<p>Besides primitive data types, Hive supports the following collection data types:</p>
+
+<ul>
+<li>STRUCT: Analogous to a C <code>struct</code> or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
+
+<ul>
+<li>Example: Declaration -> <code>struct&lt;name:string,id:int&gt;</code>. Literal -> <code>struct('John',1)</code>.</li>
+</ul>
+</li>
+<li>MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons[&lsquo;John&rsquo;].
+
+<ul>
+<li>Example: Declaration -> <code>map&lt;string,int&gt;</code>. Literal -> <code>map('John',1)</code>.</li>
+</ul>
+</li>
+<li>ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
+
+<ul>
+<li>Example: Declaration -> <code>array&lt;string&gt;</code>. Literal -> <code>array('John','Peter')</code>.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Relational databases don&rsquo;t usually support such collection types because they tend to break <strong>normal form</strong>.
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).</p>
+
+<h3>Text File Formats</h3>
+
+<p>Hive can use comma-separated values (CSV) or tab-separated values (TSV) text file format. A Hive table declaration with all row format specified (with default values, however) looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span>
+</span><span class='line'><span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\001&#39;</span>
+</span><span class='line'><span class="n">COLLECTION</span> <span class="n">ITEMS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\002&#39;</span>
+</span><span class='line'><span class="k">MAP</span> <span class="n">KEYS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\003&#39;</span>
+</span><span class='line'><span class="n">LINES</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\n&#39;</span>
+</span><span class='line'><span class="n">STORED</span> <span class="k">AS</span> <span class="n">TEXTFILE</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Schema on Read</h3>
+
+<p>Different from databases, Hive has no control over the underlying storage: for example, you can modify files on HDFS that Hive will query. Hive tries its best to read the data and match the schema. If the file content does not match the schema such as non-numeric strings found when numbers expected, you may get null values.</p>
+
+<h3>Additional References</h3>
+
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
 
 <ol>
-<li><a href="https://en.wikipedia.org/wiki/Ssh-keygen">ssh-keygen</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/Tutorial">https://cwiki.apache.org/confluence/display/Hive/Tutorial</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
 </ol>
 
 </div>
@@ -148,7 +409,533 @@ answer <code>yes</code> to this question:</p>
 
     </article>
   
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/24/programming-hive-getting-started/">Hive Tutorial (Pt. 3): Runtime Modes</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-24T18:24:30-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:24 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
+
+<h3>Runtime Modes</h3>
+
+<p>There are different runtime modes for Hadoop.
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
+
+<table>
+<thead>
+<tr>
+<th> Local Mode </th>
+<th> Distributed Mode </th>
+<th> Pseudodistributed Mode </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Filesystem references use local filesystem. </td>
+<td> Filesystem references use HDFS. </td>
+<td> Similar to distributed mode. </td>
+</tr>
+<tr>
+<td> MapReduce tasks in same process. </td>
+<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
+<td> Similar to distributed mode.</td>
+</tr>
+<tr>
+<td> Default mode. </td>
+<td> Usually configured for server clusters. </td>
+<td> Like a cluster of one node.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
+
+<h3>Metastore Using JDBC</h3>
+
+<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
+In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionURL<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>JDBC connect string for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionDriverName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>com.mysql.jdbc.Driver<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>Driver class name for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionUserName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>hive<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The information stored in metastore is typically much smaller than the data stored in Hive.
+Therefore, you typically don’t need a powerful dedicated database server for the metastore.
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive Tutorial (Pt. 2): Hive CLI</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-23T19:47:23-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>23</span><span class='date-suffix'>rd</span>, <span class='date-year'>2015</span></span> <span class='time'>7:47 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).</p>
+
+<h3>Starting Hive with Cloudera Quickstart VM</h3>
+
+<p>On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as <code>hive-exec*.jar</code> and <code>hive-metastore*.jar</code>, can be found in <code>/usr/lib/hive/lib</code>.
+The Hive executables can be found in <code>/usr/lib/hive/bin</code>. Running <code>hive</code> without any parameter will start Hive&rsquo;s CLI.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; CREATE TABLE x (a INT);
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 3.032 seconds
+</span><span class='line'>hive&gt; SELECT * FROM x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.465 seconds
+</span><span class='line'>hive&gt; SELECT *        
+</span><span class='line'>    &gt; FROM x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.049 seconds
+</span><span class='line'>hive&gt; DROP TABLE x;
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.348 seconds
+</span><span class='line'>hive&gt; exit;</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Hive services</h3>
+
+<p>The <code>hive</code> shell command is actually a wrapper to multiple Hive services, including the CLI.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help
+</span><span class='line'>Usage ./hive &lt;parameters&gt; --service serviceName &lt;service parameters&gt;
+</span><span class='line'>Service List: beeline cli help hiveserver2 hiveserver hwi jar lineage metastore metatool orcfiledump rcfilecat schemaTool version 
+</span><span class='line'>Parameters parsed:
+</span><span class='line'>  --auxpath : Auxillary jars 
+</span><span class='line'>  --config : Hive configuration directory
+</span><span class='line'>  --service : Starts specific service/component. cli is default
+</span><span class='line'>Parameters used:
+</span><span class='line'>  HADOOP_HOME or HADOOP_PREFIX : Hadoop install directory
+</span><span class='line'>  HIVE_OPT : Hive options
+</span><span class='line'>For help on a particular service:
+</span><span class='line'>  ./hive --service serviceName --help
+</span><span class='line'>Debug help:  ./hive --debug --help</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note the list of services following the line &ldquo;Service List&rdquo;.
+There are several services available, most notably <strong>cli, hwi, jar, metastore</strong>.
+You can use <code>--service name</code> option to invoke a service.
+CLI is the default service, not specifying any service in <code>hive</code> command will run CLI service, as shown in &ldquo;Starting Hive&rdquo; section above.</p>
+
+<p>For example, to run <a href="https://cwiki.apache.org/confluence/display/Hive/HiveWebInterface">Hive Web Interface</a>, run the service <strong>hwi</strong>. On Cloudera Quickstart VM, you might encounter this error:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
+</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+</span><span class='line'>15/11/23 20:22:50 INFO hwi.HWIServer: HWI is starting up
+</span><span class='line'>15/11/23 20:22:50 FATAL hwi.HWIServer: HWI WAR file not found at /usr/lib/hive/usr/lib/hive/lib/hive-hwi-0.8.1-cdh4.0.0.jar</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To fix that error, edit the config file <code>hive-site.xml</code> in the <code>config</code> folder (e.g., <code>/usr/lib/hive/conf/hive-site.xml</code> on Cloudera VM) to point to the right location of HWI&rsquo;s <code>war</code> file.
+On Cloudera Quickstart VM, the <code>war</code> file property block should look like this:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>...
+</span><span class='line'> &lt;property&gt;
+</span><span class='line'>    &lt;name&gt;hive.hwi.war.file&lt;/name&gt;
+</span><span class='line'>    &lt;value&gt;/lib/hive-hwi.jar&lt;/value&gt;
+</span><span class='line'>    &lt;description&gt;This is the WAR file with the jsp content for Hive Web Interface&lt;/description&gt;
+</span><span class='line'>  &lt;/property&gt;
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Running the <strong>hwi</strong> service again using <code>hive</code> command should work. In order to access the Hive Web Interface, go to <code>[Hive Server Address]</code>:9999/hwi on your web browser.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --service hwi
+</span><span class='line'>ls: cannot access /usr/lib/hive/lib/hive-hwi-*.war: No such file or directory
+</span><span class='line'>15/11/23 20:31:27 INFO hwi.HWIServer: HWI is starting up
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Logging to org.slf4j.impl.Log4jLoggerAdapter(org.mortbay.log) via org.mortbay.log.Slf4jLog
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: jetty-6.1.26.cloudera.4
+</span><span class='line'>15/11/23 20:31:27 INFO mortbay.log: Extract /usr/lib/hive/lib/hive-hwi.jar to /tmp/Jetty_0_0_0_0_9999_hive.hwi.0.13.1.cdh5.3.0.jar__hwi__.lcik1p/webapp
+</span><span class='line'>15/11/23 20:31:28 INFO mortbay.log: Started SocketConnector@0.0.0.0:9999</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Hive CLI</h3>
+
+<p>Available options for Hive CLI can be displayed as follows:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive --help --service cli
+</span><span class='line'>usage: hive
+</span><span class='line'> -d,--define &lt;key=value&gt;          Variable subsitution to apply to hive
+</span><span class='line'>                                  commands. e.g. -d A=B or --define A=B
+</span><span class='line'>    --database &lt;databasename&gt;     Specify the database to use
+</span><span class='line'> -e &lt;quoted-query-string&gt;         SQL from command line
+</span><span class='line'> -f &lt;filename&gt;                    SQL from files
+</span><span class='line'> -H,--help                        Print help information
+</span><span class='line'> -h &lt;hostname&gt;                    connecting to Hive Server on remote host
+</span><span class='line'>    --hiveconf &lt;property=value&gt;   Use value for given property
+</span><span class='line'>    --hivevar &lt;key=value&gt;         Variable subsitution to apply to hive
+</span><span class='line'>                                  commands. e.g. --hivevar A=B
+</span><span class='line'> -i &lt;filename&gt;                    Initialization SQL file
+</span><span class='line'> -p &lt;port&gt;                        connecting to Hive Server on port number
+</span><span class='line'> -S,--silent                      Silent mode in interactive shell
+</span><span class='line'> -v,--verbose                     Verbose mode (echo executed SQL to the
+</span><span class='line'>                                  console)</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Hive variables and properties</h4>
+
+<p>The <code>--define key=value</code> option is equivalent to the <code>--hivevar key=value</code> option. Both let you define custom variables in the <code>hivevar</code> namespace, separate from three other built-in namespaces, <code>hiveconf</code>, <code>system</code>, and <code>env</code>. By convention, the Hive namespaces for variables and properties are as follows:</p>
+
+<ol>
+<li>hivevar: user-defined custom variables.</li>
+<li>hiveconf: Hive-specific configuration properties.</li>
+<li>system: Java configuration properties.</li>
+<li>env: (Read-only) environment variables by shell environment (e.g., bash).</li>
+</ol>
+
+
+<p>Inside Hive CLI, the command <code>SET</code> is used to display and change variables. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; set env:HOME; &lt;-- display HOME variable in env namespace
+</span><span class='line'>env:HOME=/home/cloudera
+</span><span class='line'>hive&gt; set; &lt;-- display all variables
+</span><span class='line'>...
+</span><span class='line'>hive&gt; set -v; &lt;-- display even more variables
+</span><span class='line'>...
+</span><span class='line'>hive&gt; set hivevar:foo=bar; &lt;-- set foo variable in hivevar namespace to bar</span></code></pre></td></tr></table></div></figure>
+
+
+<h4><code>-e query_string</code> and <code>-S</code> options</h4>
+
+<p><code>-e</code> option allows you to execute a list of semicolon-separated queries as an input string. <code>-S</code> option for silent mode will remove non-essential output. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -e "SELECT * FROM mytable LIMIT 3";
+</span><span class='line'>OK
+</span><span class='line'>name1 10
+</span><span class='line'>name2 20
+</span><span class='line'>name3 30
+</span><span class='line'>Time taken: 4.955 seconds</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ hive -S -e "select * FROM mytable LIMIT 3"
+</span><span class='line'>name1 10
+</span><span class='line'>name2 20
+</span><span class='line'>name3 30</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Tip</strong>: To quickly search for the full name of a property that you only remember part of its name, pipe the Hive&rsquo;s <code>SET</code> command output to grep. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hive -S -e "set" | grep warehouse
+</span><span class='line'>hive.metastore.warehouse.dir=/user/hive/warehouse
+</span><span class='line'>hive.warehouse.subdir.inherit.perms=true</span></code></pre></td></tr></table></div></figure>
+
+
+<h4><code>-f script_file</code> option</h4>
+
+<p>This option allows you to execute one or more queries contained in a script file. If you are already within the Hive CLI, you can use the <code>SOURCE</code> command to execute a script file. For example:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ cat /path/to/file/withqueries.hql
+</span><span class='line'>SELECT x.* FROM src x;
+</span><span class='line'>$ hive
+</span><span class='line'>hive&gt; source /path/to/file/withqueries.hql;</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<h4><code>-i filename</code> option</h4>
+
+<p>This option lets you specify an initialization file with a list of commands for the CLI to run when it starts. The default initialization file is the file <code>$HOME/.hiverc</code> if it exists.</p>
+
+<h4>Tips</h4>
+
+<ul>
+<li>To print column headers (disabled by default), set the hiveconf property <code>hive.cli.print.header</code> to true: <code>set hive.cli.print.header=true;</code>.</li>
+<li>Hive has a command history, saved into a file <code>$HOME/.hivehistory</code>. Use the up and down arrow keys to scroll through previous commands.</li>
+<li>To run HDFS commands from within Hive CLI, drop the hdfs. For example:</li>
+</ul>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; dfs -ls input; 
+</span><span class='line'>Found 1 items
+</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>To run the bash shell commands from within Hive CLI, prefix <code>!</code> before the bash commands and terminate the line with a semicolon (;). Note that interactive commands, shell pipes <code>|</code>, and file globs <code>*</code> will not work. Example:</li>
+</ul>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; !pwd;
+</span><span class='line'>hive&gt; /home/cloudera/temp</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>Set the property <code>set hive.exec.mode.local.auto=true;</code> to use local mode more aggressively and gain performance in Hive queries, especially when working with small data sets.</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/22/programming-hive-chapter-1/">Hive Tutorial (Pt. 1): Introduction</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-22T17:22:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>5:22 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><!---
+"Chapter 1: Introduction" of the "Programming Hive" book.
+-->
+
+
+<p>This post is the first of many Hive tutorial posts. Most of these posts are based on the <strong>Programming Hive</strong> book, with some observations from my own experience with <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">Cloudera Quickstart VM</a>.</p>
+
+<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
+
+<h3>Introduction</h3>
+
+<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.</p>
+
+<p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
+
+<p>HiveQL does not conform to the ANSI SQL standard (not many do), but it is quite close to MySQL dialect.</p>
+
+<h3>Hive within the Hadoop Ecosystem</h3>
+
+<p>A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my <a href="/blog/2015/11/21/explaining-wordcount-example/">last post</a> can be very involving when using the Hadoop Java API. The API requires Java developers to manage many low-level details, repetitive wiring to/from Mappers and Reducers. The WordCount example&rsquo;s Java implementation can be found <a href="https://wiki.apache.org/hadoop/WordCount">here</a>.</p>
+
+<p>Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL can be as simple as:</p>
+
+<figure class='code'><figcaption><span>WordCount example in HiveQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">docs</span> <span class="p">(</span><span class="n">line</span> <span class="n">STRING</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Load text files into TABLE docs: each line as a row */</span>
+</span><span class='line'><span class="k">LOAD</span> <span class="k">DATA</span> <span class="n">INPATH</span> <span class="s1">&#39;wordcount.txt&#39;</span> <span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">docs</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">word_counts</span> <span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">word</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="k">count</span>
+</span><span class='line'><span class="k">FROM</span>
+</span><span class='line'>   <span class="c1">-- explode will return rows of tokens</span>
+</span><span class='line'>  <span class="p">(</span><span class="k">SELECT</span> <span class="n">explode</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s1">&#39;\s&#39;</span><span class="p">))</span> <span class="k">AS</span> <span class="n">word</span>
+</span><span class='line'>   <span class="k">FROM</span> <span class="n">docs</span><span class="p">)</span> <span class="n">w</span>
+</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">word</span>
+</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">word</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
+-->
+
+</div>
+  
+  
+
+
+    </article>
+  
   <div class="pagination">
+    
+      <a class="prev" href="/posts/9">&larr; Older</a>
     
     <a href="/blog/archives">Blog Archives</a>
     
@@ -166,23 +953,23 @@ answer <code>yes</code> to this question:</p>
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/">Vertica Installation: Troubleshooting Tips</a>
+        <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">Convert Python Objects to JSON (Ordered Keys)</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">Set Up Three-node Vertica VM Sandbox</a>
+        <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/03/02/bash-trap/">Bash Trap</a>
+        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a>
+        <a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a>
+        <a href="/blog/2016/04/17/sql-unit-data-parity/">(Pt. 7) Extending for Data Parity Checks</a>
       </li>
     
   </ul>
@@ -219,7 +1006,7 @@ answer <code>yes</code> to this question:</p>
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/automation/'>automation (5)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (7)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (1)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (4)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (11)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (4)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (2)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (8)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (14)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

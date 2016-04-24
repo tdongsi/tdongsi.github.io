@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-03-15T22:20:20-07:00</updated>
+  <updated>2016-04-24T02:23:36-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,684 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Convert Python Objects to JSON (Ordered Keys)]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"/>
+    <updated>2016-04-25T01:26:22-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/25/convert-python-objects-to-json-ordered-keys</id>
+    <content type="html"><![CDATA[<p>In the JSON output shown in the last <a href="/blog/2016/04/21/convert-python-objects-to-json/">post</a>, the keys are printed out of order since they are unordered in the dictionary <code>__dict__</code>.
+In theory, it does not matter when converting to/from JSON.
+However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
+For example, in the <code>Config</code> object in the last post, it is better to see <code>source</code> and <code>target</code> configurations side by side and, then, get to know what kind of tests from <code>testName</code> key before reading details of tests in <code>queries</code> key.
+Setting <code>sort_keys</code> option in <code>json.dump</code> is not applicable here since the keys will be sorted by their names, not their order of appearance like we do in the Java example.</p>
+
+<p>To have the keys appear in order as defined when converting to JSON, we have two options:</p>
+
+<h3>Option 1: use OrderedDict as your base class</h3>
+
+<p>This option is just a quick and dirty workaround: our <code>Config</code> class should extend <code>collections.OrderedDict</code> class and, in the code, we refer to <code>object["att"]</code> instead of <code>object.att</code>.</p>
+
+<pre><code class="python Example of using OrderedDict as your Config class">class OrderedConfig(collections.OrderedDict):
+    pass
+
+def ordered_config_file(filename, query_generator):
+
+    hive_source = OrderedConfig()
+    hive_source["type"] = "hive"
+    hive_source["url"] = "jdbc:hive2://192.168.5.184:10000/DWH"
+    vertica_target = OrderedConfig()
+    vertica_target["type"] = "vertica"
+    vertica_target["url"] = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    config = OrderedConfig()
+    config["source"] = hive_source
+    config["target"] = vertica_target
+    config["testName"] = "count"
+    config["queries"] = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, indent=4)
+</code></pre>
+
+<p>We have some extra typing, but in general, it is good enough for some configuration objects.
+Note that you can now dump your configuration object directly into file because it now behaves like a dictionary.</p>
+
+<pre><code class="json Pretty print">{
+    "source": {
+        "type": "hive", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+</code></pre>
+
+<h3>Option 2: use OrderedDict as your attribute dictionary.</h3>
+
+<p>In order to refer to attributes directly as <code>object.att</code> and still get JSON ordered like in the Java example, it will need some works.
+Note that the obvious solution <code>__dict__ = OrderedDict()</code> will not work due to a Python bug.</p>
+
+<pre><code class="python Failed attempt due to a Python bug">class Config(object):
+   def __init__(self):
+       self.__dict__ = collections.OrderedDict()
+
+
+  with open(filename, 'w') as config_file:
+      json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+</code></pre>
+
+<p>I got an empty object as my JSON output.
+It can be pretty confusing since we can still refer to attributes using standard notation <code>object.att</code> and correctly retrieve values.
+After searching the web, I finally figured out that it is a known bug, as documented <a href="https://mail.python.org/pipermail/python-bugs-list/2006-April/033155.html">here</a>.
+It says that if <code>__dict__</code> is not an actual <code>dict()</code>, then it is ignored, and attribute lookup fails if using that dictionary directly.</p>
+
+<p>To work around that problem, we have to use <code>OrderedDict</code> as an attribute in <code>__dict__</code> and modify <code>__getattr__</code> and <code>__setattr__</code> methods to use this <code>OrderedDict</code> instead.
+The modified <code>Config</code> class and modified <code>default=</code> parameter is shown below.</p>
+
+<pre><code class="python Modified Config class">class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+</code></pre>
+
+<pre><code class="python Modified JSON dump">    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+</code></pre>
+
+<p>The JSON output now has the keys appear in the order as they are defined, similar to Jackson example above:</p>
+
+<pre><code class="json Pretty print with ordering">{
+    "source": {
+        "type": "hive", 
+        "host": "192.168.5.184", 
+        "user": "cloudera", 
+        "password": "password", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "host": "192.168.5.174", 
+        "user": "dbadmin", 
+        "password": "password", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+</code></pre>
+
+<p>With that, for configuration editing purposes, using the Python object to JSON conversion is more convenient than Java (POJO) to JSON conversion.
+We can add new custom attributes if needed without having to define a new class.
+The <code>Config</code> class is all you need for all configuration writing.
+The full working code for converting Python object to JSON is shown below.</p>
+
+<pre><code class="python Full code">import collections
+import json
+
+class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+
+    pass
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Convert Python Objects to JSON]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/21/convert-python-objects-to-json/"/>
+    <updated>2016-04-21T22:09:50-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/21/convert-python-objects-to-json</id>
+    <content type="html"><![CDATA[<h3>JSON serialization in Java</h3>
+
+<p>In Java, it is pretty straight-forward to convert Java objects (POJO) to JSON using <a href="https://github.com/FasterXML/jackson">Jackson library</a>.
+The following code will convert an example POJO to JSON:</p>
+
+<pre><code class="java Example POJO">public class Config {
+    public String type;
+    public String host;
+    public String user;
+    public String password;
+    public String url;
+}
+</code></pre>
+
+<pre><code class="java Jackson examples">ObjectMapper mapper = new ObjectMapper();
+Config conn = new Config();
+conn.type = "hive";
+conn.host = "192.168.5.184";
+conn.user = "cloudera";
+conn.password = "password";
+conn.url = "jdbc:hive2://192.168.5.184:10000/DWH";
+
+// POJO to JSON in file
+mapper.writeValue(new File("config.json"), obj);
+// POJO to JSON in String
+String jsonInString = mapper.writerWithDefaultPrettyPrinter()
+        .writeValueAsString(conn);
+</code></pre>
+
+<p>The JSON output is shown below.
+Note that the keys (e.g., &ldquo;type&rdquo;, &ldquo;host&rdquo;) appear in the same order as defined in the <code>Config</code> class.
+This will become important later when we try to convert Python objects to JSON.</p>
+
+<pre><code class="json JSON representation of Config object">{
+  "type" : "hive",
+  "host" : "192.168.5.184",
+  "user" : "cloudera",
+  "password" : "password",
+  "url" : "jdbc:hive2://192.168.5.184:10000/DWH"
+}
+</code></pre>
+
+<h3>JSON serialization in Python</h3>
+
+<p>In Python, we have <code>json</code> module to convert a <em>serializable</em> object to JSON format.
+The first attempt at JSON serialization in Python may look like this, with a slightly complex Python object is intentionally used as an example:</p>
+
+<pre><code class="python First attempt at JSON serialization">class Config(object):
+    pass
+
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file)
+
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+</code></pre>
+
+<p>This first attempt with <code>json.dump(config, config_file)</code> will fail with the following error:</p>
+
+<pre><code class="python JSON serialization error">TypeError: &lt;__main__.Config object at 0x10ab824d0&gt; is not JSON serializable
+</code></pre>
+
+<p>As the message indicates, <code>Config</code> object is not JSON serializable.
+<code>json.dump</code> function expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.</p>
+
+<table>
+<thead>
+<tr>
+<th> Python </th>
+<th> JSON </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> dict </td>
+<td> object </td>
+</tr>
+<tr>
+<td> list, tuple </td>
+<td> array </td>
+</tr>
+<tr>
+<td> str, unicode </td>
+<td> string </td>
+</tr>
+<tr>
+<td> int, long, float </td>
+<td> number </td>
+</tr>
+<tr>
+<td> True </td>
+<td> true </td>
+</tr>
+<tr>
+<td> False </td>
+<td> false </td>
+</tr>
+<tr>
+<td> None </td>
+<td> null </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>The solution for that problem is to specify the <code>default</code> parameter with a function that returns object&rsquo;s <code>__dict__</code> attribute.
+<code>__dict__</code> is the internal attribute dictionary that contains all attributes associated with an object.
+Object attribute references are translated to lookups in this dictionary, e.g., <code>o.x</code> is translated to <code>o.__dict__["x"]</code>.</p>
+
+<pre><code class="python Correct options">    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+</code></pre>
+
+<pre><code class="python Pretty print without ordering">{
+    "source": {
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH", 
+        "host": "192.168.5.184", 
+        "password": "password", 
+        "type": "hive", 
+        "user": "cloudera"
+    }, 
+    "queries": "...", 
+    "target": {
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart", 
+        "host": "192.168.5.174", 
+        "password": "password", 
+        "type": "vertica", 
+        "user": "dbadmin"
+    }, 
+    "testName": "count"
+}
+</code></pre>
+
+<p>Note that simply using <code>json.dump(config.__dict__, config_file)</code> will NOT work either if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
+Note that for more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
+The next <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed to be within the memory limit, it is still time-consuming to do data transfer for the two SQL returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, the test execution machine (e.g., our computers).</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If <code>Table_A EXCEPT Table_B</code> query returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the Vertica server side, which is faster since Vertica server cluster is usually much more powerful than our individual computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+When something went wrong and caused the test to fail, this will save some waiting time and make your log file cleaner .
+For example, if there are 100000 additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring 100000 rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with 100000 rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, with about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, from the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular structure of SQL Test Runner.
+We only need to extract the two projections from <code>NameQueryEqual</code> POJO, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> POJOs, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> POJOs to it.
+Note that this is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 6) Extending SQL Test Runner]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/"/>
+    <updated>2016-04-16T17:49:34-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
+
+<h3>Design Overview of SQL Test Runner</h3>
+
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
+
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
+
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <strong>Template Method</strong> and <strong>Strategy</strong> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
+
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple parsing and workflow provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), subsequently delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+
+<pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
+private TestStrategy testHandler;
+private JdbcConnection connection;
+
+@Override
+public final void runScript(String filePath) throws IOException, SQLException {
+    SoftAssert sAssert = new SoftAssert();
+
+    // Read in the SQL script
+    String content = SqlTestUtility.readFile(filePath);
+
+    // Remove comments
+    String sqlCode = TestBlockUtility.removeComments(content);
+
+    Matcher m = TestBlockUtility.testBlockRegex.matcher(sqlCode);
+    int startIndex = 0;
+    while (m.find()) {
+
+        String currentSql = sqlCode.substring(startIndex, m.start());
+        if ( currentSql.trim().length() &gt; 0 )
+            codeHandler.runSqlCode(currentSql, connection);;
+
+        testHandler.runTest( m.group(), connection, sAssert );
+
+        startIndex = m.end();
+    }
+
+    codeHandler.runSqlCode(sqlCode.substring(startIndex), connection );
+    sAssert.assertAll();
+}
+</code></pre>
+
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
+
+<pre><code class="sql Example unit test script">-- This will be handled by some CodeStrategy class
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+-- This will be handled by some TestStrategy class
+/* @Test
+-- First ETL run
+{
+    "name" : "Day1_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day1_check_email_address",
+    "query" : "select company_id, email_address from dim_company",
+    "expected" : "123 before@mockdata.com"
+}
+*/
+</code></pre>
+
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
+
+<pre><code class="java Example TestRunner">/**
+ * Test runner that uses Vertica JDBC connection.
+ * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
+ * 
+ * @author tdongsi
+ */
+public class VerticaRunner extends BaseTestRunner implements TestRunner {
+    public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
+        this.setCodeHandler(new SqlCodeHandler());
+        this.setTestHandler(new VerticaTestHandler(vsqlPath));
+        this.setConnection(jdbcConn);
+    }
+}
+</code></pre>
+
+<h3>Extending Test Runner</h3>
+
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.</p>
+
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Use JMockit ONLY]]></title>
@@ -28,466 +706,6 @@ This will lead to complex and unexpected consequences and, as a result, random t
 For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
 <p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[AWS: Developing With Amazon S3]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3/"/>
-    <updated>2016-01-18T17:13:28-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3</id>
-    <content type="html"><![CDATA[<p>Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data.
-This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.</p>
-
-<h3>S3 Buckets and Objects</h3>
-
-<p>Files of any kind such as text, video, photo are stored as objects in S3 <em>buckets</em>.
-The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
-A bucket can be <em>versioning-enabled</em>, it will store every version of every object in the bucket.</p>
-
-<p>Each <em>object</em> in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and <code>!-_.*'/</code> are allowed in a key name.</p>
-
-<p>Bucket naming tips:</p>
-
-<ul>
-<li>To ensure uniqueness, you might prefix the bucket name with the name of your organization.</li>
-<li>Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.</li>
-</ul>
-
-
-<p>Object key naming tips:</p>
-
-<ul>
-<li>Use prefixes and <code>/</code> (or other delimiters) to logically group your objects. For example, <code>prog/java/arrays.html</code>. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
-
-<ul>
-<li>However, the Amazon S3 console supports the <a href="http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html">folder concept</a> for convenience and usability. Amazon S3 does this by using key name prefixes for objects.</li>
-</ul>
-</li>
-<li>For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See &ldquo;Programming Considerations&rdquo; section below.</li>
-</ul>
-
-
-<h3>Operations on Objects</h3>
-
-<p>Basic operations on S3 objects and buckets are:</p>
-
-<ul>
-<li>Put: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.</li>
-<li>Get: Retrieve a whole object or part of an object.</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html">List Keys</a>: List object keys by prefix and delimiter.</li>
-<li>Delete: Delete one or more objects.
-
-<ul>
-<li>If versioning is not enabled, an object is permanently deleted by specifying its key.</li>
-<li>If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.</li>
-<li>If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a &ldquo;404 Not Found&rdquo; error by S3.</li>
-</ul>
-</li>
-<li>Restore: Restore an object archived on Amazon Glacier.</li>
-</ul>
-
-
-<h4>Other operations in S3</h4>
-
-<p>Advanced operations that you should know when situations arise.</p>
-
-<p><strong>Scenario 1</strong>: You want to let users upload files to your buckets for some time duration.
-<strong>Solution 1</strong>: You should never share your AWS credentials to let users upload files to your buckets.
-Instead, generate a <strong>pre-signed URL</strong> with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time.
-You share this pre-signed URL to users who will use this to access your S3 buckets.</p>
-
-<p><strong>Scenario 2</strong>: Encryption and strict data security is required.
-<strong>Solution 2</strong>: You can enable:</p>
-
-<ul>
-<li>Securing data in transit.
-
-<ul>
-<li>SSL-encrypted data transfer by using HTTPS</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html">Client-side encryption</a></li>
-</ul>
-</li>
-<li>Securing data at rest on AWS server.
-
-<ul>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html">Server-side encryption</a></li>
-</ul>
-</li>
-</ul>
-
-
-<p><strong>Scenario 3</strong>: You want your web applications that are loaded in one domain to interact with S3 resources in a different domain.
-<strong>Solution 3</strong>: Check out <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html">CORS</a>.</p>
-
-<h3>Programming considerations</h3>
-
-<ul>
-<li>According to <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">this guideline</a>, <strong>avoid</strong> using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object&rsquo;s metadata. See examples in the link for more information.</li>
-<li>If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle <a href="http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html">NoSuchBucket errors</a> when buckets do not exist.</li>
-<li>Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.</li>
-<li>Cache bucket and key names if possible.</li>
-<li>Set bucket region closest to latency-sensitive users.</li>
-<li>Compress objects to reduce the size of data transferred and storage used.</li>
-<li>Use an exponential back-off algorithm to retry after failed connection attempts. See <a href="http://docs.aws.amazon.com/general/latest/gr/api-retries.html">here</a>.</li>
-<li>Enable application logging. For example, <a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html">in Java</a>.</li>
-<li>Enable <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html">server access logging</a>.</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[AWS: Getting Started on Mac OSX]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/01/17/aws-set-up-aws-credentials-on-mac-osx/"/>
-    <updated>2016-01-17T20:57:35-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/01/17/aws-set-up-aws-credentials-on-mac-osx</id>
-    <content type="html"><![CDATA[<p>First, you need to set up your AWS credentials on your Mac by creating the following files at the following specific locations:</p>
-
-<pre><code class="plain">MTVL1288aeea2-82:~ cdongsi$ mkdir ~/.aws
-MTVL1288aeea2-82:~ cdongsi$ touch ~/.aws/credentials
-MTVL1288aeea2-82:~ cdongsi$ touch ~/.aws/config
-</code></pre>
-
-<p>In Windows, the locations of those files will be <code>C:\Users\USERNAME\.aws\credentials</code> and <code>C:\Users\USERNAME\.aws\config</code>, respectively.
-You <em>must</em> fill in your AWS access credentials (Access Key ID and Secret Access Key) into the file <code>credentials</code>. Optionally, you can set the default region in the <code>config</code> file.
-The content of the files will look like the following:</p>
-
-<pre><code class="plain">MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/credentials
-[default]
-aws_access_key_id = your_access_key_id
-aws_secret_access_key = your_secret_access_key
-
-MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/config
-[default]
-region=us-west-2
-</code></pre>
-
-<h3>HelloAws using Java</h3>
-
-<p>Now, you can install AWS Toolkit for Eclipse from <a href="http://aws.amazon.com/eclipse/">this link</a>. Follow the instruction in that page to install AWS Toolkit.</p>
-
-<p>After AWS Toolkit is installed, you are ready to run the first <code>HelloAws</code> Java application. In Eclipse, create a AWS Console application.</p>
-
-<ol>
-<li>Click the new orange button on Eclipse taskbar named &ldquo;AWS Toolkit for Eclipse&rdquo;.</li>
-<li>Click the link named &ldquo;Create a New AWS Java Project&rdquo;.</li>
-<li>Fill in &ldquo;Project name&rdquo; as &ldquo;HelloAws&rdquo;. Check &ldquo;AWS Console Application&rdquo; from &ldquo;AWS SDK for Java Samples&rdquo; panel.</li>
-</ol>
-
-
-<p>Note that the sample generated has the following instruction in its main class. If you haven&rsquo;t do it, follow the steps above to set up your AWS access credentials.</p>
-
-<pre><code class="java">public class AwsConsoleApp {
-
-    /*
-     * Before running the code:
-     *      Fill in your AWS access credentials in the provided credentials
-     *      file template, and be sure to move the file to the default location
-     *      (/Users/cdongsi/.aws/credentials) where the sample code will load the
-     *      credentials from.
-     *      https://console.aws.amazon.com/iam/home?#security_credential
-     *
-     * WARNING:
-     *      To avoid accidental leakage of your credentials, DO NOT keep
-     *      the credentials file in your source directory.
-     */
-
-    static AmazonEC2      ec2;
-    static AmazonS3       s3;
-    static AmazonSimpleDB sdb;
-</code></pre>
-
-<p>If your AWS credentials are ready, simply run the sample AWS console code as &ldquo;Java Application&rdquo;. The output will look something like this:</p>
-
-<pre><code class="plain">===========================================
-Welcome to the AWS Java SDK!
-===========================================
-You have access to 4 Availability Zones.
-You have 0 Amazon EC2 instance(s) running.
-You have 0 Amazon SimpleDB domain(s)containing a total of 0 items.
-You have 0 Amazon S3 bucket(s), containing 0 objects with a total size of 0 bytes.
-</code></pre>
-
-<h3>HelloAws using Python</h3>
-
-<p>To install <a href="http://aws.amazon.com/sdk-for-python/">AWS SDK for Python</a>, run the following the command as instructed in that page:</p>
-
-<pre><code>pip install boto3
-</code></pre>
-
-<p>In my case, I used a slightly different command to avoid permission errors on Mac OSX:</p>
-
-<pre><code>pip install boto3 --user
-</code></pre>
-
-<p>I use PyCharm/IntelliJ as IDE for Python and, apparently, there is no Python sample for it. In PyCharm, you can use the following Python script as your <code>HelloAws</code> program:</p>
-
-<pre><code class="python">import boto3
-from botocore.exceptions import ClientError,NoCredentialsError
-import sys
-
-def getS3BucketNumber():
-
-    try:
-        s3 = boto3.resource('s3')
-        buckets = []
-    except NoCredentialsError:
-        print "No AWS Credentials"
-        sys.exit()
-
-    try:
-        bucket_num = len(list(s3.buckets.all()))
-        print "Number of buckets: " + str(bucket_num)
-        return bucket_num
-    except ClientError as ex:
-        print(ex)
-        return 0
-
-if __name__ == '__main__':
-    getS3BucketNumber()
-</code></pre>
-
-<p>Note that it is based on the <a href="https://github.com/boto/boto3#quick-start">Quick start on Github</a>. In PyCharm, running the above Python should print the following output:</p>
-
-<pre><code class="plain">Number of buckets: 0
-</code></pre>
-
-<h3>Quick note on Python API vs. Java API</h3>
-
-<p>Note that Boto3 SDK for Python support <a href="http://boto3.readthedocs.org/en/latest/guide/resources.html">&ldquo;Resource API&rdquo;</a>.
-As opposed to &ldquo;Service Client API&rdquo; like AWS SDK for Java, Resource API provides a higher level interface to the service and it is easier to understand and simpler to use.</p>
-
-<p>For example, the generated example for AWS&rsquo;s Java SDK uses a Service Client API. It uses a class AmazonS3Client that controls the requests you make to the S3 service.
-Meanwhile, the Boto3 SDK for Python has classes representing the conceptual resources (e.g., s3.Bucket) that you interact with when using the S3 service.
-This is a higher level abstraction compared to a client class like AmazonS3Client making low-level calls to the service API.</p>
-
-<h3>External Links</h3>
-
-<ul>
-<li>Python
-
-<ul>
-<li><a href="https://boto3.readthedocs.org/en/latest/guide/index.html">Developer Guide</a></li>
-<li><a href="https://boto3.readthedocs.org/en/latest/reference/core/index.html">API Documentation</a></li>
-</ul>
-</li>
-<li>Java
-
-<ul>
-<li><a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/welcome.html">Developer Guide</a></li>
-<li><a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html">API Documentation</a></li>
-</ul>
-</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Overview of MapReduce: Explaining WordCount Example]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example/"/>
-    <updated>2015-11-21T02:37:20-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/21/explaining-wordcount-example</id>
-    <content type="html"><![CDATA[<p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below:</p>
-
-<!---
-(from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
-
-![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
--->
-
-
-<p><img class="center" src="/images/hive/wordcount.png" title="Process Flow of WordCount Example" ></p>
-
-<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
-
-<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
-
-<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
-
-<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection (or a value when the collection has a single element). In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
-
-<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
-
-<table>
-<thead>
-<tr>
-<th> </th>
-<th> Mapper </th>
-<th> Shuffling </th>
-<th> Reducer </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Input</strong> </td>
-<td> <code>(offset, text_line)</code> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> <code>(token,[1,1,1,...])</code> </td>
-</tr>
-<tr>
-<td> <strong>Processing</strong> </td>
-<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
-<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
-<td> Sum all elements in collection </td>
-</tr>
-<tr>
-<td> <strong>Output</strong> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> Sorted <code>(token,[1,1,1,...])</code> </td>
-<td> <code>(token, count)</code> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[WordCount Example in Cloudera Quickstart VM]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/"/>
-    <updated>2015-11-20T11:47:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm</id>
-    <content type="html"><![CDATA[<p><a href="https://wiki.apache.org/hadoop/WordCount">WordCount</a> is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some &ldquo;Hello World&rdquo; example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic &ldquo;Hello World&rdquo; examples.</p>
-
-<p>Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as <a href="https://developer.yahoo.com/hadoop/tutorial/">this</a>). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.</p>
-
-<p>The purpose of this post is to help new users dive into Hadoop more easily. After reading this, you should be able to:</p>
-
-<ol>
-<li>Get started with a simple, local Hadoop sandbox for hands-on experiments.</li>
-<li>Perform some simple tasks in HDFS.</li>
-<li>Run the most basic example program WordCount, using your own input data.</li>
-</ol>
-
-
-<h3>Get your Hadoop sandbox</h3>
-
-<p>Nowadays, many companies provide Hadoop sandboxes for learning purpose, such as Cloudera, <a href="http://hortonworks.com/products/hortonworks-sandbox/">Hortonworks</a>. In this post, I used <a href="http://www.cloudera.com/content/www/en-us/documentation/enterprise/5-2-x/topics/cloudera_quickstart_vm.html">Cloudera Quickstart VM</a>. Download the VM and start it up in VirtualBox or VMWare Fusion.</p>
-
-<h3>Working with HDFS</h3>
-
-<p>Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" &gt; wordcount.txt
-</code></pre>
-
-<p>Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
-[cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
-[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
-Found 1 items
--rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 /user/cloudera/input/wordcount.txt
-</code></pre>
-
-<p>It should be noted that for a fresh Cloudera VM, there is a &ldquo;/user&rdquo; folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux&rsquo;s &ldquo;ls&rdquo; and HDFS&rsquo;s &ldquo;ls&rdquo; interact with those independently.</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ ls /user
-
-ls: cannot access /user: No such file or directory
-[cloudera@quickstart temp]$ hdfs dfs -ls /user
-Found 5 items
-drwxr-xr-x   - cloudera cloudera          0 2014-12-18 07:08 /user/cloudera
-drwxr-xr-x   - mapred   hadoop            0 2014-12-18 07:08 /user/history
-drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
-drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
-drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark
-</code></pre>
-
-<p>To see the content of a file on HDFS, use cat subcommand:</p>
-
-<pre><code>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/input/wordcount.txt
-this is a hadoop tutorial test
-</code></pre>
-
-<p>For large files, if you want to view just the first or last parts, there is no -more or -tail subcommand. Instead, pipe the output of the -cat subcommand through your local shell’s more, or tail. For example: <code>hdfs dfs -cat wc-out/* | more</code>.</p>
-
-<p>For more HDFS commands, check out links in References section below.</p>
-
-<h3>Running the WordCount example</h3>
-
-<p>Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.</p>
-
-<p>We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
-lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
-
-[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
-Valid program names are:
-  aggregatewordcount: An Aggregate based map/reduce program that counts the words in the input files.
-  aggregatewordhist: An Aggregate based map/reduce program that computes the histogram of the words in the input files.
-  bbp: A map/reduce program that uses Bailey-Borwein-Plouffe to compute exact digits of Pi.
-  dbcount: An example job that count the pageview counts from a database.
-  distbbp: A map/reduce program that uses a BBP-type formula to compute exact bits of Pi.
-  grep: A map/reduce program that counts the matches of a regex in the input.
-  join: A job that effects a join over sorted, equally partitioned datasets
-  multifilewc: A job that counts words from several files.
-  pentomino: A map/reduce tile laying program to find solutions to pentomino problems.
-  pi: A map/reduce program that estimates Pi using a quasi-Monte Carlo method.
-  randomtextwriter: A map/reduce program that writes 10GB of random textual data per node.
-  randomwriter: A map/reduce program that writes 10GB of random data per node.
-  secondarysort: An example defining a secondary sort to the reduce.
-  sort: A map/reduce program that sorts the data written by the random writer.
-  sudoku: A sudoku solver.
-  teragen: Generate data for the terasort
-  terasort: Run the terasort
-  teravalidate: Checking results of terasort
-  wordcount: A map/reduce program that counts the words in the input files.
-  wordmean: A map/reduce program that counts the average length of the words in the input files.
-  wordmedian: A map/reduce program that counts the median length of the words in the input files.
-  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.
-</code></pre>
-
-<p>To run the WordCount example using the input file that we just moved to HDFS, use the following command:</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
-/user/cloudera/input/wordcount.txt /user/cloudera/output
-
-15/11/15 18:14:45 INFO client.RMProxy: Connecting to ResourceManager at /0.0.0.0:8032
-15/11/15 18:14:46 INFO input.FileInputFormat: Total input paths to process : 1
-15/11/15 18:14:46 INFO mapreduce.JobSubmitter: number of splits:1
-15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens for job: job_1421372394109_0001
-15/11/15 18:14:46 INFO impl.YarnClientImpl: Submitted application application_1421372394109_0001
-15/11/15 18:14:46 INFO mapreduce.Job: The url to track the job: http://quickstart.cloudera:8088/proxy/application_1421372394109_0001/
-15/11/15 18:14:46 INFO mapreduce.Job: Running job: job_1421372394109_0001
-15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : false
-15/11/15 18:14:55 INFO mapreduce.Job:  map 0% reduce 0%
-15/11/15 18:15:01 INFO mapreduce.Job:  map 100% reduce 0%
-15/11/15 18:15:07 INFO mapreduce.Job:  map 100% reduce 100%
-15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully
-</code></pre>
-
-<p>The output folder is specified as &ldquo;/user/cloudera/output&rdquo; in the above command. Finally, check the output of WordCount example in the output folder.</p>
-
-<pre><code class="">[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
-
-Found 2 items
--rw-r--r--   1 cloudera cloudera          0 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
--rw-r--r--   1 cloudera cloudera         43 2015-11-15 18:15 /user/cloudera/output/part-r-00000
-[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/output/part-r-00000
-a     1
-hadoop     1
-is     1
-test     1
-this     1
-tutorial     1
-</code></pre>
-
-<p>Congratulations!! You just finished the first step of the journey into Hadoop.</p>
-
-<h3>Additional links</h3>
-
-<ol>
-<li><a href="http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/">http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/</a></li>
-<li><a href="http://wiki.apache.org/hadoop/WordCount">http://wiki.apache.org/hadoop/WordCount</a></li>
-<li><a href="https://developer.yahoo.com/hadoop/tutorial/">https://developer.yahoo.com/hadoop/tutorial/</a></li>
-</ol>
-
 ]]></content>
   </entry>
   
