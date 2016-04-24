@@ -16,7 +16,7 @@ In this post, I will discuss the design of the SQL Test Runner.
 From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
 In the [next post](http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/), I will give an example on how I added a new functionality to handle a new kind of tests.
 
-### Design of SQL Test Runner
+### Design Overview of SQL Test Runner
 
 When designing the SQL Test Runner, the following requirements should be taken into account:
 
@@ -129,15 +129,10 @@ public class VerticaRunner extends BaseTestRunner implements TestRunner {
 ### Extending Test Runner
 
 When extending a test runner, the behaviors of the test runners should NOT be inherited. 
-Instead, they should be encapsulated in classes that implement CodeStrategy to handle SQL statements or TestStrategy to handle test blocks `/* @Test {...} */`.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks `/* @Test {...} */` (TestStrategy interface).
 When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
 Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
 In other words, "composition over inheritance" principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.
-
-For example, our current test runner that can run an ETL script in Vertica database using `vsql` command-line tool.
-If we need a test runner that is able to run an ETL script in **Netezza** database, we should not modify our *current* test runner. 
-It will break the current suite of tests for Vertica.
-Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
 
 Implementation of a new feature can be summarized in the following steps:
 
@@ -146,4 +141,9 @@ Implementation of a new feature can be summarized in the following steps:
 1. Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.
 1. Create a new test runner that uses the new TestStrategy/CodeStrategy.
 
-In [this example](/blog/2016/04/17/sql-unit-data-parity/), I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.
+For example, our current test runner that can run an ETL script in Vertica database using `vsql` command-line tool.
+If we need a test runner that is able to run an ETL script in **Netezza** database, we should not modify our *current* test runner. 
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
+
+In [another example](/blog/2016/04/17/sql-unit-data-parity/), I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.
