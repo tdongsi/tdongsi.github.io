@@ -14,7 +14,7 @@ For overview, see [here](/blog/2016/03/16/sql-unit-overview/).
 
 In this post, I will discuss the design of the SQL Test Runner.
 From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
-For illustration, I will discuss how I recently added a new functionality to handle a new kind of tests.
+In the [next post](http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/), I will give an example on how I added a new functionality to handle a new kind of tests.
 
 ### Design of SQL Test Runner
 
@@ -26,17 +26,16 @@ That could be confusing and counter-productive for anyone who are using it.
 
 2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
 SQL Unit Testing in ETL context is a pretty new area for us.
-Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
-The test framework should be flexible enough to add new capability for new testing needs for different kinds of ETLs.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.
 
 These two are also known as [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle).
 Besides that principle, SQL Test Runner codes also use **Template Method** and **Strategy** design patterns.
 Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.
 
-TODO: At the top level, there is BaseRunner.
-This parsing is pretty simplistic but it works for most of my testing needs.
-Template Method pattern.
-
+At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple parsing and workflow provided in its `runScript` method, as shown below (Template Method design pattern).
+The template method `runScript` extracts the SQL statements and test blocks (`/* @Test ... */` blocks), subsequently delegates to `codeHandler` and `testHandler` to process them, respectively.
 
 ``` java Template Method for running test scripts in BaseTestRunner
 private CodeStrategy codeHandler;
@@ -71,7 +70,45 @@ public final void runScript(String filePath) throws IOException, SQLException {
 }
 ```
 
-TODO: Different way to handle code block and test block. Strategy patterns.
+In the `BaseTestRunner` class, the `codeHandler` attribute can be any object that implements `CodeStrategy` interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two `INSERT` statements in the example script below.
+Similarly, the `testHandler` attribute in the `BaseTestRunner` can be any object that implements `TestStrategy` interface.
+It will handle test blocks (`/* @Test ... */` blocks) such as the two test blocks in the example below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.
+ 
+
+``` sql Example unit test script
+-- This will be handled by some CodeStrategy class
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+-- This will be handled by some TestStrategy class
+/* @Test
+-- First ETL run
+{
+	"name" : "Day1_etl_run",
+	"vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+	"name" : "Day1_check_email_address",
+	"query" : "select company_id, email_address from dim_company",
+	"expected" : "123 before@mockdata.com"
+}
+*/
+```
+
+The `codeHandler` and `testHandler` attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new `VerticaTestHandler` class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.
 
 ``` java Example TestRunner
 /**
@@ -91,7 +128,7 @@ public class VerticaRunner extends BaseTestRunner implements TestRunner {
 
 ### Extending Test Runner
 
-The behaviors of the test runners should NOT be inherited. 
+When extending a test runner, the behaviors of the test runners should NOT be inherited. 
 Instead, they should be encapsulated in classes that implement CodeStrategy to handle SQL statements or TestStrategy to handle test blocks `/* @Test {...} */`.
 When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
 Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
