@@ -96,7 +96,7 @@ In Mac OSX, hard links to directories are not supported. There is a [tool](https
 Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
 When you switch branches back and forth, Git remove the old files and create new ones.
 You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hardl links may be out of sync, and appear like totally unrelated files to Git.
+Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
 Therefore, using hard links, at best, is just a temporary solution.
 
 ### Links

@@ -107,7 +107,7 @@ Implementation of this new feature is summarized in the following steps:
 
 1. Define new JSON block. 
 1. Define new POJO (named `NameQueryEqual`) that maps to new JSON block.
-1. Create a new class (named `NewHandler` for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+1. Create a new class (named `NewTestHandler` for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
    1. From `NameQueryEqual` POJO, generate two `NameQueryExpected` POJOs with relevant queries (using `EXCEPT` operations).
    1. Reuse the old TestHandler class to process two `NameQueryExpected` POJOs.
 
@@ -132,9 +132,10 @@ public class NameQueryEqual {
 }
 ```
 
-For step 3, as emphasized in the [last post](/2016/04/16/sql-unit-extension/), we should not modify the old test runner to handle this new POJO.
+For step 3, as emphasized in the [last post](/2016/04/16/sql-unit-extension/), we should NOT modify the old test runner to handle this new POJO.
 Instead, we should create a new class `NewTestHandler` that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).
-The implementation of the new test block handler is not really complex, thanks to modular structure of SQL Test Runner.
+
+The implementation of the new test block handler is NOT really complex, thanks to modular structure of SQL Test Runner.
 We only need to extract the two projections from `NameQueryEqual` POJO, generate two `EXCEPT` queries for those two projections (with some `LIMIT` clauses), and create two  `NameQueryExpected` POJOs for those test queries.
 Since we already have a TestHanlder class that can run and verify those `NameQueryExpected` POJOs, we only need to include a TestHandler object into the `NewTestHandler` class and delegate handling `NameQueryExpected` POJOs to it.
 Note that this is recommended over subclassing `TestHandler` to include new code for handling the new `NameQueryEqual` POJO (i.e., "composition over inheritance").

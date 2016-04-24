@@ -7,7 +7,6 @@ categories:
 - SQL
 - Automation
 - Testing
-- Vertica
 - Java
 ---
 
@@ -33,8 +32,6 @@ The test framework should be flexible enough to add new capability for new testi
 These two are also known as [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle).
 Besides that principle, SQL Test Runner codes also use **Template Method** and **Strategy** design patterns.
 Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.
-
-
 
 TODO: At the top level, there is BaseRunner.
 This parsing is pretty simplistic but it works for most of my testing needs.
@@ -80,14 +77,13 @@ The behaviors of the test runners should NOT be inherited.
 Instead, they should be encapsulated in classes that implement CodeStrategy to handle SQL statements or TestStrategy to handle test blocks `/* @Test {...} */`.
 When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
 Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
-In other words, "composition over inheritance" principle applies here to separate test runner classes and code/test handling that each use.
+In other words, "composition over inheritance" principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.
+
+#### Example
 
 For example, our current test runner that can run an ETL script in Vertica database using `vsql` command-line tool.
 If we need a test runner that is able to run an ETL script in **Netezza** database, we should not modify our *current* test runner. 
 It will break the current suite of tests for Vertica.
-We should not also subclass the current test runner, in favor of composition.
 Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
 
-### Example
-
-See [here](/blog/2016/04/17/sql-unit-data-parity/).
+In [this example](/blog/2016/04/17/sql-unit-data-parity/), I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.

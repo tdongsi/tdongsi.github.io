@@ -126,7 +126,7 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
 | **Kinesis** | | |
-| **EMR** | | |
+| [**EMR**](https://aws.amazon.com/elasticmapreduce/) <br/>(Elastic MapReduce) | MapReduce. | Big Data processing. <br/>Spark is also available.|
 | **Data Pipeline** | | |
 
 <br/>
