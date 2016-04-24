@@ -35,10 +35,10 @@ Knowing these design patterns will make it easier to understand the overall code
 
 TODO: At the top level, there is BaseRunner.
 This parsing is pretty simplistic but it works for most of my testing needs.
-For more widespread 
+Template Method pattern.
 
 
-``` java Template Method for running test scripts 
+``` java Template Method for running test scripts in BaseTestRunner
 private CodeStrategy codeHandler;
 private TestStrategy testHandler;
 private JdbcConnection connection;
@@ -71,6 +71,24 @@ public final void runScript(String filePath) throws IOException, SQLException {
 }
 ```
 
+TODO: Different way to handle code block and test block. Strategy patterns.
+
+``` java Example TestRunner
+/**
+ * Test runner that uses Vertica JDBC connection.
+ * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
+ * 
+ * @author tdongsi
+ */
+public class VerticaRunner extends BaseTestRunner implements TestRunner {
+	public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
+		this.setCodeHandler(new SqlCodeHandler());
+		this.setTestHandler(new VerticaTestHandler(vsqlPath));
+		this.setConnection(jdbcConn);
+	}
+}
+```
+
 ### Extending Test Runner
 
 The behaviors of the test runners should NOT be inherited. 
@@ -79,11 +97,16 @@ When a new test runner is created to meet new testing needs, we should not subcl
 Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
 In other words, "composition over inheritance" principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.
 
-#### Example
-
 For example, our current test runner that can run an ETL script in Vertica database using `vsql` command-line tool.
 If we need a test runner that is able to run an ETL script in **Netezza** database, we should not modify our *current* test runner. 
 It will break the current suite of tests for Vertica.
 Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.
+
+Implementation of a new feature can be summarized in the following steps:
+
+1. Define new JSON block. 
+1. Define new POJO that maps to new JSON block.
+1. Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.
+1. Create a new test runner that uses the new TestStrategy/CodeStrategy.
 
 In [this example](/blog/2016/04/17/sql-unit-data-parity/), I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.

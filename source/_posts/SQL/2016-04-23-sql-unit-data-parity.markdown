@@ -110,6 +110,7 @@ Implementation of this new feature is summarized in the following steps:
 1. Create a new class (named `NewTestHandler` for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
    1. From `NameQueryEqual` POJO, generate two `NameQueryExpected` POJOs with relevant queries (using `EXCEPT` operations).
    1. Reuse the old TestHandler class to process two `NameQueryExpected` POJOs.
+1. Create a new test runner that extends the `BaseTestRunner` and uses the new `TestStrategy`.
 
 For step 1, the new JSON block is already defined as above. 
 From JSON, the corresponding POJO in step 2 can be easily defined:
