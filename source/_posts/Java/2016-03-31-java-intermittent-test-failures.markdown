@@ -3,7 +3,7 @@ layout: post
 title: "Unit Tests Pass on Local but Fail on CI"
 date: 2016-05-01 17:51:13 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Java
 - Testing

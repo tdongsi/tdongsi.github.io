@@ -3,7 +3,7 @@ layout: post
 title: "Java: unit test performance"
 date: 2016-05-06 22:47:42 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Java
 - Jenkins
@@ -11,6 +11,7 @@ categories:
 - TestNG
 - Testing
 - Maven
+- JUnit
 ---
 
 According to [this](https://www.youtube.com/watch?v=wEhu57pih5w), the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a. Test Automation Pyramid).

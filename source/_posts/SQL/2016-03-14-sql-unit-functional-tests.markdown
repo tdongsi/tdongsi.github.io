@@ -30,7 +30,7 @@ There are not many tools available for automated testing of SQL scripts, especia
 At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
 Data analysts are *de facto* end-users and main testers and many of those test queries are based on their experience.
 
-{% img center /images/sql/SQuirreL.png Manual testing %}
+{% img center /images/sql/squirrel.png Manual testing %}
 
 We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
 This process is pretty much manual. If an ETL is updated `n` times, we have to repeat this `n` times.
