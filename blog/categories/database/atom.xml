@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Database | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/database/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-04-24T02:30:20-07:00</updated>
+  <updated>2016-04-24T23:42:19-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,155 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
+<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our individual computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
+In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
+For example, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
+We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
+Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
@@ -398,66 +547,6 @@ Load session of table 'MY_TABLE' completed successfully
 <li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html">Installing the Netezza CLI tools</a></li>
 <li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html">Nzsql CLI tool</a></li>
 <li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&amp;lang=en">Nzload CLI tool</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Some NZSQL Tips for New Netezza Users]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/12/07/some-netezzas-nzsql-tips/"/>
-    <updated>2015-12-07T11:11:06-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/12/07/some-netezzas-nzsql-tips</id>
-    <content type="html"><![CDATA[<ul>
-<li>By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:</li>
-</ul>
-
-
-<pre><code class="sql">create table my_table (name varchar(80), address varchar(80));
-create table my_table (NaMe varchar(80), adDresS varchar(80));
-</code></pre>
-
-<p>  are equivalent to:</p>
-
-<pre><code class="sql">create table my_table (NAME varchar(80), ADDRESS varchar(80));
-</code></pre>
-
-<p>  The same is true for <code>SELECT</code> statements. These two SQL statements:</p>
-
-<pre><code class="sql">select name from my_table;
-select NaMe from my_table;
-</code></pre>
-
-<p>  are equivalent to:</p>
-
-<pre><code class="sql">select NAME from my_table;
-</code></pre>
-
-<ul>
-<li>The best practice is that you should never care or override the above default behavior: your identifiers should be case-insensitive. Unfortunately, if you have to override the above default behavior, then you must surround the identifier with double-quotes whenever you reference it. For example, if you create a table using this statement:</li>
-</ul>
-
-
-<pre><code class="sql">create table my_table ("Name" varchar(80), "Address" varchar(80));
-</code></pre>
-
-<p>then you must reference the identifiers by surrounding them with double-quotes. For example:</p>
-
-<pre><code class="sql">select "Name" from my_table;
-</code></pre>
-
-<ul>
-<li>The most perplexing feature for new Netezza users when reading a NZSQL script is probably the &ldquo;dot dot&rdquo; notation of database object names, i.e., the two dots in <code>my_dwh..companies</code>. It is simply the short-hand notation for database object names, <code>database-name..object-name</code>. The fully qualified form of object names in Netezza has <strong>three-level</strong> as <code>database-name.schema.object-name</code>. One example of using such notation is shown below:</li>
-</ul>
-
-
-<pre><code class="sql">select count(*) from (select company_name from my_dwh..companies where company_name like '%e%') as x;
-</code></pre>
-
-<h4>External Links</h4>
-
-<ol>
-<li><a href="https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html">Database Object Naming</a></li>
 </ol>
 
 ]]></content>
