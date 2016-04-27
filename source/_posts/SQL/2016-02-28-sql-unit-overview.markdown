@@ -32,31 +32,31 @@ This [blog post](/blog/2016/03/20/sql-unit-functional-tests/) documents the jour
 ### SQL Test Runner
 
 In the latest iteration of automated testing, supporting Java code is abstracted into a SQL Test Runner. 
-Quality engineers and data analysts can now write test queries and assertions in more readable test blocks.
+Quality engineers and data analysts can now write test queries and assertions in more readable test blocks, using mostly SQL.
 This [blog post](/blog/2016/03/28/sql-unit-test-runner/) provides some examples. 
-As you can see, many decision-making during impelmentation is based on my motto: **prioritize test readability** when it makes sense.
+As you can see, many design and impelmentation decisions are based on my motto: **prioritize test readability** when it makes sense.
 
 ### Incremental data update
 
 One of biggest challenges in SQL testing is "incremental data update" in ETL scripts.
-Challenges in functional testing those motivates me to create a test framework to allow adding unit-like tests for those ETL scripts.
+Challenges in functional testing those scripts motivates me to ajdust the above test framework (SQL Test Runner) to allow adding unit-like tests for those ETL scripts.
 This [blog post](/blog/2016/04/10/sql-unit-incremental-data-update/) discusses "incremental data update" and how it should be tested as a number of unit tests.
 
 ### Unit testing
 
 This [blog post](http://localhost:4000/blog/2016/04/12/sql-unit-testing/) goes into details of SQL Unit Testing.
-Keep this in mind, the main users of this test framework are data engineers (developers) and data analysts (testers).
+Keep in mind that the main users of this test framework are data engineers (developers) and data analysts (testers).
 Not all data engineers and analysts are comfortable with writing tests in Java or Python.
 This SQL Test framework will allow them to write their tests in SQL, by hiding all Java automation details.
 
-Note that data analysts are really critical in validating data warehouses/datamarts. 
+It should be noted that data analysts are really critical in validating data warehouses/datamarts. 
 They are the most direct users and no one understands the data better than analysts.
 If the data analysts are able to read unit test scripts and confirm the expectation, quality engineers will save lots of time translating business requirements into SQL/Java tests.
 
 ### Functional tests vs Unit tests
 
-This [blog post](/blog/2016/04/14/sql-unit-vs-functional/) recap the above sections by highlighting the difference between these two in the context of Big Data projects.
-It should be noted that two groups of tests complement each other in assuring quality and functionality of Big Data projects.
+This [blog post](/blog/2016/04/14/sql-unit-vs-functional/) recap the above sections by highlighting the difference between these groups of tests in the context of Big Data projects.
+Note that the two groups complement each other in assuring quality and functionality of Big Data projects.
 
 ### Extending SQL Test Runner
 
@@ -64,4 +64,4 @@ SQL testing for ETL process is a pretty new area to us.
 Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
 This [blog post](/blog/2016/04/16/sql-unit-extension/) explains how to extend the test framework to add new functionality or features. 
 The SQL Unit Test framework is designed based on [Open/Closed principle](https://en.wikipedia.org/wiki/Open/closed_principle), and uses design patterns like Template Method and Strategy to make it easy to add new functionality.
-For illustration, I will discuss how I recently added a new functionality to handle a [new kind of tests](/2016/04/17/sql-unit-data-parity/).
+For illustration, I will discuss how I recently added a new functionality to handle a [new kind of tests](/blog/2016/04/17/sql-unit-data-parity/).

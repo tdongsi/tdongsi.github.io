@@ -36,7 +36,7 @@ matches
 select col3, col4 from new_table_name
 ```
 
-The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one. 
+The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one. 
 It would be very time-consuming to write and execute such test cases in Java and TestNG.
 Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row. 
 Moreover, note that these expensive operations are carried out on the client side, our computers.
@@ -77,14 +77,14 @@ If the query `Table_A EXCEPT Table_B` returns nothing, it indicates that data in
 Similarly for `Table_B EXCEPT Table_A` query. 
 Therefore, if two test cases pass, it means that the data in `Table_A` is equal to the data in `Table_B`.
 
-Using these two queries, we shift most of computing works (`EXCEPT` operations) to the database server side, which is faster since the server cluster is usually much more powerful than our individual computers. 
+Using these two queries, we shift most of computing works (`EXCEPT` operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers. 
 Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
-In short, this will save us lots of computation time, data transfer time, and assertion check time.
+In short, these `EXCEPT`-based checks will save us lots of computation time, data transfer time, and assertion check time.
 
 The `limit 20` clause is also for minimizing data transfer and local computing works.
-When the expected return of the test SQL query is nothing (i.e., `"expected" : ""`), we should always add LIMIT clause to the query. 
+When the expected return of the SQL query is nothing (i.e., `"expected" : ""`), we should always add LIMIT clause to the query. 
 This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
-For example, if there are one million additional, erroneous rows of data in `new_table_name` for some reason, the test case "parity_check_reverse" will fail. 
+For example, using the above test blocks, if there are one million additional, erroneous rows of data in `new_table_name` for some reason, the test case "parity_check_reverse" will fail. 
 However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the `LIMIT` clauses. 
 In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.
 
@@ -93,7 +93,7 @@ In addition, the log file of the Test Runner will NOT be flooded with one millio
 If we only need to do a few simple data parity checks, a few ("name", "query", "expected") test blocks as shown above will suffice.
 However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
 For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
-Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read.
 Therefore, I create a new test block construct that is more friendly to write and read, as shown below.
 
 ``` plain New test block
@@ -107,7 +107,7 @@ Therefore, I create a new test block construct that is more friendly to write an
 ```
 
 Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
-That is, based on the two projection queries found in "query" and "equal" clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using `EXCEPT` operations).
+That is, based on the two projection queries found in "query" and "equal" clauses, the SQL Test Runner will generate two test blocks with `EXCEPT`-based test queries as shown above.
 
 Implementation of this new feature is summarized in the following steps:
 
@@ -143,6 +143,6 @@ For step 3, as emphasized in the [last post](/2016/04/16/sql-unit-extension/), w
 Instead, we should create a new class `NewTestHandler` that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).
 
 The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
-We only need to extract two projections from `NameQueryEqual`'s attributes, generate two `EXCEPT` queries for those two projections (with some `LIMIT` clauses), and create two  `NameQueryExpected` POJOs for those test queries.
+We only need to extract two projections from `NameQueryEqual`'s attributes, generate two `EXCEPT`-based queries for those two projections (with `LIMIT` clauses), and create two  `NameQueryExpected` POJOs for those test queries.
 Since we already have a TestHanlder class that can run and verify those `NameQueryExpected` objects, we only need to include a TestHandler object into the `NewTestHandler` class and delegate handling `NameQueryExpected` objects to it.
 Note that this approach is recommended over subclassing `TestHandler` to include new code for handling the new `NameQueryEqual` POJO (i.e., "composition over inheritance").
