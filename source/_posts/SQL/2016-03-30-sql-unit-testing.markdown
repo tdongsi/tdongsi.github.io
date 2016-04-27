@@ -56,3 +56,11 @@ Assumptions:
 -->
 
 TODO indefinitely.
+
+The idea is to use a local Vertica VM as sandbox test environment. 
+It could be a [single cluster VM](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/) or [three-node cluster VM](/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/).
+
+The following changes in SQL Test Runner are critical to enable unit testing:
+
+1. Mix of SQL code and test blocks: We can use SQL code to do necessary synthetic data setup before running assertions, in SQL queries.
+1. New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those "functions" again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.
