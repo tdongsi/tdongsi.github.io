@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Automation | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/automation/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-04-27T00:11:57-07:00</updated>
+  <updated>2016-04-27T00:44:33-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -41,7 +41,7 @@ matches
 select col3, col4 from new_table_name
 </code></pre>
 
-<p>The straight-forward test would be get all rows and columns of those two projections, and perform equality check one by one.
+<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
 It would be very time-consuming to write and execute such test cases in Java and TestNG.
 Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
 Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
@@ -85,14 +85,14 @@ Moreover, note that these expensive operations are carried out on the client sid
 Similarly for <code>Table_B EXCEPT Table_A</code> query.
 Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
 
-<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our individual computers.
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
 Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
-In short, this will save us lots of computation time, data transfer time, and assertion check time.</p>
+In short, these <code>EXCEPT</code>-based checks will save us lots of computation time, data transfer time, and assertion check time.</p>
 
 <p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
-When the expected return of the test SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
 This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
-For example, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
 However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
 In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
 
@@ -101,7 +101,7 @@ In addition, the log file of the Test Runner will NOT be flooded with one millio
 <p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
 However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
 For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
-Writing test blocks like above can become a daunting task, and such test blocks are becoming harder to read.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read.
 Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
 
 <pre><code class="plain New test block">/* @Test
@@ -114,7 +114,7 @@ Therefore, I create a new test block construct that is more friendly to write an
 </code></pre>
 
 <p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
-That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with SQL test queries as shown above (using <code>EXCEPT</code> operations).</p>
+That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
 
 <p>Implementation of this new feature is summarized in the following steps:</p>
 
@@ -156,7 +156,7 @@ public class NameQueryEqual {
 Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
 
 <p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
-We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code> queries for those two projections (with some <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
 Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
 Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
 ]]></content>
@@ -489,13 +489,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#97;&#x69;&#108;&#116;&#x6f;&#58;&#98;&#x65;&#102;&#x6f;&#114;&#x65;&#x40;&#x6d;&#x6f;&#99;&#107;&#100;&#x61;&#x74;&#97;&#x2e;&#99;&#111;&#109;&#x2e;">&#98;&#x65;&#102;&#111;&#114;&#x65;&#x40;&#x6d;&#x6f;&#99;&#x6b;&#x64;&#x61;&#116;&#x61;&#46;&#x63;&#111;&#x6d;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#105;&#108;&#x74;&#111;&#x3a;&#x62;&#101;&#102;&#x6f;&#x72;&#101;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;&#46;">&#x62;&#x65;&#102;&#111;&#x72;&#x65;&#64;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#105;&#108;&#x74;&#x6f;&#x3a;&#x61;&#x66;&#x74;&#101;&#x72;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#x61;&#46;&#99;&#111;&#109;">&#x61;&#102;&#x74;&#x65;&#114;&#x40;&#109;&#x6f;&#99;&#107;&#100;&#x61;&#116;&#x61;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#97;&#105;&#x6c;&#x74;&#111;&#x3a;&#97;&#102;&#116;&#101;&#x72;&#x40;&#x6d;&#x6f;&#99;&#107;&#100;&#97;&#116;&#x61;&#46;&#99;&#111;&#x6d;">&#x61;&#x66;&#116;&#x65;&#x72;&#x40;&#109;&#x6f;&#99;&#x6b;&#100;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -511,7 +511,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#x69;&#108;&#x74;&#111;&#58;&#98;&#x65;&#121;&#111;&#x6e;&#100;&#x40;&#109;&#x6f;&#99;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#111;&#x6d;&#x2e;">&#98;&#x65;&#x79;&#111;&#x6e;&#x64;&#64;&#x6d;&#111;&#99;&#107;&#100;&#x61;&#116;&#97;&#46;&#x63;&#x6f;&#109;&#46;</a></li>
+<li>Email updated to <a href="&#x6d;&#97;&#x69;&#x6c;&#116;&#x6f;&#x3a;&#98;&#101;&#121;&#111;&#x6e;&#x64;&#x40;&#109;&#111;&#99;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#99;&#111;&#x6d;&#46;">&#98;&#x65;&#x79;&#111;&#110;&#x64;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#111;&#x6d;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
