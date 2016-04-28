@@ -168,6 +168,6 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 }
 ```
 
-Note that simply using `json.dump(config.__dict__, config_file)` will NOT work either if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
-Note that for more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `json.dump` function.
+Note that simply using `json.dump(config.__dict__, config_file)` will NOT work if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
+For more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `json.dump` function.
 The next [post](/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/) will discuss how to print keys in order of which they are defined, like in the Java example.
