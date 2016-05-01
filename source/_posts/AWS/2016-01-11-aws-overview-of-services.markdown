@@ -40,7 +40,7 @@ Requests going to either one of these services will be automatically routed to t
 AWS offerings are divided into two large groups: Infrastructure and Platform, which are further divided into different categories. 
 In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in "Use it like" column next to "AWS name" column.
 Note that they are just analogies, purely for illustration purposes.
-The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in brackets.
+The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in parentheses.
 
 The grouping of Amazon Web Services as below is purely for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services. 
 For example, EC2 instances are usually deployed in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
