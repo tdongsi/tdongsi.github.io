@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-04-27T00:44:33-07:00</updated>
+  <updated>2016-05-01T00:30:32-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -14,11 +14,63 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures/"/>
+    <updated>2016-05-01T17:51:13-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures</id>
+    <content type="html"><![CDATA[<p>We have all seen it before: intermittent unit test failures.
+It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
+
+<p>In our experience, one of the most common causes is:
+<strong>Class static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
+
+<p>What happens locally?
+If you’re running from the command line, you probably have some environment variables set.
+These allow some ConfigHelper class to find the resource properties files and load them.
+In the end, code that looks like the following often ends up succeeding:</p>
+
+<figure class='code'><figcaption><span>DbQueue class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MY_CONFIG</span> <span class="o">=</span> <span class="n">ConfigHelper</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="s">&quot;config_key&quot;</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
+Instead, they run using some mock framework such as JMockit.
+That’s a good, desirable thing.
+However, it also means that code like that ends up failing to find those resources.
+In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
+And very often, classes like that throw some misleading exceptions, especially when trying to load and convert a numeric value from a resource.</p>
+
+<p>So, how do we fix it?
+How do we prevent that class static member initialization from being invoked in Jenkins test build?
+The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
+
+<figure class='code'><figcaption><span>Mock with JMockit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyTest</span> <span class="o">{</span>
+</span><span class='line'>    <span class="nd">@Mocked</span><span class="o">(</span> <span class="n">stubOutClassInitialization</span> <span class="o">=</span> <span class="kc">true</span> <span class="o">)</span>
+</span><span class='line'>    <span class="n">DbQueue</span> <span class="n">queue</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
+The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Convert Python Objects to JSON (Ordered Keys)]]></title>
     <link href="http://tdongsi.github.io/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"/>
     <updated>2016-04-25T01:26:22-07:00</updated>
     <id>http://tdongsi.github.io/blog/2016/04/25/convert-python-objects-to-json-ordered-keys</id>
-    <content type="html"><![CDATA[<p>In the JSON output shown in the last <a href="http://tdongsi.github.io/blog/2016/04/21/convert-python-objects-to-json/">post</a>, the keys are printed out of order since they are unordered in the dictionary <code>__dict__</code>.
+    <content type="html"><![CDATA[<p>In the JSON output shown in the last <a href="http://tdongsi.github.io/blog/2016/04/21/convert-python-objects-to-json/">post</a>, the keys are printed out of order since they are unordered in the internal dictionary <code>__dict__</code>.
 In theory, it does not matter when converting to/from JSON.
 However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
 For example, in the <code>Config</code> object in the last post, it is better to see <code>source</code> and <code>target</code> configurations side by side and, then, get to know what kind of tests from <code>testName</code> key before reading details of tests in <code>queries</code> key.
@@ -106,7 +158,7 @@ Note that you can now dump your configuration object directly into file because 
 <h3>Option 2: use OrderedDict as your attribute dictionary.</h3>
 
 <p>In order to refer to attributes directly as <code>object.att</code> and still get JSON ordered like in the Java example, it will need some works.
-Note that the obvious solution <code>__dict__ = OrderedDict()</code> will not work due to a Python bug.</p>
+Note that the obvious solution <code>__dict__ = OrderedDict()</code> will NOT work due to a Python bug.</p>
 
 <figure class='code'><figcaption><span>Failed attempt due to a Python bug</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -663,8 +715,8 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Note that simply using <code>json.dump(config.__dict__, config_file)</code> will NOT work either if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
-Note that for more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
+<p>Note that simply using <code>json.dump(config.__dict__, config_file)</code> will NOT work if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
+For more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
 The next <a href="http://tdongsi.github.io/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
 ]]></content>
   </entry>
@@ -1766,13 +1818,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#111;&#x3a;&#98;&#101;&#102;&#111;&#x72;&#x65;&#64;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#x61;&#x2e;&#x63;&#111;&#x6d;&#x2e;">&#98;&#x65;&#x66;&#x6f;&#114;&#101;&#x40;&#x6d;&#111;&#x63;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#x6f;&#109;&#x2e;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#105;&#x6c;&#116;&#111;&#58;&#x62;&#x65;&#102;&#x6f;&#x72;&#101;&#64;&#x6d;&#111;&#x63;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;&#x2e;">&#98;&#x65;&#x66;&#x6f;&#x72;&#x65;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#x63;&#111;&#x6d;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#109;&#x61;&#x69;&#108;&#116;&#111;&#x3a;&#x61;&#102;&#x74;&#x65;&#x72;&#64;&#109;&#111;&#99;&#107;&#x64;&#x61;&#116;&#97;&#x2e;&#99;&#111;&#x6d;">&#x61;&#102;&#x74;&#101;&#114;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#x74;&#97;&#46;&#99;&#x6f;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#97;&#105;&#x6c;&#116;&#x6f;&#x3a;&#97;&#x66;&#116;&#x65;&#x72;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;">&#x61;&#x66;&#x74;&#101;&#114;&#x40;&#x6d;&#111;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#x63;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -1788,7 +1840,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#x61;&#x69;&#108;&#x74;&#111;&#58;&#x62;&#101;&#x79;&#111;&#x6e;&#x64;&#x40;&#x6d;&#111;&#99;&#x6b;&#100;&#x61;&#116;&#x61;&#46;&#x63;&#111;&#x6d;&#x2e;">&#98;&#x65;&#x79;&#x6f;&#x6e;&#100;&#64;&#109;&#111;&#99;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;&#46;</a></li>
+<li>Email updated to <a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#98;&#101;&#x79;&#x6f;&#x6e;&#x64;&#x40;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#x74;&#x61;&#x2e;&#x63;&#x6f;&#109;&#46;">&#x62;&#x65;&#121;&#111;&#x6e;&#x64;&#x40;&#x6d;&#111;&#99;&#107;&#100;&#97;&#x74;&#x61;&#46;&#x63;&#111;&#109;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -4039,31 +4091,6 @@ Next, create a super projection with the correct column encodings and <code>ORDE
 
 <p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
 In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
-    <updated>2016-02-07T00:50:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
-    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
-
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
 ]]></content>
   </entry>
   
