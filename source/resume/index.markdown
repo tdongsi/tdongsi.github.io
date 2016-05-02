@@ -8,7 +8,7 @@ footer: true
 published: true
 ---
 
-My resume in simple format.
+My resume in hyperlinked format.
 
 * Email: dongsi.tuecuong@gmail.com
 * [LinkedIn](https://www.linkedin.com/in/cuong-dong-si-479b326)
@@ -39,8 +39,7 @@ TODO: Javascript
   MySQL, 
   [Netezza](/blog/categories/netezza/),
   [Vertica](/blog/categories/vertica/), 
-  [Cassandra](/blog/categories/cassandra/), 
-  InfiniteGraph,
+  [Cassandra](/blog/categories/cassandra/),
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/).
 * **Query Language**: 
   [SQL](/blog/categories/sql/), 
@@ -48,14 +47,13 @@ TODO: Javascript
   XQuery.
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
-  Guava, 
-  [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
-  JCommander, SLF4J, SWTBot, 
+  Guava, Spring, 
+  JCommander, SLF4J, 
   [JUnit](/blog/categories/junit/), TestNG,
   Apache Ant, 
-  [Maven](/blog/categories/maven/), Gradle, JMeter.
+  [Maven](/blog/categories/maven/), Gradle.
 * **Web Apps**: 
-  HTML, Selenium, RestAssured, JMockit.
+  HTML, RestAssured, [JMockit](/blog/categories/jmockit/).
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
@@ -85,8 +83,8 @@ TODO: Javascript
 
 ### Education
 
-* Master of Science, 2009 - 2012, University of California, Riverside.
-* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore.
+* Master of Science, 2009 - 2012, University of California, Riverside. GPA: *3.92/4*
+* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore. GPA: *4.42/5*
 
 ### Honor & Awards
 
