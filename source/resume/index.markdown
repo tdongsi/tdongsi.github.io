@@ -102,9 +102,11 @@ TODO: Javascript
 
 **Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
 
-* Develop and automate test cases for backend infrastructure and services in QuickBooks Online and Small Business Group ecosystem.
-* Design and implement test frameworks to facilitate automated unit and functional testing in **Big Data** projects. 
-  Work with developers and data analysts on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
+* Design and implement test frameworks to facilitate automated unit and functional testing in Big Data projects for QuickBooks Online ecosystem. 
+  Work with developers and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
+* Recent Projects and Achievements:
+  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of SQL scripts, verifying Extract-Transform-Load (ETL) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
+  * Achievements: Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Two Intuit Spotlight Awards for demonstrating [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) and [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
 
 <!--
 *Recent Projects and Achievements*:
@@ -118,11 +120,12 @@ TODO: Javascript
   
 **Software QA Engineer**, Objectivity Inc. (7/2012 - 12/2014)
 
-* Developed and automated test cases, maintained and executed test suites for company’s
-  database products, Objectivity and InfiniteGraph, and their various utility tools.
-* Designed and implemented frameworks for automated performance testing. Worked
-  with developers to make informed testing decisions and develop appropriate test solutions.
+* Designed and implemented frameworks for automated performance testing for company’s database products, Objectivity and InfiniteGraph. Developed and maintained automated regression tests for the two database products and their command-line utility tools.
 * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
+* Selected Projects and Achievements:
+    * Designed and implemented test plans for measuring data ingestion performance of graph database
+      InfiniteGraph in distributed multi-client settings. Set up and configured a network of eight Linux and Windows hosts with OpenSSH. Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
+    * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANLTR) to verify correctness of decompiled byte codes after injection.
 
 <!--
 *Selected Projects and Achievements*:
@@ -137,22 +140,14 @@ TODO: Javascript
 
 **Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
 
-* Designed and implemented sensor fusion algorithms for [accelerometers, gyroscopes, and cameras](/resume/mycar_2012.jpg),
-  with applications targeted for smartphones and driverless car [navigation systems](/resume/mycarb_2012.jpg).
-* Implemented sensor-based navigation algorithms, based on probabilistic models and statistical inference methods, using C++ and Matlab. Designed and implemented pluggable sensor simulators for verifying and benchmarking performance of those navigation algorithms. 
-* Proposed and implemented various numerical algorithms for problem solving, including convex
-  optimization techniques, Gauss-Newton algorithm and its variants.
-* Achievements: Innovative algorithms for vision-aided inertial navigation, published at 2011
-  and 2012 ICRA conferences.
+* Designed and implemented sensor fusion algorithms for [accelerometers, gyroscopes, and cameras](/resume/mycar_2012.jpg), with applications targeted for smartphones, VR headsets, and driverless car [navigation systems](/resume/mycarb_2012.jpg). 
+  The algorithms, implemented in C++ and Matlab based on probabilistic models and statistical inference methods, are published in peer-reviewed conferences (ICRA).
 
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
 * Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
-* Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg).
-* Designed and implemented an adaptive machine learning algorithm to identify drivable road
-  surface from stereo images, by building statistical models of road appearance.
-* Achievements: Three innovative visual sensor modules, presented at 2008 IROS and SMC
-  conferences. Linux drivers for Windows-native IEEE-1394 cameras.
+* Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
+  Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
 
 ### Courseworks & Trainings
