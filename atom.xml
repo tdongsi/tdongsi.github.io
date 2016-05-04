@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-05-01T00:30:32-07:00</updated>
+  <updated>2016-05-04T01:02:34-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,165 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/06/java-unit-test-performance/"/>
+    <updated>2016-05-06T22:47:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a. Test Automation Pyramid).
+That is the testing strategy that I agreed with and it has been adapted at work for a while.</p>
+
+<p>However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<figure class='code'><figcaption><span>Maven-surefire options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;parallel&gt;</span>classes<span class="nt">&lt;/parallel&gt;</span>
+</span><span class='line'><span class="nt">&lt;forkCount&gt;</span>${forkCount}<span class="nt">&lt;/forkCount&gt;</span>
+</span><span class='line'><span class="nt">&lt;reuseForks&gt;</span>false<span class="nt">&lt;/resuseForks&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Git: Allow-empty When Squashing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/02/git-allow-empty-when-squashing/"/>
+    <updated>2016-05-02T00:15:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/02/git-allow-empty-when-squashing</id>
+    <content type="html"><![CDATA[<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>pick daefc6e Revert "KSAFE REMOVAL."
+</span><span class='line'>squash f3886c2 KSAFE REMOVAL.
+</span><span class='line'>squash b4cb02d Update constants.
+</span><span class='line'>
+</span><span class='line'># Rebase 41ab184..b4cb02d onto 41ab184
+</span><span class='line'>#
+</span><span class='line'># Commands:
+</span><span class='line'>#  p, pick = use commit
+</span><span class='line'>#  r, reword = use commit, but edit the commit message
+</span><span class='line'>#  e, edit = use commit, but stop for amending
+</span><span class='line'>#  s, squash = use commit, but meld into previous commit
+</span><span class='line'>#  f, fixup = like "squash", but discard this commit's log message
+</span><span class='line'>#  x, exec = run command (the rest of the line) using shell
+</span><span class='line'>#
+</span><span class='line'># These lines can be re-ordered; they are executed from top to bottom.
+</span><span class='line'>#
+</span><span class='line'># If you remove a line here THAT COMMIT WILL BE LOST.
+</span><span class='line'>#
+</span><span class='line'># However, if you remove everything, the rebase will be aborted.
+</span><span class='line'>#
+</span><span class='line'># Note that empty commits are commented out</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ git rebase -i origin/feature/foobar
+</span><span class='line'>You asked to amend the most recent commit, but doing so would make
+</span><span class='line'>it empty. You can repeat your command with --allow-empty, or you can
+</span><span class='line'>remove the commit entirely with "git reset HEAD^".
+</span><span class='line'>rebase in progress; onto 41ab184
+</span><span class='line'>You are currently rebasing branch 'feature/foobar' on '41ab184'.
+</span><span class='line'>
+</span><span class='line'>No changes
+</span><span class='line'>
+</span><span class='line'>Could not apply f3886c23589e0964a4483f6454c6edeba7d63fb7... KSAFE REMOVAL.</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ git commit --amend --allow-empty
+</span><span class='line'>[detached HEAD 706f662] Revert "KSAFE REMOVAL."</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-225:sbg_datasets cdongsi$ git rebase --continue
+</span><span class='line'>[detached HEAD 923477f] Revert "KSAFE REMOVAL."
+</span><span class='line'> 1 file changed, 3 insertions(+), 3 deletions(-)
+</span><span class='line'>Successfully rebased and updated refs/heads/feature/foobar.</span></code></pre></td></tr></table></div></figure>
+
+
+<p><a href="http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html">http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html</a></p>
+
+<p>that message comes from &ldquo;commit &ndash;amend&rdquo;, which is called by
+rebase to handle the squash. The &ldquo;repeat your command&rdquo; part is
+confusing. The right thing to do here is:</p>
+
+<p>  git commit &ndash;amend &ndash;allow-empty</p>
+
+<p>if you want to have an empty commit, or:</p>
+
+<p>  git reset HEAD^</p>
+
+<p>if you want to have nothing.</p>
+
+<p>Of course the first one would never occur to you, because it is not
+&ldquo;your command&rdquo; in the first place. :)</p>
+
+<p>We could change it to say &ldquo;use git commit &ndash;amend &ndash;allow-empty&rdquo;</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
@@ -1818,13 +1977,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#105;&#x6c;&#116;&#111;&#58;&#x62;&#x65;&#102;&#x6f;&#x72;&#101;&#64;&#x6d;&#111;&#x63;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;&#x2e;">&#98;&#x65;&#x66;&#x6f;&#x72;&#x65;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#x63;&#111;&#x6d;&#x2e;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#x69;&#108;&#x74;&#111;&#58;&#x62;&#101;&#x66;&#111;&#x72;&#x65;&#64;&#x6d;&#111;&#99;&#107;&#100;&#x61;&#x74;&#97;&#x2e;&#99;&#111;&#109;&#x2e;">&#98;&#101;&#102;&#x6f;&#114;&#101;&#64;&#x6d;&#111;&#99;&#x6b;&#x64;&#97;&#116;&#x61;&#46;&#x63;&#111;&#x6d;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#97;&#105;&#x6c;&#116;&#x6f;&#x3a;&#97;&#x66;&#116;&#x65;&#x72;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;">&#x61;&#x66;&#x74;&#101;&#114;&#x40;&#x6d;&#111;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#x63;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#109;&#97;&#105;&#x6c;&#x74;&#111;&#58;&#x61;&#x66;&#116;&#101;&#x72;&#x40;&#109;&#111;&#x63;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#109;">&#97;&#x66;&#116;&#101;&#x72;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#99;&#111;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -1840,7 +1999,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#98;&#101;&#x79;&#x6f;&#x6e;&#x64;&#x40;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#x74;&#x61;&#x2e;&#x63;&#x6f;&#109;&#46;">&#x62;&#x65;&#121;&#111;&#x6e;&#x64;&#x40;&#x6d;&#111;&#99;&#107;&#100;&#97;&#x74;&#x61;&#46;&#x63;&#111;&#109;&#46;</a></li>
+<li>Email updated to <a href="&#x6d;&#97;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#98;&#101;&#x79;&#x6f;&#110;&#100;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;&#x2e;">&#98;&#x65;&#x79;&#111;&#110;&#x64;&#x40;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#116;&#97;&#x2e;&#99;&#x6f;&#x6d;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -2986,7 +3145,7 @@ In my opinion, human time is million times more costly than computer time.</p>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[SQL Testing in Data Marts]]></title>
+    <title type="html"><![CDATA[(Pt. 0) SQL Testing in Data Marts]]></title>
     <link href="http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview/"/>
     <updated>2016-03-16T00:43:09-07:00</updated>
     <id>http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview</id>
@@ -3672,425 +3831,6 @@ This will lead to complex and unexpected consequences and, as a result, random t
 For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
 <p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Symlinks in Git]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
-    <updated>2016-02-20T11:28:11-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
-    <content type="html"><![CDATA[<h3>Context</h3>
-
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
-
-<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
-</span><span class='line'>... link -&gt; /path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
-
-<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
-</span><span class='line'>/path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
-</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  <span class="c"># command executed for each file</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
-    <updated>2016-02-13T23:52:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
-    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
-
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
-
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
-
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
-
-<ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
-</ol>
-
-
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
-</span><span class='line'><span class="k">AS</span><span class="p">(</span>
-</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
-</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span><span class='line'><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
-
-<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
-</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">AS</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
-</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
 ]]></content>
   </entry>
   
