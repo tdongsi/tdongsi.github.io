@@ -102,11 +102,11 @@ TODO: Javascript
 
 **Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
 
-* Design and implement test frameworks to facilitate automated unit and functional testing in Big Data projects for QuickBooks Online ecosystem. 
+* Design and implement test frameworks to facilitate automated unit and functional testing in **Big Data** projects for QuickBooks Online ecosystem. 
   Work with developers and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
 * Recent Projects and Achievements:
-  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of SQL scripts, verifying Extract-Transform-Load (ETL) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-  * Achievements: Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Two Intuit Spotlight Awards for demonstrating [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) and [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
+  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
+  * Achievements: Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Two **Intuit Spotlight Awards** for demonstrating [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) and [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
 
 <!--
 *Recent Projects and Achievements*:
@@ -123,8 +123,8 @@ TODO: Javascript
 * Designed and implemented frameworks for automated performance testing for company’s database products, Objectivity and InfiniteGraph. Developed and maintained automated regression tests for the two database products and their command-line utility tools.
 * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 * Selected Projects and Achievements:
-    * Designed and implemented test plans for measuring data ingestion performance of graph database
-      InfiniteGraph in distributed multi-client settings. Set up and configured a network of eight Linux and Windows hosts with OpenSSH. Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
+    * Designed and implemented test plans for measuring **data ingestion performance** of graph database
+      InfiniteGraph in **distributed multi-client settings**. Set up and configured a network of eight Linux and Windows hosts with OpenSSH. Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANLTR) to verify correctness of decompiled byte codes after injection.
 
 <!--
