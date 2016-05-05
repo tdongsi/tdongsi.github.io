@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-05-04T01:07:29-07:00</updated>
+  <updated>2016-05-04T22:07:18-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,103 +12,6 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
-  
-  <entry>
-    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/05/06/java-unit-test-performance/"/>
-    <updated>2016-05-06T22:47:42-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/05/06/java-unit-test-performance</id>
-    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a. Test Automation Pyramid).
-That is the testing strategy that I agreed with and it has been adapted at work for a while.</p>
-
-<p>However, for that strategy to work, we should pay attention to unit test performance.
-It is not productive for developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
-In addition, the runtime will get compounded as we add more unit tests.
-Here, I list out few mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
-
-<p>1) Do NOT add loggings/printing to your tests.
-Use TestNG assertions instead of checking screen output.
-Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
-The logs don&rsquo;t matter when we&rsquo;re running in parallel.
-Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
-
-<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
-This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
-For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
-
-<p>3) Mock logging and config classes if applicable.
-Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
-If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures/">this</a>).</p>
-
-<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
-However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
-As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
-Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
-
-<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
-
-<figure class='code'><figcaption><span>Maven-surefire options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;parallel&gt;</span>classes<span class="nt">&lt;/parallel&gt;</span>
-</span><span class='line'><span class="nt">&lt;forkCount&gt;</span>${forkCount}<span class="nt">&lt;/forkCount&gt;</span>
-</span><span class='line'><span class="nt">&lt;reuseForks&gt;</span>false<span class="nt">&lt;/resuseForks&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures/"/>
-    <updated>2016-05-01T17:51:13-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/05/01/java-intermittent-test-failures</id>
-    <content type="html"><![CDATA[<p>We have all seen it before: intermittent unit test failures.
-It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
-
-<p>In our experience, one of the most common causes is:
-<strong>Class static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
-
-<p>What happens locally?
-If you’re running from the command line, you probably have some environment variables set.
-These allow some ConfigHelper class to find the resource properties files and load them.
-In the end, code that looks like the following often ends up succeeding:</p>
-
-<figure class='code'><figcaption><span>DbQueue class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MY_CONFIG</span> <span class="o">=</span> <span class="n">ConfigHelper</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="s">&quot;config_key&quot;</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
-Instead, they run using some mock framework such as JMockit.
-That’s a good, desirable thing.
-However, it also means that code like that ends up failing to find those resources.
-In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
-And very often, classes like that throw some misleading exceptions, especially when trying to load and convert a numeric value from a resource.</p>
-
-<p>So, how do we fix it?
-How do we prevent that class static member initialization from being invoked in Jenkins test build?
-The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
-
-<figure class='code'><figcaption><span>Mock with JMockit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyTest</span> <span class="o">{</span>
-</span><span class='line'>    <span class="nd">@Mocked</span><span class="o">(</span> <span class="n">stubOutClassInitialization</span> <span class="o">=</span> <span class="kc">true</span> <span class="o">)</span>
-</span><span class='line'>    <span class="n">DbQueue</span> <span class="n">queue</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="o">...</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
-The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
-]]></content>
-  </entry>
   
   <entry>
     <title type="html"><![CDATA[Convert Python Objects to JSON (Ordered Keys)]]></title>
@@ -1863,13 +1766,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#105;&#x6c;&#x74;&#x6f;&#58;&#x62;&#101;&#x66;&#111;&#114;&#101;&#x40;&#109;&#111;&#99;&#107;&#x64;&#x61;&#x74;&#97;&#46;&#x63;&#111;&#x6d;&#x2e;">&#98;&#x65;&#102;&#111;&#x72;&#101;&#64;&#109;&#111;&#99;&#107;&#x64;&#97;&#x74;&#97;&#46;&#99;&#x6f;&#x6d;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#111;&#x3a;&#98;&#101;&#102;&#111;&#114;&#101;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#46;&#99;&#x6f;&#x6d;&#x2e;">&#98;&#x65;&#x66;&#x6f;&#114;&#x65;&#x40;&#109;&#x6f;&#99;&#107;&#x64;&#97;&#116;&#x61;&#46;&#99;&#x6f;&#x6d;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#111;&#58;&#97;&#102;&#x74;&#101;&#114;&#x40;&#109;&#111;&#99;&#x6b;&#100;&#x61;&#x74;&#97;&#x2e;&#99;&#x6f;&#x6d;">&#97;&#x66;&#x74;&#101;&#114;&#x40;&#109;&#111;&#99;&#x6b;&#x64;&#97;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#109;&#x61;&#105;&#108;&#x74;&#111;&#x3a;&#x61;&#102;&#116;&#x65;&#114;&#x40;&#109;&#x6f;&#99;&#x6b;&#x64;&#97;&#116;&#x61;&#46;&#99;&#x6f;&#109;">&#x61;&#x66;&#x74;&#101;&#114;&#64;&#109;&#111;&#99;&#x6b;&#x64;&#97;&#116;&#97;&#46;&#99;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -1885,7 +1788,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#x74;&#x6f;&#x3a;&#98;&#x65;&#x79;&#111;&#110;&#100;&#x40;&#109;&#x6f;&#x63;&#107;&#100;&#x61;&#116;&#97;&#46;&#x63;&#x6f;&#109;&#x2e;">&#x62;&#x65;&#121;&#111;&#x6e;&#100;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#116;&#97;&#x2e;&#99;&#x6f;&#x6d;&#x2e;</a></li>
+<li>Email updated to <a href="&#x6d;&#97;&#105;&#x6c;&#x74;&#x6f;&#58;&#98;&#101;&#121;&#111;&#x6e;&#x64;&#x40;&#109;&#111;&#99;&#107;&#100;&#97;&#116;&#97;&#x2e;&#x63;&#111;&#x6d;&#46;">&#x62;&#x65;&#x79;&#x6f;&#x6e;&#x64;&#x40;&#109;&#x6f;&#99;&#107;&#x64;&#97;&#x74;&#x61;&#x2e;&#99;&#111;&#x6d;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -3842,6 +3745,325 @@ Therefore, using hard links, at best, is just a temporary solution.</p>
 <li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
 </ol>
 
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
+    <updated>2016-02-13T23:52:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
+    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
+Also see <a href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+
+<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
+
+<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
+So, for example above:</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
+It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
+Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
+
+<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
+
+<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
+In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
+
+<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
+Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
+
+<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
+
+<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
+
+<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
+In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
+
+<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
+
+<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
+
+<ol>
+<li>Create the temporary table first without a projection.</li>
+<li>Create a super <a href="http://tdongsi.github.io/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
+<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
+</ol>
+
+
+<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
+</span><span class='line'><span class="k">AS</span><span class="p">(</span>
+</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
+</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
+Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+
+<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
+</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
+A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
+Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
+
+<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
+</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
+
+<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="http://tdongsi.github.io/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
+In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
+    <updated>2016-02-07T00:50:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
+    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
+Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
+
+<ol>
+<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
+<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
+<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
+</ol>
+
+
+<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
+For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
+Vertica creates a default super-projection when running CREATE TABLE statement.
+<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
+
+<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
+Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
 ]]></content>
   </entry>
   
