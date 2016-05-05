@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Git | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/git/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-05-04T22:07:18-07:00</updated>
+  <updated>2016-05-04T23:03:53-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,88 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Git: Allow-empty When Squashing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/02/git-allow-empty-when-squashing/"/>
+    <updated>2016-05-02T00:15:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/02/git-allow-empty-when-squashing</id>
+    <content type="html"><![CDATA[<p>Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
+The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
+After that, we move on with the other way, probably better approach.
+Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to &ldquo;squash&rdquo; the commits to erase the mistake and avoid confusing other reviewers.</p>
+
+<p>In the example shown below, my commit <code>daefc6e</code> was a mistake, and I reverted it with <code>f3886c2</code> commit, and then I checked in my correct solution in <code>b4cb02d</code> commit.
+I wanted to squash those commits in an interactive rebase session, as seen in my text editor as follows:</p>
+
+<pre><code class="plain Commands shown in editor">pick daefc6e KSAFE REMOVAL.
+squash f3886c2 Revert "KSAFE REMOVAL."
+squash b4cb02d Update constants.
+
+# Rebase 41ab184..b4cb02d onto 41ab184
+#
+# Commands:
+#  p, pick = use commit
+#  r, reword = use commit, but edit the commit message
+#  e, edit = use commit, but stop for amending
+#  s, squash = use commit, but meld into previous commit
+#  f, fixup = like "squash", but discard this commit's log message
+#  x, exec = run command (the rest of the line) using shell
+#
+# These lines can be re-ordered; they are executed from top to bottom.
+#
+# If you remove a line here THAT COMMIT WILL BE LOST.
+#
+# However, if you remove everything, the rebase will be aborted.
+#
+# Note that empty commits are commented out
+</code></pre>
+
+<p>However, <code>git rebase</code> always fail in situations like above with the following &ldquo;error&rdquo; message:</p>
+
+<pre><code class="plain git rebase fails">$ git rebase -i origin/feature/foobar
+You asked to amend the most recent commit, but doing so would make
+it empty. You can repeat your command with --allow-empty, or you can
+remove the commit entirely with "git reset HEAD^".
+rebase in progress; onto 41ab184
+You are currently rebasing branch 'feature/foobar' on '41ab184'.
+
+No changes
+
+Could not apply f3886c23589e0964a4483f6454c6edeba7d63fb7... KSAFE REMOVAL.
+</code></pre>
+
+<p>The error message is very confusing.
+When <code>daefc6e</code> and <code>f3886c2</code> commits are squashed, the net effect is nothing, which is the &ldquo;empty commit&rdquo; mentioned in that error message.
+However, retrying the <code>git rebase</code> command with <code>--allow-empty</code> as said does not work.</p>
+
+<pre><code class="plain">$ git rebase --interactive --allow-empty 
+error: unknown option `allow-empty' 
+</code></pre>
+
+<p>Using <code>git rebase --continue</code> does not work as expected: it does not squash three commits into one.</p>
+
+<p>After some Google searching, it turns out that message comes from <code>git commit --amend</code>, which is called by <code>git rebase</code> to handle the squash.
+When the message says &ldquo;repeat your command&rdquo;, it means repeating the <code>git commit --amend</code> command, something would never occurs to us.
+Therefore, the right thing to do here is repeat and continue with the interactive rebase session:</p>
+
+<pre><code class="plain">$ git commit --amend --allow-empty
+[detached HEAD 706f662] Revert "KSAFE REMOVAL."
+
+$ git rebase --continue
+[detached HEAD 923477f] Revert "KSAFE REMOVAL."
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+Successfully rebased and updated refs/heads/feature/foobar.
+</code></pre>
+
+<p>By doing that, we will have all three commits squashed into one and help cleaning up the commit log.</p>
+
+<!--
+http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
+-->
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Symlinks in Git]]></title>

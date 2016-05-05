@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="For overview, see here. In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented &hellip;">
+  <meta name="description" content="Navigation: Overview,
+Pt 1. In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in this &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +99,400 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/03/28/sql-unit-test-runner/">(Pt. 2) SQL Test Runner</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-03-28T23:42:09-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>28</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:42 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>.</p>
+
+<p>In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/20/sql-unit-functional-tests/">this post</a>.
+As it is mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
+
+<h3>Overview</h3>
+
+<p>In this test framework, a test block is defined in the following format: comment block opening <code>/*</code> followed by <code>@Test</code>, and a JSON object with some specified keys in the next subsection, closed by comment block closing <code>*/</code>.</p>
+
+<figure class='code'><figcaption><span>Example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name":"test_count",
+</span><span class='line'>  "query":"select count(1) from dim_product",
+</span><span class='line'>  "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The SQL Test Runner will:</p>
+
+<ol>
+<li>Pick up the test blocks, annotated as above.</li>
+<li>Extract the JSON to retrieve the test query and expected output.
+
+<ul>
+<li>As shown in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this</a> and <a href="/blog/2016/04/16/sql-unit-extension/">this</a>, we can add custom JSON for different testing needs.</li>
+</ul>
+</li>
+<li>Send the query to the database, and get the actual output from the database.</li>
+<li>Compare actual output with the expected output, raise <code>AssertionError</code> if needed.
+
+<ul>
+<li>Note that the Test Runner can either exit immediately upon <code>AssertionError</code> or run all test queries and list all <code>AssertionError</code>s at the end.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in &ldquo;query&rdquo; clause) for aligning and formatting the query, especially when the query is long and complex.</p>
+
+<figure class='code'><figcaption><span>Example complex test query</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name" : "check_traffic",
+</span><span class='line'>  "query" : "WITH Total_Traffic AS
+</span><span class='line'>      (
+</span><span class='line'>          SELECT temp.* from temp as clickstream_data
+</span><span class='line'>          where .... -- filtering
+</span><span class='line'>      )
+</span><span class='line'>      , Rock_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total_Traffic
+</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
+</span><span class='line'>      )
+</span><span class='line'>      , Instrumental_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total
+</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
+</span><span class='line'>      )
+</span><span class='line'>      , Defined_Traffic as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Rock_Music
+</span><span class='line'>          UNION
+</span><span class='line'>          select * from Instrumental_Music
+</span><span class='line'>      )
+</span><span class='line'>      select traffic_date_key
+</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
+</span><span class='line'>      from Defined_Traffic
+</span><span class='line'>      group by traffic_date_key",
+</span><span class='line'>  "expected" : "2016-03-16 123"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in pure JSON, newlines are NOT allowed and the above JSON when deserializing directly will report syntax errors.
+However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
+Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (<code>\s+</code>) in test block with a single space (<code></code>).
+The additional computation is minimal and it is quite a good trade-off for much better <em>readability</em> of the test scripts.</p>
+
+<h3>Example usage</h3>
+
+<p>This section list some simple examples to illustrate some standard, common usage of test blocks.</p>
+
+<figure class='code'><figcaption><span>Compare test query's output with expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Multiple rows, multiple columns can also be used as expected output.
+All output of the test query will be normalized to String before comparison.
+For <strong>readability</strong>, we can add whitespaces and newlines into expected output string to align rows and columns.
+Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (<code>\s+</code>) with a single space (<code></code>).</p>
+
+<figure class='code'><figcaption><span>Expected output with multiple rows, multiple columns</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'> "name":"test_data",
+</span><span class='line'> "query":"select price, product from dim_product order by product_key;",
+</span><span class='line'> "expected":"10 Chair
+</span><span class='line'>              20 Table
+</span><span class='line'>              30 Twin Bed
+</span><span class='line'>              40 King Bed"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In many situations, the row count of a table is not definitely known.
+However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
+The Test Runner allows you to add some simple logical expression in &ldquo;expected&rdquo; clause.
+It is tester&rsquo;s responsibility to make sure the test query returns some numbers and the logical expression makes sense.</p>
+
+<figure class='code'><figcaption><span>Expected output with logical expression</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- This is same as "expected" : "5"
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator_equal",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"== 5"
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- There must be some entries, at least 10, in the table.
+</span><span class='line'>-- Evaluated as: actual value &gt; 10
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"&gt; 10"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in the examples above, inline comments can be added into test block using SQL&rsquo;s <code>--</code> inline comment notation.
+In addition to &ldquo;name&rdquo;, &ldquo;query&rdquo; and &ldquo;expected&rdquo;, you can add a list of script files to be executed in a &ldquo;file&rdquo; clause, as shown in the following example.
+The test query will be executed after all the scripts have been executed.</p>
+
+<figure class='code'><figcaption><span>"file" key to execute shared statements</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"],
+</span><span class='line'>    "query":"select count(1) from dim_product;",
+</span><span class='line'>    "expected":"0"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In practice, you should use the above &ldquo;file&rdquo; clause for:</p>
+
+<ul>
+<li>Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables for synthetic data.</li>
+<li>Reusing the most common tests (e.g., count, constraint checks).</li>
+<li>Making the original test scripts less cluttered with repeated SQL queries or statements.</li>
+</ul>
+
+
+<p>For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for simple JSON test block</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryExpected</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Expected output of the test query above</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">expected</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that all attributes in POJO are optional, NOT required to be defined at all time.
+The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) combination, but you can see others such as the following:</p>
+
+<figure class='code'><figcaption><span>Some other uses</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- Just want to make sure this query can be executed. Outputs can vary.
+</span><span class='line'>{
+</span><span class='line'>    "name": "test_ignore_output",
+</span><span class='line'>    "query": "select * from dim_product order by product_key;",
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- Run some setup scripts
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"]
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Advanced usage</h3>
+
+<p>Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name.</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As explained in more details in <a href="/2016/04/17/sql-unit-data-parity/">this post</a>, &ldquo;equal&rdquo; is a recently added capability to easily compare two tables or projections from tables.</p>
+
+<figure class='code'><figcaption><span>"equal" clause</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_data_equivalent",
+</span><span class='line'>    "query":"select product_key, cost from dim_product WHERE ...;",
+</span><span class='line'>    "equal":"select product_key, cost from dim_inventory WHERE ...;"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -1012,246 +1407,6 @@ There is no apparent advantage of using CentOS 5 over CentOS 6.</p>
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/02/bash-trap/">Bash Trap</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-02T00:07:48-08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:07 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Code snippet</h3>
-
-<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
-In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
-
-<figure class='code'><figcaption><span>DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup trap to cleanup before exiting script</span>
-</span><span class='line'><span class="k">function</span> cleanup <span class="o">{</span>
-</span><span class='line'>    <span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'><span class="nb">trap </span>cleanup EXIT
-</span><span class='line'>
-</span><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
-Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
-
-<figure class='code'><figcaption><span>DON'T DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># This might not run when there is error</span>
-</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
-at the end of a deployment script, regardless of any error encountered during script execution.
-It is a good candidate for using <code>trap</code> statement.
-Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
-
-<h3>Trap multiple signals</h3>
-
-<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
-I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
-<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
-It is easy to confirm that with the following short bash script:</p>
-
-<figure class='code'><figcaption><span>Trap tests in Mac OSX</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 6613
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Interrupt: 2            ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 6624
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Terminated: 15          ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
-Having said that, I understand that my tests can only verify bash on Mac OSX.
-There are probably different shell variants on different operating systems which do not always work that way.</p>
-
-<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
-Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
-Not all cleanup steps could be and should be executed twice.
-For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
-
-<figure class='code'><figcaption><span>Problem of trapping multiple signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' INT TERM EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 7258
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 130                ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 7278
-</span><span class='line'>Terminated: 15
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 143                ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
-
-<h3>Other usage notes</h3>
-
-<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
-
-<figure class='code'><figcaption><span>List of signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ kill -l
-</span><span class='line'> 1) SIGHUP     2) SIGINT   3) SIGQUIT  4) SIGILL
-</span><span class='line'> 5) SIGTRAP    6) SIGABRT  7) SIGEMT   8) SIGFPE
-</span><span class='line'> 9) SIGKILL   10) SIGBUS  11) SIGSEGV 12) SIGSYS
-</span><span class='line'>13) SIGPIPE   14) SIGALRM 15) SIGTERM 16) SIGURG
-</span><span class='line'>17) SIGSTOP   18) SIGTSTP 19) SIGCONT 20) SIGCHLD
-</span><span class='line'>21) SIGTTIN   22) SIGTTOU 23) SIGIO   24) SIGXCPU
-</span><span class='line'>25) SIGXFSZ   26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
-</span><span class='line'>29) SIGINFO   30) SIGUSR1 31) SIGUSR2
-</span><span class='line'>
-</span><span class='line'>OR 
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ man signal</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
-This is useful for debugging purpose.
-The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
-
-<figure class='code'><figcaption><span>Tracing when a variable is used</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nb">declare</span> -t <span class="nv">VARIABLE</span><span class="o">=</span>value
-</span><span class='line'><span class="nb">trap</span> <span class="s2">&quot;echo VARIABLE is being used here.&quot;</span> DEBUG
-</span><span class='line'>
-</span><span class='line'><span class="c"># rest of the script</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>References</h3>
-
-<ol>
-<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
-<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
-<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -1272,6 +1427,10 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/05/02/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">Convert Python Objects to JSON (Ordered Keys)</a>
       </li>
     
@@ -1285,10 +1444,6 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
     
       <li class="post">
         <a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/04/17/sql-unit-data-parity/">(Pt. 7) Extending for Data Parity Checks</a>
       </li>
     
   </ul>
@@ -1325,7 +1480,7 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (2)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (2)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (8)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (2)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (8)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
