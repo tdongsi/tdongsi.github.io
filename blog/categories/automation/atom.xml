@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Automation | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/automation/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-05-04T23:09:12-07:00</updated>
+  <updated>2016-05-05T01:06:02-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -46,7 +46,7 @@ It would be very time-consuming to write and execute such test cases in Java and
 Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
 Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
 
-<p>The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a>:</p>
+<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
 
 <pre><code class="plain Test blocks for data parity check">/* @Test
 {
@@ -86,8 +86,8 @@ Similarly for <code>Table_B EXCEPT Table_A</code> query.
 Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
 
 <p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
-Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
-In short, these <code>EXCEPT</code>-based checks will save us lots of computation time, data transfer time, and assertion check time.</p>
+Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
+In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
 
 <p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
 When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
@@ -192,12 +192,12 @@ Therefore, while the current SQL Unit Test framework appears adequate for most t
 The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
 
 <p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
-Besides that principle, SQL Test Runner codes also use <strong>Template Method</strong> and <strong>Strategy</strong> design patterns.
+Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
 Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
 
 <p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
-For convenience, an abstract class BaseTestRunner is provided as a template with simple parsing and workflow provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
-The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), subsequently delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
 
 <pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
 private TestStrategy testHandler;
@@ -234,7 +234,7 @@ public final void runScript(String filePath) throws IOException, SQLException {
 <p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
 It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
 Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
-It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example below.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
 There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
 By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
 
@@ -289,13 +289,13 @@ public class VerticaRunner extends BaseTestRunner implements TestRunner {
 <p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
 Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
 When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
-Instead, we can delegate the old behaviors to the old classes while adding new classes to handle new behaviors or new functionality.
-In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and code/test processing behavior that each test runner uses.</p>
+Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
 
 <p>Implementation of a new feature can be summarized in the following steps:</p>
 
 <ol>
-<li>Define new JSON block.</li>
+<li>Design new JSON block for the new test block.</li>
 <li>Define new POJO that maps to new JSON block.</li>
 <li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
 <li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
@@ -489,13 +489,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#97;&#105;&#x6c;&#116;&#x6f;&#x3a;&#x62;&#101;&#x66;&#111;&#114;&#x65;&#64;&#x6d;&#x6f;&#99;&#107;&#100;&#97;&#116;&#x61;&#46;&#x63;&#x6f;&#x6d;&#46;">&#x62;&#x65;&#102;&#x6f;&#114;&#x65;&#x40;&#x6d;&#x6f;&#99;&#x6b;&#x64;&#97;&#116;&#x61;&#46;&#x63;&#x6f;&#109;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#105;&#108;&#x74;&#111;&#58;&#98;&#101;&#102;&#x6f;&#x72;&#101;&#64;&#x6d;&#x6f;&#99;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#99;&#x6f;&#x6d;&#x2e;">&#x62;&#101;&#x66;&#111;&#x72;&#x65;&#x40;&#x6d;&#111;&#x63;&#x6b;&#x64;&#x61;&#116;&#97;&#46;&#99;&#111;&#x6d;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#97;&#105;&#x6c;&#116;&#111;&#x3a;&#x61;&#x66;&#116;&#101;&#114;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#x61;&#x74;&#97;&#46;&#99;&#111;&#109;">&#x61;&#102;&#x74;&#101;&#114;&#x40;&#x6d;&#111;&#x63;&#x6b;&#100;&#x61;&#116;&#97;&#46;&#x63;&#111;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#109;&#97;&#x69;&#x6c;&#x74;&#111;&#58;&#x61;&#x66;&#x74;&#x65;&#x72;&#x40;&#109;&#x6f;&#99;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#x6d;">&#x61;&#x66;&#x74;&#x65;&#114;&#64;&#109;&#x6f;&#99;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -511,7 +511,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#x69;&#108;&#116;&#x6f;&#x3a;&#x62;&#x65;&#x79;&#x6f;&#x6e;&#x64;&#64;&#109;&#111;&#99;&#107;&#x64;&#x61;&#x74;&#97;&#46;&#x63;&#111;&#x6d;&#x2e;">&#98;&#101;&#x79;&#x6f;&#110;&#100;&#64;&#109;&#111;&#99;&#x6b;&#x64;&#x61;&#116;&#97;&#x2e;&#x63;&#111;&#x6d;&#x2e;</a></li>
+<li>Email updated to <a href="&#x6d;&#97;&#105;&#108;&#116;&#x6f;&#58;&#98;&#101;&#x79;&#x6f;&#x6e;&#x64;&#64;&#109;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#x6f;&#x6d;&#x2e;">&#x62;&#x65;&#x79;&#111;&#x6e;&#100;&#x40;&#x6d;&#111;&#99;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#x6f;&#x6d;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
