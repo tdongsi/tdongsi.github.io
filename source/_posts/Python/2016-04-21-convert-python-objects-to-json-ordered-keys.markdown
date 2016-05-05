@@ -5,7 +5,6 @@ date: 2016-04-25 01:26:22 -0700
 comments: true
 categories: 
 - Python
-- Java
 ---
 
 In the JSON output shown in the last [post](/blog/2016/04/21/convert-python-objects-to-json/), the keys are printed out of order since they are unordered in the internal dictionary `__dict__`.
