@@ -81,3 +81,7 @@ Successfully rebased and updated refs/heads/feature/foobar.
 ```
 
 By doing that, we will have all three commits squashed into one and help cleaning up the commit log.
+
+<!--
+http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
+-->
