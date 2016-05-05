@@ -1,9 +1,8 @@
 ---
 layout: post
 title: "Git: allow-empty when squashing"
-date: 2016-05-02 00:15:57 -0700
+date: 2016-05-05 00:15:57 -0700
 comments: true
-published: true
 categories: 
 - Git
 ---
@@ -40,7 +39,7 @@ squash b4cb02d Update constants.
 # Note that empty commits are commented out
 ```
 
-However, `git rebase` always fail in situations like above with the following "error" message:
+However, `git rebase` always fail in such situations with the following "error" message:
 
 ``` plain git rebase fails
 $ git rebase -i origin/feature/foobar
