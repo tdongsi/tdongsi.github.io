@@ -41,7 +41,7 @@ It would be very time-consuming to write and execute such test cases in Java and
 Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row. 
 Moreover, note that these expensive operations are carried out on the client side, our computers.
 
-The more efficient way for this data parity check is to use these two SQL test queries, using the test blocks shown in [this post](/blog/2016/03/28/sql-unit-test-runner/):
+The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read [this post](/blog/2016/03/28/sql-unit-test-runner/) for more introduction):
 
 ``` plain Test blocks for data parity check
 /* @Test
@@ -78,8 +78,8 @@ Similarly for `Table_B EXCEPT Table_A` query.
 Therefore, if two test cases pass, it means that the data in `Table_A` is equal to the data in `Table_B`.
 
 Using these two queries, we shift most of computing works (`EXCEPT` operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers. 
-Moreover, in most of the cases when the tests pass, the data transfer would be usually minimal (zero row).
-In short, these `EXCEPT`-based checks will save us lots of computation time, data transfer time, and assertion check time.
+Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
+In short, these `EXCEPT`-based checks will save us lots of computation time and data transfer time.
 
 The `limit 20` clause is also for minimizing data transfer and local computing works.
 When the expected return of the SQL query is nothing (i.e., `"expected" : ""`), we should always add LIMIT clause to the query. 

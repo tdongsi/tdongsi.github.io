@@ -9,13 +9,13 @@ categories:
 
 Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
 The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
-After that, we move on with the other way, probably better approach.
-Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to "squash" the commits to erase the mistake and avoid confusing other reviewers.
+After that, we move on with the other way and check in commits for that.
+Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to "squash" the commits to erase the mistake and avoid confusing others such as reviewers.
 
 In the example shown below, my commit `daefc6e` was a mistake, and I reverted it with `f3886c2` commit, and then I checked in my correct solution in `b4cb02d` commit.
-I wanted to squash those commits in an interactive rebase session, as seen in my text editor as follows:
+I wanted to squash those commits in an interactive rebase session, as seen in the following:
 
-``` plain Commands shown in editor
+``` plain Rebase commands shown in text editor
 pick daefc6e KSAFE REMOVAL.
 squash f3886c2 Revert "KSAFE REMOVAL."
 squash b4cb02d Update constants.
@@ -65,9 +65,9 @@ error: unknown option `allow-empty'
 
 Using `git rebase --continue` does not work as expected: it does not squash three commits into one.
 
-After some Google searching, it turns out that message comes from `git commit --amend`, which is called by `git rebase` to handle the squash.
+After some Google searching, it turns out that the above error message comes from `git commit --amend`, which is delegated by `git rebase` to handle the squash.
 When the message says "repeat your command", it means repeating the `git commit --amend` command, something would never occurs to us.
-Therefore, the right thing to do here is repeat and continue with the interactive rebase session: 
+Therefore, the right thing to do here is repeat `commit` and continue with the interactive rebase session: 
 
 ``` plain
 $ git commit --amend --allow-empty
@@ -79,7 +79,7 @@ $ git rebase --continue
 Successfully rebased and updated refs/heads/feature/foobar.
 ```
 
-By doing that, we will have all three commits squashed into one and help cleaning up the commit log.
+By doing that, we will now have all three commits squashed into one and help cleaning up the commit log.
 
 <!--
 http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
