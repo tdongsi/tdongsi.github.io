@@ -267,21 +267,20 @@ Each test query has a name (that tells its purpose) associated with it: key stri
 In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed. 
 The TestNG assertions, which are ubiquitous in previous "Level 1" and "Level 2" approaches, are no longer present.
 Instead, the expected outputs are specified in `.test` file, in the same JSON block with each SQL query. 
-The whole TestNG class will only contain code to initialize a connection to database and an instance of [SQL Test Runner](/blog/2016/03/28/sql-unit-test-runner/), all of which is one-time setup. 
-As we continue writing functional tests, we can decide to keep all tests in a single `.test` file or group related tests into separate `.test` files. 
-If we add more `.test` files, we can just specify the path to the files, in TestNG test cases (i.e., `@Test` functions), as shown in Java code above.
+The whole TestNG class will only contain code to initialize a connection to database and an instance of [SQL Test Runner](/blog/2016/03/28/sql-unit-test-runner/), all of which is **one-time setup**. 
+As we continue writing functional tests, we can keep all tests in a single `.test` file or, optionally, group related tests into separate `.test` files. 
+If we add more `.test` files, we can just specify the path to the files in functions annotated with `@Test`, as shown above.
 
 The main advantage of this test framework is readability of those tests, as shown in `.test` file. 
 The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious. 
 In the example above, the first test query's intention is clearer with assertion in the same location. 
-In addition, compared with `.properties` file approach, the SQL query is now easier to read, due to line breaks, as shown in the second example. 
+In addition, compared with `.properties` file approach, the SQL query is now easier to read, due to **line breaks**, as shown in the second example. 
 
 All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL. 
-Big Data projects different from usual software engineering projects is that users, data analysts, know more about the data than typical quality engineers.
-Being to able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
+Different from usual software engineering projects, in Big Data projects, data analysts (i.e., users) know more about the data than typical quality engineers.
+Being able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
 If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.
 
 While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
 Even then, the additional computational time is totally justified with much better readability. 
-Test readability will save (lots of) QE's time, in both developing and maintaining. 
-In my opinion, human time is million times more costly than computer time.
+Test readability will save (lots of) QE's time in both developing and maintaining tests, and engineer's time is million times more costly (per-hour-wise) than computer time.

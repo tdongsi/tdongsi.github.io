@@ -13,7 +13,7 @@ Navigation: [Overview](/blog/2016/03/16/sql-unit-overview/),
 [Pt 1](/blog/2016/03/20/sql-unit-functional-tests/).
 
 In this blog post, I shows some example test cases using the SQL Test Runner, introduced in "Level 3" in [this post](/blog/2016/03/20/sql-unit-functional-tests/).
-As it is mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: **prioritize readability of tests when possible**.
+As mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: **prioritize readability of tests when possible**.
 
 ### Overview
 
@@ -36,7 +36,7 @@ The SQL Test Runner will:
    * As shown in [this](/blog/2016/04/10/sql-unit-incremental-data-update/) and [this](/blog/2016/04/16/sql-unit-extension/), we can add custom JSON for different testing needs.
 1. Send the query to the database, and get the actual output from the database.
 1. Compare actual output with the expected output, raise `AssertionError` if needed.
-   * Note that the Test Runner can either exit immediately upon `AssertionError` or run all test queries and list all `AssertionError`s at the end.
+   * Note that the Test Runner can either exit immediately upon `AssertionError` (hard assertion) or run all test queries and list all `AssertionError`s at the end (soft assertion).
    
 As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in "query" clause) for aligning and formatting the query, especially when the query is long and complex.
 
@@ -81,7 +81,7 @@ The additional computation is minimal and it is quite a good trade-off for much 
 
 ### Example usage
 
-This section list some simple examples to illustrate some standard, common usage of test blocks.
+This section list some simple examples to illustrate some standard, common usage of test blocks. The most common one is:
 
 ``` plain Compare test query's output with expected output
 /* @Test
@@ -223,7 +223,7 @@ public class NameQueryEqual {
 }
 ```
 
-As explained in more details in [this post](/2016/04/17/sql-unit-data-parity/), "equal" is a recently added capability to easily compare two tables or projections from tables.
+As explained in more details in [this post](/blog/2016/04/17/sql-unit-data-parity/), "equal" is a recently added capability to easily compare two tables or projections from tables.
 
 ``` plain "equal" clause
 /* @Test
