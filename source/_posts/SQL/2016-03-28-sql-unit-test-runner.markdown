@@ -74,7 +74,7 @@ As shown in the following example, we can add newlines and whitespaces to the te
 */
 ```
 
-Note that in pure JSON, newlines are NOT allowed and the above JSON when deserializing directly will report syntax errors.
+Note that in pure JSON, newlines are NOT allowed and deserializing the above JSON directly will give syntax errors.
 However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
 Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (`\s+`) in test block with a single space (` `).
 The additional computation is minimal and it is quite a good trade-off for much better *readability* of the test scripts.
@@ -155,7 +155,7 @@ The test query will be executed after all the scripts have been executed.
 
 In practice, you should use the above "file" clause for:
 
-* Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables for synthetic data.
+* Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables with synthetic data.
 * Reusing the most common tests (e.g., count, constraint checks).
 * Making the original test scripts less cluttered with repeated SQL queries or statements.
 

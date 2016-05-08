@@ -23,9 +23,9 @@ Challenges in functional testing motivates me to create a test framework to add 
 In the last [blog post](/blog/2016/03/16/sql-unit-functional-tests/), I go over evolution of functional testing in data mart projects.
 In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to validate the tables.
 
-That kind of testing would be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are the latest snapshot of the data.
-Preparing this snapshot might be expensive, especially for daily ETLs, since those tables have to be truncated and reloaded with latest data.
-This can be every inefficient since out of millions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
+That kind of testing could be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are from the latest snapshot of the data.
+Preparing this snapshot might be expensive, especially for daily ETLs, since those tables will be truncated and reloaded with latest data.
+This can be every inefficient since out of billions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
 Therefore, for performance reasons, the ETLs usually perform **incremental data update**. 
 Some characteristics of "incremental data update" are as follows:
 
@@ -43,9 +43,9 @@ Note that, after being truncated, that company `ID = 123` can be re-inserted int
 
 **Risks**: The ETLs with incremental data update are usually much more complex.
 Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company `ID = 123`. 
-In standard approach with snapshot, each record is almost guaranteed unique on primary key, meaning only one row with company `ID = 123`.
 On the other hand, when data for company `ID = 123` are truncated from the staging tables after `D` days (0 row), it simply means that there is no update to that company during the last `D` days.
-It means that the company should not be removed from the destination tables of the ETL even though the input staging tables contain no such row for `ID = 123`.
+It means that the record for `ID = 123` should not be removed from the destination tables even though the input staging tables contain no such row for `ID = 123`.
+In contrast, for snapshot data, each record is almost guaranteed unique on primary key, meaning exactly one row with company `ID = 123`.
 The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.
 
 ### Example scenario
@@ -74,7 +74,7 @@ Despite the changing number of rows with `ID = 123`, the daily ETL should always
 
 Initially, verifying incremental data update of ETLs is very challenging.
 We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
-Specifically, we collected a few sets of staging tables for three days, and then manually simulate each set as the current day data before running the ETL.
+Specifically, we collected a few sets of staging tables for a few days, and then manually simulate each set as the current day data before running the ETL.
 After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.
 
 That process is summarized as the following steps for each day:
@@ -84,14 +84,14 @@ That process is summarized as the following steps for each day:
 1. Run the corresponding set of automated functional tests.
 
 As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
-It is time consuming to manually set up and run ETLs: for production-like data, the first few days can contain millions of rows for historical data.
+It is time consuming to manually set up and run ETLs: for production-like data, staging tables can contain millions of records for incremental data.
 Since we run ETLs multiple times to properly verify incremental update, the running times add up.
 Besides being time-consuming, the process also takes lots of mental energy to do each of the steps right, in the correct order.
 Otherwise, the tests will fail for no apparent reason.
 
 Despite the effort involved, the return is very little.
 Most of the time, the difference in data between a few days or weeks are usually not enough to verify all corner cases in ETL scripts.
-After running tests, we still don't know if a particular ETL will ever break if some infrequently updated column is updated in some particular way.
+After running tests, we still don't know if a particular ETL will ever break when new data comes in and some infrequently updated column is updated in some particular way.
 
 ### Observations
 
@@ -110,7 +110,8 @@ It leads to my strong conviction that incremental data update should tested in a
 I made two changes in the SQL Test Runner to make it easier to do unit testing SQL scripts in Vertica:
 
 1. Add ability to run the SQL statements to set up data.
-1. Add ability to call `vsql` to run a list of specified ETLs.
+1. Add ability to run a list of specified ETLs.
+   * For example, in our project, `vsql` is used to execute ETL scripts in SQL. Therefore, I added ability to invoke `vsql` to run a list of SQL files.
 
 With that, a unit test to verify our ETL (e.g., `my_etl.sql`) that updates email address incrementally (in the example scenario above) will look like this:
 
