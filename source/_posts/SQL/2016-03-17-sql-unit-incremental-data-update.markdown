@@ -246,6 +246,12 @@ After one-time setup (in `@BeforeClass` and `@AfterClass` functions), there will
 @BeforeClass
 public void setup() {
     testRunner = new SqlTestRunner(getJdbcConnection());
+    setupSchema("UNITTEST");
+}
+
+@AfterClass
+public void teardown() {
+    teardownSchema("UNITTEST");
 }
 
 @Test(enabled = true)
