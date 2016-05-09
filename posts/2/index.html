@@ -606,7 +606,7 @@ Instead, we should create a new test runner class with new class extend TestStra
 </tr>
 <tr>
 <td> Environment  </td>
-<td> Pre-production. Tables deployed once. </td>
+<td> Pre-production. All tables deployed at once. </td>
 <td> Local VM. Regular setup/teardown. </td>
 </tr>
 <tr>
@@ -634,6 +634,17 @@ If there are more than 20 categories, it could become a daunting task to generat
 Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
 Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
 Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
+
+<!-- Analogy:
+Functional tests:
+- In Web App, running the web application on webserver, running automated Selenium WebDriver tests to verify the web application from browser.
+- In Big Data, running the DDL/DML/ETL scripts to populate the dimension and fact tables in schema, running automated SQL test queries to verify logics between tables.
+
+Unit tests:
+- In Web App, using mocking framework to mock out database, test behavior of a class/method using synthetic inputs, especially for corner cases.
+- In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
+-->
+
 </div>
   
   
@@ -710,16 +721,112 @@ Assumptions:
 
 <p>TODO indefinitely.</p>
 
-<p>The idea is to use a local Vertica VM as sandbox test environment.
+<p>The idea is to use a local Vertica VM as a sandbox test environment.
 It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
 
 <p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
 
 <ol>
-<li>Mix of SQL code and test blocks: We can use SQL code to do necessary synthetic data setup before running assertions, in SQL queries.</li>
+<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
 <li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
+<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
 </ol>
 
+
+<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
+They are followed by a new test block to run the ETL script.
+After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
+Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
+
+<figure class='code'><figcaption><span>Example unit test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
+</span><span class='line'><span class="cm">* Day 1</span>
+</span><span class='line'><span class="cm">****************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
+</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@AfterClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
 </div>
   
   
@@ -795,13 +902,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#x69;&#x6c;&#x74;&#111;&#x3a;&#x62;&#101;&#102;&#x6f;&#x72;&#x65;&#x40;&#x6d;&#x6f;&#99;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;&#46;">&#x62;&#x65;&#x66;&#111;&#114;&#x65;&#x40;&#x6d;&#x6f;&#x63;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#109;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#111;&#x3a;&#x62;&#101;&#102;&#111;&#x72;&#x65;&#x40;&#x6d;&#111;&#99;&#x6b;&#x64;&#x61;&#116;&#x61;&#x2e;&#99;&#111;&#x6d;&#46;">&#x62;&#101;&#102;&#111;&#114;&#x65;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#111;&#109;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#x74;&#x6f;&#58;&#x61;&#102;&#x74;&#101;&#x72;&#x40;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#97;&#116;&#97;&#46;&#99;&#111;&#109;">&#x61;&#x66;&#x74;&#x65;&#114;&#64;&#109;&#111;&#99;&#107;&#x64;&#97;&#x74;&#x61;&#46;&#99;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#109;&#x61;&#105;&#108;&#x74;&#x6f;&#x3a;&#x61;&#x66;&#116;&#101;&#114;&#64;&#109;&#111;&#99;&#x6b;&#100;&#x61;&#x74;&#x61;&#46;&#99;&#x6f;&#x6d;">&#97;&#102;&#x74;&#101;&#114;&#64;&#x6d;&#111;&#99;&#x6b;&#x64;&#x61;&#116;&#x61;&#46;&#99;&#x6f;&#x6d;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -817,7 +924,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#97;&#x69;&#108;&#x74;&#111;&#58;&#x62;&#x65;&#121;&#x6f;&#x6e;&#100;&#64;&#x6d;&#111;&#99;&#x6b;&#100;&#97;&#x74;&#97;&#46;&#99;&#111;&#x6d;&#x2e;">&#x62;&#101;&#121;&#x6f;&#x6e;&#x64;&#64;&#109;&#111;&#x63;&#107;&#100;&#97;&#x74;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;</a></li>
+<li>Email updated to <a href="&#109;&#x61;&#x69;&#108;&#116;&#x6f;&#x3a;&#x62;&#x65;&#x79;&#x6f;&#110;&#100;&#x40;&#109;&#111;&#99;&#107;&#100;&#x61;&#116;&#x61;&#46;&#99;&#111;&#109;&#x2e;">&#x62;&#101;&#121;&#111;&#110;&#x64;&#x40;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;&#x2e;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -1142,9 +1249,21 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
 </pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
 </span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
+</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@AfterClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
 </span><span class='line'><span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
