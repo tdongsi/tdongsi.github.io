@@ -35,3 +35,13 @@ If there are more than 20 categories, it could become a daunting task to generat
 Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage. 
 Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
 Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.
+
+<!-- Analogy:
+Functional tests:
+- In Web App, running the web application on webserver, running automated Selenium WebDriver tests to verify the web application from browser.
+- In Big Data, running the DDL/DML/ETL scripts to populate the dimension and fact tables in schema, running automated SQL test queries to verify logics between tables.
+
+Unit tests:
+- In Web App, using mocking framework to mock out database, test behavior of a class/method using synthetic inputs, especially for corner cases.
+- In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
+-->
