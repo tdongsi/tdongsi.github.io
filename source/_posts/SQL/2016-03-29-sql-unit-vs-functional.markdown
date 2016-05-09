@@ -20,7 +20,7 @@ In the context of Big Data projects, the differences between functional tests an
 |       | Functional tests      | Unit tests |
 | ----------- | ------------ | ------------ |
 | Data         | Production-like data | Mock (synthetic) data |
-| Environment  | Pre-production. Tables deployed once. | Local VM. Regular setup/teardown. |
+| Environment  | Pre-production. All tables deployed at once. | Local VM. Regular setup/teardown. |
 | Coverage     | Passive: Coverage depends on diverse real data. | Active: Mock data created to force corner cases. |
 | Example usage | Snapshot testing | Incrementa data update testing |
 

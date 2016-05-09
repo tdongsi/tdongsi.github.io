@@ -92,7 +92,7 @@ def is_pseudo_prime(prime, trial=10):
         if num == 1 or num == prime - 1:
             return False
 
-        # For next iterations, -1 implies prime, 1 implies composite
+        # For next iterations, -1 implies prime, others imply composite
         for _ in xrange(exponent):
             num = pow(num, 2, prime)
             if num == prime - 1:
@@ -164,7 +164,7 @@ def find_factor(prime, trial=100):
             if gcd > 1:
                 return gcd
 
-        # For next iterations, -1 implies prime, 1 implies composite
+        # For next iterations, -1 implies prime, others imply composite
         for _ in xrange(exponent):
             num = pow(num, 2, prime)
             if num == prime - 1:
@@ -200,4 +200,4 @@ def find_factor(prime, trial=100):
 
 The final solution to the problem, using the modified Rabin-Miller test above, can be found in this [file](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) (search for CoinJam class).
 Note that the [suggested solution](https://code.google.com/codejam/contest/6254486/dashboard#s=a&a=2) to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10^N).
-If J is much larger and close to the number of all jamcoins with length N available, then using modified Rabin-Miller test is probably required.
+If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.

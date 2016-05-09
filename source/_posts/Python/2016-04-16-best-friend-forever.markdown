@@ -31,7 +31,7 @@ The above plot also gives me some key observations to solve the problem:
 
 1. Each cycle in the directed graph is a candidate for the solution circle.
 1. If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
-   * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle.
+   * In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.
    * The cycle is a candidate for solution itself. Some cycles can get really large.
 1. If the kids form a cycle with length == 2 (called "mutual BFFs" in my code), then you can keep chaining kids who are friends of friends to those kids to form a "path". You can create a circle from **one or more** "paths".
    * In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10<-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.
@@ -98,7 +98,7 @@ Disclaimer: I know my solution is probably not accepted in Code Jam for using ex
 It is not like I can implement [Johnson's algorithm](https://en.wikipedia.org/wiki/Johnson%27s_algorithm) for finding cycles within two hours.
 [My solution](https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py) is to check if my thinking is correct.
 
-Note that one mistake we might make is to treat each "path" (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note **"one ore more"** in observation 3).
+Note that one mistake we might make is to treat each "path" (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note **"one or more"** in observation 3).
 The reason is that all the "paths" can be chained together to form a larger cycle (see graph below).
 My first solution was rejected for Small Input dataset due to this mistake.
 Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:
