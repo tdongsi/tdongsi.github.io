@@ -93,7 +93,7 @@ In addition, the log file of the Test Runner will NOT be flooded with one millio
 If we only need to do a few simple data parity checks, a few ("name", "query", "expected") test blocks as shown above will suffice.
 However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
 For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
-Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read ([readability matters](/blog/2016/03/20/sql-unit-functional-tests/)).
 Therefore, I create a new test block construct that is more friendly to write and read, as shown below.
 
 ``` plain New test block
