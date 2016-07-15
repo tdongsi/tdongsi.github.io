@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Algorithm | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/algorithm/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-07-07T19:46:04-07:00</updated>
+  <updated>2016-07-14T20:19:46-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,157 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Improved Priority Queue Recipe in Python]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python/"/>
+    <updated>2016-07-14T17:59:14-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python</id>
+    <content type="html"><![CDATA[<p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
+
+<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
+It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
+Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first (???).
+Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
+
+<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
+Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
+That example is still hard to be used directly since it is not encapsulated and the standard <code>peek</code> method is noticeably missing.</p>
+
+<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
+
+<pre><code class="python Improved priority-queue recipe">import heapq
+import itertools
+
+class PriorityQueue(object):
+
+    _REMOVED = "&lt;REMOVED&gt;"
+
+    def __init__(self):
+        self.heap = []
+        self.entries = {}
+        self.counter = itertools.count()
+
+    def add(self, task, priority=0):
+        """Add a new task or update the priority of an existing task"""
+        if task in self.entries:
+            self.remove(task)
+
+        count = next(self.counter)
+        # weight = -priority since heap is a min-heap
+        entry = [-priority, count, task]
+        self.entries[task] = entry
+        heapq.heappush(self.heap, entry)
+        pass
+
+    def remove(self, task):
+        """ Mark the given task as REMOVED.
+
+        Do this to avoid breaking heap-invariance of the internal heap.
+        """
+        entry = self.entries[task]
+        entry[-1] = PriorityQueue._REMOVED
+        pass
+
+    def pop(self):
+        """ Get task with highest priority.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = heapq.heappop(self.heap)
+            if task is not PriorityQueue._REMOVED:
+                del self.entries[task]
+                return -weight, task
+        raise KeyError("The priority queue is empty")
+
+    def peek(self):
+        """ Check task with highest priority, without removing.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = self.heap[0]
+            if task is PriorityQueue._REMOVED:
+                heapq.heappop(self.heap)
+            else:
+                return -weight, task
+
+        return None
+
+    def __str__(self):
+        temp = [str(e) for e in self.heap if e[-1] is not PriorityQueue._REMOVED]
+        return "[%s]" % ", ".join(temp)
+</code></pre>
+
+<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
+
+<ul>
+<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
+<li>Methods and supporting data structures are encapsulated into a class.</li>
+<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
+<li>Method <code>peek</code> is added.</li>
+<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
+<li>Override <code>__str__</code> method for pretty printing.</li>
+</ul>
+
+
+<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
+The Skyline problem states that:</p>
+
+<p><blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote></p>
+
+<p>One possible approach is to use a priority queue to keep track of the current highest building
+while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
+Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
+
+<pre><code class="python Solution to Skyline problem">def solve_skyline(mlist):
+    """ Solve the Skyline problem.
+
+    :param mlist: list of buildings in format (start, end, height).
+    :return: List of end points
+    """
+
+    skyline = []
+    cur_height = 0
+    pq = PriorityQueue()
+    events = defaultdict(list)
+    START = "start"
+    END = "end"
+
+    for idx in range(len(mlist)):
+        start, end, height = mlist[idx]
+        events[start].append((idx, START))
+        events[end].append((idx, END))
+
+    # k_events is the ordered list of x-coordinates where buildings start or end (events)
+    k_events = sorted(events.keys())
+
+    # Add and remove buildings into a priority-queue for each event.
+    for key in k_events:
+        # print skyline
+        buildings = events[key]
+
+        for e in buildings:
+            idx, label = e
+            if label == START:
+                pq.add(idx, mlist[idx][2])
+            elif label == END:
+                pq.remove(idx)
+
+        # after processing all buildings for a x-coordinate "key", check the current highest building
+        temp = pq.peek()
+        after = 0
+        if temp is not None:
+            after = temp[0]
+        if after != cur_height:
+            skyline.append((key, after))
+            cur_height = after
+
+    return skyline
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Rabin-Miller Primality Test]]></title>

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-07-07T19:46:04-07:00</updated>
+  <updated>2016-07-14T20:19:46-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,49 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures/"/>
+    <updated>2016-06-30T17:51:13-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures</id>
+    <content type="html"><![CDATA[<p>We have all seen it before: intermittent unit test failures.
+It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
+
+<p>In our experience, one of the most common causes is:
+<strong>Class static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
+
+<p>What happens locally?
+If you’re running from the command line, you probably have some environment variables set.
+These allow some ConfigHelper class to find the resource properties files and load them.
+In the end, code that looks like the following often ends up succeeding:</p>
+
+<pre><code class="java DbQueue class">private static final String MY_CONFIG = ConfigHelper.getBoolean("config_key", false);
+</code></pre>
+
+<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
+Instead, they run using some mock framework such as JMockit.
+Mocking in this scenario is a good, desirable thing.
+However, it also means that code like that ends up failing to find those resources.
+In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
+And very often, classes like that throw some misleading exceptions, especially when trying to load and convert a numeric value from a resource.</p>
+
+<p>So, how do we fix it?
+How do we prevent that class static member initialization from being invoked in Jenkins test build?
+The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
+
+<pre><code class="java Mock with JMockit">public class MyTest {
+    @Mocked( stubOutClassInitialization = true )
+    DbQueue queue;
+
+    ...
+}
+</code></pre>
+
+<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
+The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Convert Python Objects to JSON]]></title>
@@ -520,112 +563,6 @@ This will lead to complex and unexpected consequences and, as a result, random t
 For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
 <p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[AWS: Developing With Amazon S3]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3/"/>
-    <updated>2016-01-18T17:13:28-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3</id>
-    <content type="html"><![CDATA[<p>Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data.
-This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.</p>
-
-<h3>S3 Buckets and Objects</h3>
-
-<p>Files of any kind such as text, video, photo are stored as objects in S3 <em>buckets</em>.
-The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
-A bucket can be <em>versioning-enabled</em>, it will store every version of every object in the bucket.</p>
-
-<p>Each <em>object</em> in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and <code>!-_.*'/</code> are allowed in a key name.</p>
-
-<p>Bucket naming tips:</p>
-
-<ul>
-<li>To ensure uniqueness, you might prefix the bucket name with the name of your organization.</li>
-<li>Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.</li>
-</ul>
-
-
-<p>Object key naming tips:</p>
-
-<ul>
-<li>Use prefixes and <code>/</code> (or other delimiters) to logically group your objects. For example, <code>prog/java/arrays.html</code>. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
-
-<ul>
-<li>However, the Amazon S3 console supports the <a href="http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html">folder concept</a> for convenience and usability. Amazon S3 does this by using key name prefixes for objects.</li>
-</ul>
-</li>
-<li>For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See &ldquo;Programming Considerations&rdquo; section below.</li>
-</ul>
-
-
-<h3>Operations on Objects</h3>
-
-<p>Basic operations on S3 objects and buckets are:</p>
-
-<ul>
-<li>Put: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.</li>
-<li>Get: Retrieve a whole object or part of an object.</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html">List Keys</a>: List object keys by prefix and delimiter.</li>
-<li>Delete: Delete one or more objects.
-
-<ul>
-<li>If versioning is not enabled, an object is permanently deleted by specifying its key.</li>
-<li>If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.</li>
-<li>If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a &ldquo;404 Not Found&rdquo; error by S3.</li>
-</ul>
-</li>
-<li>Restore: Restore an object archived on Amazon Glacier.</li>
-</ul>
-
-
-<h4>Other operations in S3</h4>
-
-<p>Advanced operations that you should know when situations arise.</p>
-
-<p><strong>Scenario 1</strong>: You want to let users upload files to your buckets for some time duration.
-<strong>Solution 1</strong>: You should never share your AWS credentials to let users upload files to your buckets.
-Instead, generate a <strong>pre-signed URL</strong> with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time.
-You share this pre-signed URL to users who will use this to access your S3 buckets.</p>
-
-<p><strong>Scenario 2</strong>: Encryption and strict data security is required.
-<strong>Solution 2</strong>: You can enable:</p>
-
-<ul>
-<li>Securing data in transit.
-
-<ul>
-<li>SSL-encrypted data transfer by using HTTPS</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html">Client-side encryption</a></li>
-</ul>
-</li>
-<li>Securing data at rest on AWS server.
-
-<ul>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html">Server-side encryption</a></li>
-</ul>
-</li>
-</ul>
-
-
-<p><strong>Scenario 3</strong>: You want your web applications that are loaded in one domain to interact with S3 resources in a different domain.
-<strong>Solution 3</strong>: Check out <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html">CORS</a>.</p>
-
-<h3>Programming considerations</h3>
-
-<ul>
-<li>According to <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">this guideline</a>, <strong>avoid</strong> using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object&rsquo;s metadata. See examples in the link for more information.</li>
-<li>If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle <a href="http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html">NoSuchBucket errors</a> when buckets do not exist.</li>
-<li>Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.</li>
-<li>Cache bucket and key names if possible.</li>
-<li>Set bucket region closest to latency-sensitive users.</li>
-<li>Compress objects to reduce the size of data transferred and storage used.</li>
-<li>Use an exponential back-off algorithm to retry after failed connection attempts. See <a href="http://docs.aws.amazon.com/general/latest/gr/api-retries.html">here</a>.</li>
-<li>Enable application logging. For example, <a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html">in Java</a>.</li>
-<li>Enable <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html">server access logging</a>.</li>
-</ul>
-
 ]]></content>
   </entry>
   

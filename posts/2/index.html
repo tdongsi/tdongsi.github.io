@@ -9,13 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Navigation: Overview,
-Pt 1,
-Pt 2,
-Pt 3,
-Pt 4,
-Pt 5,
-Pt 6. As an example to discussion in this post, I will discuss how I recently added a new &hellip;">
+  <meta name="description" content="In Qualification Round of Google Code Jam 2016, there is an interesting Coin Jam problem.
+The summarized problem statement is as follows: A jamcoin &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -104,6 +99,549 @@ Pt 6. As an example to discussion in this post, I will discuss how I recently ad
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-20T22:07:17-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>10:07 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
+The summarized problem statement is as follows:</p>
+
+<blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote>
+
+
+<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+
+<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
+
+<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
+
+<ul>
+<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
+</ul>
+
+
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+
+<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
+
+<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
+
+<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
+
+<figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Decompose num = 2**exp * d where d is odd.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param num: the input number.</span>
+</span><span class='line'><span class="sd">    :return: (exp, d) where num = 2**exp * d</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="n">exp</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="k">while</span> <span class="n">num</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c"># check num % 2 == 0 but probably faster</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="n">exp</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">exp</span><span class="p">,</span> <span class="n">num</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">is_pseudo_prime</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Rabin Miller test of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param prime: the input number.</span>
+</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trial.</span>
+</span><span class='line'><span class="sd">    :return: True if all trials passed, False if not.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
+</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
+</span><span class='line'>                    <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Labor saving steps</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some notes about this implementation:</p>
+
+<ul>
+<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
+<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
+<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
+<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
+</ul>
+
+
+<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
+
+<figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Modify Rabin Miller test of primality to find factor of composite.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param prime: the input number.</span>
+</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trials.</span>
+</span><span class='line'><span class="sd">    :return: 1 if prime (all trials passed), &gt; 1 if composite.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
+</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span> <span class="mi">2</span><span class="p">,</span>   <span class="mi">3</span><span class="p">,</span>   <span class="mi">5</span><span class="p">,</span>   <span class="mi">7</span><span class="p">,</span>  <span class="mi">11</span><span class="p">,</span>  <span class="mi">13</span><span class="p">,</span>  <span class="mi">17</span><span class="p">,</span>  <span class="mi">19</span><span class="p">,</span>  <span class="mi">23</span><span class="p">,</span>  <span class="mi">29</span><span class="p">,</span>  <span class="mi">31</span><span class="p">,</span>  <span class="mi">37</span><span class="p">,</span>  <span class="mi">41</span><span class="p">,</span>
+</span><span class='line'>                  <span class="mi">43</span><span class="p">,</span>  <span class="mi">47</span><span class="p">,</span>  <span class="mi">53</span><span class="p">,</span>  <span class="mi">59</span><span class="p">,</span>  <span class="mi">61</span><span class="p">,</span>  <span class="mi">67</span><span class="p">,</span>  <span class="mi">71</span><span class="p">,</span>  <span class="mi">73</span><span class="p">,</span>  <span class="mi">79</span><span class="p">,</span>  <span class="mi">83</span><span class="p">,</span>  <span class="mi">89</span><span class="p">,</span>  <span class="mi">97</span><span class="p">,</span> <span class="mi">101</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Find factor based on the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :return: &gt; 1 if composite, 1 if probably prime.</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>            <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>                <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                    <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># It is a composite, but could not find a factor</span>
+</span><span class='line'>        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Labor saving steps</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Unexpected input&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">p</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">factor</span> <span class="o">=</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">factor</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">factor</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="mi">1</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
+Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
+If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-18T15:44:57-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>3:44 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows:</p>
+
+<blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, ..., FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote>
+
+
+<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
+I&rsquo;d like to approach to the problem more methodically.
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
+
+<p><img class="center" src="/images/python/bff.png" title="BFF example" ></p>
+
+<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:</p>
+
+<ol>
+<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
+<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
+
+<ul>
+<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.</li>
+<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
+</ul>
+</li>
+<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
+
+<ul>
+<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
+<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
+
+<ol>
+<li>From the list of BFFs, construct a directed graph.</li>
+<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
+<li>Initialize max_length = -1. For each simple cycle:
+
+<ol>
+<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
+<li>If cycle length is equal to 2.
+
+<ol>
+<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
+<li>Find the path length, add to path_sum, and update max_length if needed.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+
+
+<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
+
+<figure class='code'><figcaption><span>Construct and plot directed graph with networkx</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">networkx</span> <span class="kn">as</span> <span class="nn">nx</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Bff</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">    https://code.google.com/codejam/contest/4304486/dashboard#s=p2</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Initialize with the given filename.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param filename: input file path</span>
+</span><span class='line'><span class="sd">        :return:</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">_filename</span> <span class="o">=</span> <span class="n">filename</span>
+</span><span class='line'>        <span class="k">pass</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Draw the string that represents the bff network.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        The input string contains N integers F1, F2, ..., FN, </span>
+</span><span class='line'><span class="sd">        where Fi is the student ID number of the BFF</span>
+</span><span class='line'><span class="sd">        of the kid with student ID i.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param input: the string that represents the bff network.</span>
+</span><span class='line'><span class="sd">        :return:</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="c"># Construct the directed graph</span>
+</span><span class='line'>        <span class="n">bffs</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">input</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)]</span>
+</span><span class='line'>        <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bffs</span><span class="p">))]</span>
+</span><span class='line'>        <span class="n">gr</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
+</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_nodes_from</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_edges_from</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">bffs</span><span class="p">)])</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># nx.simple_cycles(gr)</span>
+</span><span class='line'>        <span class="n">nx</span><span class="o">.</span><span class="n">draw_networkx</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filename</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+</span><span class='line'>    <span class="n">plot</span> <span class="o">=</span> <span class="n">Bff</span><span class="p">(</span><span class="s">&quot;bff.png&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="c"># plot.draw(&quot;2 1 6 3 8 4 6 5&quot;)</span>
+</span><span class='line'>    <span class="n">plot</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s">&quot;6 1 6 5 4 1 5 10 3 7&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">pass</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
+It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
+<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
+
+<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one or more&rdquo;</strong> in observation 3).
+The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
+
+<p><img class="center" src="/images/python/bff2.png" title="All paths" ></p>
+
+<p>Some morals of the story:</p>
+
+<ul>
+<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
+<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -652,635 +1190,6 @@ Unit tests:
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/04/12/sql-unit-testing/">(Pt. 4) SQL Unit Testing</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-04-12T17:45:42-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:45 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>.</p>
-
-<!-- 
-Changes I made:
-1. Mix of SQL code and test blocks.
-1. New JSON block to run ETL script using VSQL
-
-I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
-
-Running ETL script through JDBC is probably not a good idea.
-
-Requirements of unit tests:
-
-Readability:
-
-#### Single-node VM
-
-Remove KSAFE.
-
-Add a new test.
-  
-Revert in Git.
-
-#### Adding  unit test
-
-Show SBG strategy.
-
-#### Other usages
-
-You can insert into the ETL script to verify step by step.
-However, there is only one set of mock data. 
-In unit testing, you might want multiple setup of mock data for different scenarios.
-=> the other way is actually more flexible
-
-Assumptions:
-
-1. No ;
-1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
-
-
--->
-
-
-<p>TODO indefinitely.</p>
-
-<p>The idea is to use a local Vertica VM as a sandbox test environment.
-It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
-
-<p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
-
-<ol>
-<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
-<li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
-<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
-</ol>
-
-
-<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
-They are followed by a new test block to run the ETL script.
-After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
-Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
-
-<figure class='code'><figcaption><span>Example unit test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
-</span><span class='line'><span class="cm">* Day 1</span>
-</span><span class='line'><span class="cm">****************************/</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">-- First ETL run</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
-</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@AfterClass</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/04/10/sql-unit-incremental-data-update/">(Pt. 3) Testing Incremental Data Update</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-04-10T17:46:40-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:46 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>
-.</p>
-
-<p>One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
-Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.</p>
-
-<h3>Incremental data update</h3>
-
-<p>In the last <a href="/blog/2016/03/16/sql-unit-functional-tests/">blog post</a>, I go over evolution of functional testing in data mart projects.
-In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to validate the tables.</p>
-
-<p>That kind of testing could be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are from the latest snapshot of the data.
-Preparing this snapshot might be expensive, especially for daily ETLs, since those tables will be truncated and reloaded with latest data.
-This can be every inefficient since out of billions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
-Therefore, for performance reasons, the ETLs usually perform <strong>incremental data update</strong>.
-Some characteristics of &ldquo;incremental data update&rdquo; are as follows:</p>
-
-<p>1) Only updated records are incrementally appended into some tables, used for staging purpose (a.k.a. staging tables).
-These tables will be used as input for those ETLs with incremental update.
-For example, let&rsquo;s say there is a company record with ID = 123 and some attribute such as master email <code>before@mock.com</code> on Day 1.
-On Day 2, the company email could be udpated to <code>after@mock.com</code>.
-The original record of company 123 with <code>before@mock.com</code> is not necessarily removed from the staging table.
-Instead, a new row with updated data (ID = 123, email = <code>after@mock.com</code>) is appended into the staging table.</p>
-
-<p>2) To keep the size of input tables and ETL running time bounded, we usually keep only a number of days worth of data in the staging tables.
-In other words, any records older than some <code>D</code> days are truncated from those staging tables.
-For example, after <code>D = 7</code> days since Day 2, if the company <code>ID = 123</code> has no update, its records will be removed from the staging tables.
-Note that, after being truncated, that company <code>ID = 123</code> can be re-inserted into the staging table if some of its attribute is updated.</p>
-
-<p><strong>Risks</strong>: The ETLs with incremental data update are usually much more complex.
-Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company <code>ID = 123</code>.
-On the other hand, when data for company <code>ID = 123</code> are truncated from the staging tables after <code>D</code> days (0 row), it simply means that there is no update to that company during the last <code>D</code> days.
-It means that the record for <code>ID = 123</code> should not be removed from the destination tables even though the input staging tables contain no such row for <code>ID = 123</code>.
-In contrast, for snapshot data, each record is almost guaranteed unique on primary key, meaning exactly one row with company <code>ID = 123</code>.
-The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.</p>
-
-<h3>Example scenario</h3>
-
-<p>For sliding window of one week data <code>D = 7</code> in the staging tables <code>stg_company_id</code> and <code>stg_company_contact</code>, the company with <code>ID = 123</code> may have its email address updated like this:</p>
-
-<ul>
-<li>Day 1
-
-<ul>
-<li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#x3a;&#x62;&#101;&#102;&#111;&#x72;&#x65;&#64;&#109;&#111;&#99;&#107;&#100;&#x61;&#x74;&#97;&#x2e;&#99;&#111;&#x6d;&#x2e;">&#98;&#101;&#102;&#x6f;&#x72;&#x65;&#x40;&#109;&#111;&#99;&#x6b;&#100;&#97;&#116;&#97;&#46;&#x63;&#111;&#109;&#x2e;</a> (same company)</li>
-</ul>
-</li>
-<li>Day 3
-
-<ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#108;&#116;&#x6f;&#58;&#97;&#102;&#x74;&#x65;&#114;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#x6f;&#109;">&#x61;&#x66;&#x74;&#x65;&#114;&#64;&#109;&#x6f;&#x63;&#x6b;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#x6f;&#x6d;</a> in <code>stg_company_contact</code>.</li>
-<li><code>stg_company_id</code> has one row with ID = 123.</li>
-<li><code>stg_company_contact</code> has two rows with ID = 123.</li>
-</ul>
-</li>
-<li>Day 10
-
-<ul>
-<li>Data truncated from <code>stg_company_contact</code> as there is no update.</li>
-<li>Data is also truncated from <code>stg_company_id</code> since Day 8 for the same reason.</li>
-<li><code>stg_company_id</code> and <code>stg_company_contact</code> has zero row with ID = 123.</li>
-</ul>
-</li>
-<li>Day 15
-
-<ul>
-<li>Email updated to <a href="&#x6d;&#97;&#x69;&#108;&#x74;&#111;&#x3a;&#98;&#x65;&#121;&#x6f;&#x6e;&#100;&#64;&#109;&#111;&#x63;&#107;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#x6f;&#109;&#46;">&#98;&#101;&#x79;&#x6f;&#x6e;&#x64;&#x40;&#109;&#111;&#x63;&#x6b;&#100;&#x61;&#x74;&#x61;&#46;&#99;&#x6f;&#109;&#46;</a></li>
-<li><code>stg_company_id</code> has zero row with ID = 123.</li>
-<li><code>stg_company_contact</code> has one row with ID = 123.</li>
-</ul>
-</li>
-</ul>
-
-
-<p>Despite the changing number of rows with <code>ID = 123</code>, the daily ETL should always returns a company with <code>ID = 123</code> in its output, the dimension table <code>dim_company</code>, with the <code>email_address</code> column updated accordingly.</p>
-
-<h3>Initial functionality tests</h3>
-
-<p>Initially, verifying incremental data update of ETLs is very challenging.
-We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
-Specifically, we collected a few sets of staging tables for a few days, and then manually simulate each set as the current day data before running the ETL.
-After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.</p>
-
-<p>That process is summarized as the following steps for each day:</p>
-
-<ol>
-<li>Manually set up the staging data (ETL input).</li>
-<li>Manually run the ETL.</li>
-<li>Run the corresponding set of automated functional tests.</li>
-</ol>
-
-
-<p>As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
-It is time consuming to manually set up and run ETLs: for production-like data, staging tables can contain millions of records for incremental data.
-Since we run ETLs multiple times to properly verify incremental update, the running times add up.
-Besides being time-consuming, the process also takes lots of mental energy to do each of the steps right, in the correct order.
-Otherwise, the tests will fail for no apparent reason.</p>
-
-<p>Despite the effort involved, the return is very little.
-Most of the time, the difference in data between a few days or weeks are usually not enough to verify all corner cases in ETL scripts.
-After running tests, we still don&rsquo;t know if a particular ETL will ever break when new data comes in and some infrequently updated column is updated in some particular way.</p>
-
-<h3>Observations</h3>
-
-<p>The painful experience of testing incremental data update for ETLs with production-like data leads to the following observations:</p>
-
-<ol>
-<li>We should only need a small number of records to reduce ETL running time.</li>
-<li>We should create synthetic data to force rare logic branches and corner cases.</li>
-<li>We should have a way to set up data automatically.</li>
-<li>We should have a way to run the ETL under test automatically.</li>
-</ol>
-
-
-<p>These observations, especially small and synthetic data, sounds like unit testing.
-It leads to my strong conviction that incremental data update should tested in a bunch of &ldquo;unit tests&rdquo;, with mock data to force corner cases.</p>
-
-<h3>Unit tests - first look</h3>
-
-<p>I made two changes in the SQL Test Runner to make it easier to do unit testing SQL scripts in Vertica:</p>
-
-<ol>
-<li>Add ability to run the SQL statements to set up data.</li>
-<li>Add ability to run a list of specified ETLs.
-
-<ul>
-<li>For example, in our project, <code>vsql</code> is used to execute ETL scripts in SQL. Therefore, I added ability to invoke <code>vsql</code> to run a list of SQL files.</li>
-</ul>
-</li>
-</ol>
-
-
-<p>With that, a unit test to verify our ETL (e.g., <code>my_etl.sql</code>) that updates email address incrementally (in the example scenario above) will look like this:</p>
-
-<figure class='code'><figcaption><span>Unit test for the example scenario in section above</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-<span class='line-number'>63</span>
-<span class='line-number'>64</span>
-<span class='line-number'>65</span>
-<span class='line-number'>66</span>
-<span class='line-number'>67</span>
-<span class='line-number'>68</span>
-<span class='line-number'>69</span>
-<span class='line-number'>70</span>
-<span class='line-number'>71</span>
-<span class='line-number'>72</span>
-<span class='line-number'>73</span>
-<span class='line-number'>74</span>
-<span class='line-number'>75</span>
-<span class='line-number'>76</span>
-<span class='line-number'>77</span>
-<span class='line-number'>78</span>
-<span class='line-number'>79</span>
-<span class='line-number'>80</span>
-<span class='line-number'>81</span>
-<span class='line-number'>82</span>
-<span class='line-number'>83</span>
-<span class='line-number'>84</span>
-<span class='line-number'>85</span>
-<span class='line-number'>86</span>
-<span class='line-number'>87</span>
-<span class='line-number'>88</span>
-<span class='line-number'>89</span>
-<span class='line-number'>90</span>
-<span class='line-number'>91</span>
-<span class='line-number'>92</span>
-<span class='line-number'>93</span>
-<span class='line-number'>94</span>
-<span class='line-number'>95</span>
-<span class='line-number'>96</span>
-<span class='line-number'>97</span>
-<span class='line-number'>98</span>
-<span class='line-number'>99</span>
-<span class='line-number'>100</span>
-<span class='line-number'>101</span>
-<span class='line-number'>102</span>
-<span class='line-number'>103</span>
-<span class='line-number'>104</span>
-<span class='line-number'>105</span>
-<span class='line-number'>106</span>
-<span class='line-number'>107</span>
-<span class='line-number'>108</span>
-<span class='line-number'>109</span>
-<span class='line-number'>110</span>
-<span class='line-number'>111</span>
-<span class='line-number'>112</span>
-<span class='line-number'>113</span>
-<span class='line-number'>114</span>
-<span class='line-number'>115</span>
-<span class='line-number'>116</span>
-<span class='line-number'>117</span>
-<span class='line-number'>118</span>
-<span class='line-number'>119</span>
-<span class='line-number'>120</span>
-<span class='line-number'>121</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
-</span><span class='line'><span class="cm">* Day 1</span>
-</span><span class='line'><span class="cm">****************************/</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">-- First ETL run</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/**********************************************************</span>
-</span><span class='line'><span class="cm">Day 3: Email updated in stg_company_contact</span>
-</span><span class='line'><span class="cm">**********************************************************/</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;after@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">12</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">-- Day 3 ETL run</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_etl_run&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_count&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_email_address&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/**********************************************************</span>
-</span><span class='line'><span class="cm">Day 10: Data truncated from staging table</span>
-</span><span class='line'><span class="cm">**********************************************************/</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_id</span><span class="p">;</span>
-</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_contact</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">-- This ETL run should have no effect</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_etl_run&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_count&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_email_address&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/**********************************************************</span>
-</span><span class='line'><span class="cm">Day 15: Another update in email</span>
-</span><span class='line'><span class="cm">**********************************************************/</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">-- Email is updated</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
-</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;beyond@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">3</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">-- Day 15 ETL run</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_etl_run&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_count&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @Test</span>
-</span><span class='line'><span class="cm">{</span>
-</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_email_address&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
-</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;beyond@mockdata.com&quot;</span>
-</span><span class='line'><span class="cm">}</span>
-</span><span class='line'><span class="cm">*/</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Running the unit test script above from TestNG will be similar as in functional tests (see &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/16/sql-unit-functional-tests/">this post</a>).
-After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> functions), there will be minimal Java code added (<code>@Test</code> functions):</p>
-
-<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
-</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@AfterClass</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The full setup for unit testing will be discussed in the next blog post.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/3">&larr; Older</a>
@@ -1301,6 +1210,14 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/05/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
       </li>
     
@@ -1310,14 +1227,6 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
     
       <li class="post">
         <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a>
       </li>
     
   </ul>
@@ -1354,7 +1263,7 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (2)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (8)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (1)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (2)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (13)</a></li><li><a href='/blog/categories/testng/'>testng (1)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
