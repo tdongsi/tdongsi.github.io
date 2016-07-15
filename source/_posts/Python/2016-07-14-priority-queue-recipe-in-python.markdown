@@ -17,7 +17,7 @@ Finally, this Queue version is reportedly slower because it adds locks and encap
 
 On the other hand, the [module `heapq`](https://docs.python.org/2/library/heapq.html) provides an implementation of binary heap algorithms, which is the most common *data structure* for implementing priority-queue. 
 Although the module does not provide any direct implementation of priority-queue, [its documentation](https://docs.python.org/2/library/heapq.html) discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
-That example is still hard to be used directly since it is not encapsulated and the standard `peek` method is noticeably missing.
+That example is still hard to be used directly since it is not encapsulated into a class and the standard `peek` method is noticeably missing.
 
 I ended up implementing a wrapper class for that recipe to make it easier to use.
 
@@ -102,6 +102,8 @@ The Skyline problem states that:
 {% blockquote %}
 You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.
 {% endblockquote %}
+
+{% img center http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png 800 260 'Example' 'An image of example input and output'%}
 
 One possible approach is to use a priority queue to keep track of the current highest building
 while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
