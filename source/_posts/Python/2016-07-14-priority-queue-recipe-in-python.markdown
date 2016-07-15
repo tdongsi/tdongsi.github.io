@@ -8,13 +8,24 @@ categories:
 - Algorithm
 ---
 
-A priority queue is a common abstract data type, but it is not directly provided in Python's standard library.
-The moduel `queue` module provides a `PriorityQueue` class but no peek, remove and tuple form.
-The module `heapq` provides an implementation of heap algorithms, specifically array-based binary heap, which is a popular data structure for implementing pq. 
-Its doc provides a way on how to add capability into. However, that is 
+A priority queue is a commonly used abstract data type, but it is not adequately provided in Python's standard library.
+
+The [module `Queue`](https://docs.python.org/2/library/queue.html) provides a `PriorityQueue` class but that implementation leaves a lot to be desired.
+It does not provide standard `peek` or `remove` methods in its public interface, which is critical.
+Additionally, the entry must be in the tuple form `(priority_number, data)` where lower number must be used for higher priority (???).
+Finally, this Queue version is reportedly slower because it adds locks, encapsulation designed for multi-threaded environment, like other components in that module.
+
+On the other hand, the [module `heapq`](https://docs.python.org/2/library/heapq.html) provides an implementation of heap algorithms, specifically array-based binary heap, which is the most common *data structure* for implementing priority-queue. 
+Although the module does not provide any direct implementation of priority-queue, [its documentation](https://docs.python.org/2/library/heapq.html) discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
+That recipe is still hard to be used directly since it is not encapsulated and the standard `peek` method is noticeably missing.
+
+I ended up implementing a wrapper class for the recipe to make it easier to use.
 
 
 ``` python Improved priority-queue recipe
+import heapq
+import itertools
+
 class PriorityQueue(object):
 
     REMOVED = "<REMOVED>"
@@ -25,6 +36,7 @@ class PriorityQueue(object):
         self.counter = itertools.count()
 
     def add(self, task, priority=0):
+        """Add a new task or update the priority of an existing task"""
         if task in self.entries:
             self.remove(task)
 
@@ -75,16 +87,13 @@ class PriorityQueue(object):
         return "[%s]" % ", ".join(temp)
 ```
 
+A few notes about this implementation, compared to recipe provided in `heapq` module:
 
-A standard Priority Queue recipe is already provided in Python documentation ().
-However, there are a few things missing.
-
-* Max-heap: task with higher priority goes first, not lower priority
-* Not in a class
-* Method names simplified to: add, remove, pop.
-* No peek
-* pop does not return priority associated with it
-* Add pretty printing
+* Task with higher priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations. 
+* Encapsulated into a class with method names simplified to `add`, `remove`, `pop`.
+* Method `peek` is added.
+* Method `pop` and `peek` return the highest-priority task together with its priority number. The task's priority number can be useful sometimes (see Skyline problem below).
+* Override `__str__` method for pretty printing.
 
 
 Example: Skyline solution.
