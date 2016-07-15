@@ -11,9 +11,9 @@ categories:
 A priority queue is a commonly used abstract data type, but it is not adequately provided in Python's standard library.
 
 The [module `Queue`](https://docs.python.org/2/library/queue.html) provides a `PriorityQueue` class but that implementation leaves a lot to be desired.
-It does not provide standard `peek` or `remove` methods in its public interface, which is critical.
+It does not provide standard `peek` or `remove` methods in its public interface, which is sometimes critical.
 Additionally, the entry must be in the tuple form `(priority_number, data)` where lower number must be used for higher priority task to be returned first (???).
-Finally, this Queue version is reportedly slower because it adds locks, encapsulation designed for multi-threaded environment, like other components in that module.
+Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.
 
 On the other hand, the [module `heapq`](https://docs.python.org/2/library/heapq.html) provides an implementation of binary heap algorithms, which is the most common *data structure* for implementing priority-queue. 
 Although the module does not provide any direct implementation of priority-queue, [its documentation](https://docs.python.org/2/library/heapq.html) discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
@@ -91,7 +91,7 @@ Comparing to the recipe provided in `heapq` module, a few notes about this imple
 
 * Task with **higher** priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations. 
 * Methods and supporting data structures are encapsulated into a class. 
-* Method names are simplified to `add`, `remove`, `pop` (instead of `add_task`) since priority queues are NOT only used for task scheduling.
+* Method names are simplified to `add`, `remove`, `pop` (instead of `add_task`, for example) since priority queues are NOT only used for task scheduling.
 * Method `peek` is added.
 * Method `pop` and `peek` return the highest-priority task together with its priority number. The task's priority number can be useful sometimes (see Skyline problem below).
 * Override `__str__` method for pretty printing.
@@ -100,11 +100,12 @@ As an example, the above priority-queue implementation is used to solve [the Sky
 The Skyline problem states that: 
 
 {% blockquote %}
-You are given a set of n rectangles that look like buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.
+You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.
 {% endblockquote %}
 
-As opposed to Merge-Sort-like approach detailed in [here](http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/), another approach is to use a priority queue to keep track of the highest building
+One possible approach is to use a priority queue to keep track of the current highest building
 while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
+Compared to the Merge-Sort-like approach detailed in [this link](http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/), this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.
 
 ``` python Solution to Skyline problem
 def solve_skyline(mlist):
