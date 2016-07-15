@@ -146,12 +146,12 @@ def solve_skyline(mlist):
 
         # after processing all buildings for a x-coordinate "key", check the current highest building
         temp = pq.peek()
-        after = 0
+        new_height = 0
         if temp is not None:
-            after = temp[0]
-        if after != cur_height:
-            skyline.append((key, after))
-            cur_height = after
+            new_height = temp[0]
+        if new_height != cur_height:
+            skyline.append((key, new_height))
+            cur_height = new_height
 
     return skyline
 ```
