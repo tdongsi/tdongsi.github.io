@@ -12,7 +12,7 @@ A priority queue is a commonly used abstract data type, but it is not adequately
 
 The [module `Queue`](https://docs.python.org/2/library/queue.html) provides a `PriorityQueue` class but that implementation leaves a lot to be desired.
 It does not provide standard `peek` or `remove` methods in its public interface, which is sometimes critical.
-Additionally, the entry must be in the tuple form `(priority_number, data)` where lower number must be used for higher priority task to be returned first (???).
+Additionally, the entry must be in the tuple form `(priority_number, data)` where lower number must be used for higher priority task to be returned first.
 Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.
 
 On the other hand, the [module `heapq`](https://docs.python.org/2/library/heapq.html) provides an implementation of binary heap algorithms, which is the most common *data structure* for implementing priority-queue. 
