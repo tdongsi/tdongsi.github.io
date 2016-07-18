@@ -124,8 +124,8 @@ def solve_skyline(mlist):
     START = "start"
     END = "end"
 
-    for idx in range(len(mlist)):
-        start, end, height = mlist[idx]
+    for idx, building in enumerate(mlist):
+        start, end, height = building
         events[start].append((idx, START))
         events[end].append((idx, END))
 
