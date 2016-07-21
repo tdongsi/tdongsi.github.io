@@ -115,8 +115,9 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
 | [**RDS**](https://aws.amazon.com/rds/) <br/>(Relational Database Service) | MySQL, PostgreSQL, etc. <br/>Relational databases. | Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.|
-| [**ElastiCache**](https://aws.amazon.com/elasticache/)| Memcached | For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. |
-| [**DynamoDB**](https://aws.amazon.com/dynamodb/) | MongoDB | NoSQL database service. |
+| [**Aurora**](https://aws.amazon.com/rds/aurora/) | Managed MySQL. | MySQL users can import their data. |
+| [**ElastiCache**](https://aws.amazon.com/elasticache/)| Memcached. Redis. | For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. |
+| [**DynamoDB**](https://aws.amazon.com/dynamodb/) | MongoDB | Managed NoSQL database service. |
 | [**Redshift**](https://aws.amazon.com/redshift/) | OLAP system | Data warehouse service. |
 
 <br/>
@@ -126,7 +127,7 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
 | **Kinesis** | | |
-| [**EMR**](https://aws.amazon.com/elasticmapreduce/) <br/>(Elastic MapReduce) | MapReduce. | Big Data processing. <br/>Spark is also available.|
+| [**EMR**](https://aws.amazon.com/elasticmapreduce/) <br/>(Elastic MapReduce) | MapReduce. HBase. | Big Data processing. <br/>Spark is also available.|
 | **Data Pipeline** | | |
 
 <br/>
@@ -148,8 +149,9 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 | --- | --- | --- |
 | **Code Commit** | Git | Source control service.|
 | **Code Deploy** | | Code deployment service. |
-| **CloudFormation** | Chef | Infrastructure as Code. <br/>Provisioning using source-controlled codes.|
-| **Elastic Beanstalk** | | |
+| **CloudFormation** | Chef (in JSON) | Infrastructure as Code. <br/>Provisioning using source-controlled codes.|
+| **Elastic Beanstalk** | CloudFormation simplified for WebApps. | Higher-level of CloudFormation for web applications. <br/>Example usage: Blue-Green deployment (easier than CloudFormation).  |
+| **OpsWork** | Chef | Higher-level of CloudFormation. <br/>Configuration Management.  |
 
 <br/>
 
