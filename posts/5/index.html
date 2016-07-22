@@ -9,10 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Context I had folders with many symbolic links in them, linking to other files in the same Git repository. Before1
-2
-$ ls -l link
-... link -&gt; / &hellip;">
+  <meta name="description" content="Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with Nexius consultants.
+Also see Vertica Best &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -101,151 +99,6 @@ $ ls -l link
     <div id="content">
       <div class="blog-index">
   
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/20/symlinks-in-git/">Symlinks in Git</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-20T11:28:11-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:28 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Context</h3>
-
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
-
-<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
-</span><span class='line'>... link -&gt; /path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
-
-<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
-</span><span class='line'>/path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
-</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  <span class="c"># command executed for each file</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
   
   
     <article>
@@ -868,6 +721,91 @@ From my personal experience, in those cases, note that time zones must be accoun
 
     </article>
   
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/01/22/aws-setup-MFA/">AWS: Setting Up Multi-Factor Authentication (MFA)</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-01-22T18:37:23-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS:</p>
+
+<ul>
+<li>Launch the AWS Console with your AWS Account. From the AWS Console, select &ldquo;Identity &amp; Access Management&rdquo;.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step1_iam.png" width="350" height="200" title="Screenshot" ></p>
+
+<ul>
+<li>Select &ldquo;Users&rdquo; tab on the left side.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step2_users.png" width="447" height="460" title="Screenshot" ></p>
+
+<ul>
+<li>Click on your username from the list of users.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step3_you.png" width="555" height="256" title="Screenshot" ></p>
+
+<ul>
+<li>Make sure that &ldquo;Security Credentials&rdquo; tab is selected. Scrolling down to the bottom, under &ldquo;Sign-in Credentials&rdquo; section, select &ldquo;Manage MFA Device&rdquo;.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step4_signin.png" width="603" height="314" title="Screenshot" ></p>
+
+<ul>
+<li>In the pop-up window, you are allowed to choose a virtual MFA device or a physical MFA device. The most convenient option is a virtual MFA device which only requires you to have a smartphone with some AWS MFA-compatible application. The list of AWS MFA-compatible applications are listed in <a href="http://aws.amazon.com/iam/details/mfa/">here</a>.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step5_device.png" title="Screenshot" ></p>
+
+<ul>
+<li>In my case, I use <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Google Authenticator</a>. After installing the app, simply add an account and select &ldquo;Scan a barcode&rdquo;.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step6_app.png" width="300" height="258" title="Screenshot" ></p>
+
+<ul>
+<li>Follow the prompts on AWS MFA webpages to arrive at the following page with QR code. You will then enter the first 6 digit PIN from Google Authenticator into Code 1 box. Wait for it to change and then add the second code into Code 2 box.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step7_setup.png" width="495" height="444" title="Screenshot" ></p>
+
+<ul>
+<li>You are now all set for MFA. All future accesss will require you to enter the MFA code from the Google Authenticator on your Android/iPhone during login.</li>
+</ul>
+
+
+<p><img class="center" src="/images/aws/mfa/step8_mfa.png" width="300" height="185" title="Screenshot" ></p>
+</div>
+  
+  
+
+
+    </article>
+  
   <div class="pagination">
     
       <a class="prev" href="/posts/6">&larr; Older</a>
@@ -892,10 +830,6 @@ From my personal experience, in those cases, note that time zones must be accoun
       </li>
     
       <li class="post">
-        <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
-      </li>
-    
-      <li class="post">
         <a href="/blog/2016/05/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
       </li>
     
@@ -905,6 +839,10 @@ From my personal experience, in those cases, note that time zones must be accoun
     
       <li class="post">
         <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
       </li>
     
   </ul>
@@ -941,7 +879,7 @@ From my personal experience, in those cases, note that time zones must be accoun
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (1)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (2)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (13)</a></li><li><a href='/blog/categories/testng/'>testng (1)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
