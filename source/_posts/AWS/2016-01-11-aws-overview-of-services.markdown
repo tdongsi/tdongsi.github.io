@@ -65,7 +65,7 @@ These examples show that how these AWS offerings can be inter-dependent and inte
 | AWS name | Use it like | Notes |
 | --- | --- | --- |
 | [**VPC**](http://aws.amazon.com/vpc/) <br>(Virtual Private Cloud) | VLAN | Virtual networking environment. <br/>Interaction with EC2 instances as if you are in the same existing network. |
-| **Amazon Route 53** | DNS server | DNS service. |
+| **Amazon Route 53** | DNS server | DNS service. <br/>Use Route 53 for *cross-region* failover configuration. |
 | **AWS Direct Connect** | | |
 | **Amazon CloudFront** | CDN | Content delivery service. <br/>Working like a cache for frequently accessed web pages or images to reduce latency. |
 
