@@ -31,7 +31,7 @@ TODO: Javascript
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  Scala,
+  Scala, Javascript, 
   [Perl](/blog/categories/perl/),
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
@@ -53,7 +53,7 @@ TODO: Javascript
   Apache Ant, 
   [Maven](/blog/categories/maven/), Gradle.
 * **Web Apps**: 
-  HTML, RestAssured, [JMockit](/blog/categories/jmockit/).
+  HTML, CSS, RestAssured, [JMockit](/blog/categories/jmockit/).
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
@@ -160,6 +160,7 @@ Lifelong learning and professional training after college.
 * Amazon Web Services.
   * [AWS Technical Essentials](https://aws.amazon.com/training/course-descriptions/essentials/): [COC](/download/training/COC_AWS_Essentials.pdf)
   * [Developing on AWS](https://aws.amazon.com/training/course-descriptions/developing/): [COC](/download/training/COC_Developing_on_AWS.pdf)
+  * [Architecting on AWS](https://aws.amazon.com/training/course-descriptions/architect/): [COC](/download/training/COC_Architecting_on_AWS.pdf)
 * [Stanford OpenEdX: Database](/download/training/2014_Database_cert.pdf)
 
 ### Publications
