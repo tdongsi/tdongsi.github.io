@@ -27,14 +27,14 @@ $ mvn install:install-file -DgroupId=<GROUP_ID> -DartifactId=<ARTIFACT_ID> -Dver
 Example:
 
 ``` bash Example Maven command for Vertica JDBC
-$ mvn install:install-file -DgroupId=vertica -DartifactId=vertica-jdbc -Dversion=7.0.1 -Dpackaging=jar -Dfile=~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom=true
+$ mvn install:install-file -DgroupId=com.vertica -DartifactId=vertica-jdbc -Dversion=7.0.1 -Dpackaging=jar -Dfile=~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom=true
 ```
 
 * Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).
 
 If you want your Eclipse to start using this jar from your local repository:
 
-* In Eclipse Luna on a Mac/Windows, go to Navigate > Show View > Other > Maven > Maven Repository.
+* In Eclipse Luna on a Mac/Windows, go to Window > Show View > Other > Maven > Maven Repository.
 * Open Local Repositories > Local Repository.
 * Right click for the context menu > Rebuild Index.
 
