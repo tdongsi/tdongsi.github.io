@@ -10,8 +10,8 @@ categories:
 ---
 
 MySQL has traditionally lagged behind in support for the SQL standard.
-However, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
-If you are used to work with [Vertica SQL](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm), writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way.
+Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
+If you are used to work with [Vertica SQL](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm), writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.
 
 ### WITH clause
 
@@ -22,12 +22,12 @@ Unfortunately, `WITH` clause is not supported by MySQL although this feature has
 There are [work-around](http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html) for MySQL's lack of CTE, but the easiest way is probably to revert back to using nested subqueries.
 
 Personally, lack of `WITH` clause support in MySQL is my greatest hindrance as I often ended up writing queries using `WITH` clauses as first draft before rewriting those queries using nested subqueries.
-This might look really clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice.
+This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.
 
-### Analytical functions
+### Analytic functions
 
-Another regrettable hindrance when working in MySQL is its lack of analytical functions such as `ROW_NUMBER`, `RANK` and `DENSE_RANK`.
-Those [analytical functions](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm) are supported in Vertica.
+Another regrettable hindrance when working in MySQL is its lack of analytic functions such as `ROW_NUMBER`, `RANK` and `DENSE_RANK`.
+Those [analytic functions](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm) are supported in Vertica.
 The difference between these three functions can be a bit subtle, and would be best described in the following example:
 
 ``` sql Example of ROW_NUMBER, RANK, and DENSE_RANK functions
@@ -57,7 +57,7 @@ The output of these function is only different if there are duplicates in `SUM(a
 <br/>
 
 
-Sadly, these useful analytical functions are not supported in MySQL.
+Sadly, these useful analytic functions are not supported in MySQL.
 Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:
 
 ``` sql ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL
@@ -135,4 +135,11 @@ FROM (SELECT Score FROM Scores ORDER BY Score DESC) t,
 (SELECT @dense:=0, @prev_col2:=NULL) var ) x
 ```
 
+Note that the outer `SELECT` is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.
 
+### Reference
+
+* [ROW_NUMBER in MySQL](http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html)
+* [DENSE_RANK in MySQL](http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html): this link actually shows `RANK` implementation.
+* [Vertica Analytic Functions](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm)
+* [MySQL user variables](http://dev.mysql.com/doc/refman/5.7/en/user-variables.html)
