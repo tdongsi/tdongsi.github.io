@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="In this post, I will list some problems that I encountered when installing and using the three-node VM cluster of Vertica and how to work around &hellip;">
+  <meta name="description" content="I have been using a single-node Vertica VM to run ETL tests for sometime.
+The only minor problem is that when we add KSAFE 1 in our DDL scripts (i.e &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,156 +99,6 @@
     <div id="content">
       <div class="blog-index">
   
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/">Vertica Installation: Troubleshooting Tips</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-13T22:24:23-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>13</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>10:24 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In this post, I will list some problems that I encountered when installing and using the <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node VM cluster of Vertica</a> and how to work around those.
-Each installation problem has a documentation page that is displayed in the error message, such as <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">this page</a> for S0150 error.
-I listed the quick, single-command solutions here for reference purpose.
-However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.</p>
-
-<!-- 
-#### S0180 "insufficient swap size"
-
-1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
-
-<figure class='code'><figcaption><span>Adding swap fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[root@vertica72 osboxes]# swapoff /dev/sda2
-</span><span class='line'>[root@vertica72 osboxes]# swapon -s
-</span><span class='line'>[root@vertica72 osboxes]# swapon /swapfile
-</span><span class='line'>swapon: /swapfile: swapon failed: Invalid argument</span></code></pre></td></tr></table></div></figure>
-
-This is due to a bug
-
-1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
-
-
-1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
--->
-
-
-<h3>S0081: SELinux appears to be enabled and not in permissive mode</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
-</span><span class='line'>SELinux appears to be enabled and not in permissive mode.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file <code>/etc/sysconfig/selinux</code> as root/sudo:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>setenforce 0</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling</h3>
-
-<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
-</span><span class='line'>These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<figure class='code'><figcaption><span>Fix until next reboot</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>echo deadline &gt; /sys/block/sda/queue/scheduler</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as <code>/etc/rc.local</code>) like in this command.</p>
-
-<figure class='code'><figcaption><span>Permanent fix</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>echo 'echo deadline &gt; /sys/block/sda/queue/scheduler' &gt;&gt; /etc/rc.local</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</h3>
-
-<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
-</span><span class='line'>Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<figure class='code'><figcaption><span>Fix until next reboot</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The permanent fix is also available in the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310">documentation page</a> in the error message above.</p>
-
-<h3>S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems</h3>
-
-<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
-</span><span class='line'>Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 &lt; 2048</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<figure class='code'><figcaption><span>Run this command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/sbin/blockdev –setra 2048 /dev/sda</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>ETL fails with &ldquo;ERROR 3587:  Insufficient resources to execute plan&rdquo;</h3>
-
-<p>After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:</p>
-
-<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
-</span><span class='line'>[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]</span></code></pre></td></tr></table></div></figure>
-
-
-<p><a href="https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226">Vertica recommends</a> a minimum of 4GB of memory per processor core.
-The comprehensive list of hardware requirements for Vertica can be found <a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">here</a>.
-Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions.
-In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.</p>
-
-<p>In my case, each of my VMs had two processor cores with only 4 GB in memory.
-To fix the error above, I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li>Documentation pages for errors: e.g., <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">S0150</a>.
-
-<ul>
-<li>Read pages like this to figure out fixes for problems encountered during Vertica installation.</li>
-</ul>
-</li>
-<li><a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">Hardware Requirements for Vertica</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
   
   
     <article>
@@ -825,6 +676,151 @@ For example, we might have tests that work fine locally but start failing when r
 
     </article>
   
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/02/20/symlinks-in-git/">Symlinks in Git</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-02-20T11:28:11-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:28 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Context</h3>
+
+<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
+
+<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
+</span><span class='line'>... link -&gt; /path/to/target
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
+Note that even after committing and pushing into Git, the symlinks still work fine.
+However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
+
+<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
+</span><span class='line'>/path/to/target
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
+</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<h3>Restoring the symlinks</h3>
+
+<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
+</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
+Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
+
+<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span><span class='line'>
+</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="c"># command executed for each file</span>
+</span><span class='line'><span class="k">done</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
+In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
+It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
+
+<h3>How Git deals with symlinks</h3>
+
+<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
+If false, symbolic links are checked out as small plain files that contain the link text.
+<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
+It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
+When you checkout a tree containing the link, it restores the object as a symlink.</p>
+
+<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
+It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
+
+<h3>Use hard links?</h3>
+
+<p>You can use hard links instead of symlinks (a.k.a., soft links).
+Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
+Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
+
+<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
+Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
+In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
+
+<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
+When you switch branches back and forth, Git remove the old files and create new ones.
+You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
+Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
+Therefore, using hard links, at best, is just a temporary solution.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
+<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
+<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
   <div class="pagination">
     
       <a class="prev" href="/posts/5">&larr; Older</a>
@@ -845,10 +841,6 @@ For example, we might have tests that work fine locally but start failing when r
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a>
-      </li>
-    
-      <li class="post">
         <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
       </li>
     
@@ -862,6 +854,10 @@ For example, we might have tests that work fine locally but start failing when r
     
       <li class="post">
         <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
       </li>
     
   </ul>
@@ -898,7 +894,7 @@ For example, we might have tests that work fine locally but start failing when r
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (14)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

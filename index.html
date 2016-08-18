@@ -9,8 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="MySQL has traditionally lagged behind in support for the SQL standard.
-Unfortunately, from my experience, MySQL is often used as the sandbox for SQL &hellip;">
+  <meta name="description" content="A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library. The module Queue &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -99,228 +98,6 @@ Unfortunately, from my experience, MySQL is often used as the sandbox for SQL &h
     <div id="content">
       <div class="blog-index">
   
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-08-17T23:12:54-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:12 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>MySQL has traditionally lagged behind in support for the SQL standard.
-Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
-If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
-
-<h3>WITH clause</h3>
-
-<p>As discussed in this <a href="/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
-In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
-This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
-Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
-There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
-
-<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
-This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
-
-<h3>Analytic functions</h3>
-
-<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
-Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
-The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
-
-<figure class='code'><figcaption><span>Example of ROW_NUMBER, RANK, and DENSE_RANK functions</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">dense_rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">customer_dimension</span>
-</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_name</span>
-</span><span class='line'><span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
-
-<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
-<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
-<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
-<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
-<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
-<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
-<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
-<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
-<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
-<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
-<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
-<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
-</table>
-
-
-<p><br/></p>
-
-<p>Sadly, these useful analytic functions are not supported in MySQL.
-Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
-
-<figure class='code'><figcaption><span>ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- In Vertica</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">table_1</span> <span class="n">t</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">-- In MySQL</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_1</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_1</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_2</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_3</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_3</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">table_1</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span><span class="p">,</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'>     <span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_1</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
-In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
-Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
-You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
-
-<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
-In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
-
-<figure class='code'><figcaption><span>Input table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+----+-------+
-</span><span class='line'>| Id | Score |
-</span><span class='line'>+----+-------+
-</span><span class='line'>| 1  | 3.50  |
-</span><span class='line'>| 2  | 3.65  |
-</span><span class='line'>| 3  | 4.00  |
-</span><span class='line'>| 4  | 3.85  |
-</span><span class='line'>| 5  | 4.00  |
-</span><span class='line'>| 6  | 3.65  |
-</span><span class='line'>+----+-------+</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+-------+------+
-</span><span class='line'>| Score | Rank |
-</span><span class='line'>+-------+------+
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 3.85  | 2    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.50  | 4    |
-</span><span class='line'>+-------+------+</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The solution in Vertica SQL would be straight-forward as follows:</p>
-
-<figure class='code'><figcaption><span>Solution in Vertica SQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">Scores</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
-
-<figure class='code'><figcaption><span>Solution in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">Score</span><span class="p">,</span> <span class="n">Rank</span> <span class="k">FROM</span>
-</span><span class='line'><span class="p">(</span> <span class="k">SELECT</span> <span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">Score</span> <span class="k">FROM</span> <span class="n">Scores</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'><span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span> <span class="p">)</span> <span class="n">x</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
-<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
   
   
     <article>
@@ -1442,6 +1219,357 @@ The next <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"
 
     </article>
   
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-20T22:07:17-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>10:07 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
+The summarized problem statement is as follows:</p>
+
+<blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote>
+
+
+<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+
+<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
+
+<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
+
+<ul>
+<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
+</ul>
+
+
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+
+<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
+
+<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
+
+<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
+
+<figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Decompose num = 2**exp * d where d is odd.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param num: the input number.</span>
+</span><span class='line'><span class="sd">    :return: (exp, d) where num = 2**exp * d</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="n">exp</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="k">while</span> <span class="n">num</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c"># check num % 2 == 0 but probably faster</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="n">exp</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">exp</span><span class="p">,</span> <span class="n">num</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">is_pseudo_prime</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Rabin Miller test of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param prime: the input number.</span>
+</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trial.</span>
+</span><span class='line'><span class="sd">    :return: True if all trials passed, False if not.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
+</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
+</span><span class='line'>                    <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Labor saving steps</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some notes about this implementation:</p>
+
+<ul>
+<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
+<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
+<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
+<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
+</ul>
+
+
+<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
+
+<figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Modify Rabin Miller test of primality to find factor of composite.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param prime: the input number.</span>
+</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trials.</span>
+</span><span class='line'><span class="sd">    :return: 1 if prime (all trials passed), &gt; 1 if composite.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
+</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span> <span class="mi">2</span><span class="p">,</span>   <span class="mi">3</span><span class="p">,</span>   <span class="mi">5</span><span class="p">,</span>   <span class="mi">7</span><span class="p">,</span>  <span class="mi">11</span><span class="p">,</span>  <span class="mi">13</span><span class="p">,</span>  <span class="mi">17</span><span class="p">,</span>  <span class="mi">19</span><span class="p">,</span>  <span class="mi">23</span><span class="p">,</span>  <span class="mi">29</span><span class="p">,</span>  <span class="mi">31</span><span class="p">,</span>  <span class="mi">37</span><span class="p">,</span>  <span class="mi">41</span><span class="p">,</span>
+</span><span class='line'>                  <span class="mi">43</span><span class="p">,</span>  <span class="mi">47</span><span class="p">,</span>  <span class="mi">53</span><span class="p">,</span>  <span class="mi">59</span><span class="p">,</span>  <span class="mi">61</span><span class="p">,</span>  <span class="mi">67</span><span class="p">,</span>  <span class="mi">71</span><span class="p">,</span>  <span class="mi">73</span><span class="p">,</span>  <span class="mi">79</span><span class="p">,</span>  <span class="mi">83</span><span class="p">,</span>  <span class="mi">89</span><span class="p">,</span>  <span class="mi">97</span><span class="p">,</span> <span class="mi">101</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Find factor based on the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :return: &gt; 1 if composite, 1 if probably prime.</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>            <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>                <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>                    <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># It is a composite, but could not find a factor</span>
+</span><span class='line'>        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Labor saving steps</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Unexpected input&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">p</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">factor</span> <span class="o">=</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">factor</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="n">factor</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="mi">1</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
+Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
+If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
+</div>
+  
+  
+
+
+    </article>
+  
   <div class="pagination">
     
       <a class="prev" href="/posts/2">&larr; Older</a>
@@ -1460,10 +1588,6 @@ The next <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"
   <ul id="recent_posts">
     
       <li class="post">
-        <a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a>
-      </li>
-    
-      <li class="post">
         <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
       </li>
     
@@ -1477,6 +1601,10 @@ The next <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"
     
       <li class="post">
         <a href="/blog/2016/04/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a>
       </li>
     
   </ul>
@@ -1513,7 +1641,7 @@ The next <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/"
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (14)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/cloudera/'>cloudera (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hdfs/'>hdfs (1)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (1)</a></li><li><a href='/blog/categories/junit/'>junit (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (1)</a></li><li><a href='/blog/categories/netezza/'>netezza (2)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (19)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (12)</a></li><li><a href='/blog/categories/ubuntu/'>ubuntu (2)</a></li><li><a href='/blog/categories/unicode/'>unicode (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/vmware/'>vmware (1)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
