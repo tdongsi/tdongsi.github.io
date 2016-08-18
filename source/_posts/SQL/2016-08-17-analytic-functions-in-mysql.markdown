@@ -39,26 +39,23 @@ FROM customer_dimension
 GROUP BY customer_name
 LIMIT 15;
 ```
+The output of these function is only different if there are duplicates in `SUM` value, as seen in rows 75-81 in the example output belows:
 
-``` plain Example output
-    customer_name    |  sum  | rank | dense_rank 
----------------------+-------+------+------------
- Brian M. Garnett    | 99838 |    1 |          1
- Tanya A. Brown      | 99834 |    2 |          2
- Tiffany P. Farmer   | 99826 |    3 |          3
- Jose V. Sanchez     | 99673 |    4 |          4
- Marcus D. Rodriguez | 99631 |    5 |          5
- Alexander T. Nguyen | 99604 |    6 |          6
- Sarah G. Lewis      | 99556 |    7 |          7
- Ruth Q. Vu          | 99542 |    8 |          8
- Theodore T. Farmer  | 99532 |    9 |          9
- Daniel P. Li        | 99497 |   10 |         10
- Seth E. Brown       | 99497 |   10 |         10
- Matt X. Gauthier    | 99402 |   12 |         11
- Rebecca W. Lewis    | 99296 |   13 |         12
- Dean L. Wilson      | 99276 |   14 |         13
- Tiffany A. Smith    | 99257 |   15 |         14
-```
+<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
+<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
+<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
+<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
+<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
+<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
+<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
+<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
+<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
+<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
+<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
+<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
+</table>
+<br/>
 
-Unfortunately, those functions are not supported in MySQL.
+
+Unfortunately, these useful analytical functions are not supported in MySQL.
 
