@@ -41,10 +41,13 @@ TODO: Javascript
   [Vertica](/blog/categories/vertica/), 
   [Cassandra](/blog/categories/cassandra/),
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/).
-* **Query Language**: 
+* **Data Analytics**: 
   [SQL](/blog/categories/sql/), 
   XPath, 
-  XQuery.
+  XQuery,
+  Tableau,
+  Data Warehouse,
+  Dimensional Modeling.
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
   Guava, Spring, 
