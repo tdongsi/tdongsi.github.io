@@ -3,7 +3,6 @@ layout: post
 title: "Analytic functions in MySQL"
 date: 2016-08-17 23:12:54 -0700
 comments: true
-published: false
 categories: 
 - SQL
 - Vertica
