@@ -39,7 +39,7 @@ FROM customer_dimension
 GROUP BY customer_name
 LIMIT 15;
 ```
-The output of these function is only different if there are duplicates in `SUM` value, as seen in rows 75-81 in the example output belows:
+The output of these function is only different if there are duplicates in `SUM(annual_income)` value, as seen in rows 75-81 in the example output belows:
 
 <table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
 <tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
@@ -59,3 +59,27 @@ The output of these function is only different if there are duplicates in `SUM` 
 
 Unfortunately, these useful analytical functions are not supported in MySQL.
 
+
+``` sql row_number, rank, and dense_rank functions in MySQL
+-- Before
+SELECT 
+ROW_NUMBER () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS row_number,
+RANK () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS rank,
+DENSE_RANK () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS dense_rank,
+t.* 
+FROM table_1 t
+
+-- After
+SELECT
+@row_num:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2, @row_num+1, 1) AS row_number,
+@dense:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2, IF(@prev_col_3=col_3, @dense, @dense+1), 1) AS dense_rank,
+@rank:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2 AND @prev_col_3=col_3, @rank, @row_num) AS rank,
+@prev_col_1 = t.col_1,
+@prev_col_2 = t.col_2,
+@prev_col_3 = t.col_3,
+t.*
+FROM (SELECT * FROM table_1 ORDER BY col_1, col_2, col_3 DESC) t,
+     (SELECT @row_num:=1, @dense:=1, @rank:=1, @prev_col_1:=NULL, @prev_col_2:=NULL, @prev_col_3:=NULL) var
+```
+
+TODO: without partition clause
