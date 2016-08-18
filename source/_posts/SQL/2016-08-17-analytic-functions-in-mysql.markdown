@@ -11,7 +11,7 @@ categories:
 
 MySQL has traditionally lagged behind in support for the SQL standard.
 However, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
-Being used to work with [Vertica SQL](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm), writing SQL statements in MySQL can be very challenging exercises, NOT necessarily in a good way.
+If you are used to work with [Vertica SQL](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm), writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way.
 
 ### WITH clause
 
@@ -21,8 +21,8 @@ This will make the complex queries easier to compose and read: we can write step
 Unfortunately, `WITH` clause is not supported by MySQL although this feature has been requested since [2006](https://bugs.mysql.com/bug.php?id=16244).
 There are [work-around](http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html) for MySQL's lack of CTE, but the easiest way is probably to revert back to using nested subqueries.
 
-Personally, lack of `WITH` clause support in MySQL is the greatest hindrance as I often ended up writing queries using `WITH` clauses as first draft before rewriting those queries using nested subqueries.
-This might look really clumsy in SQL interviews.
+Personally, lack of `WITH` clause support in MySQL is my greatest hindrance as I often ended up writing queries using `WITH` clauses as first draft before rewriting those queries using nested subqueries.
+This might look really clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice.
 
 ### Analytical functions
 
