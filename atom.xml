@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-07-28T23:10:29-07:00</updated>
+  <updated>2016-08-18T12:15:22-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,208 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Analytic Functions in MySQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql/"/>
+    <updated>2016-08-17T23:12:54-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql</id>
+    <content type="html"><![CDATA[<p>MySQL has traditionally lagged behind in support for the SQL standard.
+Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
+If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
+
+<h3>WITH clause</h3>
+
+<p>As discussed in this <a href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
+In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
+This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
+Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
+There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
+
+<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
+This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
+
+<h3>Analytic functions</h3>
+
+<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
+Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
+The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
+
+<figure class='code'><figcaption><span>Example of ROW_NUMBER, RANK, and DENSE_RANK functions</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span>
+</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">dense_rank</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">customer_dimension</span>
+</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_name</span>
+</span><span class='line'><span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
+
+<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
+<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
+<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
+<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
+<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
+<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
+<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
+<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
+<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
+<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
+<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
+<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
+</table>
+
+
+<p><br/></p>
+
+<p>Sadly, these useful analytic functions are not supported in MySQL.
+Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
+
+<figure class='code'><figcaption><span>ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- In Vertica</span>
+</span><span class='line'><span class="k">SELECT</span>
+</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">table_1</span> <span class="n">t</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- In MySQL</span>
+</span><span class='line'><span class="k">SELECT</span>
+</span><span class='line'><span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_1</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_1</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_2</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_3</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_3</span><span class="p">,</span>
+</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
+</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">table_1</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span><span class="p">,</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
+</span><span class='line'>     <span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_1</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
+In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
+Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
+You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
+
+<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
+In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
+
+<figure class='code'><figcaption><span>Input table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>+----+-------+
+</span><span class='line'>| Id | Score |
+</span><span class='line'>+----+-------+
+</span><span class='line'>| 1  | 3.50  |
+</span><span class='line'>| 2  | 3.65  |
+</span><span class='line'>| 3  | 4.00  |
+</span><span class='line'>| 4  | 3.85  |
+</span><span class='line'>| 5  | 4.00  |
+</span><span class='line'>| 6  | 3.65  |
+</span><span class='line'>+----+-------+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>+-------+------+
+</span><span class='line'>| Score | Rank |
+</span><span class='line'>+-------+------+
+</span><span class='line'>| 4.00  | 1    |
+</span><span class='line'>| 4.00  | 1    |
+</span><span class='line'>| 3.85  | 2    |
+</span><span class='line'>| 3.65  | 3    |
+</span><span class='line'>| 3.65  | 3    |
+</span><span class='line'>| 3.50  | 4    |
+</span><span class='line'>+-------+------+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The solution in Vertica SQL would be straight-forward as follows:</p>
+
+<figure class='code'><figcaption><span>Solution in Vertica SQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">Score</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">Scores</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
+
+<figure class='code'><figcaption><span>Solution in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">Score</span><span class="p">,</span> <span class="n">Rank</span> <span class="k">FROM</span>
+</span><span class='line'><span class="p">(</span> <span class="k">SELECT</span> <span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span>
+</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">Score</span> <span class="k">FROM</span> <span class="n">Scores</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
+</span><span class='line'><span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span> <span class="p">)</span> <span class="n">x</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
+<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Improved Priority Queue Recipe in Python]]></title>
@@ -2257,13 +2459,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#97;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#x62;&#x65;&#x66;&#x6f;&#x72;&#x65;&#x40;&#x6d;&#111;&#99;&#x6b;&#100;&#x61;&#116;&#97;&#46;&#x63;&#x6f;&#x6d;&#46;">&#x62;&#101;&#x66;&#111;&#x72;&#101;&#64;&#x6d;&#x6f;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#x2e;&#99;&#x6f;&#109;&#x2e;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#105;&#x6c;&#116;&#111;&#58;&#98;&#101;&#102;&#x6f;&#x72;&#101;&#64;&#x6d;&#x6f;&#99;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#x6f;&#x6d;&#x2e;">&#x62;&#101;&#x66;&#111;&#x72;&#x65;&#x40;&#109;&#x6f;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#x2e;&#x63;&#111;&#109;&#46;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#108;&#116;&#111;&#58;&#x61;&#x66;&#x74;&#x65;&#114;&#64;&#109;&#111;&#x63;&#107;&#100;&#97;&#116;&#97;&#46;&#x63;&#111;&#109;">&#x61;&#102;&#116;&#101;&#114;&#x40;&#109;&#111;&#x63;&#107;&#100;&#x61;&#x74;&#x61;&#46;&#99;&#111;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#58;&#x61;&#102;&#116;&#101;&#x72;&#64;&#x6d;&#111;&#x63;&#x6b;&#x64;&#97;&#116;&#97;&#46;&#99;&#111;&#x6d;">&#97;&#x66;&#116;&#x65;&#x72;&#x40;&#109;&#x6f;&#99;&#x6b;&#100;&#x61;&#116;&#x61;&#x2e;&#99;&#111;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -2279,7 +2481,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#x74;&#x6f;&#58;&#x62;&#x65;&#x79;&#111;&#x6e;&#x64;&#x40;&#x6d;&#x6f;&#x63;&#107;&#x64;&#x61;&#116;&#97;&#46;&#99;&#x6f;&#x6d;&#x2e;">&#x62;&#x65;&#x79;&#x6f;&#110;&#x64;&#x40;&#109;&#111;&#99;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#111;&#109;&#46;</a></li>
+<li>Email updated to <a href="&#109;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#x62;&#101;&#121;&#x6f;&#110;&#100;&#x40;&#109;&#111;&#99;&#x6b;&#x64;&#97;&#116;&#x61;&#46;&#99;&#111;&#109;&#46;">&#x62;&#101;&#121;&#111;&#110;&#x64;&#64;&#109;&#111;&#99;&#107;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;&#x2e;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -4127,131 +4329,6 @@ This will lead to complex and unexpected consequences and, as a result, random t
 For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
 <p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Symlinks in Git]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
-    <updated>2016-02-20T11:28:11-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
-    <content type="html"><![CDATA[<h3>Context</h3>
-
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
-
-<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
-</span><span class='line'>... link -&gt; /path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
-
-<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
-</span><span class='line'>/path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
-</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  <span class="c"># command executed for each file</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
 ]]></content>
   </entry>
   
