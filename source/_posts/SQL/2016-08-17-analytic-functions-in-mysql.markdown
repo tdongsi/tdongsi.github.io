@@ -19,7 +19,7 @@ As discussed in this [blog post](/blog/2016/02/03/vertica-6-with-clause/), `WITH
 In summary, `WITH` clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
 This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., [literate programming](https://en.wikipedia.org/wiki/Literate_programming)).
 Unfortunately, `WITH` clause is not supported by MySQL although this feature has been requested since [2006](https://bugs.mysql.com/bug.php?id=16244).
-There are [work-around](http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html) for MySQL's lack of CTE, but the easiest way is probably to revert back to using nested subqueries.
+There are [work-arounds](http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html) for MySQL's lack of CTE, but the easiest way is probably to revert back to using nested subqueries.
 
 Personally, lack of `WITH` clause support in MySQL is my greatest hindrance as I often ended up writing queries using `WITH` clauses as first draft before rewriting those queries using nested subqueries.
 This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.
@@ -39,7 +39,7 @@ FROM customer_dimension
 GROUP BY customer_name
 LIMIT 15;
 ```
-The output of these function is only different if there are duplicates in `SUM(annual_income)` value, as seen in rows 75-81 in the example output belows:
+The outputs of these functions are only different if there are duplicates in `SUM(annual_income)` value, as seen in rows 75-81 in the example output below:
 
 <table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
 <tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
@@ -87,7 +87,7 @@ In addition, it intentionally has a single pass (no `SET` statements, temporary 
 Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
 You need to put that solution in a subquery and `SELECT` only relevant columns from it.
 
-As an example, the above code template is used to solve [this Rank Scores probblem](https://leetcode.com/problems/rank-scores/).
+As an example, the above code template is used to solve [this Rank Scores problem](https://leetcode.com/problems/rank-scores/).
 In summary, the question asks for `DENSE_RANK` functionality to be applied on Score column.
 
 ``` plain Input table
