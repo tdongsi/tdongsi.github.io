@@ -1,12 +1,11 @@
 ---
 layout: post
 title: "Java: unit test performance"
-date: 2016-05-06 22:47:42 -0700
+date: 2016-03-06 22:47:42 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Java
-- Jenkins
 - JMockit
 - TestNG
 - Testing
@@ -14,8 +13,8 @@ categories:
 - JUnit
 ---
 
-According to [this](https://www.youtube.com/watch?v=wEhu57pih5w), the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a. Test Automation Pyramid).
-That is the testing strategy that I agreed with and it has been adapted at work for a while. 
+According to [this](https://www.youtube.com/watch?v=wEhu57pih5w), the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+That is the testing strategy that I has adhered to and it has been adapted at work. 
 
 However, for that strategy to work, we should pay attention to unit test performance. 
 It is not productive for developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
@@ -34,7 +33,7 @@ For such behavior testing, consider using [Jmockit Verifications](https://jmocki
 
 3) Mock logging and config classes if applicable. 
 Otherwise, we might encountered errors like "Exception encountered, logging will be disabled", probably thrown by JMockit.
-If there is any static initialization block in the mocked class for logging and configuration purposes, consider using `(stubOutClassInitialization = true)` (see [this](/blog/2016/05/01/java-intermittent-test-failures/)).
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using `(stubOutClassInitialization = true)` (see [this](/blog/2016/06/30/java-intermittent-test-failures/)).
 
 4) Choosing the right parallel execution settings can substantially improve the execution time.
 However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others. 
