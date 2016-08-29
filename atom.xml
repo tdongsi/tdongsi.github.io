@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-08-18T12:56:10-07:00</updated>
+  <updated>2016-08-29T01:19:37-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -474,6 +474,58 @@ Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksfo
 </span><span class='line'>    <span class="k">return</span> <span class="n">skyline</span>
 </span></code></pre></td></tr></table></div></figure>
 
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures/"/>
+    <updated>2016-06-30T17:51:13-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures</id>
+    <content type="html"><![CDATA[<p>We have all seen it before: intermittent unit test failures.
+It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
+
+<p>In our experience, one of the most common causes is:
+<strong>static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
+
+<p>What happens locally?
+If you’re running from the command line, you probably have some environment variables set.
+These allow some ConfigHelper class to find the resource properties files and load them.
+In the end, code that looks like the following often ends up succeeding:</p>
+
+<figure class='code'><figcaption><span>DbQueue class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MY_CONFIG</span> <span class="o">=</span> <span class="n">ConfigHelper</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="s">&quot;config_key&quot;</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
+Instead, they run using some mock framework such as JMockit.
+Mocking in this scenario is a good, desirable thing.
+However, it also means that code like that ends up failing to find those resources.
+In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
+And very often, classes like that throw some misleading exceptions, especially when trying to load and convert to a numeric value from a resource.</p>
+
+<p>So, how do we fix it?
+How do we prevent that class static member initialization code from being invoked in Jenkins test build?
+The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
+
+<figure class='code'><figcaption><span>Mock with JMockit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyTest</span> <span class="o">{</span>
+</span><span class='line'>    <span class="nd">@Mocked</span><span class="o">(</span> <span class="n">stubOutClassInitialization</span> <span class="o">=</span> <span class="kc">true</span> <span class="o">)</span>
+</span><span class='line'>    <span class="n">DbQueue</span> <span class="n">queue</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="o">...</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
+The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
 ]]></content>
   </entry>
   
@@ -2459,13 +2511,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#97;&#105;&#108;&#116;&#x6f;&#58;&#98;&#x65;&#x66;&#111;&#114;&#x65;&#64;&#109;&#111;&#x63;&#x6b;&#x64;&#x61;&#116;&#x61;&#x2e;&#x63;&#x6f;&#x6d;&#x2e;">&#98;&#101;&#102;&#111;&#114;&#101;&#64;&#109;&#x6f;&#99;&#107;&#100;&#x61;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#x3a;&#x62;&#x65;&#102;&#111;&#x72;&#101;&#64;&#x6d;&#111;&#99;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#99;&#111;&#109;&#46;">&#x62;&#x65;&#102;&#111;&#x72;&#101;&#64;&#109;&#111;&#99;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#x74;&#x6f;&#58;&#97;&#102;&#x74;&#101;&#114;&#x40;&#x6d;&#111;&#99;&#107;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#x6f;&#x6d;">&#97;&#x66;&#116;&#x65;&#x72;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#100;&#x61;&#x74;&#97;&#46;&#x63;&#111;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#109;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#97;&#102;&#116;&#101;&#114;&#x40;&#x6d;&#111;&#99;&#107;&#x64;&#97;&#116;&#x61;&#46;&#x63;&#x6f;&#x6d;">&#97;&#102;&#116;&#x65;&#114;&#64;&#x6d;&#x6f;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -2481,7 +2533,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#105;&#108;&#x74;&#x6f;&#58;&#98;&#x65;&#121;&#111;&#110;&#100;&#64;&#109;&#x6f;&#x63;&#107;&#x64;&#x61;&#116;&#x61;&#46;&#x63;&#x6f;&#x6d;&#46;">&#98;&#x65;&#x79;&#111;&#110;&#x64;&#x40;&#x6d;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#x63;&#111;&#x6d;&#46;</a></li>
+<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#111;&#58;&#x62;&#x65;&#121;&#x6f;&#110;&#100;&#64;&#109;&#x6f;&#99;&#107;&#x64;&#97;&#116;&#97;&#46;&#x63;&#111;&#x6d;&#46;">&#98;&#101;&#x79;&#111;&#110;&#100;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;&#46;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -4041,6 +4093,51 @@ There is no apparent advantage of using CentOS 5 over CentOS 6.</p>
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/06/java-unit-test-performance/"/>
+    <updated>2016-03-06T21:47:42-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+That is the testing strategy that I has adhered to and it has been adapted at work.</p>
+
+<p>However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<figure class='code'><figcaption><span>Maven-surefire options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;parallel&gt;</span>classes<span class="nt">&lt;/parallel&gt;</span>
+</span><span class='line'><span class="nt">&lt;forkCount&gt;</span>${forkCount}<span class="nt">&lt;/forkCount&gt;</span>
+</span><span class='line'><span class="nt">&lt;reuseForks&gt;</span>false<span class="nt">&lt;/resuseForks&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Bash Trap]]></title>
     <link href="http://tdongsi.github.io/blog/2016/03/02/bash-trap/"/>
     <updated>2016-03-02T00:07:48-08:00</updated>
@@ -4257,78 +4354,6 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
 <li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
 </ol>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
-    <updated>2016-02-29T00:54:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
-    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
-
-<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
-The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
-The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
-
-<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>=&gt; select * from epochs;
-</span><span class='line'>
-</span><span class='line'>epoch_close_time            epoch_number
-</span><span class='line'>2016-03-04 21:44:24.192495    610131</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
-The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
-You cannot run any historical queries prior to the AHM.
-By default, Vertica advances the AHM at an interval of 5 minutes.</p>
-
-<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/">projection</a>.
-To find about the unrefreshed projection, use the following command:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>SELECT * FROM projections where is_up_to_date = 'f';</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
-However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
-AHM could lag behind at the create epoch of some unrefreshed projection.
-Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
-
-<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>select START_REFRESH();</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Use JMockit ONLY]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework/"/>
-    <updated>2016-02-21T12:20:46-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework</id>
-    <content type="html"><![CDATA[<p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
-Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
-
-<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
-Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
-It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
-This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
-For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
-
-<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
 ]]></content>
   </entry>
   
