@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Git: allow-empty when squashing"
-date: 2016-05-05 00:15:57 -0700
+date: 2016-07-05 00:15:57 -0700
 comments: true
 categories: 
 - Git
