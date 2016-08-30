@@ -25,7 +25,7 @@ Checklist:
 ### Skills
 
 <!--
-TODO: Javascript
+TODO: 
 -->
 * **Programming**: 
   [Java](/blog/categories/java/), 
@@ -36,7 +36,7 @@ TODO: Javascript
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
   [SQLite](/blog/categories/sqlite/), 
-  MySQL, 
+  [MySQL](/blog/categories/mysql/), 
   [Netezza](/blog/categories/netezza/),
   [Vertica](/blog/categories/vertica/), 
   [Cassandra](/blog/categories/cassandra/),
@@ -47,7 +47,7 @@ TODO: Javascript
   XQuery,
   Tableau,
   Data Warehouse,
-  Dimensional Modeling.
+  Dimensional Modeling (Kimball).
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
   Guava, Spring, 
@@ -55,6 +55,8 @@ TODO: Javascript
   [JUnit](/blog/categories/junit/), TestNG,
   Apache Ant, 
   [Maven](/blog/categories/maven/), Gradle.
+* **JavaScript stack**:
+  MongoDB, ExpressJS, NodeJS.
 * **Web Apps**: 
   HTML, CSS, RestAssured, [JMockit](/blog/categories/jmockit/).
 * **Other libraries**: 
@@ -82,7 +84,12 @@ TODO: Javascript
   * DevOps:
     Jenkins, Tidal Scheduler, 
     [Splunk](/download/training/COC_Searching_Splunk.pdf), 
-    Chef, vagrant.
+    Chef, vagrant, Docker.
+
+<!--
+SKIPPED: 
+[Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
+-->
 
 ### Education
 
