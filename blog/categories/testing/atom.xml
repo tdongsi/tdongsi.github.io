@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Testing | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/testing/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-08-29T01:19:37-07:00</updated>
+  <updated>2016-08-30T01:15:44-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -53,6 +53,47 @@ The answer is when we mock the class in JMockit using the <code>@Mocked</code> a
 
 <p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
 The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
+    <updated>2016-06-06T22:47:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+That is the testing strategy that I has adhered to and it has been adapted at work.</p>
+
+<p>However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<pre><code class="xml Maven-surefire options">&lt;parallel&gt;classes&lt;/parallel&gt;
+&lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
+&lt;reuseForks&gt;false&lt;/resuseForks&gt;
+</code></pre>
 ]]></content>
   </entry>
   
@@ -422,124 +463,6 @@ Unit tests:
 - In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
 -->
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 4) SQL Unit Testing]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing/"/>
-    <updated>2016-04-12T17:45:42-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>.</p>
-
-<!-- 
-Changes I made:
-1. Mix of SQL code and test blocks.
-1. New JSON block to run ETL script using VSQL
-
-I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
-
-Running ETL script through JDBC is probably not a good idea.
-
-Requirements of unit tests:
-
-Readability:
-
-#### Single-node VM
-
-Remove KSAFE.
-
-Add a new test.
-  
-Revert in Git.
-
-#### Adding  unit test
-
-Show SBG strategy.
-
-#### Other usages
-
-You can insert into the ETL script to verify step by step.
-However, there is only one set of mock data. 
-In unit testing, you might want multiple setup of mock data for different scenarios.
-=> the other way is actually more flexible
-
-Assumptions:
-
-1. No ;
-1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
-
-
--->
-
-
-<p>TODO indefinitely.</p>
-
-<p>The idea is to use a local Vertica VM as a sandbox test environment.
-It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
-
-<p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
-
-<ol>
-<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
-<li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
-<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
-</ol>
-
-
-<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
-They are followed by a new test block to run the ETL script.
-After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
-Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
-
-<pre><code class="sql Example unit test">/****************************
-* Day 1
-****************************/
-
-INSERT INTO stg_company_id (company_id,last_modify_date,region_id)
-VALUES (123,current_timestamp-19,'US');
-
-INSERT INTO stg_company_contact (company_id,master_email,last_modify_date)
-VALUES (123,'before@mockdata.com', current_timestamp-15);
-
-/* @Test
--- First ETL run
-{
- "name" : "Day1_etl_run",
- "vsql_file" : ["repo_home/sql/my_etl.sql"]
-}
-*/
-
-/* @Test
-{
- "name" : "Day1_check_email_address",
- "query" : "select company_id, email_address from dim_company",
- "expected" : "123 before@mockdata.com"
-}
-*/
-</code></pre>
-
-<pre><code class="java Calling unit test script">@BeforeClass
-public void setup() {
-    testRunner = new SqlTestRunner(getJdbcConnection());
-    setupSchema("UNITTEST");
-}
-
-@AfterClass
-public void teardown() {
-    teardownSchema("UNITTEST");
-}
-
-@Test(enabled = true)
-public void validate_dim_region() throws Exception {
-        testRunner.runScript("unittests/etl_incremental_update_email.test");
-}
-</code></pre>
-
-<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
 ]]></content>
   </entry>
   

@@ -13,7 +13,9 @@
 Pt 1,
 Pt 2,
 Pt 3,
-Pt 4. In the context of Big Data projects, the differences between functional tests and unit tests can be &hellip;">
+Pt 4,
+Pt 5. In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -102,6 +104,244 @@ Pt 4. In the context of Big Data projects, the differences between functional te
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/16/sql-unit-extension/">(Pt. 6) Extending SQL Test Runner</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-16T17:49:34-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:49 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>.</p>
+
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
+
+<h3>Design Overview of SQL Test Runner</h3>
+
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
+
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
+
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
+
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+
+<figure class='code'><figcaption><span>Template Method for running test scripts in BaseTestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">CodeStrategy</span> <span class="n">codeHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">TestStrategy</span> <span class="n">testHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">JdbcConnection</span> <span class="n">connection</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Override</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">runScript</span><span class="o">(</span><span class="n">String</span> <span class="n">filePath</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">,</span> <span class="n">SQLException</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">SoftAssert</span> <span class="n">sAssert</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SoftAssert</span><span class="o">();</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Read in the SQL script</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">content</span> <span class="o">=</span> <span class="n">SqlTestUtility</span><span class="o">.</span><span class="na">readFile</span><span class="o">(</span><span class="n">filePath</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Remove comments</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">sqlCode</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">removeComments</span><span class="o">(</span><span class="n">content</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">Matcher</span> <span class="n">m</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">testBlockRegex</span><span class="o">.</span><span class="na">matcher</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">);</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">startIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>  <span class="k">while</span> <span class="o">(</span><span class="n">m</span><span class="o">.</span><span class="na">find</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">String</span> <span class="n">currentSql</span> <span class="o">=</span> <span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">,</span> <span class="n">m</span><span class="o">.</span><span class="na">start</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span> <span class="n">currentSql</span><span class="o">.</span><span class="na">trim</span><span class="o">().</span><span class="na">length</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">)</span>
+</span><span class='line'>          <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">currentSql</span><span class="o">,</span> <span class="n">connection</span><span class="o">);;</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">testHandler</span><span class="o">.</span><span class="na">runTest</span><span class="o">(</span> <span class="n">m</span><span class="o">.</span><span class="na">group</span><span class="o">(),</span> <span class="n">connection</span><span class="o">,</span> <span class="n">sAssert</span> <span class="o">);</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">startIndex</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="na">end</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">),</span> <span class="n">connection</span> <span class="o">);</span>
+</span><span class='line'>  <span class="n">sAssert</span><span class="o">.</span><span class="na">assertAll</span><span class="o">();</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
+
+<figure class='code'><figcaption><span>Example unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- This will be handled by some CodeStrategy class</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- This will be handled by some TestStrategy class</span>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
+
+<figure class='code'><figcaption><span>Example TestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * Test runner that uses Vertica JDBC connection.</span>
+</span><span class='line'><span class="cm"> * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">VerticaRunner</span> <span class="kd">extends</span> <span class="n">BaseTestRunner</span> <span class="kd">implements</span> <span class="n">TestRunner</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="nf">VerticaRunner</span><span class="o">(</span><span class="n">JdbcConnection</span> <span class="n">jdbcConn</span><span class="o">,</span> <span class="n">String</span> <span class="n">vsqlPath</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setCodeHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">SqlCodeHandler</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setTestHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">VerticaTestHandler</span><span class="o">(</span><span class="n">vsqlPath</span><span class="o">));</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setConnection</span><span class="o">(</span><span class="n">jdbcConn</span><span class="o">);</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Extending Test Runner</h3>
+
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
+
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Design new JSON block for the new test block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -444,13 +684,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#x3a;&#x62;&#x65;&#102;&#111;&#x72;&#101;&#64;&#x6d;&#111;&#99;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#99;&#111;&#109;&#46;">&#x62;&#x65;&#102;&#111;&#x72;&#101;&#64;&#109;&#111;&#99;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#x3a;&#x62;&#x65;&#102;&#111;&#114;&#x65;&#x40;&#x6d;&#111;&#x63;&#x6b;&#100;&#x61;&#x74;&#x61;&#46;&#x63;&#111;&#x6d;&#46;">&#98;&#101;&#102;&#111;&#114;&#x65;&#64;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#116;&#97;&#x2e;&#x63;&#x6f;&#109;&#x2e;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#109;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#97;&#102;&#116;&#101;&#114;&#x40;&#x6d;&#111;&#99;&#107;&#x64;&#97;&#116;&#x61;&#46;&#x63;&#x6f;&#x6d;">&#97;&#102;&#116;&#x65;&#114;&#64;&#x6d;&#x6f;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#x61;&#105;&#108;&#x74;&#111;&#58;&#x61;&#x66;&#x74;&#101;&#114;&#x40;&#109;&#111;&#99;&#x6b;&#x64;&#x61;&#116;&#97;&#46;&#x63;&#x6f;&#109;">&#x61;&#x66;&#116;&#x65;&#x72;&#64;&#x6d;&#x6f;&#99;&#107;&#100;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -466,7 +706,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#111;&#58;&#x62;&#x65;&#121;&#x6f;&#110;&#100;&#64;&#109;&#x6f;&#99;&#107;&#x64;&#97;&#116;&#97;&#46;&#x63;&#111;&#x6d;&#46;">&#98;&#101;&#x79;&#111;&#110;&#100;&#64;&#x6d;&#x6f;&#x63;&#x6b;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#109;&#46;</a></li>
+<li>Email updated to <a href="&#109;&#x61;&#x69;&#x6c;&#116;&#111;&#x3a;&#x62;&#x65;&#121;&#x6f;&#x6e;&#x64;&#64;&#109;&#111;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#x2e;&#99;&#111;&#109;&#46;">&#98;&#x65;&#x79;&#111;&#x6e;&#100;&#64;&#x6d;&#111;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#46;&#99;&#x6f;&#x6d;&#x2e;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -1217,460 +1457,6 @@ The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expec
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/20/sql-unit-functional-tests/">(Pt. 1) Functional Testing for Data Marts</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-20T23:18:33-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:18 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
-
-<p>In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.</p>
-
-<h3>Level 0: Manual testing</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Easy to get started.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Time consuming for many tests with multiple runs.</li>
-<li>Not repeatable.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>Early on in Big Data projects, there was not much automation.
-Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
-There are not many tools available for automated testing of SQL scripts, especially for Vertica.</p>
-
-<p>At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
-Data analysts are <em>de facto</em> end-users and main testers and many of those test queries are based on their experience.</p>
-
-<p><img class="center" src="/images/sql/squirrel.png" title="Manual testing" ></p>
-
-<p>We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
-This process is pretty much manual. If an ETL is updated <code>n</code> times, we have to repeat this <code>n</code> times.
-Most of the test queries can only tests the <strong>end results</strong> of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
-If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
-Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is &ldquo;unusually&rdquo; high today, which &ldquo;seems&rdquo; to indicate that ETL went wrong in some intermediate step.</p>
-
-<!--
-Functions is not common. 
--->
-
-
-<h3>Level 1: TestNG</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Java and SQL codes are cluttered together.</li>
-<li>Hard to read, hard to maintain.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>After some rounds of manual testing, we started looking into automating the process.
-Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation.
-The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries.
-Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
-The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution.</p>
-
-<figure class='code'><figcaption><span>Test query as constant Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;select count(*) from dim_region&quot;</span><span class="o">;</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Here, the test queries are defined as constant strings in Java.
-Note that the test query above is intended to be simple to illustate the automation.
-The actual test queries are usually more complex than that.
-The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
-We also remove heuristic tests that cannot be verified using assertions.
-Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
-In addition, we add tests to verify intermediate steps of the ETL processes.</p>
-
-<p>The problem of this approach is that the SQL tests are heavily cluttered by Java codes.
-This problem is getting worse when the test queries are usually more complex that they cannot fit into single lines, such as one shown below.
-When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source files.</p>
-
-<figure class='code'><figcaption><span>A complex SQL query as Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'> <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;WITH Total_Traffic AS\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    SELECT temp.* from temp as clickstream_data\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    where filter_key = 1\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Rock_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE lower(evar28) LIKE &#39;rock_mus%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Instrumental_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE evar28 LIKE &#39;%[ins_mus]%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Defined_Traffic as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Rock_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    UNION\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Instrumental_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;select traffic_date_key\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, count(distinct visitor_id) as unique_visitor\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;from Defined_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;group by traffic_date_key&quot;</span><span class="o">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Level 2: Properties files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to manage SQL test queries. Each test has a name.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.</li>
-<li>All queries have to be in a single line. Hard to read for long test queries.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>For the next step, we tried to resolve the problem of Java and SQL codes mixed together.
-In this approach, SQL tests and Java codes are partitioned, with SQL queries are contained in <code>.properties</code> files, separate from supporting Java codes in <code>.java</code> files.
-The SQL test queries will be read by TestNG test cases, using key strings, before sending to database for execution.
-The same example above, when organized in this approach, will be as follows:</p>
-
-<figure class='code'><figcaption><span>Test query in properties file</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">TEST_QUERY_RESOURCE</span> <span class="o">=</span> <span class="s">&quot;test_queries.properties&quot;</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_count&quot;</span><span class="o">);</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'>        <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_data&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">dim_region_count</span><span class="o">=</span><span class="s">select count(*) from dim_region</span>
-</span><span class='line'><span class="na">dim_region_data</span><span class="o">=</span><span class="s">another test query to verify data</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using this approach, each test can have a name to express its purpose.
-One can get an overview of the SQL test queries by simply looking at the <code>properties</code> file.
-The supporting Java code that executes those test queries are abstracted into separate <code>java</code> files and can be ignored.</p>
-
-<p>The problems of the above approach are:</p>
-
-<p>(1) SQL test queries are really hard to read in <code>properties</code> file.
-Each SQL test string must be in a single line.
-Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid.
-Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with <a href="https://en.wikipedia.org/wiki/Star_schema">star schema</a>.
-For hundreds of test cases with complex queries like example below, it is impossible to read in <code>.properties</code> file.</p>
-
-<figure class='code'><figcaption><span>complex_test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">complex_query</span><span class="o">=</span><span class="s">WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE &#39;rock_mus%&#39;), Instrumental_Music as (select * from Total WHERE evar28 LIKE &#39;%[ins_mus]%&#39;), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>(2) Parts of tests are still in Java (in TestNG assertions), making them hard to maintain and less accessible to data analysts.
-From the <code>properties</code> file, it is not clear what is the expected output of the SQL queries.
-If there is a test failure, one still has to look it up in Java codes to understand and investigate.
-Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
-It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0.
-For example, a common test query is to find all duplicate records, which is expected to has zero row returned.
-Even those simple assertions have to be encoded using Java and TestNG&rsquo;s library methods.</p>
-
-<h3>Level 3: Script files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to maintain SQL test queries.</li>
-<li>Assertions/Expected outputs are paired with test queries.</li>
-<li>Readable by data analysts.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Slightly more complex setup to instantiate a SQL Test Runner.</li>
-<li>Slightly longer running time.</li>
-</ol>
-</li>
-</ul>
-
-
-<h4>Motivation</h4>
-
-<p>In recent Big Data projects, I tried to explore a way to improve readability of SQL tests.
-The main motivation for this &ldquo;Level 3&rdquo; is my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
-
-<p>Readable tests are easier to write, automate, and maintain.
-More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test?
-It does not make sense to write tests for tests.
-Only by making tests <strong>readable</strong>, you can verify and maintain the tests.</p>
-
-<p>Readable tests also promote collaboration between developers, data analysts and QEs.
-Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
-If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.</p>
-
-<h4>Implementation</h4>
-
-<p>In this approach, I implemented a <a href="/blog/2016/03/28/sql-unit-test-runner/">test framework</a>. The same tests shown in the last sections, using that framework, will look like this:</p>
-
-<figure class='code'><figcaption><span>Test query in test files</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">SqlTestRunner</span> <span class="n">testRunner</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Before</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;testscript/dim_region.test&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>dim_region.test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "dim_region_count",
-</span><span class='line'>  "query" : "select count(*) from dim_region",
-</span><span class='line'>  "expected" : "245"
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* This is a comment.
-</span><span class='line'>Complext test query follows.
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "check_traffic",
-</span><span class='line'>  "query" : "WITH Total_Traffic AS
-</span><span class='line'>      (
-</span><span class='line'>          SELECT temp.* from temp as clickstream_data
-</span><span class='line'>          where .... -- filtering
-</span><span class='line'>      )
-</span><span class='line'>      , Rock_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total_Traffic
-</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
-</span><span class='line'>      )
-</span><span class='line'>      , Instrumental_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total
-</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
-</span><span class='line'>      )
-</span><span class='line'>      , Defined_Traffic as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Rock_Music
-</span><span class='line'>          UNION
-</span><span class='line'>          select * from Instrumental_Music
-</span><span class='line'>      )
-</span><span class='line'>      select traffic_date_key
-</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
-</span><span class='line'>      from Defined_Traffic
-</span><span class='line'>      group by traffic_date_key",
-</span><span class='line'>  "expected" : "2016-03-16 123"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The file that contains SQL test queries is conventionally named with <code>.test</code> extension.
-However, the file can be a text file with any name.
-As you can see, the benefits of &ldquo;Level 2&rdquo; is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files.
-Each test query has a name (that tells its purpose) associated with it: key string in <code>.properties</code> file and value of &ldquo;name&rdquo; key in <code>.test</code> file.</p>
-
-<p>In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed.
-The TestNG assertions, which are ubiquitous in previous &ldquo;Level 1&rdquo; and &ldquo;Level 2&rdquo; approaches, are no longer present.
-Instead, the expected outputs are specified in <code>.test</code> file, in the same JSON block with each SQL query.
-The whole TestNG class will only contain code to initialize a connection to database and an instance of <a href="/blog/2016/03/28/sql-unit-test-runner/">SQL Test Runner</a>, all of which is <strong>one-time setup</strong>.
-As we continue writing functional tests, we can keep all tests in a single <code>.test</code> file or, optionally, group related tests into separate <code>.test</code> files.
-If we add more <code>.test</code> files, we can just specify the path to the files in functions annotated with <code>@Test</code>, as shown above.</p>
-
-<p>The main advantage of this test framework is readability of those tests, as shown in <code>.test</code> file.
-The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious.
-In the example above, the first test query&rsquo;s intention is clearer with assertion in the same location.
-In addition, compared with <code>.properties</code> file approach, the SQL query is now easier to read, due to <strong>line breaks</strong>, as shown in the second example.</p>
-
-<p>All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL.
-Different from usual software engineering projects, in Big Data projects, data analysts (i.e., users) know more about the data than typical quality engineers.
-Being able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
-If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.</p>
-
-<p>While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
-Even then, the additional computational time is totally justified with much better readability.
-Test readability will save (lots of) QE&rsquo;s time in both developing and maintaining tests, and engineer&rsquo;s time is million times more costly (per-hour-wise) than computer time.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -1699,15 +1485,15 @@ Test readability will save (lots of) QE&rsquo;s time in both developing and main
       </li>
     
       <li class="post">
+        <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2016/05/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/04/25/convert-python-objects-to-json-ordered-keys/">Convert Python Objects to JSON (Ordered Keys)</a>
+        <a href="/blog/2016/06/06/java-unit-test-performance/">Java: Unit Test Performance</a>
       </li>
     
   </ul>
