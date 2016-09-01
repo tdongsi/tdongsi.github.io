@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Docker Image for Vertica"
-date: 2016-09-01 01:38:27 -0700
+title: "Docker Image for ETL development in Vertica"
+date: 2016-09-01 11:38:27 -0700
 comments: true
 categories: 
 - Vertica
@@ -10,12 +10,11 @@ categories:
 
 Docker is Awesome!!!
 
-I wish I knew Docker earlier.
-After going through the pain of creating VMs ([one-node](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/)
- or [three-node](/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/) cluster) for local ETL development and testing, 
- Docker can make the whole setup even easier.
-All the setup can be done in a few commands, using [a Vertica Dockerfile](https://github.com/tdongsi/vertica/tree/master/docker), created based on [this](https://github.com/wmarinho/docker-hp-vertica).
-In addition to easy virtualization, Docker also allows the entire setup can be automated in a script, allowing it to be version-controlled (i.e., [Infrastructure as Code](https://en.wikipedia.org/wiki/Infrastructure_as_Code)). 
+I wish I knew Docker earlier, before going through the hassle of creating VMs ([one-node](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/)
+ or [three-node](/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/) cluster) for local ETL development and testing. 
+Docker can make the whole setup even easier.
+It can be done in just a few commands, using [a Vertica Dockerfile](https://github.com/tdongsi/vertica/tree/master/docker), created based on [this](https://github.com/wmarinho/docker-hp-vertica).
+In addition to easy virtualization, Docker also enables the entire setup can be automated in a script, allowing it to be version-controlled (i.e., [Infrastructure as Code](https://en.wikipedia.org/wiki/Infrastructure_as_Code)). 
 
 Some notes about this Dockerfile, compared to `wmarinho`'s:
 
