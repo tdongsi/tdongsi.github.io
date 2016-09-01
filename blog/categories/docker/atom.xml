@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Docker | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/docker/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-09-01T02:10:26-07:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Docker Image for Vertica]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica/"/>
+    <updated>2016-09-01T01:38:27-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica</id>
+    <content type="html"><![CDATA[<p>Docker is Awesome!!!</p>
+
+<p>I wish I knew Docker earlier.
+After going through the pain of creating VMs (<a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">one-node</a>
+ or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node</a> cluster) for local ETL development and testing,
+ Docker can make the whole setup even easier.
+All the setup can be done in a few commands, using <a href="https://github.com/tdongsi/vertica/tree/master/docker">a Vertica Dockerfile</a>, created based on <a href="https://github.com/wmarinho/docker-hp-vertica">this</a>.
+In addition to easy virtualization, Docker also allows the entire setup can be automated in a script, allowing it to be version-controlled (i.e., <a href="https://en.wikipedia.org/wiki/Infrastructure_as_Code">Infrastructure as Code</a>).</p>
+
+<p>Some notes about this Dockerfile, compared to <code>wmarinho</code>&rsquo;s:</p>
+
+<ul>
+<li>Added new schema, new user and new role as examples. Avoid using <code>dbadmin</code> user for development purpose.</li>
+<li>Added Java and Maven for Java-based ETL execution.</li>
+<li>Demonstrated running Bash and SQL scripts to initialize the container/database.</li>
+</ul>
+
+
+<h3>How to run</h3>
+
+<p>Before running <code>docker build</code>, download Vertica Community Edition from <a href="https://my.vertica.com/">https://my.vertica.com/</a> and place in the same folder as the <code>Dockerfile</code>.
+This <code>Dockerfile</code> takes &ldquo;vertica-7.2.3-0.x86_64.RHEL6.rpm&rdquo; as the install file.</p>
+
+<pre><code class="plain">mymac:docker tdongsi$ docker build -t vertica .
+Sending build context to Docker daemon 126.8 MB
+Step 1 : FROM centos:centos6.6
+ ---&gt; 2c886f766286
+...
+
+mymac:docker tdongsi$ docker images
+REPOSITORY                            TAG                 IMAGE ID            CREATED              SIZE
+vertica                               latest              d650885c6859        About a minute ago   1.641 GB
+&lt;none&gt;                                &lt;none&gt;              83c49cca5259        8 hours ago          1.395 GB
+hadoop                                latest              b0bd347a1541        10 hours ago         11.07 GB
+
+mymac:docker tdongsi$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t -i d650885c6859 /bin/bash
+Info: no password specified, using none
+    Starting nodes: 
+        v_docker_node0001 (127.0.0.1)
+    Starting Vertica on all nodes. Please wait, databases with large catalog may take a while to initialize.
+    Node Status: v_docker_node0001: (DOWN) 
+    Node Status: v_docker_node0001: (DOWN) 
+    Node Status: v_docker_node0001: (DOWN) 
+    Node Status: v_docker_node0001: (UP) 
+Database docker started successfully
+creating schema
+CREATE SCHEMA
+creating user
+CREATE USER
+creating role
+CREATE ROLE
+grant usage, create on schema
+GRANT PRIVILEGE
+</code></pre>
+
+<h3>Troubleshooting Notes</h3>
+
+<p>In Mac OSX, remember that the <code>entrypoint.sh</code> file should have executable permission.
+Otherwise, you might get the error &ldquo;oci runtime error: exec: &rdquo;/entrypoint.sh": permission denied".
+After changing the file permission, you have to rebuild the image with <code>docker build</code> before <code>docker run</code> again.</p>
+
+<h4>&ldquo;Insufficient resources&rdquo; error when running ETL</h4>
+
+<p>You might get &ldquo;Insufficient resources to execute plan on pool general &hellip; Memory exceeded&rdquo; error when running a large ETL script against the Vertica container.
+For complex ETL, Vertica might need additional memory to execute the query plan.
+Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work.
+To set higher memory allowance, stop the <code>docker-machine</code> and set memory as follows:</p>
+
+<pre><code class="plain">mymac:docker tdongsi$ docker-machine stop
+Stopping "default"...
+Machine "default" was stopped.
+
+mymac:docker tdongsi$ VBoxManage modifyvm default --memory 8192
+
+mymac:docker tdongsi$ docker-machine start
+Starting "default"...
+(default) Check network to re-create if needed...
+(default) Waiting for an IP...
+Machine "default" was started.
+Waiting for SSH to be available...
+Detecting the provisioner...
+Started machines may have new IP addresses. You may need to re-run the `docker-machine env` command.
+</code></pre>
+
+<p>Note that after running the above commands, <code>docker-machine inspect</code> still shows <code>"Memory":"2048"</code>.
+To verify if memory is properly allocated as desired, run <code>free</code> command, for example, inside the container to verify.</p>
+
+<h3>Links</h3>
+
+<ul>
+<li><a href="https://github.com/tdongsi/vertica/tree/master/docker">My Dockerfile for ETL development and testing on Vertica</a></li>
+<li><a href="https://github.com/wmarinho/docker-hp-vertica">Original Dockerfile</a></li>
+<li><a href="https://www.docker.com/">Docker</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>
