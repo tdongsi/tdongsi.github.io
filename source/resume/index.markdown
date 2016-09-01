@@ -84,7 +84,8 @@ TODO:
   * DevOps:
     Jenkins, Tidal Scheduler, 
     [Splunk](/download/training/COC_Searching_Splunk.pdf), 
-    Chef, vagrant, Docker.
+    Chef, vagrant, 
+    [Docker](/blog/categories/docker/).
 
 <!--
 SKIPPED: 
@@ -116,7 +117,9 @@ SKIPPED:
   Work with developers and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
 * Recent Projects and Achievements:
   * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-  * Achievements: Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Two **Intuit Spotlight Awards** for demonstrating [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) and [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
+  * Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists.
+  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: Using Docker to recreate data warehouse infrastructure and pipelines on local laptops for efficient ETL development and testing.
+  * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/TODO) 2016.
 
 <!--
 *Recent Projects and Achievements*:
