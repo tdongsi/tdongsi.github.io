@@ -99,7 +99,7 @@ SKIPPED:
 
 ### Honor & Awards
 
-* **Intuit Spotlight Award** [August 2015]: for demonstrating Intuit Value [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
+* **Intuit Spotlight Award** [August 2015]: for demonstrating [Intuit Value](https://about.intuit.com/about_intuit/operating_values/) [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf).
 * **Intuit Spotlight Award** [March 2015]: for demonstrating Intuit Value [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf).
 * **IEEE ICRA Student Travel Award** [2011, 2012], by **IEEE Robotics and Automation Society**.
 * **Dean’s Distinguished Fellowship** [2009], by **University of California, Riverside**.
