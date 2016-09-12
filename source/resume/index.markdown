@@ -50,7 +50,8 @@ TODO:
   Dimensional Modeling (Kimball).
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
-  Guava, Spring, 
+  Guava, 
+  Spring (Boot, MVC, Flyway, Data), 
   JCommander, SLF4J, 
   [JUnit](/blog/categories/junit/), TestNG,
   Apache Ant, 
