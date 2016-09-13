@@ -10,55 +10,59 @@ categories:
 - TestNG
 ---
 
-This blog post discusses a few tips on executing Maven + TestNG tests in Jenkins.
+A few notes on executing Maven + TestNG tests in Jenkins.
 
 ### Running tests
 
-``` plain Running
-tdongsi$ mvn -f tests/datamart-qe/pom.xml clean test
+Use the following Maven commands in Jenkins when executing tests.
+
+``` plain Running tests
+mvn -f pom.xml clean test
 ```
 
-In pom.xml, the test suite file is specified as testng.xml.
+In pom.xml, the test suite file should be specified, such as testng.xml.
 To run a custom TestNG test suite file, use the following command:
 
 ``` plain Custom TestNG test suite
-tdongsi$ mvn clean test -DsuiteXmlFile=testng.xml
+mvn clean test -DsuiteXmlFile=testng.xml
 ```
 
 To run a specific TestNG class, use the following command:
 
 ``` plain Run specific TestNG class/method
-tdongsi$ mvn clean test -Dtest=TestCircle
+mvn clean test -Dtest=TestCircle
 
-tdongsi$ mvn clean test -Dtest=TestCircle#test_area
+mvn clean test -Dtest=TestCircle#test_area
 ```
 
 Note that the symbol `#` must be used between class name and method name. 
 In other words, `-Dtest=TestCircle.test_area` will not work.
 
+#### Links
+
+1. [Custom TestNG suite file](http://www.vazzolla.com/2013/03/how-to-select-which-testng-suites-to-run-in-maven-surefire-plugin/)
+1. [Select method in test class](http://stackoverflow.com/questions/1873995/run-a-single-test-method-with-maven)
+
 ### Configuring tests
 
-https://wiki.jenkins-ci.org/display/JENKINS/Building+a+software+project
-Jenkins set the following variable:
-WORKSPACE: The absolute path of the workspace.
+Sometimes, your tests need to access resources outside of standard Eclipse/Maven project folders. 
+For the tests to pass both locally and on Jenkins, the full path to the current workspace may be required to resolve the file path to those resources in tests. 
+Jenkins set a number of [environment variables](https://wiki.jenkins-ci.org/display/JENKINS/Building+a+software+project), including the variable 
+`WORKSPACE` as the absolute path of the workspace.
 
-I need to set environment variable to simulate Jenkins environment.
-In Mac:
-For terminal: http://stackoverflow.com/questions/7501678/set-environment-variables-on-mac-os-x-lion
-For windowed application: http://stackoverflow.com/questions/135688/setting-environment-variables-in-os-x/588442#588442
+For local environment, we need to set environment variable `WORKSPACE` to simulate Jenkins environment.
+In the tests, we need to retrieve this environment variable, as follows in Java:
 
-Getting environment variable in Java:
-https://docs.oracle.com/javase/tutorial/essential/environment/env.html
-Map<String, String> env = System.getenv();
+``` java Getting environment variable
+String wsPath = System.getenv("WORKSPACE");
+```
 
+Besides workspace's absolute path, we might also need to configure some constants in tests from a configuration file. 
+When initializing constants from properties files in Maven, remember:
 
-
-
-To initialize constants from properties files in Maven:
-
-* Use `this.class.getResourceAsStream()`
-* Properties file should be in `src/main/resources` folder.
-* Should set default property values.
+* Use `this.class.getResourceAsStream()` method.
+* By Maven convention, properties file should be in `src/main/resources` folder.
+* Default property values could be used when reading properties file.
 
 ``` java Example
     public static final String CONFIG_PATH = "/config.properties";
@@ -83,9 +87,4 @@ To initialize constants from properties files in Maven:
     }
 ```
 
-Note the location of the properties file.
-
-### Links
-
-1. [Custom TestNG suite file](http://www.vazzolla.com/2013/03/how-to-select-which-testng-suites-to-run-in-maven-surefire-plugin/)
-1. [Select method in test class](http://stackoverflow.com/questions/1873995/run-a-single-test-method-with-maven)
+Note that the location of the properties file in the example above is `src/main/resources/config.properties`.
