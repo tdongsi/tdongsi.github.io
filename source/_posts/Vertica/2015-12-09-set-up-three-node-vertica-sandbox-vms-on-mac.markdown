@@ -7,7 +7,6 @@ published: true
 categories: 
 - Vertica
 - CentOS
-- VMWare
 - MacOSX
 ---
 

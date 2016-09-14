@@ -7,7 +7,6 @@ categories:
 - Vertica
 - CentOS
 - MacOSX
-- Ubuntu
 - Git
 - Bash
 - Testing

@@ -7,7 +7,6 @@ categories:
 - Book
 - Hadoop
 - Hive
-- Cloudera
 ---
 
 This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).

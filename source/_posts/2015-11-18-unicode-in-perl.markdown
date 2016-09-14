@@ -6,7 +6,6 @@ comments: true
 categories: 
 - Automation
 - Perl
-- Unicode
 - Windows
 ---
 

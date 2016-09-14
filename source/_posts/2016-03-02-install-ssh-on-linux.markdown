@@ -6,7 +6,6 @@ comments: true
 categories:
 - Bash
 - CentOS
-- Ubuntu
 ---
 
 (1) Log into a Linux system (for CentOS, v5.8 or better) with your user account.

@@ -36,17 +36,16 @@ TODO:
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
   [SQLite](/blog/categories/sqlite/), 
-  [MySQL](/blog/categories/mysql/), 
-  [Netezza](/blog/categories/netezza/),
+  [MySQL](/blog/categories/mysql/),
   [Vertica](/blog/categories/vertica/), 
-  [Cassandra](/blog/categories/cassandra/),
-  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/).
+  [Cassandra](/blog/categories/cassandra/).
 * **Data Analytics**: 
   [SQL](/blog/categories/sql/), 
   XPath, 
   XQuery,
-  Tableau,
   Data Warehouse,
+  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
+  Tableau, 
   Dimensional Modeling (Kimball).
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 

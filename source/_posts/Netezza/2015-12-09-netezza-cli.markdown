@@ -5,7 +5,6 @@ date: 2015-12-09 18:34:12 -0800
 comments: true
 categories:
 - Database
-- Netezza
 ---
 
 In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) tools. 

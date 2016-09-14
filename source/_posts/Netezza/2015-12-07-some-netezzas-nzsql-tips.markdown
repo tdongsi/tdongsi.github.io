@@ -6,7 +6,6 @@ comments: true
 categories: 
 - Database
 - SQL
-- Netezza
 ---
 
 * By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:
