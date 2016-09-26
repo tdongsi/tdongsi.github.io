@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2016-09-13T23:04:27-07:00</updated>
+  <updated>2016-09-25T23:57:50-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -30,7 +30,7 @@ In addition to easy virtualization, Docker also enables the entire setup can be 
 
 <ul>
 <li>Added new schema, new user and new role as examples. Avoid using <code>dbadmin</code> user for development purpose.</li>
-<li>Added Java and Maven for Java-based ETL execution.</li>
+<li>Added Java and Maven for Java-based ETL and automated test execution.</li>
 <li>Demonstrated running Bash and SQL scripts to initialize the container/database.</li>
 </ul>
 
@@ -40,27 +40,34 @@ In addition to easy virtualization, Docker also enables the entire setup can be 
 <p>Before running <code>docker build</code>, download Vertica Community Edition from <a href="https://my.vertica.com/">https://my.vertica.com/</a> and place in the same folder as the <code>Dockerfile</code>.
 This <code>Dockerfile</code> takes &ldquo;vertica-7.2.3-0.x86_64.RHEL6.rpm&rdquo; as the install file.</p>
 
-<pre><code class="plain">mymac:docker tdongsi$ docker build -t vertica .
-Sending build context to Docker daemon 126.8 MB
-Step 1 : FROM centos:centos6.6
- ---&gt; 2c886f766286
+<pre><code class="plain Windows output">epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker build -t vertica .
 ...
 
-mymac:docker tdongsi$ docker images
-REPOSITORY                            TAG                 IMAGE ID            CREATED              SIZE
-vertica                               latest              d650885c6859        About a minute ago   1.641 GB
-&lt;none&gt;                                &lt;none&gt;              83c49cca5259        8 hours ago          1.395 GB
-hadoop                                latest              b0bd347a1541        10 hours ago         11.07 GB
+epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED
+SIZE
+vertica             latest              d2607fa1f457        13 seconds ago
+1.638 GB
+&lt;none&gt;              &lt;none&gt;              486163abe73f        11 minutes ago
+1.638 GB
+centos              centos6.6           2c886f766286        8 weeks ago
+202.6 MB
 
-mymac:docker tdongsi$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t -i d650885c6859 /bin/bash
+epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t
+-i d2607fa1f457 /bin/bash
 Info: no password specified, using none
-    Starting nodes: 
-        v_docker_node0001 (127.0.0.1)
-    Starting Vertica on all nodes. Please wait, databases with large catalog may take a while to initialize.
-    Node Status: v_docker_node0001: (DOWN) 
-    Node Status: v_docker_node0001: (DOWN) 
-    Node Status: v_docker_node0001: (DOWN) 
-    Node Status: v_docker_node0001: (UP) 
+        Starting nodes:
+                v_docker_node0001 (127.0.0.1)
+        Starting Vertica on all nodes. Please wait, databases with large catalog
+ may take a while to initialize.
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (UP)
 Database docker started successfully
 creating schema
 CREATE SCHEMA
@@ -82,16 +89,16 @@ After changing the file permission, you have to rebuild the image with <code>doc
 
 <p>You might get &ldquo;Insufficient resources to execute plan on pool general &hellip; Memory exceeded&rdquo; error when running a large ETL script against the Vertica container.
 For complex ETL, Vertica might need additional memory to execute the query plan.
-Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work.
+Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work if using <strong>Docker Toolbox</strong>.
 To set higher memory allowance, stop the <code>docker-machine</code> and set memory as follows:</p>
 
-<pre><code class="plain">mymac:docker tdongsi$ docker-machine stop
+<pre><code class="plain">tdongsi$ docker-machine stop
 Stopping "default"...
 Machine "default" was stopped.
 
-mymac:docker tdongsi$ VBoxManage modifyvm default --memory 8192
+tdongsi$ VBoxManage modifyvm default --memory 8192
 
-mymac:docker tdongsi$ docker-machine start
+tdongsi$ docker-machine start
 Starting "default"...
 (default) Check network to re-create if needed...
 (default) Waiting for an IP...
@@ -321,56 +328,7 @@ It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-fi
 </ol>
 
 
-<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
-They are followed by a new test block to run the ETL script.
-After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
-Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
-
-<pre><code class="sql Example unit test">/****************************
-* Day 1
-****************************/
-
-INSERT INTO stg_company_id (company_id,last_modify_date,region_id)
-VALUES (123,current_timestamp-19,'US');
-
-INSERT INTO stg_company_contact (company_id,master_email,last_modify_date)
-VALUES (123,'before@mockdata.com', current_timestamp-15);
-
-/* @Test
--- First ETL run
-{
- "name" : "Day1_etl_run",
- "vsql_file" : ["repo_home/sql/my_etl.sql"]
-}
-*/
-
-/* @Test
-{
- "name" : "Day1_check_email_address",
- "query" : "select company_id, email_address from dim_company",
- "expected" : "123 before@mockdata.com"
-}
-*/
-</code></pre>
-
-<pre><code class="java Calling unit test script">@BeforeClass
-public void setup() {
-    testRunner = new SqlTestRunner(getJdbcConnection());
-    setupSchema("UNITTEST");
-}
-
-@AfterClass
-public void teardown() {
-    teardownSchema("UNITTEST");
-}
-
-@Test(enabled = true)
-public void validate_dim_region() throws Exception {
-        testRunner.runScript("unittests/etl_incremental_update_email.test");
-}
-</code></pre>
-
-<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
+<p>TODO</p>
 ]]></content>
   </entry>
   
