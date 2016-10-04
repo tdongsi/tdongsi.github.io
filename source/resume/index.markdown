@@ -12,7 +12,7 @@ My resume in hyperlinked format.
 
 * Email: dongsi.tuecuong@gmail.com
 * [LinkedIn](https://www.linkedin.com/in/cuong-dong-si-479b326)
-* [PDF version](/download/Resume.pdf)
+* [PDF version](/download/Resume.pdf) (slightly outdated)
 
 <!--
 Checklist:
@@ -121,9 +121,8 @@ SKIPPED:
   Work with developers and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate test solutions.
 * Recent Projects and Achievements:
   * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-  * Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists.
-  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: Using Docker to recreate data warehouse infrastructure and pipelines on local laptops for efficient ETL development and testing.
-  * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/TODO) 2016.
+  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: Using Docker to recreate data warehouse infrastructure and pipelines as local environment for efficient ETL development and testing.
+  * Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/TODO) 2016.
 
 <!--
 *Recent Projects and Achievements*:
