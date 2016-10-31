@@ -23,7 +23,9 @@ But it is really painful to download every ... single ... PDF ... permit manuall
 ### Solution
 
 I wrote [some Python scripts](https://github.com/tdongsi/bart-parking) to automate the process of downloading every single permits.
-Simply run the `main.py` script and input your username and password, as shown below.
+The scripts requires [`requests` package](http://docs.python-requests.org/en/master/user/install) installed before running. 
+Usually, a simple `pip install requests` command is all you need for its installation.
+Then, simply run the `main.py` script and input your username and password, as shown below.
 
 ```
 C:\Github\bart-parking\bart>python main.py
@@ -45,6 +47,7 @@ bart        : INFO     Finished downloading permit 1177929.
 
 C:\Github\bart-parking\bart>
 ```
+
 ### External links
 
 * [Github repo](https://github.com/tdongsi/bart-parking)
