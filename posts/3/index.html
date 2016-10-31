@@ -9,13 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Navigation: Overview,
-Pt 1,
-Pt 2,
-Pt 3,
-Pt 4,
-Pt 5,
-Pt 6. As an example to discussion in this post, I will discuss how I recently added a new &hellip;">
+  <meta name="description" content="BFF is the name of the problem C in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows: Every kid in your class has a &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -104,6 +99,198 @@ Pt 6. As an example to discussion in this post, I will discuss how I recently ad
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/18/best-friend-forever/">Best Friend Forever</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-18T15:44:57-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>3:44 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows:</p>
+
+<blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, ..., FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote>
+
+
+<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
+I&rsquo;d like to approach to the problem more methodically.
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
+
+<p><img class="center" src="/images/python/bff.png" title="BFF example" ></p>
+
+<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:</p>
+
+<ol>
+<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
+<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
+
+<ul>
+<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.</li>
+<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
+</ul>
+</li>
+<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
+
+<ul>
+<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
+<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
+
+<ol>
+<li>From the list of BFFs, construct a directed graph.</li>
+<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
+<li>Initialize max_length = -1. For each simple cycle:
+
+<ol>
+<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
+<li>If cycle length is equal to 2.
+
+<ol>
+<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
+<li>Find the path length, add to path_sum, and update max_length if needed.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+
+
+<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
+
+<figure class='code'><figcaption><span>Construct and plot directed graph with networkx</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">networkx</span> <span class="kn">as</span> <span class="nn">nx</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Bff</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">    https://code.google.com/codejam/contest/4304486/dashboard#s=p2</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Initialize with the given filename.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param filename: input file path</span>
+</span><span class='line'><span class="sd">        :return:</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">_filename</span> <span class="o">=</span> <span class="n">filename</span>
+</span><span class='line'>        <span class="k">pass</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Draw the string that represents the bff network.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        The input string contains N integers F1, F2, ..., FN, </span>
+</span><span class='line'><span class="sd">        where Fi is the student ID number of the BFF</span>
+</span><span class='line'><span class="sd">        of the kid with student ID i.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">        :param input: the string that represents the bff network.</span>
+</span><span class='line'><span class="sd">        :return:</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="c"># Construct the directed graph</span>
+</span><span class='line'>        <span class="n">bffs</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">input</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)]</span>
+</span><span class='line'>        <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bffs</span><span class="p">))]</span>
+</span><span class='line'>        <span class="n">gr</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
+</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_nodes_from</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_edges_from</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">bffs</span><span class="p">)])</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># nx.simple_cycles(gr)</span>
+</span><span class='line'>        <span class="n">nx</span><span class="o">.</span><span class="n">draw_networkx</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filename</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+</span><span class='line'>    <span class="n">plot</span> <span class="o">=</span> <span class="n">Bff</span><span class="p">(</span><span class="s">&quot;bff.png&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="c"># plot.draw(&quot;2 1 6 3 8 4 6 5&quot;)</span>
+</span><span class='line'>    <span class="n">plot</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s">&quot;6 1 6 5 4 1 5 10 3 7&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">pass</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
+It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
+<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
+
+<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one or more&rdquo;</strong> in observation 3).
+The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
+
+<p><img class="center" src="/images/python/bff2.png" title="All paths" ></p>
+
+<p>Some morals of the story:</p>
+
+<ul>
+<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
+<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -741,45 +928,6 @@ It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-fi
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/04/10/sql-unit-incremental-data-update/">(Pt. 3) Testing Incremental Data Update</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-04-10T17:46:40-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:46 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>
-.</p>
-
-<p>One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
-Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.</p>
-
-<h3>Incremental data update</h3>
-
-<p>TODO</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -800,6 +948,10 @@ Challenges in functional testing motivates me to create a test framework to add 
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
       </li>
     
@@ -813,10 +965,6 @@ Challenges in functional testing motivates me to create a test framework to add 
     
       <li class="post">
         <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
       </li>
     
   </ul>
@@ -853,7 +1001,7 @@ Challenges in functional testing motivates me to create a test framework to add 
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

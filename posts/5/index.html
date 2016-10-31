@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Code snippet There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes &hellip;">
+  <meta name="description" content="I have been using a single-node Vertica VM to run ETL tests for sometime.
+The only minor problem is that when we add KSAFE 1 in our DDL scripts (i.e &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +99,230 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">Set Up Three-node Vertica VM Sandbox</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-03-12T14:35:19-08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>2:35 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>I have been using a <strong>single-node</strong> Vertica VM to run ETL tests for <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">sometime</a>.
+The only minor problem is that when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes, it gives error on single-node VM when running DDL scripts to set up schema since single-node cluster is not k-safe.
+Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">previous blog post</a>.</p>
+
+<p>In this blog post, I looked into setting up a Vertica cluster of <strong>three</strong> VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications.
+Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
+This blog post documents some of my mistakes and wrong approaches while trying to do so.</p>
+
+<h3>Using Vertica VM from HPE support?</h3>
+
+<p>If you already downloaded Vertica VM from HP website, you might consider cloning that VM and configuring the clones to make a three-node VM cluster of Vertica.
+Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in that direction:</p>
+
+<ol>
+<li>Download Vertica VM from <a href="https://my.vertica.com/download/vertica/community-edition/">HPE support website</a>.</li>
+<li>Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet.
+
+<ol>
+<li>Username: dbadmin. Password: password. Root password: password. From <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm">here</a>.</li>
+</ol>
+</li>
+<li>Change the hostname to a shorter name.</li>
+<li>Turn off the VM.</li>
+<li>Clone in VMWare Fusion using &ldquo;Create Full Clone&rdquo; option (NOT &ldquo;Create Linked Clone&rdquo;).</li>
+<li>Start up the three virtual machines.</li>
+<li>Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.</li>
+<li>Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (<code>ip addr</code> command).</li>
+</ol>
+
+
+<p>Depending on the version of VM that you downloaded, you might be hit with the following problem:</p>
+
+<ul>
+<li>Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes (without uninstalling and reinstalling Vertica).</li>
+</ul>
+
+
+<p>You will get the following error message when trying to use Vertica tools to expand the cluster:</p>
+
+<figure class='code'><figcaption><span>Error message when trying to expand</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
+</span><span class='line'>Vertica Analytic Database 7.1.1-0 Installation Tool
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>&gt;&gt; Validating options...
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>Mapping hostnames in --add-hosts (-A) to addresses...
+</span><span class='line'>Error: Existing single-node localhost (loopback) cluster cannot be expanded
+</span><span class='line'>Hint: Move cluster to external address first. See online documentation.
+</span><span class='line'>Installation FAILED with errors.
+</span><span class='line'>
+</span><span class='line'>Installation stopped before any changes were made.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The official explanation from HP Vertica&rsquo;s documentation (quoted from <a href="https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm">here</a>):</p>
+
+<blockquote><p>If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.</p></blockquote>
+
+
+<p>This problem seems insurmountable to me unless you are a Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.</p>
+
+<h3>Installing Vertica Community Edition on a fresh VM</h3>
+
+<p>In this approach, I have to install Vertica (free Community Edition) from scratch on a fresh Linux VM.
+Then, I clone that VM and configure the clones to make a three-node cluster of Vertica.</p>
+
+<h4>Before installing Vertica</h4>
+
+<p>Download CentOS VM from <a href="http://www.osboxes.org/">osboxes.org</a>. I used CentOS 6 VM.
+Note that CentOS 5 or older is no longer supported by Vertica HP (check out my attempt in the last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+The following information may be useful when you prepare that CentOS VM before installing Vertica on it:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>Username: osboxes
+</span><span class='line'>Password: osboxes.org
+</span><span class='line'>Root password: osboxes.org</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that Wired Network connection may not work for that CentOS box.
+To make it work, I added the following line to the end of my <code>.vmx</code> file based on this <a href="https://www.centos.org/forums/viewtopic.php?f=47&amp;t=47724">link</a>:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ethernet0.virtualDev = "e1000"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Install and configure SSH on the CentOS VM, as detailed in <a href="http://www.cyberciti.biz/faq/centos-ssh/">here</a>.</p>
+
+<h4>Installing Vertica</h4>
+
+<p>Follow the steps in this <a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">link</a> to set up a three-node Vertica VMs.
+Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
+Note that in VMWare Fusion, clone the VM using the option &ldquo;Create Full Clone&rdquo; (instead of &ldquo;Create Linked Clone&rdquo;).
+In addition, to keep it consistent with single-node Vertica VM from HPE support website, you might want to create a new database user with username <code>dbadmin</code> and <code>password</code> as password.
+It will help when you need to switch back and forth from using three-node Vertica VM to single-node VM for unit testing purposes.</p>
+
+<h4>After installing Vertica</h4>
+
+<p>After Vertica installation and cluster rebooting, you might encounter one or more problems with the following error messages:</p>
+
+<figure class='code'><figcaption><span>Common issues after rebooting</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>### Issue 1
+</span><span class='line'>Network Connection is not available.
+</span><span class='line'>
+</span><span class='line'>### Issue 2
+</span><span class='line'>FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+</span><span class='line'>These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+</span><span class='line'>
+</span><span class='line'>### Issue 3
+</span><span class='line'>FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+</span><span class='line'>Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To resolve the above issues, use the following commands as superuser, in that order:</p>
+
+<figure class='code'><figcaption><span>Use the following commands as superuser</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>dhclient
+</span><span class='line'>echo deadline &gt; /sys/block/sda/queue/scheduler
+</span><span class='line'>echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check <a href="/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/">this &ldquo;Troubleshooting&rdquo; post</a>.
+Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.</p>
+
+<p>After making sure Vertica is running on the three VMs, follow the steps from <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm">here</a> to create a Vertica database.
+Simply create a new empty schema in that VMart database for unit testing purpose.
+You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:</p>
+
+<figure class='code'><figcaption><span>Vertica connection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>jdbc:vertica://[your_VM_IP_address]:5433/VMart
+</span><span class='line'>
+</span><span class='line'>Username: dbadmin
+</span><span class='line'>Password: password</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Using older CentOS for Vertica VM (CentOS 5)</h3>
+
+<p>Installing latest version of Vertica on <strong>CentOS 5</strong> is NOT easy, if not impossible. CentOS 5 is officially dropped from support by HP Vertica.</p>
+
+<p>I tried to reinstall Vertica after encountering the error &ldquo;Existing single-node localhost (loopback) cluster cannot be expanded&rdquo; as mentioned above.
+Then, I encountered this error when trying to install the latest version of Vertica (7.2):</p>
+
+<figure class='code'><figcaption><span>Vertica installation error in CentOS 5</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ERROR with rpm_check_debug vs depsolve:
+</span><span class='line'>rpmlib(FileDigests) is needed by vertica-7.2.1-0.x86_64
+</span><span class='line'>rpmlib(PayloadIsXz) is needed by vertica-7.2.1-0.x86_64
+</span><span class='line'>Complete!</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Running <code>sudo yum -y update rpm</code> does not work.
+The reason is that CentOS 5 and CentOS 6 have very different versions of <code>rpm</code> and <code>rpmlib</code>.
+The CentOS 6 version has support for newer payload compression and a newer <code>FileDigests</code> version than the version of <code>rpm</code> on CentOS 5 can support.
+Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won&rsquo;t be resolved any time soon.</p>
+
+<p>I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.
+There is no apparent advantage of using CentOS 5 over CentOS 6.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">Three-node VM setup in VirtualBox</a></li>
+<li><a href="http://www.cyberciti.biz/faq/centos-ssh/">CentOS SSH Installation And Configuration</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -596,320 +821,6 @@ Therefore, using hard links, at best, is just a temporary solution.</p>
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-13T23:52:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>13</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:52 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
-
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
-
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
-
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
-
-<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
-
-<ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
-</ol>
-
-
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
-
-<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
-</span><span class='line'><span class="k">AS</span><span class="p">(</span>
-</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
-</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span><span class='line'><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
-
-<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
-</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">AS</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
-</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
-</span><span class='line'>      <span class="n">customer_id</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
-</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/6">&larr; Older</a>
@@ -930,6 +841,10 @@ In addition, the wildcard <code>*</code> in the original SQL query is also avoid
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
       </li>
     
@@ -943,10 +858,6 @@ In addition, the wildcard <code>*</code> in the original SQL query is also avoid
     
       <li class="post">
         <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
       </li>
     
   </ul>
@@ -983,7 +894,7 @@ In addition, the wildcard <code>*</code> in the original SQL query is also avoid
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

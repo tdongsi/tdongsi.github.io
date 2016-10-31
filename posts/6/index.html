@@ -9,8 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica: https:// &hellip;">
+  <meta name="description" content="Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with Nexius consultants.
+Also see Vertica Best &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -99,6 +99,320 @@ Details of Vertica projections are discussed in the following blog posts from HP
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-02-13T23:52:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>13</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:52 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
+Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+
+<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
+
+<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="p">(</span><span class="k">SELECT</span> <span class="s1">&#39;x&#39;</span> <span class="k">FROM</span> <span class="n">dim_country</span> <span class="k">WHERE</span> <span class="n">country_name</span> <span class="o">=</span> <span class="s1">&#39;United States&#39;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
+So, for example above:</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="s1">&#39;English&#39;</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="s1">&#39;United States&#39;</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">select</span> <span class="n">country_name</span> <span class="k">from</span> <span class="n">dim_country</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span><span class="o">=</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_id</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
+It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
+Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+
+<figure class='code'><figcaption><span>GOOD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_id</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">country_id</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
+
+<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">dim_country</span> <span class="n">dc</span> <span class="k">on</span> <span class="k">lower</span><span class="p">(</span><span class="n">dc</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span><span class="o">=</span><span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">dc</span><span class="p">.</span><span class="n">country_name</span> <span class="k">is</span> <span class="k">NULL</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
+
+<figure class='code'><figcaption><span>BETTER, but still BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">dim_country</span>
+</span><span class='line'><span class="p">(</span>
+</span><span class='line'>    <span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span> <span class="k">SELECT</span> <span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">ssp</span><span class="p">.</span><span class="n">country_language</span><span class="p">,</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staging_table</span> <span class="n">ssp</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">ssp</span><span class="p">.</span><span class="n">country_name</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">lower</span><span class="p">(</span><span class="n">country_name</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">dim_country</span><span class="p">);;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
+In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
+
+<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
+Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
+
+<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
+
+<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
+
+<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
+In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
+
+<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
+
+<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
+
+<ol>
+<li>Create the temporary table first without a projection.</li>
+<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
+<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
+</ol>
+
+
+<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
+
+<figure class='code'><figcaption><span>BAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span>
+</span><span class='line'><span class="k">AS</span><span class="p">(</span>
+</span><span class='line'>  <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">select</span> <span class="o">*</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>    <span class="k">from</span>  <span class="n">stg_customer</span> <span class="n">rpt</span>
+</span><span class='line'>  <span class="p">)</span> <span class="n">t1</span> <span class="k">where</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
+Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+
+<figure class='code'><figcaption><span>Create a temporary table without projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">LOCAL</span> <span class="k">TEMPORARY</span> <span class="k">TABLE</span> <span class="n">customer_last_temp</span>  <span class="p">(</span>
+</span><span class='line'>        <span class="n">customer_id</span>                    <span class="nb">int</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">subscribe_date</span>                 <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">cancel_date</span>                    <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">last_modify_date</span>               <span class="k">timestamp</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ON</span> <span class="k">COMMIT</span> <span class="k">PRESERVE</span> <span class="k">ROWS</span> <span class="k">NO</span> <span class="n">PROJECTION</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
+A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
+Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
+
+<figure class='code'><figcaption><span>Create a super projection</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">PROJECTION</span> <span class="n">customer_last_temp_super</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span> <span class="k">ENCODING</span> <span class="n">DELTARANGE_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span> <span class="k">ENCODING</span> <span class="n">GCDDELTA</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span> <span class="k">ENCODING</span> <span class="n">BLOCKDICT_COMP</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">AS</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">customer_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>  <span class="k">FROM</span> <span class="n">customer_last_temp</span>
+</span><span class='line'> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'><span class="n">SEGMENTED</span> <span class="k">BY</span> <span class="n">HASH</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">ALL</span> <span class="n">NODES</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
+
+<figure class='code'><figcaption><span>Populate the table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">customer_last_temp</span> <span class="p">(</span>
+</span><span class='line'>      <span class="n">customer_id</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>    <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">WITH</span> <span class="n">t1</span> <span class="k">AS</span> <span class="p">(</span>
+</span><span class='line'>    <span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'>         <span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
+</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
+</span><span class='line'>      <span class="k">FROM</span> <span class="n">stg_customer</span> <span class="k">AS</span> <span class="n">rpt</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">company_id</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">subscribe_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">cancel_date</span>
+</span><span class='line'>     <span class="p">,</span> <span class="n">last_modify_date</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">t1</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">t1</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
+In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -492,132 +806,6 @@ From my personal experience, in those cases, note that time zones must be accoun
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/18/aws-developing-with-amazon-s3/">AWS: Developing With Amazon S3</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-18T17:13:28-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:13 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data.
-This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.</p>
-
-<h3>S3 Buckets and Objects</h3>
-
-<p>Files of any kind such as text, video, photo are stored as objects in S3 <em>buckets</em>.
-The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
-A bucket can be <em>versioning-enabled</em>, it will store every version of every object in the bucket.</p>
-
-<p>Each <em>object</em> in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and <code>!-_.*'/</code> are allowed in a key name.</p>
-
-<p>Bucket naming tips:</p>
-
-<ul>
-<li>To ensure uniqueness, you might prefix the bucket name with the name of your organization.</li>
-<li>Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.</li>
-</ul>
-
-
-<p>Object key naming tips:</p>
-
-<ul>
-<li>Use prefixes and <code>/</code> (or other delimiters) to logically group your objects. For example, <code>prog/java/arrays.html</code>. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
-
-<ul>
-<li>However, the Amazon S3 console supports the <a href="http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html">folder concept</a> for convenience and usability. Amazon S3 does this by using key name prefixes for objects.</li>
-</ul>
-</li>
-<li>For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See &ldquo;Programming Considerations&rdquo; section below.</li>
-</ul>
-
-
-<h3>Operations on Objects</h3>
-
-<p>Basic operations on S3 objects and buckets are:</p>
-
-<ul>
-<li>Put: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.</li>
-<li>Get: Retrieve a whole object or part of an object.</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html">List Keys</a>: List object keys by prefix and delimiter.</li>
-<li>Delete: Delete one or more objects.
-
-<ul>
-<li>If versioning is not enabled, an object is permanently deleted by specifying its key.</li>
-<li>If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.</li>
-<li>If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a &ldquo;404 Not Found&rdquo; error by S3.</li>
-</ul>
-</li>
-<li>Restore: Restore an object archived on Amazon Glacier.</li>
-</ul>
-
-
-<h4>Other operations in S3</h4>
-
-<p>Advanced operations that you should know when situations arise.</p>
-
-<p><strong>Scenario 1</strong>: You want to let users upload files to your buckets for some time duration.
-<strong>Solution 1</strong>: You should never share your AWS credentials to let users upload files to your buckets.
-Instead, generate a <strong>pre-signed URL</strong> with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time.
-You share this pre-signed URL to users who will use this to access your S3 buckets.</p>
-
-<p><strong>Scenario 2</strong>: Encryption and strict data security is required.
-<strong>Solution 2</strong>: You can enable:</p>
-
-<ul>
-<li>Securing data in transit.
-
-<ul>
-<li>SSL-encrypted data transfer by using HTTPS</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html">Client-side encryption</a></li>
-</ul>
-</li>
-<li>Securing data at rest on AWS server.
-
-<ul>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html">Server-side encryption</a></li>
-</ul>
-</li>
-</ul>
-
-
-<p><strong>Scenario 3</strong>: You want your web applications that are loaded in one domain to interact with S3 resources in a different domain.
-<strong>Solution 3</strong>: Check out <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html">CORS</a>.</p>
-
-<h3>Programming considerations</h3>
-
-<ul>
-<li>According to <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">this guideline</a>, <strong>avoid</strong> using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object&rsquo;s metadata. See examples in the link for more information.</li>
-<li>If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle <a href="http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html">NoSuchBucket errors</a> when buckets do not exist.</li>
-<li>Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.</li>
-<li>Cache bucket and key names if possible.</li>
-<li>Set bucket region closest to latency-sensitive users.</li>
-<li>Compress objects to reduce the size of data transferred and storage used.</li>
-<li>Use an exponential back-off algorithm to retry after failed connection attempts. See <a href="http://docs.aws.amazon.com/general/latest/gr/api-retries.html">here</a>.</li>
-<li>Enable application logging. For example, <a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html">in Java</a>.</li>
-<li>Enable <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html">server access logging</a>.</li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/7">&larr; Older</a>
@@ -638,6 +826,10 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
       </li>
     
@@ -651,10 +843,6 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
     
       <li class="post">
         <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a>
       </li>
     
   </ul>
@@ -691,7 +879,7 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (13)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (9)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
