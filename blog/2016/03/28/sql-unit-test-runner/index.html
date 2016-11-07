@@ -124,7 +124,366 @@ Pt 1. In this blog post, I shows some example test cases using the SQL Test Runn
 <p>In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/20/sql-unit-functional-tests/">this post</a>.
 As mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
 
-<p>TODO</p>
+<h3>Overview</h3>
+
+<p>In this test framework, a test block is defined in the following format: comment block opening <code>/*</code> followed by <code>@Test</code>, and a JSON object with some specified keys in the next subsection, closed by comment block closing <code>*/</code>.</p>
+
+<figure class='code'><figcaption><span>Example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name":"test_count",
+</span><span class='line'>  "query":"select count(1) from dim_product",
+</span><span class='line'>  "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The SQL Test Runner will:</p>
+
+<ol>
+<li>Pick up the test blocks, annotated as above.</li>
+<li>Extract the JSON to retrieve the test query and expected output.
+
+<ul>
+<li>As shown in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this</a> and <a href="/blog/2016/04/16/sql-unit-extension/">this</a>, we can add custom JSON for different testing needs.</li>
+</ul>
+</li>
+<li>Send the query to the database, and get the actual output from the database.</li>
+<li>Compare actual output with the expected output, raise <code>AssertionError</code> if needed.
+
+<ul>
+<li>Note that the Test Runner can either exit immediately upon <code>AssertionError</code> (hard assertion) or run all test queries and list all <code>AssertionError</code>s at the end (soft assertion).</li>
+</ul>
+</li>
+</ol>
+
+
+<p>As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in &ldquo;query&rdquo; clause) for aligning and formatting the query, especially when the query is long and complex.</p>
+
+<figure class='code'><figcaption><span>Example complex test query</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>  "name" : "check_traffic",
+</span><span class='line'>  "query" : "WITH Total_Traffic AS
+</span><span class='line'>      (
+</span><span class='line'>          SELECT temp.* from temp as clickstream_data
+</span><span class='line'>          where .... -- filtering
+</span><span class='line'>      )
+</span><span class='line'>      , Rock_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total_Traffic
+</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
+</span><span class='line'>      )
+</span><span class='line'>      , Instrumental_Music as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Total
+</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
+</span><span class='line'>      )
+</span><span class='line'>      , Defined_Traffic as
+</span><span class='line'>      (
+</span><span class='line'>          select * from Rock_Music
+</span><span class='line'>          UNION
+</span><span class='line'>          select * from Instrumental_Music
+</span><span class='line'>      )
+</span><span class='line'>      select traffic_date_key
+</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
+</span><span class='line'>      from Defined_Traffic
+</span><span class='line'>      group by traffic_date_key",
+</span><span class='line'>  "expected" : "2016-03-16 123"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in pure JSON, newlines are NOT allowed and deserializing the above JSON directly will give syntax errors.
+However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
+Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (<code>\s+</code>) in test block with a single space (<code></code>).
+The additional computation is minimal and it is quite a good trade-off for much better <em>readability</em> of the test scripts.</p>
+
+<h3>Example usage</h3>
+
+<p>This section list some simple examples to illustrate some standard, common usage of test blocks. The most common one is:</p>
+
+<figure class='code'><figcaption><span>Compare test query's output with expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"5"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Multiple rows, multiple columns can also be used as expected output.
+All output of the test query will be normalized to String before comparison.
+For <strong>readability</strong>, we can add whitespaces and newlines into expected output string to align rows and columns.
+Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (<code>\s+</code>) with a single space (<code></code>).</p>
+
+<figure class='code'><figcaption><span>Expected output with multiple rows, multiple columns</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'> "name":"test_data",
+</span><span class='line'> "query":"select price, product from dim_product order by product_key;",
+</span><span class='line'> "expected":"10 Chair
+</span><span class='line'>              20 Table
+</span><span class='line'>              30 Twin Bed
+</span><span class='line'>              40 King Bed"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In many situations, the row count of a table is not definitely known.
+However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
+The Test Runner allows you to add some simple logical expression in &ldquo;expected&rdquo; clause.
+It is tester&rsquo;s responsibility to make sure the test query returns some numbers and the logical expression makes sense.</p>
+
+<figure class='code'><figcaption><span>Expected output with logical expression</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- This is same as "expected" : "5"
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator_equal",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"== 5"
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- There must be some entries, at least 10, in the table.
+</span><span class='line'>-- Evaluated as: actual value &gt; 10
+</span><span class='line'>{
+</span><span class='line'>   "name":"test_count_operator",
+</span><span class='line'>   "query":"select count(*) from dim_product;",
+</span><span class='line'>   "expected":"&gt; 10"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in the examples above, inline comments can be added into test block using SQL&rsquo;s <code>--</code> inline comment notation.
+In addition to &ldquo;name&rdquo;, &ldquo;query&rdquo; and &ldquo;expected&rdquo;, you can add a list of script files to be executed in a &ldquo;file&rdquo; clause, as shown in the following example.
+The test query will be executed after all the scripts have been executed.</p>
+
+<figure class='code'><figcaption><span>"file" key to execute shared statements</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"],
+</span><span class='line'>    "query":"select count(1) from dim_product;",
+</span><span class='line'>    "expected":"0"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In practice, you should use the above &ldquo;file&rdquo; clause for:</p>
+
+<ul>
+<li>Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables with synthetic data.</li>
+<li>Reusing the most common tests (e.g., count, constraint checks).</li>
+<li>Making the original test scripts less cluttered with repeated SQL queries or statements.</li>
+</ul>
+
+
+<p>For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for simple JSON test block</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryExpected</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Expected output of the test query above</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">expected</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that all attributes in POJO are optional, NOT required to be defined at all time.
+The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) combination, but you can see others such as the following:</p>
+
+<figure class='code'><figcaption><span>Some other uses</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>-- Just want to make sure this query can be executed. Outputs can vary.
+</span><span class='line'>{
+</span><span class='line'>    "name": "test_ignore_output",
+</span><span class='line'>    "query": "select * from dim_product order by product_key;",
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>-- Run some setup scripts
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_file_multiple",
+</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
+</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"]
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Advanced usage</h3>
+
+<p>Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name.</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As explained in more details in <a href="/blog/2016/04/17/sql-unit-data-parity/">this post</a>, &ldquo;equal&rdquo; is a recently added capability to easily compare two tables or projections from tables.</p>
+
+<figure class='code'><figcaption><span>"equal" clause</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name":"test_data_equivalent",
+</span><span class='line'>    "query":"select product_key, cost from dim_product WHERE ...;",
+</span><span class='line'>    "equal":"select product_key, cost from dim_inventory WHERE ...;"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
 </div>
 
 
