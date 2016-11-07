@@ -66,4 +66,55 @@ The following changes in SQL Test Runner are critical to enable unit testing:
 1. New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those "functions" again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.
 1. Automated execution of DDL/DML files for loading other static dimension tables.
 
-TODO
+In the following example, two `INSERT` statements is used to set up data in two input staging tables.
+They are followed by a new test block to run the ETL script.
+After the ETL is executed, the output data, `email_address` column for example, in the target dimension table is verified using the [standard test block](/blog/2016/03/28/sql-unit-test-runner/).
+Other static dimension tables such as `dim_country` that the ETL script `my_etl.sql` depends on, can be created and populated using Java code.
+
+``` sql Example unit test
+/****************************
+* Day 1
+****************************/
+
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id)
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date)
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+/* @Test
+-- First ETL run
+{
+ "name" : "Day1_etl_run",
+ "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+ "name" : "Day1_check_email_address",
+ "query" : "select company_id, email_address from dim_company",
+ "expected" : "123 before@mockdata.com"
+}
+*/
+```
+
+``` java Calling unit test script
+@BeforeClass
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+    setupSchema("UNITTEST");
+}
+
+@AfterClass
+public void teardown() {
+    teardownSchema("UNITTEST");
+}
+
+@Test(enabled = true)
+public void validate_dim_region() throws Exception {
+        testRunner.runScript("unittests/etl_incremental_update_email.test");
+}
+```
+
+For full unit test script, see [here](/blog/2016/04/10/sql-unit-incremental-data-update/).
