@@ -144,7 +144,7 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 
 ``` python Correct options
     with open(filename, 'w') as config_file:
-        json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+        json.dump(config, config_file, default=vars, indent=4)
 ```
 
 ``` python Pretty print without ordering
@@ -168,6 +168,7 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 }
 ```
 
-Note that simply using `json.dump(config.__dict__, config_file)` will NOT work if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
+Here, we use `vars` [built-in function](https://docs.python.org/2/library/functions.html#vars) to retrieve the object's `__dict__` attribute. 
+Note that simply using `json.dump(vars(config), config_file)` will NOT work if any attribute of the object is another complex object (e.g., `source` and `target` attributes in this example).
 For more complex objects such as those include `set`s, we may have to define our own Encoder that extends `json.JSONEncoder` and provide it to `json.dump` function.
 The next [post](/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/) will discuss how to print keys in order of which they are defined, like in the Java example.

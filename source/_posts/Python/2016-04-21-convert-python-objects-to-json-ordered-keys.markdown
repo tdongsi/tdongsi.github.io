@@ -72,7 +72,7 @@ class Config(object):
        
 
   with open(filename, 'w') as config_file:
-      json.dump(config, config_file, default=lambda o: o.__dict__, indent=4)
+      json.dump(config, config_file, default=vars, indent=4)
 ```
 
 I got an empty object as my JSON output.
@@ -100,7 +100,7 @@ class Config(object):
 
 ``` python Modified JSON dump
     with open(filename, 'w') as config_file:
-        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+        json.dump(config, config_file, default=lambda o: vars(o)[Config.ODICT], indent=4)
 ```
 
 The JSON output now has the keys appear in the order as they are defined, similar to Jackson example above:
@@ -192,7 +192,7 @@ def create_config_file(filename, query_generator):
     config.queries = query_generator
 
     with open(filename, 'w') as config_file:
-        json.dump(config, config_file, default=lambda o: o.__dict__[Config.ODICT], indent=4)
+        json.dump(config, config_file, default=lambda o: vars(o)[Config.ODICT], indent=4)
 
 def main():
 
