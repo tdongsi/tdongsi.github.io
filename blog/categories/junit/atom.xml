@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Junit | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/junit/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
+    <updated>2016-06-06T22:47:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<pre><code class="xml Maven-surefire options">&lt;parallel&gt;classes&lt;/parallel&gt;
+&lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
+&lt;reuseForks&gt;false&lt;/resuseForks&gt;
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[An Old Email]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/19/an-old-email/"/>
+    <updated>2015-11-19T00:41:40-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/19/an-old-email</id>
+    <content type="html"><![CDATA[<p>I found this email below (names redacted) in an old document folder. It is probably one of the most memorable emails I have ever written. It gave me many significant lessons and insight, especially when I&rsquo;m relatively early in my job/career:</p>
+
+<ol>
+<li>Code that is currently correct may not be robust to changes. Watch out for changes, which are frequent in any software project.</li>
+<li>A small change in implementation approach can significantly improve testability of your code.</li>
+<li>Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together, as programmers having different roles (develop vs. test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
+
+<ul>
+<li>Organizational boundaries only dampen open collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.</li>
+</ul>
+</li>
+</ol>
+
+
+<hr />
+
+<p>Hi LeadDeveloper,</p>
+
+<p>I noticed the following problem with enum classes in Project_X. I know that it’s a long email, please bear with me.</p>
+
+<p>For example, the enum class AttributeVisibility is defined as follows:</p>
+
+<pre><code class="java">public enum AttributeVisibility {
+    PublicVisibility(1), 
+    PrivateVisibility(2), 
+    ProtectedVisibility(4); // Values to match ASM Opcodes
+
+    private int value;
+
+    private AttributeVisibility(int v) {
+        value = v;
+    }
+
+    public int getValue() {
+        return value;
+    }
+
+    public static AttributeVisibility getAttributeVisibility(int value) {
+        switch (value) {
+        case 1:
+            return AttributeVisibility.PublicVisibility;
+        case 4:
+            return AttributeVisibility.ProtectedVisibility;
+        case 2:
+            return AttributeVisibility.PrivateVisibility;
+        }
+        throw new RuntimeException("Unable to determine AttributeVisibility");
+    }
+}
+</code></pre>
+
+<p>Similar to many other enum classes in Project_X, the public static method getAttributeVisibility() in this class uses switch statements to convert an integer to enum data type.</p>
+
+<p>There is nothing wrong with those classes now, but using switch statements is NOT a good practice, as explained below.</p>
+
+<p><em>(STOP: I would encourage blog readers to stop for a few minutes and think why. NOT in the original email)</em></p>
+
+<p>In the event of (1) we want to add a new instance, for example, PackageVisibility with value 8 into it, and (2) the developer is unaware of/forgets to update the getAttributeVisibility() method. The case for the new instance PackageVisibility is not added into the switch statement, and the getAttributeVisibility() method is now broken when the input is 8 and PackageVisibility instance is expected to return. One should never rule out that those events (1), (2) ever happen (i.e., they WILL happen) as the project Project_X is evolving.</p>
+
+<p>I believe the better way to do it is to use a map instead of a switch statement (after all, what can express a mapping better than a map?):</p>
+
+<pre><code class="java">public enum AttributePreferred {
+    PublicVisibility(1), 
+    PrivateVisibility(2), 
+    ProtectedVisibility(4); // Values to match ASM Opcodes
+    // PackageVisibility(8);
+
+    private static Map&lt;Integer, AttributePreferred&gt; intToEnum = new HashMap&lt;&gt;();
+
+    static {
+        for (AttributePreferred member : AttributePreferred.values()) {
+            intToEnum.put(member.getValue(), member);
+        }
+    }
+
+    private int value;
+
+    private AttributePreferred(int v) {
+        value = v;
+    }
+
+    public int getValue() {
+        return value;
+    }
+
+    public static AttributePreferred getAttributeVisibility(int value) {
+        AttributePreferred obj = intToEnum.get(value);
+        if (obj == null)
+            throw new RuntimeException(
+                    "Unable to determine AttributeVisibility");
+
+        return obj;
+    }
+}
+</code></pre>
+
+<p>Please note the static initialization block and the updated getAttributeVisibility method. In some enum classes that do not have the private value field such as DiskFormat, the intention may be concisely expressed by the ordinal() method in the static initialization block:</p>
+
+<pre><code class="java DO NOT do this">    static {
+        for (DiskFormat member : DiskFormat.values()) {
+            intToEnum.put(member.ordinal(), member);
+        }
+    }
+</code></pre>
+
+<p>However, using ordinal() method is strongly advised <strong>against</strong> (as indicated in JDK documentation <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html">http://docs.oracle.com/javase/7/docs/api/java/lang/Enum.html</a>). Instead, I would recommend that such enum class uses a private value field to specify a fixed integer value for each instance, similar to the class AttributeVisibility above.</p>
+
+<p>As a test engineer, I do have my stake to demand this change. Writing a unit test for such public method like getAttributeVisibility() is pointless, since it would not be better or more efficient than visually verifying it (see &ldquo;silly&rdquo; test below).</p>
+
+<pre><code class="java Silly unit test">    // How silly is this test?
+    @Test
+    public void test() {
+        assertEquals(AttributeVisibility.PublicVisibility,AttributeVisibility.getAttributeVisibility(1));
+        assertEquals(AttributeVisibility.ProtectedVisibility,AttributeVisibility.getAttributeVisibility(4));
+        assertEquals(AttributeVisibility.PrivateVisibility,AttributeVisibility.getAttributeVisibility(2));
+    }
+</code></pre>
+
+<p>Even worse, that test won&rsquo;t help in the case that events (1)-(2) happen. In fact, when a developer fails to update the switch statement (event 2), it is not more likely or feasible that a test engineer will be able to visually verify it. It means that those enum classes may be broken any time due to changes. The only way to add confidence in those enum classes is to use the preferred implementation as explained above.</p>
+
+<p>In summary, testers will be helpless if a bug is introduced into one of the Project_X enum classes if the safer alternative is not used instead of switch statements.</p>
+
+<p>Best regards,</p>
+
+<p>Cuong</p>
+]]></content>
+  </entry>
+  
+</feed>

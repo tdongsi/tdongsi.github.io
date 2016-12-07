@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Macosx | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/macosx/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Set Up Three-node Vertica VM Sandbox]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/"/>
+    <updated>2016-03-12T14:35:19-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac</id>
+    <content type="html"><![CDATA[<p>I have been using a <strong>single-node</strong> Vertica VM to run ETL tests for <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">sometime</a>.
+The only minor problem is that when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes, it gives error on single-node VM when running DDL scripts to set up schema since single-node cluster is not k-safe.
+Even then, the workaround for running those DDL scripts in tests is easy enough, as shown in the <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">previous blog post</a>.</p>
+
+<p>In this blog post, I looked into setting up a Vertica cluster of <strong>three</strong> VM nodes on Mac, so that my Vertica sandbox is similar to production system, and I can run DDL scripts directly for test setup without modifications.
+Three-node cluster is fortunately also the limit of the free Vertica Community Edition.
+This blog post documents some of my mistakes and wrong approaches while trying to do so.</p>
+
+<h3>Using Vertica VM from HPE support?</h3>
+
+<p>If you already downloaded Vertica VM from HP website, you might consider cloning that VM and configuring the clones to make a three-node VM cluster of Vertica.
+Here are the basic steps of cloning VM on Mac OSX using VMWare Fusion if you are interested in that direction:</p>
+
+<ol>
+<li>Download Vertica VM from <a href="https://my.vertica.com/download/vertica/community-edition/">HPE support website</a>.</li>
+<li>Start up the Vertica VM in VMWare Fusion. Make sure the VM can connect to Internet.
+
+<ol>
+<li>Username: dbadmin. Password: password. Root password: password. From <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/GettingStartedGuide/DownloadingAndStartingVM/DownloadingAndStartingVM.htm">here</a>.</li>
+</ol>
+</li>
+<li>Change the hostname to a shorter name.</li>
+<li>Turn off the VM.</li>
+<li>Clone in VMWare Fusion using &ldquo;Create Full Clone&rdquo; option (NOT &ldquo;Create Linked Clone&rdquo;).</li>
+<li>Start up the three virtual machines.</li>
+<li>Change the hostname of the two new clones into something different: e.g., vertica72b and vertica72c.</li>
+<li>Make sure all 3 nodes can be connected to Internet, having some IP address. Obtain the IP addresses for each node (<code>ip addr</code> command).</li>
+</ol>
+
+
+<p>Depending on the version of VM that you downloaded, you might be hit with the following problem:</p>
+
+<ul>
+<li>Vertica is already installed on that VM as a single-host cluster. You cannot expand the cluster to three VM nodes (without uninstalling and reinstalling Vertica).</li>
+</ul>
+
+
+<p>You will get the following error message when trying to use Vertica tools to expand the cluster:</p>
+
+<pre><code class="plain Error message when trying to expand">[dbadmin@vertica ~]$ sudo /opt/vertica/sbin/update_vertica -A 192.168.5.174
+Vertica Analytic Database 7.1.1-0 Installation Tool
+
+
+&gt;&gt; Validating options...
+
+
+Mapping hostnames in --add-hosts (-A) to addresses...
+Error: Existing single-node localhost (loopback) cluster cannot be expanded
+Hint: Move cluster to external address first. See online documentation.
+Installation FAILED with errors.
+
+Installation stopped before any changes were made.
+</code></pre>
+
+<p>The official explanation from HP Vertica&rsquo;s documentation (quoted from <a href="https://my.vertica.com/docs/7.2.x/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm">here</a>):</p>
+
+<p><blockquote><p>If you installed Vertica on a single node without specifying the IP address or hostname (or you used localhost), you cannot expand the cluster. You must reinstall Vertica and specify an IP address or hostname that is not localhost/127.0.0.1.</p></blockquote></p>
+
+<p>This problem seems insurmountable to me unless you are a Linux hacker and/or willing to do a fresh reinstallation of Vertica on that VM.</p>
+
+<h3>Installing Vertica Community Edition on a fresh VM</h3>
+
+<p>In this approach, I have to install Vertica (free Community Edition) from scratch on a fresh Linux VM.
+Then, I clone that VM and configure the clones to make a three-node cluster of Vertica.</p>
+
+<h4>Before installing Vertica</h4>
+
+<p>Download CentOS VM from <a href="http://www.osboxes.org/">osboxes.org</a>. I used CentOS 6 VM.
+Note that CentOS 5 or older is no longer supported by Vertica HP (check out my attempt in the last section below) and CentOS 7 VM from that website is not stable in my experience (2016 Feb).
+The following information may be useful when you prepare that CentOS VM before installing Vertica on it:</p>
+
+<pre><code class="plain">Username: osboxes
+Password: osboxes.org
+Root password: osboxes.org
+</code></pre>
+
+<p>Note that Wired Network connection may not work for that CentOS box.
+To make it work, I added the following line to the end of my <code>.vmx</code> file based on this <a href="https://www.centos.org/forums/viewtopic.php?f=47&amp;t=47724">link</a>:</p>
+
+<pre><code class="plain">ethernet0.virtualDev = "e1000"
+</code></pre>
+
+<p>Install and configure SSH on the CentOS VM, as detailed in <a href="http://www.cyberciti.biz/faq/centos-ssh/">here</a>.</p>
+
+<h4>Installing Vertica</h4>
+
+<p>Follow the steps in this <a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">link</a> to set up a three-node Vertica VMs.
+Although the instruction is for VMs in VirtualBox on Windows, similar steps apply for VMWare Fusion on Mac OSX.
+Note that in VMWare Fusion, clone the VM using the option &ldquo;Create Full Clone&rdquo; (instead of &ldquo;Create Linked Clone&rdquo;).
+In addition, to keep it consistent with single-node Vertica VM from HPE support website, you might want to create a new database user with username <code>dbadmin</code> and <code>password</code> as password.
+It will help when you need to switch back and forth from using three-node Vertica VM to single-node VM for unit testing purposes.</p>
+
+<h4>After installing Vertica</h4>
+
+<p>After Vertica installation and cluster rebooting, you might encounter one or more problems with the following error messages:</p>
+
+<pre><code class="plain Common issues after rebooting">### Issue 1
+Network Connection is not available.
+
+### Issue 2
+FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+
+### Issue 3
+FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+</code></pre>
+
+<p>To resolve the above issues, use the following commands as superuser, in that order:</p>
+
+<pre><code class="plain Use the following commands as superuser">dhclient
+echo deadline &gt; /sys/block/sda/queue/scheduler
+echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
+</code></pre>
+
+<p>Those issues are the most common issues that I frequently encountered. For other issues, more discussions and troubleshooting tips, check <a href="/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/">this &ldquo;Troubleshooting&rdquo; post</a>.
+Remember to shutdown Vertica database before rebooting one or more nodes in the VM cluster.</p>
+
+<p>After making sure Vertica is running on the three VMs, follow the steps from <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/GettingStartedGuide/InstallingAndConnectingToVMart/QuickInstallation.htm">here</a> to create a Vertica database.
+Simply create a new empty schema in that VMart database for unit testing purpose.
+You now can connect to that Vertica database using some Vertica client (e.g., vsql, SQuirreL) and the following connection information:</p>
+
+<pre><code class="plain Vertica connection">jdbc:vertica://[your_VM_IP_address]:5433/VMart
+
+Username: dbadmin
+Password: password
+</code></pre>
+
+<h3>Using older CentOS for Vertica VM (CentOS 5)</h3>
+
+<p>Installing latest version of Vertica on <strong>CentOS 5</strong> is NOT easy, if not impossible. CentOS 5 is officially dropped from support by HP Vertica.</p>
+
+<p>I tried to reinstall Vertica after encountering the error &ldquo;Existing single-node localhost (loopback) cluster cannot be expanded&rdquo; as mentioned above.
+Then, I encountered this error when trying to install the latest version of Vertica (7.2):</p>
+
+<pre><code class="plain Vertica installation error in CentOS 5">ERROR with rpm_check_debug vs depsolve:
+rpmlib(FileDigests) is needed by vertica-7.2.1-0.x86_64
+rpmlib(PayloadIsXz) is needed by vertica-7.2.1-0.x86_64
+Complete!
+</code></pre>
+
+<p>Running <code>sudo yum -y update rpm</code> does not work.
+The reason is that CentOS 5 and CentOS 6 have very different versions of <code>rpm</code> and <code>rpmlib</code>.
+The CentOS 6 version has support for newer payload compression and a newer <code>FileDigests</code> version than the version of <code>rpm</code> on CentOS 5 can support.
+Since CentOS 5 is dropped from support by HP Vertica, we can expect this error won&rsquo;t be resolved any time soon.</p>
+
+<p>I would recommend using CentOS 6 when trying to install Vertica from scratch, with instructions shown in section above.
+The choice of using CentOS 5 to begin with is totally a personal choice: I have a very stable CentOS 5 VM with lots of utility applications installed.
+There is no apparent advantage of using CentOS 5 over CentOS 6.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2015/10/29/installing-3-node-vertica-7-2-sandbox-environment-using-windows-and-virtualbox/view-all/">Three-node VM setup in VirtualBox</a></li>
+<li><a href="http://www.cyberciti.biz/faq/centos-ssh/">CentOS SSH Installation And Configuration</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Symlinks in Git]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
+    <updated>2016-02-20T11:28:11-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
+    <content type="html"><![CDATA[<h3>Context</h3>
+
+<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
+
+<pre><code class="bash Before">$ ls -l link
+... link -&gt; /path/to/target
+</code></pre>
+
+<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
+Note that even after committing and pushing into Git, the symlinks still work fine.
+However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
+
+<pre><code class="bash After">$ cat link
+/path/to/target
+</code></pre>
+
+<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
+
+<pre><code class="plain">vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
+vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
+</code></pre>
+
+<h3>Restoring the symlinks</h3>
+
+<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
+
+<pre><code class="bash">folder=/Users/tdongsi/Github/my_repo/scripts/sql
+ls -d1 $folder/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+</code></pre>
+
+<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
+Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
+
+<pre><code class="bash Examples">ls -d1 vertica/*.sql | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+
+ls -d1 bash/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+</code></pre>
+
+<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
+
+<pre><code class="bash">ls * | while read f; do
+  # command executed for each file
+done
+</code></pre>
+
+<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
+In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
+It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
+
+<h3>How Git deals with symlinks</h3>
+
+<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
+If false, symbolic links are checked out as small plain files that contain the link text.
+<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
+It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
+When you checkout a tree containing the link, it restores the object as a symlink.</p>
+
+<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
+It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
+
+<h3>Use hard links?</h3>
+
+<p>You can use hard links instead of symlinks (a.k.a., soft links).
+Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
+Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
+
+<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
+Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
+In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
+
+<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
+When you switch branches back and forth, Git remove the old files and create new ones.
+You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
+Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
+Therefore, using hard links, at best, is just a temporary solution.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
+<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
+<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[AWS: Getting Started on Mac OSX]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/17/aws-set-up-aws-credentials-on-mac-osx/"/>
+    <updated>2016-01-17T20:57:35-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/17/aws-set-up-aws-credentials-on-mac-osx</id>
+    <content type="html"><![CDATA[<p>First, you need to set up your AWS credentials on your Mac by creating the following files at the following specific locations:</p>
+
+<pre><code class="plain">MTVL1288aeea2-82:~ cdongsi$ mkdir ~/.aws
+MTVL1288aeea2-82:~ cdongsi$ touch ~/.aws/credentials
+MTVL1288aeea2-82:~ cdongsi$ touch ~/.aws/config
+</code></pre>
+
+<p>In Windows, the locations of those files will be <code>C:\Users\USERNAME\.aws\credentials</code> and <code>C:\Users\USERNAME\.aws\config</code>, respectively.
+You <em>must</em> fill in your AWS access credentials (Access Key ID and Secret Access Key) into the file <code>credentials</code>. Optionally, you can set the default region in the <code>config</code> file.
+The content of the files will look like the following:</p>
+
+<pre><code class="plain">MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/credentials
+[default]
+aws_access_key_id = your_access_key_id
+aws_secret_access_key = your_secret_access_key
+
+MTVL1288aeea2-82:~ cdongsi$ cat ~/.aws/config
+[default]
+region=us-west-2
+</code></pre>
+
+<h3>HelloAws using Java</h3>
+
+<p>Now, you can install AWS Toolkit for Eclipse from <a href="http://aws.amazon.com/eclipse/">this link</a>. Follow the instruction in that page to install AWS Toolkit.</p>
+
+<p>After AWS Toolkit is installed, you are ready to run the first <code>HelloAws</code> Java application. In Eclipse, create a AWS Console application.</p>
+
+<ol>
+<li>Click the new orange button on Eclipse taskbar named &ldquo;AWS Toolkit for Eclipse&rdquo;.</li>
+<li>Click the link named &ldquo;Create a New AWS Java Project&rdquo;.</li>
+<li>Fill in &ldquo;Project name&rdquo; as &ldquo;HelloAws&rdquo;. Check &ldquo;AWS Console Application&rdquo; from &ldquo;AWS SDK for Java Samples&rdquo; panel.</li>
+</ol>
+
+
+<p>Note that the sample generated has the following instruction in its main class. If you haven&rsquo;t do it, follow the steps above to set up your AWS access credentials.</p>
+
+<pre><code class="java">public class AwsConsoleApp {
+
+    /*
+     * Before running the code:
+     *      Fill in your AWS access credentials in the provided credentials
+     *      file template, and be sure to move the file to the default location
+     *      (/Users/cdongsi/.aws/credentials) where the sample code will load the
+     *      credentials from.
+     *      https://console.aws.amazon.com/iam/home?#security_credential
+     *
+     * WARNING:
+     *      To avoid accidental leakage of your credentials, DO NOT keep
+     *      the credentials file in your source directory.
+     */
+
+    static AmazonEC2      ec2;
+    static AmazonS3       s3;
+    static AmazonSimpleDB sdb;
+</code></pre>
+
+<p>If your AWS credentials are ready, simply run the sample AWS console code as &ldquo;Java Application&rdquo;. The output will look something like this:</p>
+
+<pre><code class="plain">===========================================
+Welcome to the AWS Java SDK!
+===========================================
+You have access to 4 Availability Zones.
+You have 0 Amazon EC2 instance(s) running.
+You have 0 Amazon SimpleDB domain(s)containing a total of 0 items.
+You have 0 Amazon S3 bucket(s), containing 0 objects with a total size of 0 bytes.
+</code></pre>
+
+<h3>HelloAws using Python</h3>
+
+<p>To install <a href="http://aws.amazon.com/sdk-for-python/">AWS SDK for Python</a>, run the following the command as instructed in that page:</p>
+
+<pre><code>pip install boto3
+</code></pre>
+
+<p>In my case, I used a slightly different command to avoid permission errors on Mac OSX:</p>
+
+<pre><code>pip install boto3 --user
+</code></pre>
+
+<p>I use PyCharm/IntelliJ as IDE for Python and, apparently, there is no Python sample for it. In PyCharm, you can use the following Python script as your <code>HelloAws</code> program:</p>
+
+<pre><code class="python">import boto3
+from botocore.exceptions import ClientError,NoCredentialsError
+import sys
+
+def getS3BucketNumber():
+
+    try:
+        s3 = boto3.resource('s3')
+        buckets = []
+    except NoCredentialsError:
+        print "No AWS Credentials"
+        sys.exit()
+
+    try:
+        bucket_num = len(list(s3.buckets.all()))
+        print "Number of buckets: " + str(bucket_num)
+        return bucket_num
+    except ClientError as ex:
+        print(ex)
+        return 0
+
+if __name__ == '__main__':
+    getS3BucketNumber()
+</code></pre>
+
+<p>Note that it is based on the <a href="https://github.com/boto/boto3#quick-start">Quick start on Github</a>. In PyCharm, running the above Python should print the following output:</p>
+
+<pre><code class="plain">Number of buckets: 0
+</code></pre>
+
+<h3>Quick note on Python API vs. Java API</h3>
+
+<p>Note that Boto3 SDK for Python support <a href="http://boto3.readthedocs.org/en/latest/guide/resources.html">&ldquo;Resource API&rdquo;</a>.
+As opposed to &ldquo;Service Client API&rdquo; like AWS SDK for Java, Resource API provides a higher level interface to the service and it is easier to understand and simpler to use.</p>
+
+<p>For example, the generated example for AWS&rsquo;s Java SDK uses a Service Client API. It uses a class AmazonS3Client that controls the requests you make to the S3 service.
+Meanwhile, the Boto3 SDK for Python has classes representing the conceptual resources (e.g., s3.Bucket) that you interact with when using the S3 service.
+This is a higher level abstraction compared to a client class like AmazonS3Client making low-level calls to the service API.</p>
+
+<h3>External Links</h3>
+
+<ul>
+<li>Python
+
+<ul>
+<li><a href="https://boto3.readthedocs.org/en/latest/guide/index.html">Developer Guide</a></li>
+<li><a href="https://boto3.readthedocs.org/en/latest/reference/core/index.html">API Documentation</a></li>
+</ul>
+</li>
+<li>Java
+
+<ul>
+<li><a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/welcome.html">Developer Guide</a></li>
+<li><a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html">API Documentation</a></li>
+</ul>
+</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Using Virtual Machine for ETL Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/"/>
+    <updated>2016-01-10T23:49:15-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files</id>
+    <content type="html"><![CDATA[<h3>Vertica Virtual Machine as sandbox test environment</h3>
+
+<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
+Ideally, you should have separate schema for each developer.
+However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
+The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
+If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
+
+<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
+Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
+Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
+Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
+In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
+Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
+
+<h3>Single-node VM and KSAFE clause</h3>
+
+<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
+
+<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+
+<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+
+<ul>
+<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
+<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
+<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
+<li>Add unit and functional tests to ETL scripts in this branch.</li>
+<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
+
+<ul>
+<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
+</ul>
+</li>
+<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
+</ul>
+
+
+<h4>Find and replace a string in multiple files</h4>
+
+<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
+
+<pre><code>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
+</code></pre>
+
+<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
+
+<ul>
+<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
+<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
+</ul>
+
+
+<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
+
+<pre><code>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'
+</code></pre>
+
+<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
+]]></content>
+  </entry>
+  
+</feed>

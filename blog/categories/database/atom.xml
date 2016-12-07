@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Database | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/database/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
+<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
+In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
+For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read (<a href="/blog/2016/03/20/sql-unit-functional-tests/">readability matters</a>).
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
+We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
+Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Find Empty Tables]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/"/>
+    <updated>2015-12-18T21:39:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema</id>
+    <content type="html"><![CDATA[<p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
+
+<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
+
+<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
+
+<pre><code class="sql Query to list tables' sizes in a schema">select anchor_table_schema, anchor_table_name, sum(used_bytes)
+FROM v_monitor.column_storage
+where anchor_table_schema = 'some_schema'
+group by anchor_table_schema, anchor_table_name
+</code></pre>
+
+<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
+
+<h3>v_catalog schema and TABLES system table</h3>
+
+<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
+
+<pre><code class="sql Query to list all tables in a schema">select table_schema, table_name from tables
+where table_schema = 'some_schema'
+</code></pre>
+
+<p>Another useful system table in <code>v_catalog</code> schema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
+
+<h3>Find all the empty (truncated) tables</h3>
+
+<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
+
+<pre><code class="sql Query to find empty tables in a schema">select table_name
+from v_catalog.tables
+where table_schema = 'some_schema'
+EXCEPT
+select anchor_table_name
+from v_monitor.column_storage
+where anchor_table_schema = 'some_schema' 
+</code></pre>
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
+<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Using Vsql CLI]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/17/vertica-tip-using-vsql/"/>
+    <updated>2015-12-17T22:54:07-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/17/vertica-tip-using-vsql</id>
+    <content type="html"><![CDATA[<h3>Using vsql</h3>
+
+<p>You can connect to Vertica database with username and password. When doing this, note that the password might be seen in the command history.</p>
+
+<pre><code>vsql -h internal.vertica.net -p 5433 -d VMart -U vertica_user -w password 
+</code></pre>
+
+<p>Or you can connect to Vertica with Kerberos authentication.</p>
+
+<pre><code>vsql -h internal.vertica.net -p 5433 -d VMart -k KerberosServiceName -K KerberosHostName
+</code></pre>
+
+<p>Note that from time to time, you could run into Kerberos GSI failure because the ticket expired. This is how you can renew and extend the ticket: run the following command to refresh Kerberos cache for the headless account <code>vertica_user</code>.</p>
+
+<pre><code class="">kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET
+</code></pre>
+
+<p>You can also run a single SQL command from command line with <code>-c</code> option or, alternatively, a SQL script file with multiple commands with <code>-f</code> option.
+These options can be very useful to automate in shell/python scripts.
+Note that you can also parameterize your scripts by using <code>-v</code> option to assign variables inside your SQL scripts.</p>
+
+<h3>Vsql meta commands</h3>
+
+<p>Here is list of commonly used vsql <a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">meta commands</a>:</p>
+
+<pre><code>dbadmin=&gt; \dt — (list of all tables)
+dbadmin=&gt; \dt user* — (list of tables starting with user)
+dbadmin=&gt; \d tablename — (describe table)
+dbadmin=&gt; \dv — (list of all views)
+</code></pre>
+
+<p>Here are the vsql commands to export a file:</p>
+
+<pre><code>dbadmin=&gt; \o sample_users_lists.csv
+dbadmin=&gt; \f|
+dbadmin=&gt; select * from my_dwh.users limit 20;
+dbadmin=&gt; \o
+dbadmin=&gt; \q
+</code></pre>
+
+<h3>External links</h3>
+
+<ol>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/ConnectingToHPVertica/vsql/CommandLineOptions.htm">Command line options</a></li>
+<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">Meta Commands</a></li>
+<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands/TheDPATTERNMeta-commands.htm">Meta Commands: \d[Pattern]</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Best Practices]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/"/>
+    <updated>2015-12-16T23:12:06-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices</id>
+    <content type="html"><![CDATA[<p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
+
+<h3>General Tips and Tricks</h3>
+
+<h4>CREATE (INSERT)</h4>
+
+<ul>
+<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
+<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
+<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
+</ul>
+
+
+<pre><code class="sql DO NOT do this">create table to_schema.to_table_name
+as select * from from_schema.from_table_name;
+</code></pre>
+
+<pre><code class="sql DO this">CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
+INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
+</code></pre>
+
+<ul>
+<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
+</ul>
+
+
+<h4>READ</h4>
+
+<ul>
+<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
+<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
+</ul>
+
+
+<h4>UPDATE &amp; DELETE</h4>
+
+<ul>
+<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
+<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
+</ul>
+
+
+<pre><code class="sql">CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
+INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
+DROP TABLE src_table;
+ALTER TABLE temp_table RENAME TO src_table;
+</code></pre>
+
+<ul>
+<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
+</ul>
+
+
+<h3>Query plan</h3>
+
+<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about <a href="https://my.vertica.com/docs/7.0.x/HTML/Content/Authoring/AdministratorsGuide/EXPLAIN/HowToGetQueryPlanInformation.htm">query plans</a> by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
+
+<pre><code class="sql EXPLAIN statement">EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
+WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
+ORDER BY customer_name LIMIT 10;
+</code></pre>
+
+<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
+
+<pre><code class="bash Query Plan description">EXPLAIN SELECT
+customer_name,
+customer_state
+FROM customer_dimension
+WHERE customer_state in ('MA','NH')
+AND customer_gender = 'Male'
+ORDER BY customer_name
+LIMIT 10;
+Access Path:
++-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
+|  Output Only: 10 tuples
+|  Execute on: Query Initiator
+| +---&gt; SORT [Cost: 370, Rows: 544] (PATH ID: 1)
+| |      Order: customer_dimension.customer_name ASC
+| |      Output Only: 10 tuples
+| |      Execute on: Query Initiator
+| | +---&gt; STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
+| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
+| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
+| | |      Filter: (customer_dimension.customer_gender = 'Male')
+| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
+| | |      Execute on: Query Initiator
+</code></pre>
+
+<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
+
+<ol>
+<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
+</ol>
+
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
+<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Netezza CLI Tools]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/09/netezza-cli/"/>
+    <updated>2015-12-09T18:34:12-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/09/netezza-cli</id>
+    <content type="html"><![CDATA[<p>In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) tools.
+These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from bash scripts, controlling sessions and queries, etc.
+The following is a quick overview of just the <code>nzsql</code> and <code>nzload</code> commands.
+For a description of all the CLI tools, see the documentation <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en">here</a>.
+You can install the Netezza CLI tools directly onto your system by following the instructions <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html">here</a>.</p>
+
+<h3>nzsql command</h3>
+
+<p>You can use <code>nzsql</code> in interactive terminal mode by executing the command:</p>
+
+<pre><code>nzsql -host &lt;hostname&gt; -u &lt;username&gt; -pw &lt;password&gt; -d &lt;database&gt;
+
+Welcome to nzsql, the IBM Netezza SQL interactive terminal.
+
+Type:  \h for help with SQL commands
+       \? for help on internal slash commands
+       \g or terminate with semicolon to execute query
+       \q to quit
+
+ws(user)=&gt;
+</code></pre>
+
+<p>which puts you in the nzsql command line interpreter.</p>
+
+<p>From there, you can execute SQL commands:</p>
+
+<pre><code>ws(user)=&gt; select count(*) from dwh..companies;
+COUNT
+---------
+6286
+(1 row)
+</code></pre>
+
+<p>and you can also execute &ldquo;slash&rdquo; commands.  For example, to change the database to <code>dwh</code> and describe the table <code>companies</code>:
+<code>
+ws(user)=&gt; \c dwh
+You are now connected to database dwh.
+ws(user)=&gt; \d companies
+                                 View "COMPANIES"
+           Attribute           |          Type           | Modifier | Default Value
+-------------------------------+-------------------------+----------+---------------
+ COMPANY_ID                    | NUMERIC(38,0)           | NOT NULL |
+ COMPANY_NAME                  | CHARACTER VARYING(100)  |          |
+ COMPANY_STATUS                | NUMERIC(38,0)           |          |
+ STATUS_MESSAGE                | CHARACTER VARYING(2000) |          |
+ CREATE_DATE                   | DATE                    |          |
+ CREATE_VERSION                | CHARACTER VARYING(20)   |          |
+ ASSIGNED_DATE                 | DATE                    |          |
+ ASSIGNED_VERSION              | CHARACTER VARYING(20)   |          |
+...
+</code></p>
+
+<p>To see all the available slash commands, type <code>\?</code> at the prompt:</p>
+
+<pre><code>ws(user)=&gt; \?
+ \a              toggle between unaligned and aligned mode
+ \act            show current active sessions
+ \c[onnect] [dbname [user] [password]]  connect to new database (currently 'UED_QBO_WS')
+ \C &lt;title&gt;      HTML table title
+ \copy ...       perform SQL COPY with data stream to the client machine
+ \d &lt;table&gt;      describe table (or view, index, sequence, synonym)
+ \d{t|v|i|s|e|x} list tables/views/indices/sequences/temp tables/external tables
+ \d{m|y}         list materialized views/synonyms
+ \dS{t|v|i|s}    list system tables/views/indexes/sequences
+ \dM{t|v|i|s}    list system management tables/views/indexes/sequences
+ \dp &lt;name&gt;      list user permissions
+ \dpu &lt;name&gt;     list permissions granted to a user
+ \dpg &lt;name&gt;     list permissions granted to a group
+ \dgp &lt;name&gt;     list grant permissions for a user
+ \dgpu &lt;name&gt;    list grant permissions granted to a user
+ \dgpg &lt;name&gt;    list grant permissions granted to a group
+...
+</code></pre>
+
+<p>To escape from the nzsql interactive terminal mode, type <code>\q</code> at the prompt.</p>
+
+<p>You can also use the <code>nzsql</code> command directly from the command line, by invoking it with various parameters.
+See the documentation <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html">here</a> for all the parameters that can be used with the <code>nzsql</code> command.
+As an example, to execute a single SQL statement and print the results to the terminal:</p>
+
+<pre><code>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies'
+COUNT  
+---------
+9032
+(1 row)
+</code></pre>
+
+<p>Or, to direct the output to a specific file in the local file system:</p>
+
+<pre><code>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies' -o output.txt
+-bash-4.1$ cat output.txt
+COUNT  
+---------
+9032
+(1 row)
+</code></pre>
+
+<p>And, to run a SQL script that is located in the local file system:</p>
+
+<pre><code>-bash-4.1$ cat my_script.sql
+select count(*) from companies;
+-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -f my_script.sql
+COUNT
+---------
+9032
+(1 row)
+</code></pre>
+
+<h3>nzload command</h3>
+
+<p>The <code>nzload</code> command is used to move large volumes of data in to and out of Netezza.
+This is a very broad subject, and you can find all the details <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&amp;lang=en">here</a>.
+As a toy example, suppose you have the following data in the local filesystem:</p>
+
+<pre><code>-bash-4.1$ cat my_data.txt
+Fred, 2
+Betty, 7
+Wilma, 10
+Barney, 5
+</code></pre>
+
+<p>You can create a Netezza to hold this data, using the <code>nzsql</code> command:</p>
+
+<pre><code>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'create table my_table (name varchar(80), rocks int)'
+</code></pre>
+
+<p>And then you can populate the table using the <code>nzload</code> command:</p>
+
+<pre><code>nzload -host myHost -u username -pw password -db ws -t my_table -df my_data.txt -delim ','
+Load session of table 'MY_TABLE' completed successfully
+</code></pre>
+
+<p>Finally, you can confirm that the table was populated using the <code>nzsql</code> command:</p>
+
+<pre><code>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select * from my_table'
+  NAME  | ROCKS 
+--------+-------
+ Wilma  |    10
+ Betty  |     7
+ Barney |     5
+ Fred   |     2
+(4 rows)
+</code></pre>
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en">List of Netezza CLI tools</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html">Installing the Netezza CLI tools</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html">Nzsql CLI tool</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&amp;lang=en">Nzload CLI tool</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+</feed>

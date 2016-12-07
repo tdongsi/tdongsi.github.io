@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Algorithm | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/algorithm/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Improved Priority Queue Recipe in Python]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python/"/>
+    <updated>2016-07-14T17:59:14-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python</id>
+    <content type="html"><![CDATA[<p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
+
+<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
+It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
+Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
+Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
+
+<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
+Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
+That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
+
+<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
+
+<pre><code class="python Improved priority-queue recipe">import heapq
+import itertools
+
+class PriorityQueue(object):
+
+    _REMOVED = "&lt;REMOVED&gt;"
+
+    def __init__(self):
+        self.heap = []
+        self.entries = {}
+        self.counter = itertools.count()
+
+    def add(self, task, priority=0):
+        """Add a new task or update the priority of an existing task"""
+        if task in self.entries:
+            self.remove(task)
+
+        count = next(self.counter)
+        # weight = -priority since heap is a min-heap
+        entry = [-priority, count, task]
+        self.entries[task] = entry
+        heapq.heappush(self.heap, entry)
+        pass
+
+    def remove(self, task):
+        """ Mark the given task as REMOVED.
+
+        Do this to avoid breaking heap-invariance of the internal heap.
+        """
+        entry = self.entries[task]
+        entry[-1] = PriorityQueue._REMOVED
+        pass
+
+    def pop(self):
+        """ Get task with highest priority.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = heapq.heappop(self.heap)
+            if task is not PriorityQueue._REMOVED:
+                del self.entries[task]
+                return -weight, task
+        raise KeyError("The priority queue is empty")
+
+    def peek(self):
+        """ Check task with highest priority, without removing.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = self.heap[0]
+            if task is PriorityQueue._REMOVED:
+                heapq.heappop(self.heap)
+            else:
+                return -weight, task
+
+        return None
+
+    def __str__(self):
+        temp = [str(e) for e in self.heap if e[-1] is not PriorityQueue._REMOVED]
+        return "[%s]" % ", ".join(temp)
+</code></pre>
+
+<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
+
+<ul>
+<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
+<li>Methods and supporting data structures are encapsulated into a class.</li>
+<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
+<li>Method <code>peek</code> is added.</li>
+<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
+<li>Override <code>__str__</code> method for pretty printing.</li>
+</ul>
+
+
+<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
+The Skyline problem states that:</p>
+
+<p><blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote></p>
+
+<p><img class="center <a" src="href="http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png">http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png</a>" width="800" height="260" title="&lsquo;Example&rsquo; &lsquo;An image of example input and output&rsquo;" ></p>
+
+<p>One possible approach is to use a priority queue to keep track of the current highest building
+while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
+Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
+
+<pre><code class="python Solution to Skyline problem">def solve_skyline(mlist):
+    """ Solve the Skyline problem.
+
+    :param mlist: list of buildings in format (start, end, height).
+    :return: List of end points
+    """
+
+    skyline = []
+    cur_height = 0
+    pq = PriorityQueue()
+    events = defaultdict(list)
+    START = "start"
+    END = "end"
+
+    for idx, building in enumerate(mlist):
+        start, end, height = building
+        events[start].append((idx, START))
+        events[end].append((idx, END))
+
+    # k_events is the ordered list of x-coordinates where buildings start or end (events)
+    k_events = sorted(events.keys())
+
+    # Add and remove buildings into a priority-queue for each event.
+    for key in k_events:
+        # print skyline
+        buildings = events[key]
+
+        for e in buildings:
+            idx, label = e
+            if label == START:
+                pq.add(idx, mlist[idx][2])
+            elif label == END:
+                pq.remove(idx)
+
+        # after processing all buildings for a x-coordinate "key", check the current highest building
+        temp = pq.peek()
+        new_height = 0
+        if temp is not None:
+            new_height = temp[0]
+        if new_height != cur_height:
+            skyline.append((key, new_height))
+            cur_height = new_height
+
+    return skyline
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Rabin-Miller Primality Test]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test/"/>
+    <updated>2016-04-20T22:07:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test</id>
+    <content type="html"><![CDATA[<p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p></p><p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p></p><p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p></p><p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote></p>
+
+<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+
+<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
+
+<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
+
+<ul>
+<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
+</ul>
+
+
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+
+<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
+
+<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
+
+<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
+
+<p><figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Decompose</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span> <span class="n">where</span> <span class="n">d</span> <span class="ow">is</span> <span class="n">odd</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="n">where</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">exp = 0</span>
+</span><span class='line'><span class="sd">while num &amp;amp; 1 == 0:  # check num % 2 == 0 but probably faster</span>
+</span><span class='line'><span class="sd">    num &amp;gt;&amp;gt;= 1</span>
+</span><span class='line'><span class="sd">    exp += 1</span>
+</span><span class='line'><span class="sd">return exp, num</span>
+</span><span class='line'><span class="sd">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;p&gt;def is_pseudo_prime(prime, trial=10):</span>
+</span><span class='line'><span class="sd">    &amp;ldquo;&amp;rdquo;&amp;ldquo; Rabin Miller test of primality.&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;pre&gt;&lt;code&gt;:param prime: the input number.</span>
+</span><span class='line'><span class="sd">:param trial: Number of Rabin-Miller trial.</span>
+</span><span class='line'><span class="sd">:return: True if all trials passed, False if not.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
+</span><span class='line'>                <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Labor saving steps</span>
+</span><span class='line'><span class="k">if</span> <span class="n">prime</span> <span class="o">&amp;</span><span class="n">lt</span><span class="p">;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'><span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>Some notes about this implementation:</p>
+
+<ul>
+<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
+<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
+<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
+<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
+</ul>
+
+
+<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
+
+<p><figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Modify</span> <span class="n">Rabin</span> <span class="n">Miller</span> <span class="n">test</span> <span class="n">of</span> <span class="n">primality</span> <span class="n">to</span> <span class="n">find</span> <span class="n">factor</span> <span class="n">of</span> <span class="n">composite</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">prime</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="n">param</span> <span class="n">trial</span><span class="p">:</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trials</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">prime</span> <span class="p">(</span><span class="nb">all</span> <span class="n">trials</span> <span class="n">passed</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="o">.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="sd">SMALL_PRIMES = [ 2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,</span>
+</span><span class='line'><span class="sd">              43,  47,  53,  59,  61,  67,  71,  73,  79,  83,  89,  97, 101]</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">def rabin_miller_trial(num):</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span> <span class="n">Find</span> <span class="n">factor</span> <span class="n">based</span> <span class="n">on</span> <span class="n">the</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trial</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">a</span> <span class="n">random</span> <span class="s">&quot;witness&quot;</span> <span class="n">of</span> <span class="n">primality</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="p">,</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">probably</span> <span class="n">prime</span><span class="o">.</span>
+</span><span class='line'>    <span class="s">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s">    num = pow(num, remainder, prime)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'><span class="s">    if num == 1 or num == prime - 1:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    else:</span>
+</span><span class='line'><span class="s">        gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">        if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">            return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'><span class="s">    for _ in xrange(exponent):</span>
+</span><span class='line'><span class="s">        num = pow(num, 2, prime)</span>
+</span><span class='line'><span class="s">        if num == prime - 1:</span>
+</span><span class='line'><span class="s">            return 1</span>
+</span><span class='line'><span class="s">        else:</span>
+</span><span class='line'><span class="s">            gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">            if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">                return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # It is a composite, but could not find a factor</span>
+</span><span class='line'><span class="s">    return -1</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Labor saving steps</span>
+</span><span class='line'><span class="s">if prime &amp;lt; 2:</span>
+</span><span class='line'><span class="s">    raise ValueError(&quot;Unexpected input&quot;)</span>
+</span><span class='line'><span class="s">for p in SMALL_PRIMES:</span>
+</span><span class='line'><span class="s">    if p * p &amp;gt; prime:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    if prime % p == 0:</span>
+</span><span class='line'><span class="s">        return p</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="s">exponent, remainder = decompose(prime - 1)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">for _ in xrange(trial):</span>
+</span><span class='line'><span class="s">    num = random.randint(2, prime - 2)</span>
+</span><span class='line'><span class="s">    factor = rabin_miller_trial(num)</span>
+</span><span class='line'><span class="s">    if factor &amp;gt; 1:</span>
+</span><span class='line'><span class="s">        return factor</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">return 1</span>
+</span><span class='line'><span class="s">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">&lt;p&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
+Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
+If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Best Friend Forever]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/18/best-friend-forever/"/>
+    <updated>2016-04-18T15:44:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/18/best-friend-forever</id>
+    <content type="html"><![CDATA[<p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, &hellip;, FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote></p>
+
+<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
+I&rsquo;d like to approach to the problem more methodically.
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
+
+<p><img class="center" src="/images/python/bff.png" title="BFF example" ></p>
+
+<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:</p>
+
+<ol>
+<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
+<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
+
+<ul>
+<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.</li>
+<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
+</ul>
+</li>
+<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
+
+<ul>
+<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
+<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
+
+<ol>
+<li>From the list of BFFs, construct a directed graph.</li>
+<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
+<li>Initialize max_length = -1. For each simple cycle:
+
+<ol>
+<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
+<li>If cycle length is equal to 2.
+
+<ol>
+<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
+<li>Find the path length, add to path_sum, and update max_length if needed.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+
+
+<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
+
+<pre><code class="python Construct and plot directed graph with networkx">import matplotlib.pyplot as plt
+import networkx as nx
+
+class Bff(object):
+    """
+    https://code.google.com/codejam/contest/4304486/dashboard#s=p2
+    """
+    def __init__(self, filename):
+        """ Initialize with the given filename.
+
+        :param filename: input file path
+        :return:
+        """
+        self._filename = filename
+        pass
+
+    def draw(self, input):
+        """ Draw the string that represents the bff network.
+
+        The input string contains N integers F1, F2, ..., FN, 
+        where Fi is the student ID number of the BFF
+        of the kid with student ID i.
+
+        :param input: the string that represents the bff network.
+        :return:
+        """
+        # Construct the directed graph
+        bffs = [int(e.strip()) for e in input.split(' ')]
+        nodes = [i+1 for i in xrange(len(bffs))]
+        gr = nx.DiGraph()
+        gr.add_nodes_from(nodes)
+        gr.add_edges_from([e for e in zip(nodes, bffs)])
+
+        # nx.simple_cycles(gr)
+        nx.draw_networkx(gr)
+        plt.savefig(self._filename)
+
+def main():
+    plot = Bff("bff.png")
+    # plot.draw("2 1 6 3 8 4 6 5")
+    plot.draw("6 1 6 5 4 1 5 10 3 7")
+    pass
+</code></pre>
+
+<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
+It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
+<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
+
+<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one or more&rdquo;</strong> in observation 3).
+The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
+
+<p><img class="center" src="/images/python/bff2.png" title="All paths" ></p>
+
+<p>Some morals of the story:</p>
+
+<ul>
+<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
+<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>

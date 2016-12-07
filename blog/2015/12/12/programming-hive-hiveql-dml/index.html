@@ -1,0 +1,427 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Hive Tutorial (Pt. 8): Data Manipulation in HiveQL - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem. LOAD Hive has no row-level &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Hive Tutorial (Pt. 8): Data Manipulation in HiveQL</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-12T23:34:38-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:34 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><!--
+<img class="center" src="/images/hive/cat.gif" title="Cover" >
+
+Chapter 5 of the book
+-->
+
+
+<p>This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem.</p>
+
+<h3>LOAD</h3>
+
+<p>Hive has no row-level insert, update, and delete operations. Instead, we use one of its many &ldquo;bulk&rdquo; load operations to put data into a table.</p>
+
+<figure class='code'><figcaption><span>Hive LOAD</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">LOAD</span> <span class="k">DATA</span> <span class="k">LOCAL</span> <span class="n">INPATH</span> <span class="s1">&#39;/home/ca-employees&#39;</span>
+</span><span class='line'><span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span> <span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span> <span class="p">);</span> <span class="c1">-- remove this if the target is not partitioned</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This <code>LOAD</code> command will first create the directory for the partition, if necessary, then copy the data to it.
+If the <code>LOCAL</code> keyword is specified, the path is assumed in the local filesystem.
+If you use the <code>OVERWRITE</code> keyword, any data present in the target directory will be removed.
+Without the keyword, the new files are added to the target directory.
+More details can be found <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML">here</a>.</p>
+
+<h3>INSERT</h3>
+
+<p>The <code>INSERT</code> statement will load data into a table, as shown below:</p>
+
+<figure class='code'><figcaption><span>Hive INSERT</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span> <span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span> <span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If the keyword <code>OVERWRITE</code> is replaced with <code>INTO</code>, Hive appends the data instead of replaces it.</p>
+
+<!--
+Hive also offers an alternative `INSERT` syntax that allows you to scan the input data once and split it multiple ways.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<p>Similar to other SQL dialects, you can also <code>CREATE TABLE</code> and insert <code>SELECT</code> query results into the new table in a single statement:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">ca_employees</span>
+</span><span class='line'><span class="k">AS</span> <span class="k">SELECT</span> <span class="n">name</span><span class="p">,</span> <span class="n">salary</span><span class="p">,</span> <span class="n">address</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">employees</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+### Dynamic partition
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+You can also mix dynamic and static partitions. The following query specifies a static value for the country (US) and a dynamic value for the state:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Dynamic partitioning is not enabled by default. When it is enabled, it works in “strict” mode by default.
+
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&gt; set hive.exec.dynamic.partition=true;
+</span><span class='line'>&gt; set hive.exec.dynamic.partition.mode=nonstrict;</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>Exporting data</h3>
+
+<p>If you want the data files as is, then exporting data can be as simple as copying the directories or files:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hadoop fs -cp source_path target_path
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Otherwise, you can use <code>INSERT ... DIRECTORY ...</code> statement with associated <code>SELECT</code> statement to specify the data you want, as in this example:</p>
+
+<figure class='code'><figcaption><span>Export from Hive</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">LOCAL</span> <span class="n">DIRECTORY</span> <span class="s1">&#39;/tmp/ca_employees&#39;</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="n">name</span><span class="p">,</span> <span class="n">salary</span><span class="p">,</span> <span class="n">address</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">employees</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-12-12T23:34:38-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:34 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/book/'>book</a>, <a class='category' href='/blog/categories/hadoop/'>hadoop</a>, <a class='category' href='/blog/categories/hive/'>hive</a>, <a class='category' href='/blog/categories/sql/'>sql</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/" data-via="" data-counturl="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/12/09/netezza-cli/" title="Previous Post: Netezza CLI tools">&laquo; Netezza CLI tools</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2015/12/16/vertica-tip-best-practices/" title="Next Post: Vertica tip: Best practices">Vertica tip: Best practices &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

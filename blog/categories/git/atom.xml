@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Git | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/git/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Git: Allow-empty When Squashing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/07/05/git-allow-empty-when-squashing/"/>
+    <updated>2016-07-05T00:15:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/07/05/git-allow-empty-when-squashing</id>
+    <content type="html"><![CDATA[<p>Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
+The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
+After that, we move on with the other way and check in commits for that.
+Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to &ldquo;squash&rdquo; the commits to erase the mistake and avoid confusing others such as reviewers.</p>
+
+<p>In the example shown below, my commit <code>daefc6e</code> was a mistake, and I reverted it with <code>f3886c2</code> commit, and then I checked in my correct solution in <code>b4cb02d</code> commit.
+I wanted to squash those commits in an interactive rebase session, as seen in the following:</p>
+
+<pre><code class="plain Rebase commands shown in text editor">pick daefc6e KSAFE REMOVAL.
+squash f3886c2 Revert "KSAFE REMOVAL."
+squash b4cb02d Update constants.
+
+# Rebase 41ab184..b4cb02d onto 41ab184
+#
+# Commands:
+#  p, pick = use commit
+#  r, reword = use commit, but edit the commit message
+#  e, edit = use commit, but stop for amending
+#  s, squash = use commit, but meld into previous commit
+#  f, fixup = like "squash", but discard this commit's log message
+#  x, exec = run command (the rest of the line) using shell
+#
+# These lines can be re-ordered; they are executed from top to bottom.
+#
+# If you remove a line here THAT COMMIT WILL BE LOST.
+#
+# However, if you remove everything, the rebase will be aborted.
+#
+# Note that empty commits are commented out
+</code></pre>
+
+<p>However, <code>git rebase</code> always fail in such situations with the following &ldquo;error&rdquo; message:</p>
+
+<pre><code class="plain git rebase fails">$ git rebase -i origin/feature/foobar
+You asked to amend the most recent commit, but doing so would make
+it empty. You can repeat your command with --allow-empty, or you can
+remove the commit entirely with "git reset HEAD^".
+rebase in progress; onto 41ab184
+You are currently rebasing branch 'feature/foobar' on '41ab184'.
+
+No changes
+
+Could not apply f3886c23589e0964a4483f6454c6edeba7d63fb7... KSAFE REMOVAL.
+</code></pre>
+
+<p>The error message is very confusing.
+When <code>daefc6e</code> and <code>f3886c2</code> commits are squashed, the net effect is nothing, which is the &ldquo;empty commit&rdquo; mentioned in that error message.
+However, retrying the <code>git rebase</code> command with <code>--allow-empty</code> as said does not work.</p>
+
+<pre><code class="plain">$ git rebase --interactive --allow-empty 
+error: unknown option `allow-empty' 
+</code></pre>
+
+<p>Using <code>git rebase --continue</code> does not work as expected: it does not squash three commits into one.</p>
+
+<p>After some Google searching, it turns out that the above error message comes from <code>git commit --amend</code>, which is delegated by <code>git rebase</code> to handle the squash.
+When the message says &ldquo;repeat your command&rdquo;, it means repeating the <code>git commit --amend</code> command, something would never occurs to us.
+Therefore, the right thing to do here is repeat <code>commit</code> and continue with the interactive rebase session:</p>
+
+<pre><code class="plain">$ git commit --amend --allow-empty
+[detached HEAD 706f662] Revert "KSAFE REMOVAL."
+
+$ git rebase --continue
+[detached HEAD 923477f] Revert "KSAFE REMOVAL."
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+Successfully rebased and updated refs/heads/feature/foobar.
+</code></pre>
+
+<p>By doing that, we will now have all three commits squashed into one and help cleaning up the commit log.</p>
+
+<!--
+http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
+-->
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Symlinks in Git]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
+    <updated>2016-02-20T11:28:11-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
+    <content type="html"><![CDATA[<h3>Context</h3>
+
+<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
+
+<pre><code class="bash Before">$ ls -l link
+... link -&gt; /path/to/target
+</code></pre>
+
+<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
+Note that even after committing and pushing into Git, the symlinks still work fine.
+However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
+
+<pre><code class="bash After">$ cat link
+/path/to/target
+</code></pre>
+
+<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
+
+<pre><code class="plain">vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
+vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
+</code></pre>
+
+<h3>Restoring the symlinks</h3>
+
+<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
+
+<pre><code class="bash">folder=/Users/tdongsi/Github/my_repo/scripts/sql
+ls -d1 $folder/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+</code></pre>
+
+<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
+Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
+
+<pre><code class="bash Examples">ls -d1 vertica/*.sql | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+
+ls -d1 bash/* | while read f; do
+  ln -sf "$(cat $f)" "$f"
+done
+</code></pre>
+
+<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
+
+<pre><code class="bash">ls * | while read f; do
+  # command executed for each file
+done
+</code></pre>
+
+<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
+In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
+It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
+
+<h3>How Git deals with symlinks</h3>
+
+<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
+If false, symbolic links are checked out as small plain files that contain the link text.
+<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
+It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
+When you checkout a tree containing the link, it restores the object as a symlink.</p>
+
+<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
+It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
+
+<h3>Use hard links?</h3>
+
+<p>You can use hard links instead of symlinks (a.k.a., soft links).
+Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
+Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
+
+<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
+Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
+In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
+
+<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
+When you switch branches back and forth, Git remove the old files and create new ones.
+You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
+Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
+Therefore, using hard links, at best, is just a temporary solution.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
+<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
+<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Using Virtual Machine for ETL Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/"/>
+    <updated>2016-01-10T23:49:15-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files</id>
+    <content type="html"><![CDATA[<h3>Vertica Virtual Machine as sandbox test environment</h3>
+
+<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
+Ideally, you should have separate schema for each developer.
+However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
+The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
+If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
+
+<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
+Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
+Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
+Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
+In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
+Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
+
+<h3>Single-node VM and KSAFE clause</h3>
+
+<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
+
+<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
+The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+
+<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+
+<ul>
+<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
+<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
+<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
+<li>Add unit and functional tests to ETL scripts in this branch.</li>
+<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
+
+<ul>
+<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
+</ul>
+</li>
+<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
+</ul>
+
+
+<h4>Find and replace a string in multiple files</h4>
+
+<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
+
+<pre><code>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
+</code></pre>
+
+<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
+
+<ul>
+<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
+<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
+</ul>
+
+
+<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
+
+<pre><code>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'
+</code></pre>
+
+<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
+]]></content>
+  </entry>
+  
+</feed>

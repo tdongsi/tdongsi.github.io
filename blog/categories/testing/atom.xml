@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Testing | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/testing/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Unit Tests Pass on Local but Fail on CI]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures/"/>
+    <updated>2016-06-30T17:51:13-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures</id>
+    <content type="html"><![CDATA[<p>We have all seen it before: intermittent unit test failures.
+It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
+
+<p>In our experience, one of the most common causes is:
+<strong>static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
+
+<p>What happens locally?
+If you’re running from the command line, you probably have some environment variables set.
+These allow some ConfigHelper class to find the resource properties files and load them.
+In the end, code that looks like the following often ends up succeeding:</p>
+
+<pre><code class="java DbQueue class">private static final String MY_CONFIG = ConfigHelper.getBoolean("config_key", false);
+</code></pre>
+
+<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
+Instead, they run using some mock framework such as JMockit.
+Mocking in this scenario is a good, desirable thing.
+However, it also means that code like that ends up failing to find those resources.
+In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
+And very often, classes like that throw some misleading exceptions, especially when trying to load and convert to a numeric value from a resource.</p>
+
+<p>So, how do we fix it?
+How do we prevent that class static member initialization code from being invoked in Jenkins test build?
+The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
+
+<pre><code class="java Mock with JMockit">public class MyTest {
+    @Mocked( stubOutClassInitialization = true )
+    DbQueue queue;
+
+    ...
+}
+</code></pre>
+
+<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
+The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
+    <updated>2016-06-06T22:47:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<pre><code class="xml Maven-surefire options">&lt;parallel&gt;classes&lt;/parallel&gt;
+&lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
+&lt;reuseForks&gt;false&lt;/resuseForks&gt;
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
+    <updated>2016-04-17T16:39:19-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
+<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
+
+<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
+
+matches
+
+select col3, col4 from new_table_name
+</code></pre>
+
+<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
+
+<pre><code class="plain Test blocks for data parity check">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name
+                EXCEPT
+                select col3, col4 from new_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+
+/* @Test
+{
+    "name" : "parity_check_reverse",
+    "query" : "select col3, col4 from new_table_name
+                EXCEPT
+                select col1, col2 from old_table_name
+                limit 20",
+    "expected" : ""
+}
+*/
+</code></pre>
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
+In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
+For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read (<a href="/blog/2016/03/20/sql-unit-functional-tests/">readability matters</a>).
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<pre><code class="plain New test block">/* @Test
+{
+    "name" : "parity_check",
+    "query" : "select col1, col2 from old_table_name",
+    "equal" : "select col3, col4 from new_table_name"
+}
+*/
+</code></pre>
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<pre><code class="java">/**
+ * POJO for JSON test block comparing two projections
+ * 
+ * @author tdongsi
+ */
+public class NameQueryEqual {
+    // Test name.
+    public String name;
+    // File lists to run
+    public List&lt;String&gt; file;
+    // Test query in SQL
+    public String query;
+    // Equivalent query in SQL
+    public String equal;
+}
+</code></pre>
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
+We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
+Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 6) Extending SQL Test Runner]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/"/>
+    <updated>2016-04-16T17:49:34-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>.</p>
+
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
+
+<h3>Design Overview of SQL Test Runner</h3>
+
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
+
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
+
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
+
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+
+<pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
+private TestStrategy testHandler;
+private JdbcConnection connection;
+
+@Override
+public final void runScript(String filePath) throws IOException, SQLException {
+    SoftAssert sAssert = new SoftAssert();
+
+    // Read in the SQL script
+    String content = SqlTestUtility.readFile(filePath);
+
+    // Remove comments
+    String sqlCode = TestBlockUtility.removeComments(content);
+
+    Matcher m = TestBlockUtility.testBlockRegex.matcher(sqlCode);
+    int startIndex = 0;
+    while (m.find()) {
+
+        String currentSql = sqlCode.substring(startIndex, m.start());
+        if ( currentSql.trim().length() &gt; 0 )
+            codeHandler.runSqlCode(currentSql, connection);;
+
+        testHandler.runTest( m.group(), connection, sAssert );
+
+        startIndex = m.end();
+    }
+
+    codeHandler.runSqlCode(sqlCode.substring(startIndex), connection );
+    sAssert.assertAll();
+}
+</code></pre>
+
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
+
+<pre><code class="sql Example unit test script">-- This will be handled by some CodeStrategy class
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+-- This will be handled by some TestStrategy class
+/* @Test
+-- First ETL run
+{
+    "name" : "Day1_etl_run",
+    "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+    "name" : "Day1_check_email_address",
+    "query" : "select company_id, email_address from dim_company",
+    "expected" : "123 before@mockdata.com"
+}
+*/
+</code></pre>
+
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
+
+<pre><code class="java Example TestRunner">/**
+ * Test runner that uses Vertica JDBC connection.
+ * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
+ * 
+ * @author tdongsi
+ */
+public class VerticaRunner extends BaseTestRunner implements TestRunner {
+    public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
+        this.setCodeHandler(new SqlCodeHandler());
+        this.setTestHandler(new VerticaTestHandler(vsqlPath));
+        this.setConnection(jdbcConn);
+    }
+}
+</code></pre>
+
+<h3>Extending Test Runner</h3>
+
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
+
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Design new JSON block for the new test block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 5) Big Data: Functional Tests vs. Unit Tests]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional/"/>
+    <updated>2016-04-14T17:21:12-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>.</p>
+
+<p>In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:</p>
+
+<table>
+<thead>
+<tr>
+<th>       </th>
+<th> Functional tests      </th>
+<th> Unit tests </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Data         </td>
+<td> Production-like data </td>
+<td> Mock (synthetic) data </td>
+</tr>
+<tr>
+<td> Environment  </td>
+<td> Pre-production. All tables deployed at once. </td>
+<td> Local VM. Regular setup/teardown. </td>
+</tr>
+<tr>
+<td> Coverage     </td>
+<td> Passive: Coverage depends on diverse real data. </td>
+<td> Active: Mock data created to force corner cases. </td>
+</tr>
+<tr>
+<td> Example usage </td>
+<td> Snapshot testing </td>
+<td> Incrementa data update testing </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>It should be noted that functional and unit tests are complementary to each other.
+Certain aspects of ETLs can be better verified as functional tests while others of the same ETLs should be verified as unit tests.
+For example, as discussed in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this post</a>, unit tests are better suited for testing incremental data update in ETL scripts.</p>
+
+<p>On the other hand, for example, an ETL that performs some kind of classification, such as categorizing user types based on some clickstream patterns, should be tested in functional tests.
+If there are more than 20 categories, it could become a daunting task to generate and maintain synthetic data for each of those categories.
+Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
+Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
+Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
+
+<!-- Analogy:
+Functional tests:
+- In Web App, running the web application on webserver, running automated Selenium WebDriver tests to verify the web application from browser.
+- In Big Data, running the DDL/DML/ETL scripts to populate the dimension and fact tables in schema, running automated SQL test queries to verify logics between tables.
+
+Unit tests:
+- In Web App, using mocking framework to mock out database, test behavior of a class/method using synthetic inputs, especially for corner cases.
+- In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
+-->
+
+]]></content>
+  </entry>
+  
+</feed>

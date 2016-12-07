@@ -1,0 +1,770 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Book | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/book/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 8): Data Manipulation in HiveQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml/"/>
+    <updated>2015-12-12T23:34:38-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/12/programming-hive-hiveql-dml</id>
+    <content type="html"><![CDATA[<!--
+<img class="center" src="/images/hive/cat.gif" title="Cover" >
+
+Chapter 5 of the book
+-->
+
+
+<p>This post is about HiveQL&rsquo;s parts used to put data into tables and extract data from tables to the filesystem.</p>
+
+<h3>LOAD</h3>
+
+<p>Hive has no row-level insert, update, and delete operations. Instead, we use one of its many &ldquo;bulk&rdquo; load operations to put data into a table.</p>
+
+<pre><code class="sql Hive LOAD">&gt; LOAD DATA LOCAL INPATH '/home/ca-employees'
+OVERWRITE INTO TABLE employees
+PARTITION ( country = 'US', state = 'CA' ); -- remove this if the target is not partitioned
+</code></pre>
+
+<p>This <code>LOAD</code> command will first create the directory for the partition, if necessary, then copy the data to it.
+If the <code>LOCAL</code> keyword is specified, the path is assumed in the local filesystem.
+If you use the <code>OVERWRITE</code> keyword, any data present in the target directory will be removed.
+Without the keyword, the new files are added to the target directory.
+More details can be found <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML">here</a>.</p>
+
+<h3>INSERT</h3>
+
+<p>The <code>INSERT</code> statement will load data into a table, as shown below:</p>
+
+<pre><code class="sql Hive INSERT">&gt; INSERT OVERWRITE TABLE employees
+PARTITION ( country = 'US', state = 'OR' )
+SELECT * FROM staged_employees se
+WHERE se.cnty = 'US' AND se.st = 'OR';
+</code></pre>
+
+<p>If the keyword <code>OVERWRITE</code> is replaced with <code>INTO</code>, Hive appends the data instead of replaces it.</p>
+
+<!--
+Hive also offers an alternative `INSERT` syntax that allows you to scan the input data once and split it multiple ways.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;OR&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;CA&#39;</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span> <span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span> <span class="k">AND</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span> <span class="o">=</span> <span class="s1">&#39;IL&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<p>Similar to other SQL dialects, you can also <code>CREATE TABLE</code> and insert <code>SELECT</code> query results into the new table in a single statement:</p>
+
+<pre><code class="sql">&gt; CREATE TABLE ca_employees
+AS SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
+</code></pre>
+
+<!--
+### Dynamic partition
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+You can also mix dynamic and static partitions. The following query specifies a static value for the country (US) and a dynamic value for the state:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">&gt;</span> <span class="k">INSERT</span> <span class="n">OVERWRITE</span> <span class="k">TABLE</span> <span class="n">employees</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="n">country</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">,</span> <span class="k">state</span><span class="p">)</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="p">...,</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span><span class="p">,</span> <span class="n">se</span><span class="p">.</span><span class="n">st</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">staged_employees</span> <span class="n">se</span>
+</span><span class='line'><span class="k">WHERE</span> <span class="n">se</span><span class="p">.</span><span class="n">cnty</span> <span class="o">=</span> <span class="s1">&#39;US&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Dynamic partitioning is not enabled by default. When it is enabled, it works in “strict” mode by default.
+
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&gt; set hive.exec.dynamic.partition=true;
+</span><span class='line'>&gt; set hive.exec.dynamic.partition.mode=nonstrict;</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>Exporting data</h3>
+
+<p>If you want the data files as is, then exporting data can be as simple as copying the directories or files:</p>
+
+<pre><code class="bash">hadoop fs -cp source_path target_path
+</code></pre>
+
+<p>Otherwise, you can use <code>INSERT ... DIRECTORY ...</code> statement with associated <code>SELECT</code> statement to specify the data you want, as in this example:</p>
+
+<pre><code class="sql Export from Hive">&gt; INSERT OVERWRITE LOCAL DIRECTORY '/tmp/ca_employees'
+SELECT name, salary, address
+FROM employees
+WHERE se.state = 'CA';
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 7): Partitioned Tables]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables/"/>
+    <updated>2015-12-06T21:09:51-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/06/programming-hive-partitioned-tables</id>
+    <content type="html"><![CDATA[<!--
+Chapter 4
+-->
+
+
+<p>Continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
+
+<h3>Partitioned Managed Tables</h3>
+
+<p>In general, partitioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.</p>
+
+<p>In &ldquo;Programming Hive&rdquo;, the authors present a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
+
+<pre><code class="sql">CREATE TABLE employees (
+  name         STRING,
+  salary       FLOAT,
+  subordinates ARRAY&lt;STRING&gt;,
+  deductions   MAP&lt;STRING, FLOAT&gt;,
+  address      STRUCT&lt;street:STRING, city:STRING, state:STRING, zip:INT&gt;
+)
+PARTITIONED BY (country STRING, state STRING);
+</code></pre>
+
+<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory <code>employees</code> under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
+
+<pre><code class="bash">...
+.../employees/country=CA/state=AB
+.../employees/country=CA/state=BC
+...
+.../employees/country=US/state=AL
+.../employees/country=US/state=AK
+...
+</code></pre>
+
+<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
+
+<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
+
+<pre><code class="sql">SHOW PARTITIONS college;
+
+/* DESCRIBE EXTENDED also shows partition keys */
+SHOW PARTITIONS employees PARTITION( country=‘US’);
+</code></pre>
+
+<h4>Strict mode</h4>
+
+<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
+
+<pre><code class="bash">hive&gt; set hive.mapred.mode;
+hive.mapred.mode=nonstrict
+
+hive&gt; set hive.mapred.mode = strict;
+hive&gt; SELECT e.name FROM employees e; /* does not work */
+</code></pre>
+
+<h3>Partitioned External Tables</h3>
+
+<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
+
+<pre><code class="sql">CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
+  hms             INT,
+  severity        STRING,
+  server          STRING,
+  process_id      INT,
+  message         STRING)
+PARTITIONED BY (year INT, month INT, day INT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t';
+
+ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
+LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
+
+DESCRIBE EXTENDED log_messages PARTITION (year=2012);
+</code></pre>
+
+<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
+
+<h4>Example use case of partitioned external tables</h4>
+
+<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
+
+<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:
+<code>bash
+     hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+</code>
+2) Alter the table to point the partition to the S3 location:
+<code>sql
+     ALTER TABLE log_messages PARTITION(year = 2011, month = 12, day = 2)
+     SET LOCATION 's3n://ourbucket/logs/2011/01/02';
+</code>
+3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:
+<code>bash
+     hadoop fs -rmr /data/log_messages/2011/01/02
+</code></p>
+
+<h3>Altering Partitioned Tables</h3>
+
+<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
+
+<pre><code class="sql">/* Add partition */
+ALTER TABLE log_messages ADD IF NOT EXISTS
+PARTITION (year = 2011, month = 1)
+LOCATION ‘/logs/2011/01';
+
+/* Change partition location */
+ALTER TABLE log_messages PARTITION (year = 2011, month = 1)
+SET LOCATION ‘/bucket/logs/2011/01’;
+
+/* Drop partition */
+ALTER TABLE log_messages DROP IF EXISTS PARTITION (year = 2011, month = 1);
+
+/* Alter storage properties of partition */
+ALTER TABLE log_messages
+PARTITION(year = 2012, month = 1, day = 1)
+SET FILEFORMAT SEQUENCEFILE;
+
+/* Archive partition */
+ALTER TABLE log_messages ARCHIVE
+PARTITION(year = 2012, month = 1, day = 1);
+</code></pre>
+
+<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 6): HiveQL Data Definition]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table/"/>
+    <updated>2015-12-05T20:15:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/05/programming-hive-ddl-table</id>
+    <content type="html"><![CDATA[<p>Continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
+
+<h3>Creating Tables</h3>
+
+<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
+
+<pre><code class="sql">/* NOTE: the LOCATION clause uses the default location */
+CREATE TABLE IF NOT EXISTS college.student (
+  name STRING COMMENT 'Student name',
+  sid INT COMMENT 'Student ID',
+)
+COMMENT 'Description of the table' TBLPROPERTIES ( 'creator' = 'me' )
+LOCATION '/user/hive/warehouse/college.db/student';
+
+/* 
+ * copy the schema of an existing table
+ * you can specify optional LOCATION but no other can be defined
+ */
+CREATE TABLE IF NOT EXISTS mydb.clone LIKE mydb.employees;
+
+/*
+* Create external table
+* Read all data files with comma-delimited format
+* from /data/stocks
+* LOCATION is required for external table
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
+  exchange        STRING,
+  symbol          STRING,
+  volume          INT,
+  price_adj_close FLOAT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION '/data/stocks';
+
+/*
+* Copy external table schema.
+*/
+CREATE EXTERNAL TABLE IF NOT EXISTS ext_clone
+LIKE stocks
+LOCATION '/path/to/data';
+
+/*
+* Drop table
+* For managed tables, the table metadata and data are deleted.
+* For external tables, the metadata is deleted but the data is not.
+*/
+DROP TABLE IF EXISTS college;
+</code></pre>
+
+<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
+
+<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
+
+<pre><code class="bash">hive&gt; use college;
+OK
+Time taken: 0.048 seconds
+
+
+/* Show list of tables in current database */
+hive&gt; show tables;
+OK
+apply
+college
+student
+Time taken: 0.031 seconds, Fetched: 3 row(s)
+
+/* Show list of tables in the specified database */
+hive&gt; show tables in college;
+OK
+apply
+college
+student
+Time taken: 0.034 seconds, Fetched: 3 row(s)
+
+/* use regex to search tables in current database */
+hive&gt; show tables '.*e.*';
+OK
+college
+student
+Time taken: 0.025 seconds, Fetched: 2 row(s)
+
+
+/* Show table properties */
+hive&gt; show tblproperties student;        
+OK
+COLUMN_STATS_ACCURATE   true
+comment List of students
+numFiles    1
+numRows 0
+rawDataSize 0
+totalSize   213
+transient_lastDdlTime   1421796179
+Time taken: 0.28 seconds, Fetched: 7 row(s)
+</code></pre>
+
+<p>You can use <code>DESCRIBE</code> command to display table information as shown below:
+<figure class='code'><figcaption><span>Hive settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>hive&gt; describe extended student;      &lt;br/&gt;
+</span><span class='line'>OK
+</span><span class='line'>sid                     int                     Student ID        &lt;br/&gt;
+</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
+</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
+</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;Detailed Table Information  Table(tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor(cols:[FieldSchema(name:sid, type:int, comment:Student ID), FieldSchema(name:sname, type:string, comment:Student name), &hellip;
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: 6 row(s)&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;/&lt;em&gt; more readable and verbose &lt;/em&gt;/
+</span><span class='line'>hive&gt; describe formatted student;
+</span><span class='line'>OK&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;col_name              data_type               comment&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;sid                     int                     Student ID        &lt;br/&gt;
+</span><span class='line'>sname                   string                  Student name      &lt;br/&gt;
+</span><span class='line'>gpa                     float                   Student GPA       &lt;br/&gt;
+</span><span class='line'>sizehs                  int                     Size of student highschool&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;Detailed Table Information&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;Database:               college                &lt;br/&gt;
+</span><span class='line'>Owner:                  cloudera               &lt;br/&gt;
+</span><span class='line'>CreateTime:             Tue Jan 20 15:22:58 PST 2015   &lt;br/&gt;
+</span><span class='line'>LastAccessTime:         UNKNOWN                &lt;br/&gt;
+</span><span class='line'>Protect Mode:           None                   &lt;br/&gt;
+</span><span class='line'>Retention:              0                      &lt;br/&gt;
+</span><span class='line'>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student &lt;br/&gt;
+</span><span class='line'>Table Type:             MANAGED_TABLE          &lt;br/&gt;
+</span><span class='line'>Table Parameters:      &lt;br/&gt;
+</span><span class='line'>    COLUMN_STATS_ACCURATE   true              &lt;br/&gt;
+</span><span class='line'>    comment                 List of students  &lt;br/&gt;
+</span><span class='line'>    numFiles                1                 &lt;br/&gt;
+</span><span class='line'>    numRows                 0                 &lt;br/&gt;
+</span><span class='line'>    rawDataSize             0                 &lt;br/&gt;
+</span><span class='line'>    totalSize               213               &lt;br/&gt;
+</span><span class='line'>    transient_lastDdlTime   1421796179&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;h1&gt;Storage Information&lt;/h1&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe &lt;br/&gt;
+</span><span class='line'>InputFormat:            org.apache.hadoop.mapred.TextInputFormat   &lt;br/&gt;
+</span><span class='line'>OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat &lt;br/&gt;
+</span><span class='line'>Compressed:             No                     &lt;br/&gt;
+</span><span class='line'>Num Buckets:            -1                     &lt;br/&gt;
+</span><span class='line'>Bucket Columns:         []                     &lt;br/&gt;
+</span><span class='line'>Sort Columns:           []                     &lt;br/&gt;
+</span><span class='line'>Storage Desc Params:       &lt;br/&gt;
+</span><span class='line'>    field.delim             ;                 &lt;br/&gt;
+</span><span class='line'>    serialization.format    ;                 &lt;br/&gt;
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: 36 row(s)&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;/&lt;em&gt; see schema for a column &lt;/em&gt;/
+</span><span class='line'>hive&gt; describe student.sid;
+</span><span class='line'>OK
+</span><span class='line'>sid                     int                     from deserializer &lt;br/&gt;
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: 1 row(s)</span></code></pre></td></tr></table></div></figure></p>
+
+<h3>Managed tables vs. External tables</h3>
+
+<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>.
+It is internal/managed because the life cycle of their data is managed by Hive.
+By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands).
+When we drop a managed table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
+
+<pre><code>hive&gt; SET hive.metastore.warehouse.dir;
+hive.metastore.warehouse.dir=/user/hive/warehouse
+hive&gt; dfs -ls /user/hive/warehouse/college.db;
+Found 3 items
+drwxrwxrwx   - hive hive          0 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+drwxrwxrwx   - hive hive          0 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+drwxrwxrwx   - hive hive          0 2015-01-28 15:26 /user/hive/warehouse/college.db/student
+</code></pre>
+
+<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
+
+<p>Managed tables are not convenient for sharing data with other tools.
+Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data.
+In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location.
+The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located.
+Dropping an external table does not delete the data since Hive does not <em>own</em> the data.
+However, the <em>metadata</em> for that table will be deleted.</p>
+
+<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
+
+<pre><code>Location:               hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student   
+Table Type:             MANAGED_TABLE 
+</code></pre>
+
+<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
+
+<h3>Altering Tables</h3>
+
+<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
+
+<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
+
+<pre><code class="sql">/* Renaming table */
+ALTER TABLE college RENAME TO university;
+
+/*
+ * Change columns: rename, change its position, type, or comment.
+ * The keyword COLUMN is optional, as well as COMMENT clause.
+ * This command changes metadata only. 
+ * The data has to be moved to match the new columns if needed.
+ * Use FIRST, instead of AFTER, if the column is moved to first.
+ */
+ALTER TABLE log_messages
+CHANGE COLUMN hms hours_minutes_seconds INT
+COMMENT 'New comment'
+AFTER severity;
+
+/*
+ * Add columns, to the end of existing columns.
+ * Use CHANGE COLUMN to rearrange if needed.
+ */
+ALTER TABLE log_messages
+ADD COLUMNS (
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
+
+/*
+ * Remove all the existing columns and replaces with new 
+ * specified columns.
+ */
+ALTER TABLE log_messages
+REPLACE COLUMNS (
+app_name STRING COMMENT 'New column 1',
+session_id INT COMMENT 'New column 2');
+
+/* 
+ * You can add table properties or set current properties,
+ * but not remove them 
+ */
+ALTER TABLE log_messages
+SET TBLPROPERTIES (
+'some_key' = 'some_value'
+);
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 5): HiveQL Data Definition]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl/"/>
+    <updated>2015-12-02T18:32:21-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/02/programming-hive-hiveql-ddl</id>
+    <content type="html"><![CDATA[<p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
+
+<h3>Databases</h3>
+
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<pre><code class="sql">CREATE DATABASE college;
+CREATE DATABASE IF NOT EXISTS college;
+
+SHOW DATABASES;
+SHOW DATABASES LIKE 'h.*';
+
+CREATE DATABASE college
+LOCATION '/my/preferred/directory';
+
+/* add comments to table */
+CREATE DATABASE college COMMENT 'A college admission database';
+/* show comments */
+DESCRIBE DATABASE college;
+
+/* add properties */
+CREATE DATABASE college WITH DBPROPERTIES ( 'creator' = 'CD', 'date' = 'today' );
+/* show properties */
+DESCRIBE DATABASE EXTENDED college;
+
+/* set working database */
+USE college;
+/* this will show tables in this database */
+SHOW TABLES;
+
+DROP DATABASE IF EXISTS college;
+/* Drop tables if there is any table in the database */
+DROP DATABASE IF EXISTS college CASCADE;
+
+/* You can set additional key-value pairs in properties.
+ * No other metadata about the database can be changed. No way to delete a DB PROPERTY.
+ */
+ALTER DATABASE college SET DBPROPERTIES ('editor' = 'DC');
+</code></pre>
+
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
+
+<pre><code class="bash">[cloudera@quickstart temp]$ hive
+
+Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+hive&gt; describe database default;
+OK
+default Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+Time taken: 0.01 seconds, Fetched: 1 row(s)
+hive&gt; describe database college;
+OK
+college     hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+Time taken: 0.011 seconds, Fetched: 1 row(s)
+
+hive&gt; SET hive.metastore.warehouse.dir;
+hive.metastore.warehouse.dir=/user/hive/warehouse
+
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db;
+Found 3 items
+drwxrwxrwx   - hive hive          0 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+drwxrwxrwx   - hive hive          0 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+drwxrwxrwx   - hive hive          0 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student;
+Found 1 items
+-rwxrwxrwx   1 cloudera hive        213 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college;
+Found 1 items
+-rwxrwxrwx   1 cloudera hive         66 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</code></pre>
+
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
+
+<pre><code>hive&gt; set hive.cli.print.current.db=true;
+hive (default)&gt; USE college;
+OK
+Time taken: 0.278 seconds
+hive (college)&gt; 
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 4): Data Types]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/26/programming-hive-data-types/"/>
+    <updated>2015-11-26T18:01:37-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/26/programming-hive-data-types</id>
+    <content type="html"><![CDATA[<p>This post covers different data types and file formats supported by Hive.</p>
+
+<h3>Data Types</h3>
+
+<p>The following primitive data types are supported:</p>
+
+<ul>
+<li>TINYINT: 1 byte signed integer</li>
+<li>SMALLINT: 2 bytes</li>
+<li>INT: 4 bytes</li>
+<li>BIGINT: 8 bytes</li>
+<li>BOOLEAN</li>
+<li>FLOAT</li>
+<li>DOUBLE</li>
+<li>STRING: Single or double quotes can be used for literals.</li>
+<li>TIMESTAMP: Integer, float, or string.
+
+<ul>
+<li>Integer: For seconds from Unix epoch.</li>
+<li>Float: Seconds from Unix epoch and nanoseconds.</li>
+<li>String: JDBC-compliant java.sql.Timestamp format convention, i.e. YYYY-MM-DD hh:mm:ss.fffffffff</li>
+</ul>
+</li>
+<li>BINARY: array of bytes. Used to include arbitrary bytes and prevent Hive from attempting to parse them.</li>
+</ul>
+
+
+<p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
+
+<p>NOTE: Not mentioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0.
+In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+
+<p>Besides primitive data types, Hive supports the following collection data types:</p>
+
+<ul>
+<li>STRUCT: Analogous to a C <code>struct</code> or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
+
+<ul>
+<li>Example: Declaration -> <code>struct&lt;name:string,id:int&gt;</code>. Literal -> <code>struct('John',1)</code>.</li>
+</ul>
+</li>
+<li>MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons[&lsquo;John&rsquo;].
+
+<ul>
+<li>Example: Declaration -> <code>map&lt;string,int&gt;</code>. Literal -> <code>map('John',1)</code>.</li>
+</ul>
+</li>
+<li>ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
+
+<ul>
+<li>Example: Declaration -> <code>array&lt;string&gt;</code>. Literal -> <code>array('John','Peter')</code>.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Relational databases don&rsquo;t usually support such collection types because they tend to break <strong>normal form</strong>.
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).</p>
+
+<h3>Text File Formats</h3>
+
+<p>Hive can use comma-separated values (CSV) or tab-separated values (TSV) text file format. A Hive table declaration with all row format specified (with default values, however) looks like this:</p>
+
+<pre><code class="sql">CREATE TABLE employees (
+  name         STRING,
+  salary       FLOAT,
+  subordinates ARRAY&lt;STRING&gt;,
+  deductions   MAP&lt;STRING, FLOAT&gt;,
+  address      STRUCT&lt;street:STRING, city:STRING, state:STRING, zip:INT&gt;
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\001'
+COLLECTION ITEMS TERMINATED BY '\002'
+MAP KEYS TERMINATED BY '\003'
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+</code></pre>
+
+<h3>Schema on Read</h3>
+
+<p>Different from databases, Hive has no control over the underlying storage: for example, you can modify files on HDFS that Hive will query. Hive tries its best to read the data and match the schema. If the file content does not match the schema such as non-numeric strings found when numbers expected, you may get null values.</p>
+
+<h3>Additional References</h3>
+
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
+
+<ol>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/Tutorial">https://cwiki.apache.org/confluence/display/Hive/Tutorial</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+</feed>

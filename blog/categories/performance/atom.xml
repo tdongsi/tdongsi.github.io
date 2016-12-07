@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Performance | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/performance/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
+    <updated>2016-02-13T23:52:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
+    <content type="html"><![CDATA[<p>Most of these optimization notes in this post are learnt through our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
+Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+
+<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
+
+<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
+
+<pre><code class="sql BAD">SELECT 'United States', 'English' 
+WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
+</code></pre>
+
+<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
+So, for example above:</p>
+
+<pre><code class="sql GOOD">SELECT 'United States', 'English' 
+WHERE 'United States' NOT IN (select country_name from dim_country)
+</code></pre>
+
+<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
+
+<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
+
+<pre><code class="sql BAD">INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
+WHERE dc.country_id is NULL;
+</code></pre>
+
+<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
+It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
+Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
+
+<pre><code class="sql GOOD">INSERT INTO dim_country                    
+(
+    country_id,
+    country_name,
+    country_language,
+) 
+SELECT ssp.country_id,
+    ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
+</code></pre>
+
+<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
+
+<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
+
+<pre><code class="sql BAD">INSERT INTO dim_country                    
+(
+    country_name,
+    country_language,
+) SELECT ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
+WHERE dc.country_name is NULL;
+</code></pre>
+
+<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
+
+<pre><code class="sql BETTER, but still BAD">INSERT INTO dim_country                    
+(
+    country_name,
+    country_language,
+) SELECT ssp.country_name,
+    ssp.country_language,
+FROM staging_table ssp
+WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_country);;
+</code></pre>
+
+<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
+In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
+
+<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
+Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
+
+<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
+
+<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
+Using this function, tables are analyzed for best performance in subsequent queries ran against it.
+Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
+
+<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
+In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
+Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
+
+<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
+
+<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
+
+<ol>
+<li>Create the temporary table first without a projection.</li>
+<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
+<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
+<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
+</ol>
+
+
+<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
+
+<pre><code class="sql BAD">CREATE TEMPORARY TABLE customer_last_temp 
+ON COMMIT PRESERVE ROWS
+AS(
+  select * from (
+    select *,
+    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+    from  stg_customer rpt 
+  ) t1 where t1.rank =1
+);
+</code></pre>
+
+<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
+Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
+Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
+
+<pre><code class="sql Create a temporary table without projection">CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
+        customer_id                     int,
+        subscribe_date                  timestamp,
+        cancel_date                     timestamp,
+        last_modify_date                timestamp,
+)
+ON COMMIT PRESERVE ROWS NO PROJECTION;
+</code></pre>
+
+<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
+A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
+Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
+
+<pre><code class="sql Create a super projection">CREATE PROJECTION customer_last_temp_super (
+      customer_id ENCODING DELTARANGE_COMP 
+    , subscribe_date ENCODING GCDDELTA
+    , cancel_date ENCODING BLOCKDICT_COMP     
+    , last_modify_date ENCODING BLOCKDICT_COMP 
+)
+AS 
+SELECT customer_id 
+     , subscribe_date
+     , cancel_date
+     , last_modify_date
+  FROM customer_last_temp 
+ ORDER BY customer_id
+SEGMENTED BY HASH (customer_id) ALL NODES;
+</code></pre>
+
+<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
+
+<pre><code class="sql Populate the table">INSERT /*+ direct */ INTO customer_last_temp (
+      customer_id 
+    , subscribe_date 
+    , cancel_date 
+    , last_modify_date 
+)
+WITH t1 AS (
+    SELECT company_id 
+         , subscribe_date 
+         , cancel_date 
+         , last_modify_date 
+         , ROW_NUMBER() OVER (PARTITION BY customer_id 
+                                  ORDER BY last_modify_date DESC) AS rank 
+      FROM stg_customer AS rpt 
+)
+SELECT company_id 
+     , subscribe_date 
+     , cancel_date 
+     , last_modify_date 
+FROM t1
+WHERE t1.rank = 1;  
+</code></pre>
+
+<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
+In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
+    <updated>2016-02-07T00:50:44-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
+    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
+Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
+
+<ol>
+<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
+<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
+<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
+</ol>
+
+
+<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
+For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
+Vertica creates a default super-projection when running CREATE TABLE statement.
+<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
+
+<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
+Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Tip: Best Practices]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices/"/>
+    <updated>2015-12-16T23:12:06-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/12/16/vertica-tip-best-practices</id>
+    <content type="html"><![CDATA[<p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
+
+<h3>General Tips and Tricks</h3>
+
+<h4>CREATE (INSERT)</h4>
+
+<ul>
+<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
+<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
+<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
+</ul>
+
+
+<pre><code class="sql DO NOT do this">create table to_schema.to_table_name
+as select * from from_schema.from_table_name;
+</code></pre>
+
+<pre><code class="sql DO this">CREATE TABLE to_schema.to_table_name LIKE from_schema.from_table_name INCLUDING PROJECTIONS;
+INSERT /*+ direct */ INTO to_schema.to_table_name SELECT * from from_schema.from_table_name;
+</code></pre>
+
+<ul>
+<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
+</ul>
+
+
+<h4>READ</h4>
+
+<ul>
+<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
+<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
+</ul>
+
+
+<h4>UPDATE &amp; DELETE</h4>
+
+<ul>
+<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
+<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
+</ul>
+
+
+<pre><code class="sql">CREATE temp_table LIKE src_table INCLUDING PROJECTIONS;
+INSERT INTO temp_table (SELECT statement based on the updated data or the needed rows);
+DROP TABLE src_table;
+ALTER TABLE temp_table RENAME TO src_table;
+</code></pre>
+
+<ul>
+<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
+</ul>
+
+
+<h3>Query plan</h3>
+
+<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about <a href="https://my.vertica.com/docs/7.0.x/HTML/Content/Authoring/AdministratorsGuide/EXPLAIN/HowToGetQueryPlanInformation.htm">query plans</a> by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
+
+<pre><code class="sql EXPLAIN statement">EXPLAIN SELECT customer_name, customer_state FROM customer_dimension
+WHERE customer_state in ('MA','NH') AND customer_gender = 'Male'     
+ORDER BY customer_name LIMIT 10;
+</code></pre>
+
+<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
+
+<pre><code class="bash Query Plan description">EXPLAIN SELECT
+customer_name,
+customer_state
+FROM customer_dimension
+WHERE customer_state in ('MA','NH')
+AND customer_gender = 'Male'
+ORDER BY customer_name
+LIMIT 10;
+Access Path:
++-SELECT  LIMIT 10 [Cost: 370, Rows: 10] (PATH ID: 0)
+|  Output Only: 10 tuples
+|  Execute on: Query Initiator
+| +---&gt; SORT [Cost: 370, Rows: 544] (PATH ID: 1)
+| |      Order: customer_dimension.customer_name ASC
+| |      Output Only: 10 tuples
+| |      Execute on: Query Initiator
+| | +---&gt; STORAGE ACCESS for customer_dimension [Cost: 331, Rows: 544] (PATH ID: 2) 
+| | |      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
+| | |      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
+| | |      Filter: (customer_dimension.customer_gender = 'Male')
+| | |      Filter: (customer_dimension.customer_state = ANY (ARRAY['MA', 'NH']))
+| | |      Execute on: Query Initiator
+</code></pre>
+
+<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
+
+<ol>
+<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
+</ol>
+
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
+<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Automated Performance Logging and Plotting for Cassandra]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra/"/>
+    <updated>2015-11-14T19:57:43-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra</id>
+    <content type="html"><![CDATA[<p>In this <a href="https://github.com/tdongsi/python/tree/master/PerformanceLog">mini-project</a>, I created a Python script (PerformanceLog.py) to record JMX values from a running Cassandra instance, using JMXTerm (<a href="http://wiki.cyclopsgroup.org/jmxterm/">http://wiki.cyclopsgroup.org/jmxterm/</a>), and do the following:</p>
+
+<ul>
+<li>Put the records into a Cassandra table.</li>
+<li>Plot the results.</li>
+</ul>
+
+
+<p>The project is based on a Cassandra interview question found on Glassdoor.</p>
+
+<p>Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.</p>
+
+<h2>Input/Output</h2>
+
+<p><strong>Input</strong></p>
+
+<p>When running the script from command line, the following arguments must be provided:</p>
+
+<ul>
+<li>installDir INSTALLDIR:  Path to installation directory.</li>
+<li>host HOST: URL string for Cassandra instance. Only localhost tested.</li>
+<li>jmxTerm JMXTERM: Path to jmxterm jar file.</li>
+<li>osString OSSTRING: String that represents the current OS. Windows: win. Mac: mac. Unix/Linux: linux.</li>
+</ul>
+
+
+<p>Example:</p>
+
+<blockquote><p>python PerformanceLog.py -installDir C:\datastax -host localhost -jmxTerm lib\jmxterm.jar -osString win</p></blockquote>
+
+<p><strong>Output</strong></p>
+
+<ul>
+<li>CSV file with each field for each JMX metric.</li>
+</ul>
+
+
+<p>Example:</p>
+
+<blockquote><p>  SSTableCount,DataSize,c95thPercentile</p>
+
+<p>  0,0,0.0</p>
+
+<p>  7,31306299,9337.784849999995</p>
+
+<p>  7,31306299,9262.307649999999</p>
+
+<p>  &hellip;</p></blockquote>
+
+<ul>
+<li><p>Records in a Cassandra table</p></li>
+<li><p>Performance plot as PNG file (automatically generated from CSV output file)</p></li>
+</ul>
+
+
+<p>Example:</p>
+
+<p><img src="https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png" title="Performance Plot" alt="alt text" /></p>
+
+<h2>Python modules</h2>
+
+<ol>
+<li>PerformanceLog.py: Main module to run the automated tasks. Please use &ldquo;python PerformanceLog -h&rdquo; for the required arguments. Example call for Windows is in the doc string.</li>
+<li>MyLogger.py: Logging support module</li>
+<li>CassandraRecord.py: Support module to record metrics into a Cassandra table.</li>
+<li>Plotter.py: Support module to plot metrics into plots and save into PNG file.</li>
+</ol>
+
+
+<h3>Automated tasks by the modules</h3>
+
+<ol>
+<li>Check if Cassandra is Running</li>
+<li>Record certain JMX Metrics</li>
+<li>Runs the external tool Cassandra Stress</li>
+<li>Once the stress session has completed, stop recording JMX Metrics</li>
+<li>Record the metrics back into a Cassandra Table</li>
+<li>Graph the results (create these graphs at the end of the run).</li>
+</ol>
+
+
+<h2>External Python libraries required</h2>
+
+<h4>For CassandraRecord.py</h4>
+
+<p>This module requires Datastax&rsquo;s Python driver: <a href="http://datastax.github.io/python-driver/installation.html">http://datastax.github.io/python-driver/installation.html</a></p>
+
+<h4>For Plotter.py</h4>
+
+<p>This Python module used Matplotlib library. Please install the following Python libraries: matplotlib, numpy, dateutil, pytz, pyparsing, six (optionally: pillow, pycairo, tornado, wxpython, pyside, pyqt, ghostscript, miktex, ffmpeg, mencoder, avconv, or imagemagick).</p>
+
+<p>Installation of these Python libraries are straight-forward on Linux and Win32. On Win64, please find their installers here: <a href="http://www.lfd.uci.edu/~gohlke/pythonlibs/">http://www.lfd.uci.edu/~gohlke/pythonlibs/</a></p>
+
+<h2>Other files</h2>
+
+<p>The following output files are produced. For consistency check, they are left behind.
+In the final version of the script, they may be cleaned up accordingly.</p>
+
+<ul>
+<li>tempout: Output from JmxTerm session</li>
+<li>jmxMetrics.csv: The cvs file that records the interested JMX metrics.</li>
+<li>CassandraTest.log: The log file for the script.</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>

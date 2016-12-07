@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Jdbc | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/jdbc/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Hive Tutorial (Pt. 3): Runtime Modes]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started/"/>
+    <updated>2015-11-24T18:24:30-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/24/programming-hive-getting-started</id>
+    <content type="html"><![CDATA[<p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
+
+<h3>Runtime Modes</h3>
+
+<p>There are different runtime modes for Hadoop.
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
+
+<table>
+<thead>
+<tr>
+<th> Local Mode </th>
+<th> Distributed Mode </th>
+<th> Pseudodistributed Mode </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Filesystem references use local filesystem. </td>
+<td> Filesystem references use HDFS. </td>
+<td> Similar to distributed mode. </td>
+</tr>
+<tr>
+<td> MapReduce tasks in same process. </td>
+<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
+<td> Similar to distributed mode.</td>
+</tr>
+<tr>
+<td> Default mode. </td>
+<td> Usually configured for server clusters. </td>
+<td> Like a cluster of one node.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
+
+<h3>Metastore Using JDBC</h3>
+
+<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
+In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
+
+<pre><code class="xml">  &lt;property&gt;
+    &lt;name&gt;javax.jdo.option.ConnectionURL&lt;/name&gt;
+    &lt;value&gt;jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true&lt;/value&gt;
+    &lt;description&gt;JDBC connect string for a JDBC metastore&lt;/description&gt;
+  &lt;/property&gt;
+
+  &lt;property&gt;
+    &lt;name&gt;javax.jdo.option.ConnectionDriverName&lt;/name&gt;
+    &lt;value&gt;com.mysql.jdbc.Driver&lt;/value&gt;
+    &lt;description&gt;Driver class name for a JDBC metastore&lt;/description&gt;
+  &lt;/property&gt;
+
+  &lt;property&gt;
+    &lt;name&gt;javax.jdo.option.ConnectionUserName&lt;/name&gt;
+    &lt;value&gt;hive&lt;/value&gt;
+  &lt;/property&gt;
+</code></pre>
+
+<p>The information stored in metastore is typically much smaller than the data stored in Hive.
+Therefore, you typically don’t need a powerful dedicated database server for the metastore.
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Pushing Local Jar File Into Your Local Maven (M2) Repository]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/"/>
+    <updated>2015-11-17T16:46:49-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository</id>
+    <content type="html"><![CDATA[<h4>Problem:</h4>
+
+<p>I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency.</p>
+
+<p>This post will also apply if you are behind a firewall and/or do not have external access for some reason.</p>
+
+<h4>Solution:</h4>
+
+<ul>
+<li>Download the jar file (e.g., the Vertica JDBC jar file).</li>
+<li>At the same directory as the jar file, run the following command to install the jar to the local Maven repository (running in a different directory seems not work).</li>
+</ul>
+
+
+<pre><code class="bash General Maven command">$ mvn install:install-file -DgroupId=&lt;GROUP_ID&gt; -DartifactId=&lt;ARTIFACT_ID&gt; -Dversion=&lt;VERSION&gt; -Dpackaging=jar -Dfile=&lt;LOCAL_PATH_FOR_JAR&gt; -DgeneratePom=true
+</code></pre>
+
+<p>Example:</p>
+
+<pre><code class="bash Example Maven command for Vertica JDBC">$ mvn install:install-file -DgroupId=com.vertica -DartifactId=vertica-jdbc -Dversion=7.0.1 -Dpackaging=jar -Dfile=~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom=true
+</code></pre>
+
+<ul>
+<li>Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).</li>
+</ul>
+
+
+<p>If you want your Eclipse to start using this jar from your local repository:</p>
+
+<ul>
+<li>In Eclipse Luna on a Mac/Windows, go to Window > Show View > Other > Maven > Maven Repository.</li>
+<li>Open Local Repositories > Local Repository.</li>
+<li>Right click for the context menu > Rebuild Index.</li>
+</ul>
+
+
+<p>Now it should show up in “Add…” dialog in pom.xml edit.</p>
+]]></content>
+  </entry>
+  
+</feed>

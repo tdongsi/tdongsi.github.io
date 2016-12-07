@@ -1,0 +1,706 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>(Pt. 3) Testing Incremental Data Update - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="Navigation: Overview,
+Pt 1,
+Pt 2
+. One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
+Challenges in functional &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">(Pt. 3) Testing Incremental Data Update</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-10T17:46:40-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:46 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>
+.</p>
+
+<p>One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
+Challenges in functional testing motivates me to create a test framework to add unit-like tests for those ETL scripts.</p>
+
+<h3>Incremental data update</h3>
+
+<p>In the last <a href="/blog/2016/03/16/sql-unit-functional-tests/">blog post</a>, I go over evolution of functional testing in data mart projects.
+In functional tests, we deploy the data marts, run all the DDL, DML and ETL scripts, and, then, execute a bunch of SQL test queries to validate the tables.</p>
+
+<p>That kind of testing could be sufficient if the inputs of the ETL are snapshot tables: data extracted by the ETL scripts are from the latest snapshot of the data.
+Preparing this snapshot might be expensive, especially for daily ETLs, since those tables will be truncated and reloaded with latest data.
+This can be every inefficient since out of billions of records for twenty years of historical data, less than one percent of those will be updated over a day interval.
+Therefore, for performance reasons, the ETLs usually perform <strong>incremental data update</strong>.
+Some characteristics of &ldquo;incremental data update&rdquo; are as follows:</p>
+
+<p>1) Only updated records are incrementally appended into some tables, used for staging purpose (a.k.a. staging tables).
+These tables will be used as input for those ETLs with incremental update.
+For example, let&rsquo;s say there is a company record with ID = 123 and some attribute such as master email <code>before@mock.com</code> on Day 1.
+On Day 2, the company email could be udpated to <code>after@mock.com</code>.
+The original record of company 123 with <code>before@mock.com</code> is not necessarily removed from the staging table.
+Instead, a new row with updated data (ID = 123, email = <code>after@mock.com</code>) is appended into the staging table.</p>
+
+<p>2) To keep the size of input tables and ETL running time bounded, we usually keep only a number of days worth of data in the staging tables.
+In other words, any records older than some <code>D</code> days are truncated from those staging tables.
+For example, after <code>D = 7</code> days since Day 2, if the company <code>ID = 123</code> has no update, its records will be removed from the staging tables.
+Note that, after being truncated, that company <code>ID = 123</code> can be re-inserted into the staging table if some of its attribute is updated.</p>
+
+<p><strong>Risks</strong>: The ETLs with incremental data update are usually much more complex.
+Obviously, one risk of running ETL with incremental data update is duplicate records: we could have multiple rows for the same company <code>ID = 123</code>.
+On the other hand, when data for company <code>ID = 123</code> are truncated from the staging tables after <code>D</code> days (0 row), it simply means that there is no update to that company during the last <code>D</code> days.
+It means that the record for <code>ID = 123</code> should not be removed from the destination tables even though the input staging tables contain no such row for <code>ID = 123</code>.
+In contrast, for snapshot data, each record is almost guaranteed unique on primary key, meaning exactly one row with company <code>ID = 123</code>.
+The following example scenario illustrates the challenge and complexity of ETLs with incremental data update.</p>
+
+<h3>Example scenario</h3>
+
+<p>For sliding window of one week data <code>D = 7</code> in the staging tables <code>stg_company_id</code> and <code>stg_company_contact</code>, the company with <code>ID = 123</code> may have its email address updated like this:</p>
+
+<ul>
+<li>Day 1
+
+<ul>
+<li><code>stg_company_id</code> -> ID: 123, region: US.</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#x62;&#101;&#x66;&#x6f;&#114;&#101;&#64;&#x6d;&#x6f;&#99;&#107;&#x64;&#97;&#116;&#97;&#x2e;&#99;&#x6f;&#109;&#46;">&#98;&#x65;&#102;&#x6f;&#x72;&#101;&#x40;&#x6d;&#111;&#x63;&#107;&#100;&#x61;&#116;&#97;&#x2e;&#99;&#111;&#109;&#x2e;</a> (same company)</li>
+</ul>
+</li>
+<li>Day 3
+
+<ul>
+<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#x74;&#111;&#x3a;&#97;&#x66;&#x74;&#101;&#114;&#64;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#x61;&#x2e;&#99;&#111;&#109;">&#x61;&#102;&#116;&#101;&#x72;&#64;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#x74;&#97;&#x2e;&#99;&#x6f;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li><code>stg_company_id</code> has one row with ID = 123.</li>
+<li><code>stg_company_contact</code> has two rows with ID = 123.</li>
+</ul>
+</li>
+<li>Day 10
+
+<ul>
+<li>Data truncated from <code>stg_company_contact</code> as there is no update.</li>
+<li>Data is also truncated from <code>stg_company_id</code> since Day 8 for the same reason.</li>
+<li><code>stg_company_id</code> and <code>stg_company_contact</code> has zero row with ID = 123.</li>
+</ul>
+</li>
+<li>Day 15
+
+<ul>
+<li>Email updated to <a href="&#109;&#97;&#x69;&#x6c;&#x74;&#111;&#58;&#98;&#101;&#121;&#111;&#x6e;&#x64;&#x40;&#x6d;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#x61;&#x2e;&#99;&#x6f;&#109;&#x2e;">&#x62;&#101;&#121;&#111;&#x6e;&#100;&#x40;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#116;&#97;&#46;&#x63;&#x6f;&#x6d;&#x2e;</a></li>
+<li><code>stg_company_id</code> has zero row with ID = 123.</li>
+<li><code>stg_company_contact</code> has one row with ID = 123.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Despite the changing number of rows with <code>ID = 123</code>, the daily ETL should always returns a company with <code>ID = 123</code> in its output, the dimension table <code>dim_company</code>, with the <code>email_address</code> column updated accordingly.</p>
+
+<h3>Initial functionality tests</h3>
+
+<p>Initially, verifying incremental data update of ETLs is very challenging.
+We approach testing incremental data update just like funcional tests: load the data mart with production-like data, and run multiple ETL runs to simulate multiple days.
+Specifically, we collected a few sets of staging tables for a few days, and then manually simulate each set as the current day data before running the ETL.
+After running the ETL, we will run the corresponding set of automated functional tests for that day, one set for each day.</p>
+
+<p>That process is summarized as the following steps for each day:</p>
+
+<ol>
+<li>Manually set up the staging data (ETL input).</li>
+<li>Manually run the ETL.</li>
+<li>Run the corresponding set of automated functional tests.</li>
+</ol>
+
+
+<p>As you can see, even though running the tests is automated, the setup and running ETL is pretty much manual.
+It is time consuming to manually set up and run ETLs: for production-like data, staging tables can contain millions of records for incremental data.
+Since we run ETLs multiple times to properly verify incremental update, the running times add up.
+Besides being time-consuming, the process also takes lots of mental energy to do each of the steps right, in the correct order.
+Otherwise, the tests will fail for no apparent reason.</p>
+
+<p>Despite the effort involved, the return is very little.
+Most of the time, the difference in data between a few days or weeks are usually not enough to verify all corner cases in ETL scripts.
+After running tests, we still don&rsquo;t know if a particular ETL will ever break when new data comes in and some infrequently updated column is updated in some particular way.</p>
+
+<h3>Observations</h3>
+
+<p>The painful experience of testing incremental data update for ETLs with production-like data leads to the following observations:</p>
+
+<ol>
+<li>We should only need a small number of records to reduce ETL running time.</li>
+<li>We should create synthetic data to force rare logic branches and corner cases.</li>
+<li>We should have a way to set up data automatically.</li>
+<li>We should have a way to run the ETL under test automatically.</li>
+</ol>
+
+
+<p>These observations, especially small and synthetic data, sounds like unit testing.
+It leads to my strong conviction that incremental data update should tested in a bunch of &ldquo;unit tests&rdquo;, with mock data to force corner cases.</p>
+
+<h3>Unit tests - first look</h3>
+
+<p>I made two changes in the SQL Test Runner to make it easier to do unit testing SQL scripts in Vertica:</p>
+
+<ol>
+<li>Add ability to run the SQL statements to set up data.</li>
+<li>Add ability to run a list of specified ETLs.
+
+<ul>
+<li>For example, in our project, <code>vsql</code> is used to execute ETL scripts in SQL. Therefore, I added ability to invoke <code>vsql</code> to run a list of SQL files.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>With that, a unit test to verify our ETL (e.g., <code>my_etl.sql</code>) that updates email address incrementally (in the example scenario above) will look like this:</p>
+
+<figure class='code'><figcaption><span>Unit test for the example scenario in section above</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
+</span><span class='line'><span class="cm">* Day 1</span>
+</span><span class='line'><span class="cm">****************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 3: Email updated in stg_company_contact</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;after@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">12</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- Day 3 ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day3_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 10: Data truncated from staging table</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_id</span><span class="p">;</span>
+</span><span class='line'><span class="k">TRUNCATE</span> <span class="k">TABLE</span> <span class="n">stg_company_contact</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- This ETL run should have no effect</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day10_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;after@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/**********************************************************</span>
+</span><span class='line'><span class="cm">Day 15: Another update in email</span>
+</span><span class='line'><span class="cm">**********************************************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- Email is updated</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;beyond@mockdata.com&#39;</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- Day 15 ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_count&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select count(*) from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;1&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day15_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;beyond@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Running the unit test script above from TestNG will be similar as in functional tests (see &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/16/sql-unit-functional-tests/">this post</a>).
+After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> functions), there will be minimal Java code added (<code>@Test</code> functions):</p>
+
+<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
+</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@AfterClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The full setup for unit testing will be discussed in the next blog post.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2016-04-10T17:46:40-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:46 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/automation/'>automation</a>, <a class='category' href='/blog/categories/sql/'>sql</a>, <a class='category' href='/blog/categories/testing/'>testing</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/" data-via="" data-counturl="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2016/03/28/sql-unit-test-runner/" title="Previous Post: (Pt. 2) SQL Test Runner">&laquo; (Pt. 2) SQL Test Runner</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2016/04/12/sql-unit-testing/" title="Next Post: (Pt. 4) SQL unit testing">(Pt. 4) SQL unit testing &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (4)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (4)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (4)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (15)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Matplotlib | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/matplotlib/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Best Friend Forever]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/18/best-friend-forever/"/>
+    <updated>2016-04-18T15:44:57-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/18/best-friend-forever</id>
+    <content type="html"><![CDATA[<p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, &hellip;, FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote></p>
+
+<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
+I&rsquo;d like to approach to the problem more methodically.
+While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
+Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
+
+<p><img class="center" src="/images/python/bff.png" title="BFF example" ></p>
+
+<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
+After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
+The above plot also gives me some key observations to solve the problem:</p>
+
+<ol>
+<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
+<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
+
+<ul>
+<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.</li>
+<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
+</ul>
+</li>
+<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
+
+<ul>
+<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
+<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
+</ul>
+</li>
+</ol>
+
+
+<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
+
+<ol>
+<li>From the list of BFFs, construct a directed graph.</li>
+<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
+<li>Initialize max_length = -1. For each simple cycle:
+
+<ol>
+<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
+<li>If cycle length is equal to 2.
+
+<ol>
+<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
+<li>Find the path length, add to path_sum, and update max_length if needed.</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+
+
+<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
+
+<pre><code class="python Construct and plot directed graph with networkx">import matplotlib.pyplot as plt
+import networkx as nx
+
+class Bff(object):
+    """
+    https://code.google.com/codejam/contest/4304486/dashboard#s=p2
+    """
+    def __init__(self, filename):
+        """ Initialize with the given filename.
+
+        :param filename: input file path
+        :return:
+        """
+        self._filename = filename
+        pass
+
+    def draw(self, input):
+        """ Draw the string that represents the bff network.
+
+        The input string contains N integers F1, F2, ..., FN, 
+        where Fi is the student ID number of the BFF
+        of the kid with student ID i.
+
+        :param input: the string that represents the bff network.
+        :return:
+        """
+        # Construct the directed graph
+        bffs = [int(e.strip()) for e in input.split(' ')]
+        nodes = [i+1 for i in xrange(len(bffs))]
+        gr = nx.DiGraph()
+        gr.add_nodes_from(nodes)
+        gr.add_edges_from([e for e in zip(nodes, bffs)])
+
+        # nx.simple_cycles(gr)
+        nx.draw_networkx(gr)
+        plt.savefig(self._filename)
+
+def main():
+    plot = Bff("bff.png")
+    # plot.draw("2 1 6 3 8 4 6 5")
+    plot.draw("6 1 6 5 4 1 5 10 3 7")
+    pass
+</code></pre>
+
+<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
+It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
+<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
+
+<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one or more&rdquo;</strong> in observation 3).
+The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
+My first solution was rejected for Small Input dataset due to this mistake.
+Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
+
+<p><img class="center" src="/images/python/bff2.png" title="All paths" ></p>
+
+<p>Some morals of the story:</p>
+
+<ul>
+<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
+<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Automated Performance Logging and Plotting for Cassandra]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra/"/>
+    <updated>2015-11-14T19:57:43-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/14/automated-performance-logging-and-plotting-for-cassandra</id>
+    <content type="html"><![CDATA[<p>In this <a href="https://github.com/tdongsi/python/tree/master/PerformanceLog">mini-project</a>, I created a Python script (PerformanceLog.py) to record JMX values from a running Cassandra instance, using JMXTerm (<a href="http://wiki.cyclopsgroup.org/jmxterm/">http://wiki.cyclopsgroup.org/jmxterm/</a>), and do the following:</p>
+
+<ul>
+<li>Put the records into a Cassandra table.</li>
+<li>Plot the results.</li>
+</ul>
+
+
+<p>The project is based on a Cassandra interview question found on Glassdoor.</p>
+
+<p>Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.</p>
+
+<h2>Input/Output</h2>
+
+<p><strong>Input</strong></p>
+
+<p>When running the script from command line, the following arguments must be provided:</p>
+
+<ul>
+<li>installDir INSTALLDIR:  Path to installation directory.</li>
+<li>host HOST: URL string for Cassandra instance. Only localhost tested.</li>
+<li>jmxTerm JMXTERM: Path to jmxterm jar file.</li>
+<li>osString OSSTRING: String that represents the current OS. Windows: win. Mac: mac. Unix/Linux: linux.</li>
+</ul>
+
+
+<p>Example:</p>
+
+<blockquote><p>python PerformanceLog.py -installDir C:\datastax -host localhost -jmxTerm lib\jmxterm.jar -osString win</p></blockquote>
+
+<p><strong>Output</strong></p>
+
+<ul>
+<li>CSV file with each field for each JMX metric.</li>
+</ul>
+
+
+<p>Example:</p>
+
+<blockquote><p>  SSTableCount,DataSize,c95thPercentile</p>
+
+<p>  0,0,0.0</p>
+
+<p>  7,31306299,9337.784849999995</p>
+
+<p>  7,31306299,9262.307649999999</p>
+
+<p>  &hellip;</p></blockquote>
+
+<ul>
+<li><p>Records in a Cassandra table</p></li>
+<li><p>Performance plot as PNG file (automatically generated from CSV output file)</p></li>
+</ul>
+
+
+<p>Example:</p>
+
+<p><img src="https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png" title="Performance Plot" alt="alt text" /></p>
+
+<h2>Python modules</h2>
+
+<ol>
+<li>PerformanceLog.py: Main module to run the automated tasks. Please use &ldquo;python PerformanceLog -h&rdquo; for the required arguments. Example call for Windows is in the doc string.</li>
+<li>MyLogger.py: Logging support module</li>
+<li>CassandraRecord.py: Support module to record metrics into a Cassandra table.</li>
+<li>Plotter.py: Support module to plot metrics into plots and save into PNG file.</li>
+</ol>
+
+
+<h3>Automated tasks by the modules</h3>
+
+<ol>
+<li>Check if Cassandra is Running</li>
+<li>Record certain JMX Metrics</li>
+<li>Runs the external tool Cassandra Stress</li>
+<li>Once the stress session has completed, stop recording JMX Metrics</li>
+<li>Record the metrics back into a Cassandra Table</li>
+<li>Graph the results (create these graphs at the end of the run).</li>
+</ol>
+
+
+<h2>External Python libraries required</h2>
+
+<h4>For CassandraRecord.py</h4>
+
+<p>This module requires Datastax&rsquo;s Python driver: <a href="http://datastax.github.io/python-driver/installation.html">http://datastax.github.io/python-driver/installation.html</a></p>
+
+<h4>For Plotter.py</h4>
+
+<p>This Python module used Matplotlib library. Please install the following Python libraries: matplotlib, numpy, dateutil, pytz, pyparsing, six (optionally: pillow, pycairo, tornado, wxpython, pyside, pyqt, ghostscript, miktex, ffmpeg, mencoder, avconv, or imagemagick).</p>
+
+<p>Installation of these Python libraries are straight-forward on Linux and Win32. On Win64, please find their installers here: <a href="http://www.lfd.uci.edu/~gohlke/pythonlibs/">http://www.lfd.uci.edu/~gohlke/pythonlibs/</a></p>
+
+<h2>Other files</h2>
+
+<p>The following output files are produced. For consistency check, they are left behind.
+In the final version of the script, they may be cleaned up accordingly.</p>
+
+<ul>
+<li>tempout: Output from JmxTerm session</li>
+<li>jmxMetrics.csv: The cvs file that records the interested JMX metrics.</li>
+<li>CassandraTest.log: The log file for the script.</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>

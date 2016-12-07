@@ -1,0 +1,954 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Python | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/python/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Automated Downloading BART Parking Permits]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/10/30/automated-downloading-bart-parking-permits/"/>
+    <updated>2016-10-30T17:12:31-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/10/30/automated-downloading-bart-parking-permits</id>
+    <content type="html"><![CDATA[<h3>Problem</h3>
+
+<p>I have been commuting to San Francisco using <a href="http://www.bart.gov/">BART</a>.
+For BART commutes, before having the Monthly Parking Permit, you usually have no choice but using Daily Parking Permits for car parking.
+You will often end up having to download multiple PDF files for the daily permits and print them to put on your vehicle&rsquo;s dashboard.
+The <a href="https://www.select-a-spot.com/bart/">BART reservation website</a> offers no easy way to download all of them in one click (see the screenshot).</p>
+
+<p><img src="https://github.com/tdongsi/bart-parking/blob/develop/BART.jpg?raw=true" title="Screenshot" alt="BART Screenshot" /></p>
+
+<p>Personally, the BART commute itself is not that bad, especially when I usually find a seat.
+But it is really painful to download every &hellip; single &hellip; PDF &hellip; permit manually before printing them.</p>
+
+<h3>Solution</h3>
+
+<p>I wrote <a href="https://github.com/tdongsi/bart-parking">some Python scripts</a> to automate the process of downloading every single permits.
+The scripts requires <a href="http://docs.python-requests.org/en/master/user/install"><code>requests</code> package</a> installed before running.
+Usually, a simple <code>pip install requests</code> command is all you need for its installation.
+Then, simply run the <code>main.py</code> script and input your username and password, as shown below.</p>
+
+<pre><code>C:\Github\bart-parking\bart&gt;python main.py
+bart-view   : INFO     Please input your username and password.
+Username:YOUR_USERNAME
+Password:
+bart-view   : INFO     Done reading username and password
+requests.packages.urllib3.connectionpool: INFO     Starting new HTTPS connection (1): www.select-a-spot.com
+bart        : INFO     Login Response: https://www.select-a-spot.com/bart/users/login/ 302
+bart        : INFO     Created folder to save permit PDF files.
+bart        : INFO     Finished downloading permit 1183167.
+bart        : INFO     Finished downloading permit 1183161.
+bart        : INFO     Finished downloading permit 1183136.
+bart        : INFO     Finished downloading permit 1180762.
+bart        : INFO     Finished downloading permit 1177938.
+bart        : INFO     Finished downloading permit 1177937.
+bart        : INFO     Finished downloading permit 1177935.
+bart        : INFO     Finished downloading permit 1177929.
+
+C:\Github\bart-parking\bart&gt;
+</code></pre>
+
+<h3>External links</h3>
+
+<ul>
+<li><a href="https://github.com/tdongsi/bart-parking">Github repo</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Improved Priority Queue Recipe in Python]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python/"/>
+    <updated>2016-07-14T17:59:14-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python</id>
+    <content type="html"><![CDATA[<p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
+
+<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
+It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
+Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
+Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
+
+<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
+Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
+That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
+
+<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
+
+<pre><code class="python Improved priority-queue recipe">import heapq
+import itertools
+
+class PriorityQueue(object):
+
+    _REMOVED = "&lt;REMOVED&gt;"
+
+    def __init__(self):
+        self.heap = []
+        self.entries = {}
+        self.counter = itertools.count()
+
+    def add(self, task, priority=0):
+        """Add a new task or update the priority of an existing task"""
+        if task in self.entries:
+            self.remove(task)
+
+        count = next(self.counter)
+        # weight = -priority since heap is a min-heap
+        entry = [-priority, count, task]
+        self.entries[task] = entry
+        heapq.heappush(self.heap, entry)
+        pass
+
+    def remove(self, task):
+        """ Mark the given task as REMOVED.
+
+        Do this to avoid breaking heap-invariance of the internal heap.
+        """
+        entry = self.entries[task]
+        entry[-1] = PriorityQueue._REMOVED
+        pass
+
+    def pop(self):
+        """ Get task with highest priority.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = heapq.heappop(self.heap)
+            if task is not PriorityQueue._REMOVED:
+                del self.entries[task]
+                return -weight, task
+        raise KeyError("The priority queue is empty")
+
+    def peek(self):
+        """ Check task with highest priority, without removing.
+
+        :return: Priority, Task with highest priority
+        """
+        while self.heap:
+            weight, count, task = self.heap[0]
+            if task is PriorityQueue._REMOVED:
+                heapq.heappop(self.heap)
+            else:
+                return -weight, task
+
+        return None
+
+    def __str__(self):
+        temp = [str(e) for e in self.heap if e[-1] is not PriorityQueue._REMOVED]
+        return "[%s]" % ", ".join(temp)
+</code></pre>
+
+<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
+
+<ul>
+<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
+<li>Methods and supporting data structures are encapsulated into a class.</li>
+<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
+<li>Method <code>peek</code> is added.</li>
+<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
+<li>Override <code>__str__</code> method for pretty printing.</li>
+</ul>
+
+
+<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
+The Skyline problem states that:</p>
+
+<p><blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote></p>
+
+<p><img class="center <a" src="href="http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png">http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png</a>" width="800" height="260" title="&lsquo;Example&rsquo; &lsquo;An image of example input and output&rsquo;" ></p>
+
+<p>One possible approach is to use a priority queue to keep track of the current highest building
+while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
+Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
+
+<pre><code class="python Solution to Skyline problem">def solve_skyline(mlist):
+    """ Solve the Skyline problem.
+
+    :param mlist: list of buildings in format (start, end, height).
+    :return: List of end points
+    """
+
+    skyline = []
+    cur_height = 0
+    pq = PriorityQueue()
+    events = defaultdict(list)
+    START = "start"
+    END = "end"
+
+    for idx, building in enumerate(mlist):
+        start, end, height = building
+        events[start].append((idx, START))
+        events[end].append((idx, END))
+
+    # k_events is the ordered list of x-coordinates where buildings start or end (events)
+    k_events = sorted(events.keys())
+
+    # Add and remove buildings into a priority-queue for each event.
+    for key in k_events:
+        # print skyline
+        buildings = events[key]
+
+        for e in buildings:
+            idx, label = e
+            if label == START:
+                pq.add(idx, mlist[idx][2])
+            elif label == END:
+                pq.remove(idx)
+
+        # after processing all buildings for a x-coordinate "key", check the current highest building
+        temp = pq.peek()
+        new_height = 0
+        if temp is not None:
+            new_height = temp[0]
+        if new_height != cur_height:
+            skyline.append((key, new_height))
+            cur_height = new_height
+
+    return skyline
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Convert Python Objects to JSON (Ordered Keys)]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/"/>
+    <updated>2016-05-25T01:26:22-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/25/convert-python-objects-to-json-ordered-keys</id>
+    <content type="html"><![CDATA[<p>In the JSON output shown in the last <a href="/blog/2016/05/21/convert-python-objects-to-json/">post</a>, the keys are printed out of order since they are unordered in the internal dictionary <code>__dict__</code>.
+In theory, it does not matter when converting to/from JSON.
+However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
+For example, in the <code>Config</code> object in the last post, it is better to see <code>source</code> and <code>target</code> configurations side by side and, then, get to know what kind of tests from <code>testName</code> key before reading details of tests in <code>queries</code> key.
+Setting <code>sort_keys</code> option in <code>json.dump</code> is not applicable here since the keys will be sorted by their names, not their order of appearance like we do in the Java example.</p>
+
+<p>To have the keys appear in order as defined when converting to JSON, we have two options:</p>
+
+<h3>Option 1: use OrderedDict as your base class</h3>
+
+<p>This option is just a quick and dirty workaround: our <code>Config</code> class should extend <code>collections.OrderedDict</code> class and, in the code, we refer to <code>object["att"]</code> instead of <code>object.att</code>.</p>
+
+<pre><code class="python Example of using OrderedDict as your Config class">class OrderedConfig(collections.OrderedDict):
+    pass
+
+def ordered_config_file(filename, query_generator):
+
+    hive_source = OrderedConfig()
+    hive_source["type"] = "hive"
+    hive_source["url"] = "jdbc:hive2://192.168.5.184:10000/DWH"
+    vertica_target = OrderedConfig()
+    vertica_target["type"] = "vertica"
+    vertica_target["url"] = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    config = OrderedConfig()
+    config["source"] = hive_source
+    config["target"] = vertica_target
+    config["testName"] = "count"
+    config["queries"] = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, indent=4)
+</code></pre>
+
+<p>We have some extra typing, but in general, it is good enough for some configuration objects.
+Note that you can now dump your configuration object directly into file because it now behaves like a dictionary.</p>
+
+<pre><code class="json Pretty print">{
+    "source": {
+        "type": "hive", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+</code></pre>
+
+<h3>Option 2: use OrderedDict as your attribute dictionary.</h3>
+
+<p>In order to refer to attributes directly as <code>object.att</code> and still get JSON ordered like in the Java example, it will need some works.
+Note that the obvious solution <code>__dict__ = OrderedDict()</code> will NOT work due to a Python bug.</p>
+
+<pre><code class="python Failed attempt due to a Python bug">class Config(object):
+   def __init__(self):
+       self.__dict__ = collections.OrderedDict()
+
+
+  with open(filename, 'w') as config_file:
+      json.dump(config, config_file, default=vars, indent=4)
+</code></pre>
+
+<p>I got an empty object as my JSON output.
+It can be pretty confusing since we can still refer to attributes using standard notation <code>object.att</code> and correctly retrieve values.
+After searching the web, I finally figured out that it is a known bug, as documented <a href="https://mail.python.org/pipermail/python-bugs-list/2006-April/033155.html">here</a>.
+It says that if <code>__dict__</code> is not an actual <code>dict()</code>, then it is ignored, and attribute lookup fails if using that dictionary directly.</p>
+
+<p>To work around that problem, we have to use <code>OrderedDict</code> as an attribute in <code>__dict__</code> and modify <code>__getattr__</code> and <code>__setattr__</code> methods to use this <code>OrderedDict</code> instead.
+The modified <code>Config</code> class and modified <code>default=</code> parameter is shown below.</p>
+
+<pre><code class="python Modified Config class">class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+</code></pre>
+
+<pre><code class="python Modified JSON dump">    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: vars(o)[Config.ODICT], indent=4)
+</code></pre>
+
+<p>The JSON output now has the keys appear in the order as they are defined, similar to Jackson example above:</p>
+
+<pre><code class="json Pretty print with ordering">{
+    "source": {
+        "type": "hive", 
+        "host": "192.168.5.184", 
+        "user": "cloudera", 
+        "password": "password", 
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH"
+    }, 
+    "target": {
+        "type": "vertica", 
+        "host": "192.168.5.174", 
+        "user": "dbadmin", 
+        "password": "password", 
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart"
+    }, 
+    "testName": "count", 
+    "queries": "..."
+}
+</code></pre>
+
+<p>With that, for configuration editing purposes, using the Python object to JSON conversion is more convenient than Java (POJO) to JSON conversion.
+We can add new custom attributes if needed without having to define a new class.
+The <code>Config</code> class is all you need for all configuration writing.
+The full working code for converting Python object to JSON is shown below.</p>
+
+<pre><code class="python Full code">import collections
+import json
+
+class Config(object):
+
+    ODICT = "odict"
+
+    def __init__(self):
+        self.__dict__[self.ODICT] = collections.OrderedDict()
+
+    def __getattr__(self, item):
+        return self.__dict__[self.ODICT][item]
+
+    def __setattr__(self, key, value):
+        self.__dict__[self.ODICT][key] = value
+
+    pass
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=lambda o: vars(o)[Config.ODICT], indent=4)
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Convert Python Objects to JSON]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/21/convert-python-objects-to-json/"/>
+    <updated>2016-05-21T22:09:50-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/21/convert-python-objects-to-json</id>
+    <content type="html"><![CDATA[<h3>JSON serialization in Java</h3>
+
+<p>In Java, it is pretty straight-forward to convert Java objects (POJO) to JSON using <a href="https://github.com/FasterXML/jackson">Jackson library</a>.
+The following code will convert an example POJO to JSON:</p>
+
+<pre><code class="java Example POJO">public class Config {
+    public String type;
+    public String host;
+    public String user;
+    public String password;
+    public String url;
+}
+</code></pre>
+
+<pre><code class="java Jackson examples">ObjectMapper mapper = new ObjectMapper();
+Config conn = new Config();
+conn.type = "hive";
+conn.host = "192.168.5.184";
+conn.user = "cloudera";
+conn.password = "password";
+conn.url = "jdbc:hive2://192.168.5.184:10000/DWH";
+
+// POJO to JSON in file
+mapper.writeValue(new File("config.json"), obj);
+// POJO to JSON in String
+String jsonInString = mapper.writerWithDefaultPrettyPrinter()
+        .writeValueAsString(conn);
+</code></pre>
+
+<p>The JSON output is shown below.
+Note that the keys (e.g., &ldquo;type&rdquo;, &ldquo;host&rdquo;) appear in the same order as defined in the <code>Config</code> class.
+This will become important later when we try to convert Python objects to JSON.</p>
+
+<pre><code class="json JSON representation of Config object">{
+  "type" : "hive",
+  "host" : "192.168.5.184",
+  "user" : "cloudera",
+  "password" : "password",
+  "url" : "jdbc:hive2://192.168.5.184:10000/DWH"
+}
+</code></pre>
+
+<h3>JSON serialization in Python</h3>
+
+<p>In Python, we have <code>json</code> module to convert a <em>serializable</em> object to JSON format.
+The first attempt at JSON serialization in Python may look like this, with a slightly complex Python object is intentionally used as an example:</p>
+
+<pre><code class="python First attempt at JSON serialization">class Config(object):
+    pass
+
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file)
+
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+</code></pre>
+
+<p>This first attempt with <code>json.dump(config, config_file)</code> will fail with the following error:</p>
+
+<pre><code class="python JSON serialization error">TypeError: &lt;__main__.Config object at 0x10ab824d0&gt; is not JSON serializable
+</code></pre>
+
+<p>As the message indicates, <code>Config</code> object is not JSON serializable.
+<code>json.dump</code> function expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.</p>
+
+<table>
+<thead>
+<tr>
+<th> Python </th>
+<th> JSON </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> dict </td>
+<td> object </td>
+</tr>
+<tr>
+<td> list, tuple </td>
+<td> array </td>
+</tr>
+<tr>
+<td> str, unicode </td>
+<td> string </td>
+</tr>
+<tr>
+<td> int, long, float </td>
+<td> number </td>
+</tr>
+<tr>
+<td> True </td>
+<td> true </td>
+</tr>
+<tr>
+<td> False </td>
+<td> false </td>
+</tr>
+<tr>
+<td> None </td>
+<td> null </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>The solution for that problem is to specify the <code>default</code> parameter with a function that returns object&rsquo;s <code>__dict__</code> attribute.
+<code>__dict__</code> is the internal attribute dictionary that contains all attributes associated with an object.
+Object attribute references are translated to lookups in this dictionary, e.g., <code>o.x</code> is translated to <code>o.__dict__["x"]</code>.</p>
+
+<pre><code class="python Correct options">    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=vars, indent=4)
+</code></pre>
+
+<pre><code class="python Pretty print without ordering">{
+    "source": {
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH", 
+        "host": "192.168.5.184", 
+        "password": "password", 
+        "type": "hive", 
+        "user": "cloudera"
+    }, 
+    "queries": "...", 
+    "target": {
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart", 
+        "host": "192.168.5.174", 
+        "password": "password", 
+        "type": "vertica", 
+        "user": "dbadmin"
+    }, 
+    "testName": "count"
+}
+</code></pre>
+
+<p>Here, we use <code>vars</code> <a href="https://docs.python.org/2/library/functions.html#vars">built-in function</a> to retrieve the object&rsquo;s <code>__dict__</code> attribute.
+Note that simply using <code>json.dump(vars(config), config_file)</code> will NOT work if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
+For more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
+The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Rabin-Miller Primality Test]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test/"/>
+    <updated>2016-04-20T22:07:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/20/rabin-miller-primality-test</id>
+    <content type="html"><![CDATA[<p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
+The summarized problem statement is as follows:</p>
+
+<p><blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p></p><p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p></p><p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p></p><p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote></p>
+
+<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
+In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+
+<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
+
+<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
+Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
+To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
+For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
+
+<ul>
+<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
+</ul>
+
+
+<p><span class="math display">\[\begin{align}
+&amp; n^d = 1 \mod p \mbox{, or} \\
+&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
+\end{align}\]</span></p>
+
+
+<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
+If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
+For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
+
+<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
+Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
+However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
+
+<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
+I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
+
+<p><figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Decompose</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span> <span class="n">where</span> <span class="n">d</span> <span class="ow">is</span> <span class="n">odd</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="n">where</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">exp</span> <span class="o">*</span> <span class="n">d</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">exp = 0</span>
+</span><span class='line'><span class="sd">while num &amp;amp; 1 == 0:  # check num % 2 == 0 but probably faster</span>
+</span><span class='line'><span class="sd">    num &amp;gt;&amp;gt;= 1</span>
+</span><span class='line'><span class="sd">    exp += 1</span>
+</span><span class='line'><span class="sd">return exp, num</span>
+</span><span class='line'><span class="sd">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;p&gt;def is_pseudo_prime(prime, trial=10):</span>
+</span><span class='line'><span class="sd">    &amp;ldquo;&amp;rdquo;&amp;ldquo; Rabin Miller test of primality.&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">&lt;pre&gt;&lt;code&gt;:param prime: the input number.</span>
+</span><span class='line'><span class="sd">:param trial: Number of Rabin-Miller trial.</span>
+</span><span class='line'><span class="sd">:return: True if all trials passed, False if not.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
+</span><span class='line'>                <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param num: a random &quot;witness&quot; of primality.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Labor saving steps</span>
+</span><span class='line'><span class="k">if</span> <span class="n">prime</span> <span class="o">&amp;</span><span class="n">lt</span><span class="p">;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'><span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">prime</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="bp">True</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>Some notes about this implementation:</p>
+
+<ul>
+<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
+<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
+<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
+<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
+</ul>
+
+
+<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
+Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
+The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
+
+<p><figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">random</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+</span><span class='line'>    <span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">rdquo</span><span class="p">;</span><span class="o">&amp;</span><span class="n">ldquo</span><span class="p">;</span> <span class="n">Modify</span> <span class="n">Rabin</span> <span class="n">Miller</span> <span class="n">test</span> <span class="n">of</span> <span class="n">primality</span> <span class="n">to</span> <span class="n">find</span> <span class="n">factor</span> <span class="n">of</span> <span class="n">composite</span><span class="o">.&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="p">:</span><span class="n">param</span> <span class="n">prime</span><span class="p">:</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">number</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="n">param</span> <span class="n">trial</span><span class="p">:</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trials</span><span class="o">.</span>
+</span><span class='line'><span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">prime</span> <span class="p">(</span><span class="nb">all</span> <span class="n">trials</span> <span class="n">passed</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="o">.</span>
+</span><span class='line'><span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd"># small primes &amp;lt; 100</span>
+</span><span class='line'><span class="sd">SMALL_PRIMES = [ 2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,</span>
+</span><span class='line'><span class="sd">              43,  47,  53,  59,  61,  67,  71,  73,  79,  83,  89,  97, 101]</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">def rabin_miller_trial(num):</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span> <span class="n">Find</span> <span class="n">factor</span> <span class="n">based</span> <span class="n">on</span> <span class="n">the</span> <span class="n">Rabin</span><span class="o">-</span><span class="n">Miller</span> <span class="n">trial</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="n">param</span> <span class="n">num</span><span class="p">:</span> <span class="n">a</span> <span class="n">random</span> <span class="s">&quot;witness&quot;</span> <span class="n">of</span> <span class="n">primality</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">composite</span><span class="p">,</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">probably</span> <span class="n">prime</span><span class="o">.</span>
+</span><span class='line'>    <span class="s">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s">    num = pow(num, remainder, prime)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For first iteration, 1 or -1 remainder implies prime</span>
+</span><span class='line'><span class="s">    if num == 1 or num == prime - 1:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    else:</span>
+</span><span class='line'><span class="s">        gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">        if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">            return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # For next iterations, -1 implies prime, others imply composite</span>
+</span><span class='line'><span class="s">    for _ in xrange(exponent):</span>
+</span><span class='line'><span class="s">        num = pow(num, 2, prime)</span>
+</span><span class='line'><span class="s">        if num == prime - 1:</span>
+</span><span class='line'><span class="s">            return 1</span>
+</span><span class='line'><span class="s">        else:</span>
+</span><span class='line'><span class="s">            gcd = fractions.gcd(num-1, prime)</span>
+</span><span class='line'><span class="s">            if gcd &amp;gt; 1:</span>
+</span><span class='line'><span class="s">                return gcd</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">    # It is a composite, but could not find a factor</span>
+</span><span class='line'><span class="s">    return -1</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Labor saving steps</span>
+</span><span class='line'><span class="s">if prime &amp;lt; 2:</span>
+</span><span class='line'><span class="s">    raise ValueError(&quot;Unexpected input&quot;)</span>
+</span><span class='line'><span class="s">for p in SMALL_PRIMES:</span>
+</span><span class='line'><span class="s">    if p * p &amp;gt; prime:</span>
+</span><span class='line'><span class="s">        return 1</span>
+</span><span class='line'><span class="s">    if prime % p == 0:</span>
+</span><span class='line'><span class="s">        return p</span>
+</span><span class='line'>
+</span><span class='line'><span class="s"># Starting Rabin-Miller algorithm</span>
+</span><span class='line'><span class="s">exponent, remainder = decompose(prime - 1)</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">for _ in xrange(trial):</span>
+</span><span class='line'><span class="s">    num = random.randint(2, prime - 2)</span>
+</span><span class='line'><span class="s">    factor = rabin_miller_trial(num)</span>
+</span><span class='line'><span class="s">    if factor &amp;gt; 1:</span>
+</span><span class='line'><span class="s">        return factor</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">return 1</span>
+</span><span class='line'><span class="s">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s">&lt;p&gt;</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
+Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
+If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
+]]></content>
+  </entry>
+  
+</feed>

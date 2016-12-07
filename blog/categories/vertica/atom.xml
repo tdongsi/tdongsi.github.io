@@ -1,0 +1,817 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Docker Image for ETL Development in Vertica]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica/"/>
+    <updated>2016-09-01T11:38:27-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica</id>
+    <content type="html"><![CDATA[<p>Docker is Awesome!!!</p>
+
+<p>I wish I knew Docker earlier, before going through the hassle of creating VMs (<a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">one-node</a>
+ or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node</a> cluster) for local ETL development and testing.
+Docker can make the whole setup even easier.
+It can be done in just a few commands, using <a href="https://github.com/tdongsi/vertica/tree/master/docker">a Vertica Dockerfile</a>, created based on <a href="https://github.com/wmarinho/docker-hp-vertica">this</a>.
+In addition to easy virtualization, Docker also enables the entire setup can be automated in a script, allowing it to be version-controlled (i.e., <a href="https://en.wikipedia.org/wiki/Infrastructure_as_Code">Infrastructure as Code</a>).</p>
+
+<p>Some notes about this Dockerfile, compared to <code>wmarinho</code>&rsquo;s:</p>
+
+<ul>
+<li>Added new schema, new user and new role as examples. Avoid using <code>dbadmin</code> user for development purpose.</li>
+<li>Added Java and Maven for Java-based ETL and automated test execution.</li>
+<li>Demonstrated running Bash and SQL scripts to initialize the container/database.</li>
+</ul>
+
+
+<h3>How to run</h3>
+
+<p>Before running <code>docker build</code>, download Vertica Community Edition from <a href="https://my.vertica.com/">https://my.vertica.com/</a> and place in the same folder as the <code>Dockerfile</code>.
+This <code>Dockerfile</code> takes &ldquo;vertica-7.2.3-0.x86_64.RHEL6.rpm&rdquo; as the install file.</p>
+
+<pre><code class="plain Windows output">epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker build -t vertica .
+...
+
+epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED
+SIZE
+vertica             latest              d2607fa1f457        13 seconds ago
+1.638 GB
+&lt;none&gt;              &lt;none&gt;              486163abe73f        11 minutes ago
+1.638 GB
+centos              centos6.6           2c886f766286        8 weeks ago
+202.6 MB
+
+epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t
+-i d2607fa1f457 /bin/bash
+Info: no password specified, using none
+        Starting nodes:
+                v_docker_node0001 (127.0.0.1)
+        Starting Vertica on all nodes. Please wait, databases with large catalog
+ may take a while to initialize.
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (DOWN)
+        Node Status: v_docker_node0001: (UP)
+Database docker started successfully
+creating schema
+CREATE SCHEMA
+creating user
+CREATE USER
+creating role
+CREATE ROLE
+grant usage, create on schema
+GRANT PRIVILEGE
+</code></pre>
+
+<h3>Troubleshooting Notes</h3>
+
+<p>In Mac OSX, remember that the <code>entrypoint.sh</code> file should have executable permission.
+Otherwise, you might get the error &ldquo;oci runtime error: exec: &rdquo;/entrypoint.sh": permission denied".
+After changing the file permission, you have to rebuild the image with <code>docker build</code> before <code>docker run</code> again.</p>
+
+<h4>&ldquo;Insufficient resources&rdquo; error when running ETL</h4>
+
+<p>You might get &ldquo;Insufficient resources to execute plan on pool general &hellip; Memory exceeded&rdquo; error when running a large ETL script against the Vertica container.
+For complex ETL, Vertica might need additional memory to execute the query plan.
+Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work if using <strong>Docker Toolbox</strong>.
+To set higher memory allowance, stop the <code>docker-machine</code> and set memory as follows:</p>
+
+<pre><code class="plain">tdongsi$ docker-machine stop
+Stopping "default"...
+Machine "default" was stopped.
+
+tdongsi$ VBoxManage modifyvm default --memory 8192
+
+tdongsi$ docker-machine start
+Starting "default"...
+(default) Check network to re-create if needed...
+(default) Waiting for an IP...
+Machine "default" was started.
+Waiting for SSH to be available...
+Detecting the provisioner...
+Started machines may have new IP addresses. You may need to re-run the `docker-machine env` command.
+</code></pre>
+
+<p>Note that after running the above commands, <code>docker-machine inspect</code> still shows <code>"Memory":"2048"</code>.
+To verify if memory is properly allocated as desired, run <code>free</code> command, for example, inside the container to verify.</p>
+
+<h3>Links</h3>
+
+<ul>
+<li><a href="https://github.com/tdongsi/vertica/tree/master/docker">My Dockerfile for ETL development and testing on Vertica</a></li>
+<li><a href="https://github.com/wmarinho/docker-hp-vertica">Original Dockerfile</a></li>
+<li><a href="https://www.docker.com/">Docker</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Analytic Functions in MySQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql/"/>
+    <updated>2016-08-17T23:12:54-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql</id>
+    <content type="html"><![CDATA[<p>MySQL has traditionally lagged behind in support for the SQL standard.
+Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
+If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
+
+<h3>WITH clause</h3>
+
+<p>As discussed in this <a href="/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
+In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
+This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
+Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
+There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
+
+<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
+This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
+
+<h3>Analytic functions</h3>
+
+<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
+Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
+The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
+
+<pre><code class="sql Example of ROW_NUMBER, RANK, and DENSE_RANK functions">SELECT customer_name, SUM(annual_income),
+ROW_NUMBER () OVER (ORDER BY TO_CHAR(SUM(annual_income),'100000') DESC) row_number, 
+RANK () OVER (ORDER BY TO_CHAR(SUM(annual_income),'100000') DESC) rank, 
+DENSE_RANK () OVER (ORDER BY TO_CHAR(SUM(annual_income),'100000') DESC) dense_rank 
+FROM customer_dimension
+GROUP BY customer_name
+LIMIT 15;
+</code></pre>
+
+<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
+
+<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
+<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
+<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
+<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
+<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
+<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
+<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
+<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
+<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
+<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
+<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
+<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
+</table>
+
+
+<p><br/></p>
+
+<p>Sadly, these useful analytic functions are not supported in MySQL.
+Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
+
+<pre><code class="sql ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL">-- In Vertica
+SELECT 
+ROW_NUMBER () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS row_number,
+RANK () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS rank,
+DENSE_RANK () OVER (PARTITION BY col_1, col_2 ORDER BY col_3 DESC) AS dense_rank,
+t.* 
+FROM table_1 t
+
+-- In MySQL
+SELECT
+@row_num:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2, @row_num+1, 1) AS row_number,
+@rank:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2 AND @prev_col_3=col_3, @rank, @row_num) AS rank,
+@dense:=IF(@prev_col_1=t.col_1 AND @prev_col_2=t.col_2, IF(@prev_col_3=col_3, @dense, @dense+1), 1) AS dense_rank,
+@prev_col_1 = t.col_1,
+@prev_col_2 = t.col_2,
+@prev_col_3 = t.col_3,
+t.*
+FROM (SELECT * FROM table_1 ORDER BY col_1, col_2, col_3 DESC) t,
+     (SELECT @row_num:=1, @dense:=1, @rank:=1, @prev_col_1:=NULL, @prev_col_2:=NULL, @prev_col_3:=NULL) var
+</code></pre>
+
+<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
+In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
+Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
+You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
+
+<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
+In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
+
+<pre><code class="plain Input table">+----+-------+
+| Id | Score |
++----+-------+
+| 1  | 3.50  |
+| 2  | 3.65  |
+| 3  | 4.00  |
+| 4  | 3.85  |
+| 5  | 4.00  |
+| 6  | 3.65  |
++----+-------+
+</code></pre>
+
+<pre><code class="plain Expected output">+-------+------+
+| Score | Rank |
++-------+------+
+| 4.00  | 1    |
+| 4.00  | 1    |
+| 3.85  | 2    |
+| 3.65  | 3    |
+| 3.65  | 3    |
+| 3.50  | 4    |
++-------+------+
+</code></pre>
+
+<p>The solution in Vertica SQL would be straight-forward as follows:</p>
+
+<pre><code class="sql Solution in Vertica SQL">select Score,
+DENSE_RANK() OVER (ORDER BY Score DESC) AS Rank
+FROM Scores;
+</code></pre>
+
+<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
+
+<pre><code class="sql Solution in MySQL">SELECT Score, Rank FROM
+( SELECT t.Score,
+@dense:=IF(@prev_col2=t.Score, @dense, @dense+1) AS Rank,
+@prev_col2:=t.Score
+FROM (SELECT Score FROM Scores ORDER BY Score DESC) t, 
+(SELECT @dense:=0, @prev_col2:=NULL) var ) x
+</code></pre>
+
+<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
+<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 4) SQL Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing/"/>
+    <updated>2016-04-12T17:45:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing</id>
+    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>.</p>
+
+<!-- 
+Changes I made:
+1. Mix of SQL code and test blocks.
+1. New JSON block to run ETL script using VSQL
+
+I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
+
+Running ETL script through JDBC is probably not a good idea.
+
+Requirements of unit tests:
+
+Readability:
+
+#### Single-node VM
+
+Remove KSAFE.
+
+Add a new test.
+  
+Revert in Git.
+
+#### Adding  unit test
+
+Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+
+
+-->
+
+
+<p>TODO indefinitely.</p>
+
+<p>The idea is to use a local Vertica VM as a sandbox test environment.
+It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
+
+<p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
+
+<ol>
+<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
+<li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
+<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
+</ol>
+
+
+<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
+They are followed by a new test block to run the ETL script.
+After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
+Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
+
+<pre><code class="sql Example unit test">/****************************
+* Day 1
+****************************/
+
+INSERT INTO stg_company_id (company_id,last_modify_date,region_id)
+VALUES (123,current_timestamp-19,'US');
+
+INSERT INTO stg_company_contact (company_id,master_email,last_modify_date)
+VALUES (123,'before@mockdata.com', current_timestamp-15);
+
+/* @Test
+-- First ETL run
+{
+ "name" : "Day1_etl_run",
+ "vsql_file" : ["repo_home/sql/my_etl.sql"]
+}
+*/
+
+/* @Test
+{
+ "name" : "Day1_check_email_address",
+ "query" : "select company_id, email_address from dim_company",
+ "expected" : "123 before@mockdata.com"
+}
+*/
+</code></pre>
+
+<pre><code class="java Calling unit test script">@BeforeClass
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+    setupSchema("UNITTEST");
+}
+
+@AfterClass
+public void teardown() {
+    teardownSchema("UNITTEST");
+}
+
+@Test(enabled = true)
+public void validate_dim_region() throws Exception {
+        testRunner.runScript("unittests/etl_incremental_update_email.test");
+}
+</code></pre>
+
+<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[(Pt. 1) Functional Testing for Data Marts]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/"/>
+    <updated>2016-03-20T23:18:33-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests</id>
+    <content type="html"><![CDATA[<p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
+
+<p>In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.</p>
+
+<h3>Level 0: Manual testing</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Easy to get started.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Time consuming for many tests with multiple runs.</li>
+<li>Not repeatable.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>Early on in Big Data projects, there was not much automation.
+Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
+There are not many tools available for automated testing of SQL scripts, especially for Vertica.</p>
+
+<p>At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
+Data analysts are <em>de facto</em> end-users and main testers and many of those test queries are based on their experience.</p>
+
+<p><img class="center" src="/images/sql/squirrel.png" title="Manual testing" ></p>
+
+<p>We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
+This process is pretty much manual. If an ETL is updated <code>n</code> times, we have to repeat this <code>n</code> times.
+Most of the test queries can only tests the <strong>end results</strong> of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
+If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
+Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is &ldquo;unusually&rdquo; high today, which &ldquo;seems&rdquo; to indicate that ETL went wrong in some intermediate step.</p>
+
+<!--
+Functions is not common. 
+-->
+
+
+<h3>Level 1: TestNG</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Java and SQL codes are cluttered together.</li>
+<li>Hard to read, hard to maintain.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>After some rounds of manual testing, we started looking into automating the process.
+Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation.
+The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries.
+Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
+The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution.</p>
+
+<pre><code class="java Test query as constant Java string">public static final int DIM_REGION_COUNT = 245;
+
+@Test(enabled = true)
+public void validate_dim_region() {
+        // First test query
+        String query = "select count(*) from dim_region";
+        int output = getJdbcConnection().executeQuery(query);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
+
+        // Second test query
+}
+</code></pre>
+
+<p>Here, the test queries are defined as constant strings in Java.
+Note that the test query above is intended to be simple to illustate the automation.
+The actual test queries are usually more complex than that.
+The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
+We also remove heuristic tests that cannot be verified using assertions.
+Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
+In addition, we add tests to verify intermediate steps of the ETL processes.</p>
+
+<p>The problem of this approach is that the SQL tests are heavily cluttered by Java codes.
+This problem is getting worse when the test queries are usually more complex that they cannot fit into single lines, such as one shown below.
+When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source files.</p>
+
+<pre><code class="java A complex SQL query as Java string">        String query = "WITH Total_Traffic AS\n" + 
+                "(\n" + 
+                "    SELECT temp.* from temp as clickstream_data\n" + 
+                "    where filter_key = 1\n" + 
+                ")\n" + 
+                ", Rock_Music as\n" + 
+                "(\n" + 
+                "    select * from Total_Traffic\n" + 
+                "    WHERE lower(evar28) LIKE 'rock_mus%'\n" + 
+                ")\n" + 
+                ", Instrumental_Music as\n" + 
+                "(\n" + 
+                "    select * from Total\n" + 
+                "    WHERE evar28 LIKE '%[ins_mus]%'\n" + 
+                ")\n" + 
+                ", Defined_Traffic as\n" + 
+                "(\n" + 
+                "    select * from Rock_Music\n" + 
+                "    UNION\n" + 
+                "    select * from Instrumental_Music\n" + 
+                ")\n" + 
+                "select traffic_date_key\n" + 
+                ", count(distinct visitor_id) as unique_visitor\n" + 
+                "from Defined_Traffic\n" + 
+                "group by traffic_date_key";
+</code></pre>
+
+<h3>Level 2: Properties files</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+<li>It is easier to manage SQL test queries. Each test has a name.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.</li>
+<li>All queries have to be in a single line. Hard to read for long test queries.</li>
+</ol>
+</li>
+</ul>
+
+
+<p>For the next step, we tried to resolve the problem of Java and SQL codes mixed together.
+In this approach, SQL tests and Java codes are partitioned, with SQL queries are contained in <code>.properties</code> files, separate from supporting Java codes in <code>.java</code> files.
+The SQL test queries will be read by TestNG test cases, using key strings, before sending to database for execution.
+The same example above, when organized in this approach, will be as follows:</p>
+
+<pre><code class="java Test query in properties file">public static final int DIM_REGION_COUNT = 245;
+public static final String TEST_QUERY_RESOURCE = "test_queries.properties";
+
+@Test(enabled = true)
+public void validate_dim_region() {
+        // First test query
+        String query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_count");
+        int output = getJdbcConnection().executeQuery(query);
+        Assert.assertTrue(output == DIM_REGION_COUNT, "dim_region count:");
+
+        // Second test query
+        query = PropertyUtil.getProperty(TEST_QUERY_RESOURCE, "dim_region_data");
+}
+</code></pre>
+
+<pre><code class="properties test_queries.properties">dim_region_count=select count(*) from dim_region
+dim_region_data=another test query to verify data
+</code></pre>
+
+<p>Using this approach, each test can have a name to express its purpose.
+One can get an overview of the SQL test queries by simply looking at the <code>properties</code> file.
+The supporting Java code that executes those test queries are abstracted into separate <code>java</code> files and can be ignored.</p>
+
+<p>The problems of the above approach are:</p>
+
+<p>(1) SQL test queries are really hard to read in <code>properties</code> file.
+Each SQL test string must be in a single line.
+Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid.
+Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with <a href="https://en.wikipedia.org/wiki/Star_schema">star schema</a>.
+For hundreds of test cases with complex queries like example below, it is impossible to read in <code>.properties</code> file.</p>
+
+<pre><code class="properties complex_test_queries.properties">complex_query=WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE 'rock_mus%'), Instrumental_Music as (select * from Total WHERE evar28 LIKE '%[ins_mus]%'), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key
+</code></pre>
+
+<p>(2) Parts of tests are still in Java (in TestNG assertions), making them hard to maintain and less accessible to data analysts.
+From the <code>properties</code> file, it is not clear what is the expected output of the SQL queries.
+If there is a test failure, one still has to look it up in Java codes to understand and investigate.
+Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
+It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0.
+For example, a common test query is to find all duplicate records, which is expected to has zero row returned.
+Even those simple assertions have to be encoded using Java and TestNG&rsquo;s library methods.</p>
+
+<h3>Level 3: Script files</h3>
+
+<ul>
+<li><strong>Pros</strong>:
+
+<ol>
+<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
+<li>It is easier to maintain SQL test queries.</li>
+<li>Assertions/Expected outputs are paired with test queries.</li>
+<li>Readable by data analysts.</li>
+</ol>
+</li>
+<li><strong>Cons</strong>:
+
+<ol>
+<li>Slightly more complex setup to instantiate a SQL Test Runner.</li>
+<li>Slightly longer running time.</li>
+</ol>
+</li>
+</ul>
+
+
+<h4>Motivation</h4>
+
+<p>In recent Big Data projects, I tried to explore a way to improve readability of SQL tests.
+The main motivation for this &ldquo;Level 3&rdquo; is my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
+
+<p>Readable tests are easier to write, automate, and maintain.
+More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test?
+It does not make sense to write tests for tests.
+Only by making tests <strong>readable</strong>, you can verify and maintain the tests.</p>
+
+<p>Readable tests also promote collaboration between developers, data analysts and QEs.
+Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
+If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.</p>
+
+<h4>Implementation</h4>
+
+<p>In this approach, I implemented a <a href="/blog/2016/03/28/sql-unit-test-runner/">test framework</a>. The same tests shown in the last sections, using that framework, will look like this:</p>
+
+<pre><code class="java Test query in test files">private SqlTestRunner testRunner;
+
+@Before
+public void setup() {
+    testRunner = new SqlTestRunner(getJdbcConnection());
+}
+
+@Test(enabled = true)
+public void validate_dim_region() throws Exception {
+        testRunner.runScript("testscript/dim_region.test");
+}
+</code></pre>
+
+<pre><code class="plain dim_region.test">/* @Test
+{
+  "name" : "dim_region_count",
+  "query" : "select count(*) from dim_region",
+  "expected" : "245"
+}
+*/
+
+/* This is a comment.
+Complext test query follows.
+*/
+
+/* @Test
+{
+  "name" : "check_traffic",
+  "query" : "WITH Total_Traffic AS
+      (
+          SELECT temp.* from temp as clickstream_data
+          where .... -- filtering
+      )
+      , Rock_Music as
+      (
+          select * from Total_Traffic
+          WHERE lower(evar28) LIKE 'rock_mus%'
+      )
+      , Instrumental_Music as
+      (
+          select * from Total
+          WHERE evar28 LIKE '%[ins_mus]%'
+      )
+      , Defined_Traffic as
+      (
+          select * from Rock_Music
+          UNION
+          select * from Instrumental_Music
+      )
+      select traffic_date_key
+      , count(distinct visitor_id) as unique_visitor
+      from Defined_Traffic
+      group by traffic_date_key",
+  "expected" : "2016-03-16 123"
+}
+*/
+</code></pre>
+
+<p>The file that contains SQL test queries is conventionally named with <code>.test</code> extension.
+However, the file can be a text file with any name.
+As you can see, the benefits of &ldquo;Level 2&rdquo; is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files.
+Each test query has a name (that tells its purpose) associated with it: key string in <code>.properties</code> file and value of &ldquo;name&rdquo; key in <code>.test</code> file.</p>
+
+<p>In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed.
+The TestNG assertions, which are ubiquitous in previous &ldquo;Level 1&rdquo; and &ldquo;Level 2&rdquo; approaches, are no longer present.
+Instead, the expected outputs are specified in <code>.test</code> file, in the same JSON block with each SQL query.
+The whole TestNG class will only contain code to initialize a connection to database and an instance of <a href="/blog/2016/03/28/sql-unit-test-runner/">SQL Test Runner</a>, all of which is <strong>one-time setup</strong>.
+As we continue writing functional tests, we can keep all tests in a single <code>.test</code> file or, optionally, group related tests into separate <code>.test</code> files.
+If we add more <code>.test</code> files, we can just specify the path to the files in functions annotated with <code>@Test</code>, as shown above.</p>
+
+<p>The main advantage of this test framework is readability of those tests, as shown in <code>.test</code> file.
+The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious.
+In the example above, the first test query&rsquo;s intention is clearer with assertion in the same location.
+In addition, compared with <code>.properties</code> file approach, the SQL query is now easier to read, due to <strong>line breaks</strong>, as shown in the second example.</p>
+
+<p>All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL.
+Different from usual software engineering projects, in Big Data projects, data analysts (i.e., users) know more about the data than typical quality engineers.
+Being able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
+If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.</p>
+
+<p>While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
+Even then, the additional computational time is totally justified with much better readability.
+Test readability will save (lots of) QE&rsquo;s time in both developing and maintaining tests, and engineer&rsquo;s time is million times more costly (per-hour-wise) than computer time.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vertica Installation: Troubleshooting Tips]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/"/>
+    <updated>2016-03-13T22:24:23-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/13/vertica-10-installation-troubleshooting-tips</id>
+    <content type="html"><![CDATA[<p>In this post, I will list some problems that I encountered when installing and using the <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node VM cluster of Vertica</a> and how to work around those.
+Each installation problem has a documentation page that is displayed in the error message, such as <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">this page</a> for S0150 error.
+I listed the quick, single-command solutions here for reference purpose.
+However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.</p>
+
+<!-- 
+#### S0180 "insufficient swap size"
+
+1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
+
+<figure class='code'><figcaption><span>Adding swap fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@vertica72 osboxes]# swapoff /dev/sda2
+</span><span class='line'>[root@vertica72 osboxes]# swapon -s
+</span><span class='line'>[root@vertica72 osboxes]# swapon /swapfile
+</span><span class='line'>swapon: /swapfile: swapon failed: Invalid argument</span></code></pre></td></tr></table></div></figure>
+
+This is due to a bug
+
+1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
+
+
+1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
+-->
+
+
+<h3>S0081: SELinux appears to be enabled and not in permissive mode</h3>
+
+<pre><code class="plain">FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
+SELinux appears to be enabled and not in permissive mode.
+</code></pre>
+
+<p>As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file <code>/etc/sysconfig/selinux</code> as root/sudo:</p>
+
+<pre><code class="plain ">setenforce 0
+</code></pre>
+
+<h3>S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling</h3>
+
+<pre><code class="plain Error message">FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
+These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Fix until next reboot">echo deadline &gt; /sys/block/sda/queue/scheduler
+</code></pre>
+
+<p>Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as <code>/etc/rc.local</code>) like in this command.</p>
+
+<pre><code class="plain Permanent fix">echo 'echo deadline &gt; /sys/block/sda/queue/scheduler' &gt;&gt; /etc/rc.local
+</code></pre>
+
+<h3>S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</h3>
+
+<pre><code class="plain Error message">FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
+Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Fix until next reboot">echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
+</code></pre>
+
+<p>The permanent fix is also available in the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310">documentation page</a> in the error message above.</p>
+
+<h3>S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems</h3>
+
+<pre><code class="plain Error message">FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
+Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 &lt; 2048
+</code></pre>
+
+<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
+
+<pre><code class="plain Run this command">/sbin/blockdev –setra 2048 /dev/sda
+</code></pre>
+
+<h3>ETL fails with &ldquo;ERROR 3587:  Insufficient resources to execute plan&rdquo;</h3>
+
+<p>After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:</p>
+
+<pre><code class="plain Error message">vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
+[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
+</code></pre>
+
+<p><a href="https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226">Vertica recommends</a> a minimum of 4GB of memory per processor core.
+The comprehensive list of hardware requirements for Vertica can be found <a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">here</a>.
+Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions.
+In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.</p>
+
+<p>In my case, each of my VMs had two processor cores with only 4 GB in memory.
+To fix the error above, I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.</p>
+
+<h3>Links</h3>
+
+<ol>
+<li>Documentation pages for errors: e.g., <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">S0150</a>.
+
+<ul>
+<li>Read pages like this to figure out fixes for problems encountered during Vertica installation.</li>
+</ul>
+</li>
+<li><a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">Hardware Requirements for Vertica</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+</feed>

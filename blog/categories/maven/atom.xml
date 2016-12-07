@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Maven | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/maven/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2016-11-06T21:43:06-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
+    <updated>2016-06-06T22:47:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
+    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
+However, for that strategy to work, we should pay attention to unit test performance.
+It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
+In addition, the runtime will get compounded as we add more unit tests.
+Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
+
+<p>1) Do NOT add loggings/printing to your tests.
+Use TestNG assertions instead of checking screen output.
+Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
+The logs don&rsquo;t matter when we&rsquo;re running in parallel.
+Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
+
+<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
+This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
+For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
+
+<p>3) Mock logging and config classes if applicable.
+Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
+If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
+
+<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
+However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
+As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
+Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
+
+<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
+
+<pre><code class="xml Maven-surefire options">&lt;parallel&gt;classes&lt;/parallel&gt;
+&lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
+&lt;reuseForks&gt;false&lt;/resuseForks&gt;
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Pushing Local Jar File Into Your Local Maven (M2) Repository]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/"/>
+    <updated>2015-11-17T16:46:49-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository</id>
+    <content type="html"><![CDATA[<h4>Problem:</h4>
+
+<p>I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency.</p>
+
+<p>This post will also apply if you are behind a firewall and/or do not have external access for some reason.</p>
+
+<h4>Solution:</h4>
+
+<ul>
+<li>Download the jar file (e.g., the Vertica JDBC jar file).</li>
+<li>At the same directory as the jar file, run the following command to install the jar to the local Maven repository (running in a different directory seems not work).</li>
+</ul>
+
+
+<pre><code class="bash General Maven command">$ mvn install:install-file -DgroupId=&lt;GROUP_ID&gt; -DartifactId=&lt;ARTIFACT_ID&gt; -Dversion=&lt;VERSION&gt; -Dpackaging=jar -Dfile=&lt;LOCAL_PATH_FOR_JAR&gt; -DgeneratePom=true
+</code></pre>
+
+<p>Example:</p>
+
+<pre><code class="bash Example Maven command for Vertica JDBC">$ mvn install:install-file -DgroupId=com.vertica -DartifactId=vertica-jdbc -Dversion=7.0.1 -Dpackaging=jar -Dfile=~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom=true
+</code></pre>
+
+<ul>
+<li>Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).</li>
+</ul>
+
+
+<p>If you want your Eclipse to start using this jar from your local repository:</p>
+
+<ul>
+<li>In Eclipse Luna on a Mac/Windows, go to Window > Show View > Other > Maven > Maven Repository.</li>
+<li>Open Local Repositories > Local Repository.</li>
+<li>Right click for the context menu > Rebuild Index.</li>
+</ul>
+
+
+<p>Now it should show up in “Add…” dialog in pom.xml edit.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Running Maven Tests in Jenkins]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/09/03/running-maven-tests-in-jenkins/"/>
+    <updated>2015-09-03T01:10:36-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/09/03/running-maven-tests-in-jenkins</id>
+    <content type="html"><![CDATA[<p>A few notes on executing Maven + TestNG tests in Jenkins.</p>
+
+<h3>Running tests</h3>
+
+<p>Use the following Maven commands in Jenkins when executing tests.</p>
+
+<pre><code class="plain Running tests">mvn -f pom.xml clean test
+</code></pre>
+
+<p>In pom.xml, the test suite file should be specified, such as testng.xml.
+To run a custom TestNG test suite file, use the following command:</p>
+
+<pre><code class="plain Custom TestNG test suite">mvn clean test -DsuiteXmlFile=testng.xml
+</code></pre>
+
+<p>To run a specific TestNG class, use the following command:</p>
+
+<pre><code class="plain Run specific TestNG class/method">mvn clean test -Dtest=TestCircle
+
+mvn clean test -Dtest=TestCircle#test_area
+</code></pre>
+
+<p>Note that the symbol <code>#</code> must be used between class name and method name.
+In other words, <code>-Dtest=TestCircle.test_area</code> will not work.</p>
+
+<h4>Links</h4>
+
+<ol>
+<li><a href="http://www.vazzolla.com/2013/03/how-to-select-which-testng-suites-to-run-in-maven-surefire-plugin/">Custom TestNG suite file</a></li>
+<li><a href="http://stackoverflow.com/questions/1873995/run-a-single-test-method-with-maven">Select method in test class</a></li>
+</ol>
+
+
+<h3>Configuring tests</h3>
+
+<p>Sometimes, your tests need to access resources outside of standard Eclipse/Maven project folders.
+For the tests to pass both locally and on Jenkins, the full path to the current workspace may be required to resolve the file path to those resources in tests.
+Jenkins set a number of <a href="https://wiki.jenkins-ci.org/display/JENKINS/Building+a+software+project">environment variables</a>, including the variable
+<code>WORKSPACE</code> as the absolute path of the workspace.</p>
+
+<p>For local environment, we need to set environment variable <code>WORKSPACE</code> to simulate Jenkins environment.
+In the tests, we need to retrieve this environment variable, as follows in Java:</p>
+
+<pre><code class="java Getting environment variable">String wsPath = System.getenv("WORKSPACE");
+</code></pre>
+
+<p>Besides workspace&rsquo;s absolute path, we might also need to configure some constants in tests from a configuration file.
+When initializing constants from properties files in Maven, remember:</p>
+
+<ul>
+<li>Use <code>this.class.getResourceAsStream()</code> method.</li>
+<li>By Maven convention, properties file should be in <code>src/main/resources</code> folder.</li>
+<li>Default property values could be used when reading properties file.</li>
+</ul>
+
+
+<pre><code class="java Example">    public static final String CONFIG_PATH = "/config.properties";
+
+    static {
+        Properties prop = new Properties();
+        try ( InputStream stream = VerticaConnection.class.getResourceAsStream(MyConstants.CONFIG_PATH) ) {
+            prop.load(stream);
+
+            // Set values from config file with default values
+            UNIT_TEST_SCHEMA = prop.getProperty("schema", "UNIT_TEST");
+            FUNC_TEST_SCHEMA = prop.getProperty("schema", "FUNC_TEST");
+            VSQL_PATH = prop.getProperty("vsql_path", "/opt/vertica/bin/vsql");
+
+        } catch (FileNotFoundException e) {
+            System.err.println("Cannot find file " + MyConstants.CONFIG_PATH);
+            throw new IllegalStateException("Could not init class VerticaConnection.", e);
+        } catch (IOException e) {
+            System.err.println("Error reading file " + MyConstants.CONFIG_PATH);
+            throw new IllegalStateException("Could not init class VerticaConnection.", e);
+        }
+    }
+</code></pre>
+
+<p>Note that the location of the properties file in the example above is <code>src/main/resources/config.properties</code>.</p>
+]]></content>
+  </entry>
+  
+</feed>
