@@ -103,7 +103,7 @@ The Skyline problem states that:
 You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.
 {% endblockquote %}
 
-{% img center http://d1gjlxt8vb0knt.cloudfront.net//wp-content/uploads/skyline-1024x362.png 800 260 'Example' 'An image of example input and output'%}
+{% img center /images/python/skyline.png 800 260 'Example' 'An image of example input and output'%}
 
 One possible approach is to use a priority queue to keep track of the current highest building
 while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
