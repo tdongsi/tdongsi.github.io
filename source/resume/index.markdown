@@ -45,12 +45,11 @@ TODO:
   XQuery,
   Data Warehouse,
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
-  Tableau, 
   Dimensional Modeling (Kimball).
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
   Guava, 
-  Spring (Boot, MVC, Flyway, Data), 
+  Spring, 
   JCommander, SLF4J, 
   [JUnit](/blog/categories/junit/), TestNG,
   Apache Ant, 
@@ -100,9 +99,9 @@ SKIPPED:
 ### Honor & Awards
 
 * **SBG Data Hackathon - Best Idea** [August 2016]: Member of team “Ahab” that won Intuit Small Business Group's (SBG) Data Hackathon's Best Idea category. 
-* [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's reward for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
-* [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's reward for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
-* [**Intuit Spotlight Award**](/download/awards/2015_Learn_Fast.pdf) [March 2015]: Manager's reward for [“Learn Fast”](https://about.intuit.com/about_intuit/operating_values/).
+* [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
+* [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
+* [**Intuit Spotlight Award**](/download/awards/2015_Learn_Fast.pdf) [March 2015]: Manager's spot award for [“Learn Fast”](https://about.intuit.com/about_intuit/operating_values/).
 * [**IEEE ICRA Travel Award**](/download/awards/ICRA_2012_Travel.pdf) [2012], by **National Science Foundation**.
 * [**IEEE ICRA Travel Award**](/download/awards/ICRA_2011_Travel.pdf) [2011], by **IEEE Robotics and Automation Society**.
 * **Dean’s Distinguished Fellowship** [2009], by **University of California, Riverside**.
@@ -120,11 +119,11 @@ SKIPPED:
 **Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
 
 * Design and implement test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
-  Work with developers and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate tools and test solutions.
+  Work with business analysts and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate tools and test solutions.
 * Recent Projects and Achievements:
   * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
   * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: Using Docker to recreate data warehouse infrastructure and pipelines as local environment for efficient ETL development and testing.
-  * Multiple successful releases of datamart use cases, approved and used by business analysts and data scientists. Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
+  * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
 
 <!--
 *Recent Projects and Achievements*:
