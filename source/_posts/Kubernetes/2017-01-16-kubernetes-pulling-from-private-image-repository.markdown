@@ -1,0 +1,127 @@
+---
+layout: post
+title: "Kubernetes: pulling from private image repository"
+date: 2017-01-16 11:48:05 -0800
+comments: true
+categories: 
+- Kubernetes
+- Docker
+---
+
+Kubernetes are all setup
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
+NAME            LABELS                                 STATUS    AGE
+kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
+kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
+kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+pod "nginx" created
+```
+
+However, there are some errors.
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+NAME      READY     STATUS                                                                                       RESTARTS   AGE
+nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
+
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
+FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
+40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
+40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
+40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt
+)
+```
+
+Whenever we create a pod, the container image `gcr.io/google_containers/pause:0.8.0` is implicitly required (our Kubernetes is a bit old).  
+Currently, I pushed that image to Salesforce registry, downloaded to each Kubernetes slave, and retagged it (from Salesforce tag `artifactrepo1.corp.net` to `gcr.io` tag). 
+Essentially, I pre-loaded each Kubenetes slave with a `pause:0.8.0` Docker image.
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
+0.8.0: Pulling from google_containers/pause
+a3ed95caeb02: Pull complete
+bccc832946aa: Pull complete
+Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
+Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
+
+tdongsi-ltm4:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
+
+tdongsi-ltm4:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
+The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
+5f70bf18a086: Mounted from tdongsi/nginx
+152b0ca1d7a4: Pushed
+0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
+```
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+pod "nginx" created
+
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+NAME      READY     STATUS                                                                                                                                                                                                   RESTARTS   AGE
+nginx     0/1       image pull failed for artifactrepo1.corp.net/tdongsi/nginx:1.7.9, this may be because there are no credentials on this request.  details: (Error: image tdongsi/nginx:1.7.9 not found)   0          50s
+
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe pod
+Name:				nginx
+Namespace:			default
+Image(s):			artifactrepo1.corp.net/tdongsi/nginx:1.7.9
+Node:				kube-worker-3/10.252.158.74
+Start Time:			Fri, 13 Jan 2017 10:53:39 -0800
+Labels:				<none>
+Status:				Pending
+Reason:
+Message:
+IP:				10.252.100.2
+Replication Controllers:	<none>
+Containers:
+  nginx:
+    Container ID:
+    Image:		artifactrepo1.corp.net/tdongsi/nginx:1.7.9
+    Image ID:
+    State:		Waiting
+      Reason:		image pull failed for artifactrepo1.corp.net/tdongsi/nginx:1.7.9, this may be because there are no credentials on this request.  details: (Error: image tdongsi/nginx:1.7.9 not found)
+    Ready:		False
+    Restart Count:	0
+    Environment Variables:
+Conditions:
+  Type		Status
+  Ready 	False
+No volumes.
+Events:
+  FirstSeen	LastSeen	Count	From			SubobjectPath				Reason		Message
+  ─────────	────────	─────	────			─────────────				──────		───────
+  7s		7s		1	{scheduler }							scheduled	Successfully assigned nginx to kube-worker-3
+  7s		7s		1	{kubelet kube-worker-3}	implicitly required container POD	pulled		Container image "gcr.io/google_containers/pause:0.8.0" already present on machine
+  7s		7s		1	{kubelet kube-worker-3}	implicitly required container POD	created		Created with docker id 927eadffa4ff
+  7s		7s		1	{kubelet kube-worker-3}	implicitly required container POD	started		Started with docker id 927eadffa4ff
+  7s		7s		1	{kubelet kube-worker-3}	spec.containers{nginx}			pulling		Pulling image "artifactrepo1.corp.net/tdongsi/nginx:1.7.9"
+  7s		7s		1	{kubelet kube-worker-3}	spec.containers{nginx}			failed		Failed to pull image "artifactrepo1.corp.net/tdongsi/nginx:1.7.9": image pull failed for artifactrepo1.corp.net/tdongsi/nginx:1.7.9, this may be because there are no credentials on this request.  details: (Error: image tdongsi/nginx:1.7.9 not found)
+```
+
+Validate
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
+{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }
+```
+
+Update secret Type
+
+```
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+NAME      READY     STATUS    RESTARTS   AGE
+nginx     1/1       Running   0          15s
+tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get event
+FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
+1m          1m         1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-1
+1m          1m         1         nginx     Pod       implicitly required container POD   pulled      {kubelet kube-worker-1}   Container image "gcr.io/google_containers/pause:0.8.0" already present on machine
+1m          1m         1         nginx     Pod       implicitly required container POD   created     {kubelet kube-worker-1}   Created with docker id 6f874a78acd3
+1m          1m         1         nginx     Pod       implicitly required container POD   started     {kubelet kube-worker-1}   Started with docker id 6f874a78acd3
+1m          1m         1         nginx     Pod       spec.containers{nginx}              pulling     {kubelet kube-worker-1}   Pulling image "artifactrepo1.corp.net/tdongsi/nginx:1.7.9"
+54s         54s        1         nginx     Pod       spec.containers{nginx}              pulled      {kubelet kube-worker-1}   Successfully pulled image "artifactrepo1.corp.net/tdongsi/nginx:1.7.9"
+54s         54s        1         nginx     Pod       spec.containers{nginx}              created     {kubelet kube-worker-1}   Created with docker id e2f7ea9c5415
+54s         54s        1         nginx     Pod       spec.containers{nginx}              started     {kubelet kube-worker-1}   Started with docker id e2f7ea9c5415
+```
