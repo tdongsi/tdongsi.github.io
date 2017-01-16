@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Cuong DongSi"
-date: 2016-02-20 14:49
+date: 2016-12-07 13:49
 comments: true
 sharing: false
 footer: true
@@ -116,7 +116,11 @@ SKIPPED:
 
 ### Work Experience
 
-**Software Engineer II in Quality**, Intuit Inc. (12/2014 - present) 
+**Member of Technical Staff**, Salesforce (10/2016 - present)
+
+* AWS, Kubernetes, Docker, Jenkins, Spinnaker.
+
+**Software Engineer II in Quality**, Intuit Inc. (12/2014 - 10/2016) 
 
 * Design and implement test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
   Work with business analysts and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate tools and test solutions.
