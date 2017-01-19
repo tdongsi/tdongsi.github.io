@@ -162,3 +162,16 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 | **SNS** | | Notifications. |
 | **Cognito** | | Mobile authentication and data syncing. |
 | **Mobile Analytics** | | Measure and analyze mobile application usage data. |
+
+### Other information
+
+Globally accessible services:
+
+* IAM
+* Route 53
+* Cloud Front
+* Web App Firewall
+
+Regionally accessible services:
+
+* S3
