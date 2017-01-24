@@ -105,3 +105,105 @@ In summary, the reason of pod-to-VM communication loss is that kube-proxy interc
 My mistake when configuring flanneld for the kubernetes cluster. 
 The solution is simply reset flanneld with another subnet (in etcd).
 
+```
+[centos@kube-worker-1 ~]$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:6c:d9:cc brd ff:ff:ff:ff:ff:ff
+    inet 10.252.158.72/26 brd 10.252.158.127 scope global dynamic eth0
+       valid_lft 57022sec preferred_lft 57022sec
+4: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN
+    link/ether 46:42:d4:b2:5a:08 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.61.0/16 scope global flannel.1
+       valid_lft forever preferred_lft forever
+5: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UP
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.61.1/24 scope global docker0
+       valid_lft forever preferred_lft forever
+```
+
+### Update flannel
+
+etcd
+
+```
+[centos@kube-controller-1 ~]$ etcdctl update /kube-centos/network/config "{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+[centos@kube-controller-1 ~]$ etcdctl rm --recursive /kube-centos/network/subnets
+[centos@kube-controller-1 ~]$ etcdctl ls /kube-centos/network
+/kube-centos/network/config
+```
+
+Controller
+
+```
+[centos@kube-controller-1 ~]$ sudo ls /run/flannel/
+docker     subnet.env
+[centos@kube-controller-1 ~]$ sudo rm /run/flannel/docker
+[centos@kube-controller-1 ~]$ sudo rm /run/flannel/subnet.env
+[centos@kube-controller-1 ~]$ sudo ls /run/flannel/
+<Nothing>
+[centos@kube-controller-1 ~]$ sudo systemctl status etcd
+
+[centos@kube-controller-1 ~]$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:64:b4:67 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.158.71/26 brd 10.252.158.127 scope global dynamic eth0
+       valid_lft 63955sec preferred_lft 63955sec
+[centos@kube-controller-1 ~]$ sudo systemctl start etcd
+[centos@kube-controller-1 ~]$ sudo systemctl start flanneld
+[centos@kube-controller-1 ~]$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:64:b4:67 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.158.71/26 brd 10.252.158.127 scope global dynamic eth0
+       valid_lft 63938sec preferred_lft 63938sec
+7: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN
+    link/ether 92:00:3c:3d:61:52 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.83.0/16 scope global flannel.1
+       valid_lft forever preferred_lft forever
+```
+
+Nodes
+
+```
+[centos@kube-worker-3 ~]$ sudo ls /run/flannel/
+docker     subnet.env
+[centos@kube-worker-3 ~]$ sudo rm /run/flannel/docker
+[centos@kube-worker-3 ~]$ sudo rm /run/flannel/subnet.env
+[centos@kube-worker-3 ~]$ sudo systemctl stop docker
+[centos@kube-worker-3 ~]$ sudo systemctl stop flanneld
+[centos@kube-worker-3 ~]$ ip ad
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:7a:78:0b brd ff:ff:ff:ff:ff:ff
+    inet 10.252.158.74/26 brd 10.252.158.127 scope global dynamic eth0
+       valid_lft 79103sec preferred_lft 79103sec
+4: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN
+    link/ether 4e:7d:37:25:1e:b0 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.100.0/16 scope global flannel.1
+       valid_lft forever preferred_lft forever
+5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1450 qdisc noqueue state DOWN
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+    inet 10.252.100.1/24 scope global docker0
+       valid_lft forever preferred_lft forever
+[centos@kube-worker-3 ~]$ sudo ip link del docker0
+[centos@kube-worker-3 ~]$ sudo ip link del flannel.1
+[centos@kube-worker-3 ~]$ for SERVICES in kube-proxy kubelet flanneld docker; do
+>     sudo systemctl restart $SERVICES
+>     sudo systemctl enable $SERVICES
+>     sudo systemctl status $SERVICES
+> done
+```
