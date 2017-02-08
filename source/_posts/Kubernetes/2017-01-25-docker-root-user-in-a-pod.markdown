@@ -8,13 +8,13 @@ categories:
 - Kubernetes
 ---
 
-You have some pod running in Kubernetes cluster.
+In the following scenario, we have some pod running in Kubernetes cluster.
 
 ```
 tdongsi-ltm4:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
 Name:				jenkins
 Namespace:			default
-Image(s):			ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins:2.23
+Image(s):			docker.registry.company.net/tdongsi/jenkins:2.23
 Node:				kube-worker-1/10.252.158.72
 Start Time:			Tue, 24 Jan 2017 16:57:47 -0800
 Labels:				name=jenkins
@@ -25,9 +25,9 @@ IP:				172.17.27.3
 Replication Controllers:	<none>
 Containers:
   jenkins:
-    Container ID:	docker://943d6e5a3bb8270b5b06b0aa360f3969c005617ec5781dc5319692f5038804c8
-    Image:		ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins:2.23
-    Image ID:		docker://242c18370cc82536de0beb13c9da78fe1096a1a1a55a6c9ef936544e5ca31616
+    Container ID:	docker://943d6e55038804c8
+    Image:		docker.registry.company.net/tdongsi/jenkins:2.23
+    Image ID:		docker://242c1836544e5ca31616
     State:		Running
       Started:		Tue, 24 Jan 2017 16:57:48 -0800
     Ready:		True
@@ -43,8 +43,8 @@ Volumes:
 No events. 
 ```
 
-You need to have root power to troubleshoot.
-However, you simply don't have the root password.
+For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
+Sometimes, we simply cannot `sudo` or have the root password.
 
 ```
 jenkins@jenkins:~$ sudo ls /etc/hosts
@@ -52,32 +52,50 @@ jenkins@jenkins:~$ sudo ls /etc/hosts
 Sorry, try again.
 ```
 
-One way to enter the container as root is:
+Modifying the Docker image to set root password (e.g., by editing `Dockerfile` and rebuild) is sometimes not an option, 
+such as when the Docker image is downloaded from another source and read-only.
+Moreover, if the container is running in production, we don't want to stop the container while troubleshooting some temporary issues.
+
+I found one way to enter a "live" container as root by using `nsenter`.
+In summary, we find the process id of the target container and provide it to `nsenter` as an argument.
+In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following `docker` commands.
+
+TODO: Add caption here.
+
+``` cmd Finding running container ID and name
+[centos@kube-worker-1 ~]$ sudo docker ps
+CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
+943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_jenkins_default_49e9a163-e299-11e6-a10d-fa163e64b467_40c7167f
+fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_jenkins_default_49e9a163-e299-11e6-a10d-fa163e64b467_9434ea19
+```
+
+TODO: State.Pid is not shown.
 
 ```
-[centos@kube-worker-1 ~]$ sudo docker ps
-CONTAINER ID        IMAGE                                                                COMMAND                CREATED             STATUS              PORTS               NAMES
-943d6e5a3bb8        ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_jenkins_default_49e9a163-e299-11e6-a10d-fa163e64b467_40c7167f
-fadfc479f24e        gcr.io/google_containers/pause:0.8.0                                 "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_jenkins_default_49e9a163-e299-11e6-a10d-fa163e64b467_9434ea19
-[centos@kube-worker-1 ~]$ docker inspect --format {{.State.Pid}} 943d6e5a3bb8
-Get http:///var/run/docker.sock/v1.18/images/943d6e5a3bb8/json: dial unix /var/run/docker.sock: permission denied. Are you trying to connect to a TLS-enabled daemon without TLS?[centos@kube-worker-1 ~]$ sudo !!
-sudo docker inspect --format {{.State.Pid}} 943d6e5a3bb8
+[centos@kube-worker-1 ~]$ sudo docker inspect --format \{\{.State.Pid\}\} 943d6e5a3bb8
 9176
+
 [centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
 root@jenkins:/# cd ~
 root@jenkins:~# vi /etc/hosts
 root@jenkins:~# exit
 ```
 
-After Docker 1.6, this might worker
+For later versions of Docker, the more direct way is to use `docker exec` with the container name shown in `docker ps` output. 
+The above example can be simplified as follows:
 
 ```
-[centos@kube-worker-1 ~]$ sudo docker exec --privileged -it k8s_jenkins.6e7c865_jenkins_default_49e9a163-e299-11e6-a10d-fa163e64b467_40c7167f bash
+[centos@kube-worker-1 ~]$ sudo docker exec --privileged -it <long_docker_name> bash
 ```
+
+In that case, we eliminate the need of `nsenter` tool.
+However, note that the above `docker exec` might not work for earlier versions of Docker (tested with Docker 1.6) and `nsenter` must be used.
 
 ### References
 
-* https://github.com/jpetazzo/nsenter
+TODO: Reorganize this.
+
+* [nsenter tool](https://github.com/jpetazzo/nsenter)
 * http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container
-* https://docs.docker.com/engine/reference/commandline/exec/
+* [docker exec](https://docs.docker.com/engine/reference/commandline/exec/) manual
 
