@@ -17,7 +17,7 @@ My resume in hyperlinked format.
 <!--
 Checklist:
 
-1. Update PDF resume.
+1. Unify the following versions: LinkedIn, PDF, Web (github.io).
 2. Enable Publications section?
 3. Compare Skills section vs Blog categories.
 -->
@@ -26,6 +26,9 @@ Checklist:
 
 <!--
 TODO: 
+Groovy
+Jenkins
+Kubernetes
 -->
 * **Programming**: 
   [Java](/blog/categories/java/), 
@@ -141,12 +144,16 @@ SKIPPED:
   
 **Software QA Engineer**, Objectivity Inc. (7/2012 - 12/2014)
 
-* Designed and implemented frameworks for automated performance testing for company’s database products, Objectivity and InfiniteGraph. Developed and maintained automated regression tests for the two database products and their command-line utility tools.
+* Designed and implemented automation frameworks to facilitate scalable testing for company’s database products, Objectivity and InfiniteGraph. 
+  Work with developers on product features to make informed testing decisions, develop appropriate test solutions.
 * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 * Selected Projects and Achievements:
     * Designed and implemented test plans for measuring **data ingestion performance** of graph database
-      InfiniteGraph in **distributed multi-client settings**. Set up and configured a network of eight Linux and Windows hosts with OpenSSH. Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
+      InfiniteGraph in **distributed multi-client settings**. 
+      Set up and configured a network of eight Linux and Windows hosts with OpenSSH. 
+      Fully automated performance tests using Python scripts, in which multiple Java test applications are compiled and ingest data simultaneously from multiple remote hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANLTR) to verify correctness of decompiled byte codes after injection.
+    * Developed functional tests for Talend data connectors for ETL pipelines from MySQL and Cassandra databases into Objectivity databases.
 
 <!--
 *Selected Projects and Achievements*:
@@ -159,10 +166,12 @@ SKIPPED:
 * Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
 -->
 
+<!--
 **Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
 
 * Designed and implemented sensor fusion algorithms for [accelerometers, gyroscopes, and cameras](/resume/mycar_2012.jpg), with applications targeted for smartphones, VR headsets, and driverless car [navigation systems](/resume/mycarb_2012.jpg). 
   The algorithms, implemented in C++ and Matlab based on probabilistic models and statistical inference methods, are published in peer-reviewed conferences (ICRA).
+-->
 
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
