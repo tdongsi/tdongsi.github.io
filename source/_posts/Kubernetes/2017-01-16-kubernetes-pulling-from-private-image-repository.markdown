@@ -3,11 +3,14 @@ layout: post
 title: "Kubernetes: pulling from private image repository"
 date: 2017-01-16 11:48:05 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Kubernetes
 - Docker
 ---
+
+This post is about using older Kubernetes (< 1.2) due to internal corporate constraints. 
+If you are using latest Kubernetes, you can skip this post.
 
 Kubernetes are all setup
 
