@@ -127,11 +127,13 @@ SKIPPED:
 
 **Software Engineer II in Quality**, Intuit Inc. (12/2014 - 10/2016) 
 
-* Design and implement test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
-  Work with business analysts and data scientists on project requirements to make informed testing decisions and develop/evangelize appropriate tools and test solutions.
+* Designed and implemented test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
+  Worked with business analysts and data scientists on project requirements to make informed testing decisions and developed appropriate tools and test solutions.
 * Recent Projects and Achievements:
-  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: Using Docker to recreate data warehouse infrastructure and pipelines as local environment for efficient ETL development and testing.
+  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, 
+    verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
+  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: 
+    Using Docker containers to recreate data warehouse infrastructure and pipelines as local environment for efficient ETL development and testing.
   * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
 
 <!--
@@ -153,7 +155,7 @@ SKIPPED:
     * Designed and implemented test plans for measuring data ingestion performance of graph database InfiniteGraph in distributed multi-client settings. 
       Fully automated performance tests using Python, in which multiple Java-based clients are compiled and ingest data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
-    * Developed functional tests for Talend data connectors for ETL pipelines from MySQL and Cassandra databases into Objectivity databases.
+    * Developed functional tests for Talend data connectors in ETL pipelines from MySQL and Cassandra databases into Objectivity databases.
 
 <!--
 *Selected Projects and Achievements*:
