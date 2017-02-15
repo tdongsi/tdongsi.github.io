@@ -26,15 +26,12 @@ Checklist:
 
 <!--
 TODO: 
-Groovy
-Jenkins
-Kubernetes
 -->
 * **Programming**: 
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  Scala, Javascript, 
+  Scala, Javascript, Groovy, 
   [Perl](/blog/categories/perl/),
   [bash](/blog/categories/bash/).
 * [**Database**](/blog/categories/database/): 
@@ -58,9 +55,7 @@ Kubernetes
   Apache Ant, 
   [Maven](/blog/categories/maven/), Gradle.
 * **JavaScript stack**:
-  MongoDB, ExpressJS, NodeJS.
-* **Web Apps**: 
-  HTML, CSS, RestAssured, [JMockit](/blog/categories/jmockit/).
+  MongoDB, ExpressJS, NodeJS, Grunt, HTML, CSS.
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
@@ -84,10 +79,10 @@ Kubernetes
   * Teamware:
     MediaWiki, Confluence, JIRA, Trello.
   * DevOps:
-    Jenkins, Tidal Scheduler, 
+    Jenkins, Spinnaker, 
     [Splunk](/download/training/COC_Searching_Splunk.pdf), 
     Chef, vagrant, 
-    [Docker](/blog/categories/docker/).
+    [Docker](/blog/categories/docker/), Kubernetes.
 
 <!--
 SKIPPED: 
