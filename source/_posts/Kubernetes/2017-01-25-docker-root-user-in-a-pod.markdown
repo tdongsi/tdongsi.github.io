@@ -90,6 +90,62 @@ The above example can be simplified as follows:
 In that case, we eliminate the need of `nsenter` tool.
 However, note that the above `docker exec` might not work for earlier versions of Docker (tested with Docker 1.6) and `nsenter` must be used.
 
+After entering the container as `root`, you might want to add the user into sudo group and save the modified Docker image.
+
+```
+[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
+root@node-v4:~# cd /home/jenkins
+root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
+root@node-v4:/home/jenkins# passwd jenkins
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+root@node-v4:/home/jenkins# exit
+logout
+
+[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" 280e5237cc6a ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
+
+[centos@kube-worker-3 ~]$ sudo docker push ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+The push refers to a repository [ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent] (len: 1)
+b1fe6c66195e: Image already exists
+151c68e860a5: Image successfully pushed
+670d6fd894d6: Image successfully pushed
+...
+```
+
+After that, you can verify `sudo`ing in the new Docker image.
+
+```
+tdongsi-ltm4:~ tdongsi$ docker pull ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+2.80: Pulling from tdongsi/matrix-jenkins-nodev4-agent
+bf5d46315322: Already exists
+9f13e0ac480c: Already exists
+ebe26e644840: Pull complete
+40af181810e7: Pull complete
+...
+
+tdongsi-ltm4:~ tdongsi$ docker run -d --restart=always --entrypoint="java" ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80 -jar /usr/share/jenkins/slave.jar -jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
+tdongsi-ltm4:~ tdongsi$ docker ps
+CONTAINER ID        IMAGE                                                                             COMMAND                  CREATED             STATUS              PORTS               NAMES
+dd9c207e2ef1        ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
+tdongsi-ltm4:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
+jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
+[sudo] password for jenkins:
+/etc/hosts
+jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+ff00::0	ip6-mcastprefix
+ff02::1	ip6-allnodes
+ff02::2	ip6-allrouters
+172.17.0.2	dd9c207e2ef1
+jenkins@dd9c207e2ef1:~$ exit
+exit
+```
+
 ### References
 
 * [nsenter tool](https://github.com/jpetazzo/nsenter)
