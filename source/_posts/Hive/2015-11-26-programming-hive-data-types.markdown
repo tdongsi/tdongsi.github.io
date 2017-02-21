@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hive Tutorial (Pt. 4): Data Types"
+title: "Learning Hive (Pt. 4): Data Types"
 date: 2015-11-26 18:01:37 -0800
 comments: true
 published: true

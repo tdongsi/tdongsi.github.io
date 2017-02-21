@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hive Tutorial (Pt. 2): Hive CLI"
+title: "Learning Hive (Pt. 2): Hive CLI"
 date: 2015-11-23 19:47:23 -0800
 comments: true
 categories: 

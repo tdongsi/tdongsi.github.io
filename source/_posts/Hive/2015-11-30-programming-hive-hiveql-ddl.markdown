@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hive Tutorial (Pt. 5): HiveQL Data Definition"
+title: "Learning Hive (Pt. 5): HiveQL Data Definition"
 date: 2015-12-02 18:32:21 -0800
 comments: true
 published: true

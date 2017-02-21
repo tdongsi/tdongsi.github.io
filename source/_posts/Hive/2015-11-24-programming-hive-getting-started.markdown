@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hive Tutorial (Pt. 3): Runtime Modes"
+title: "Learning Hive (Pt. 3): Runtime Modes"
 date: 2015-11-24 18:24:30 -0800
 comments: true
 published: true

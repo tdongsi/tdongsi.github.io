@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hive Tutorial (Pt. 7): Partitioned tables"
+title: "Learning Hive (Pt. 7): Partitioned tables"
 date: 2015-12-06 21:09:51 -0800
 comments: true
 published: true
