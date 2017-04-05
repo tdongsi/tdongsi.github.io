@@ -9,13 +9,15 @@ categories:
 - Docker
 ---
 
-WARNING: 
-This post is for older versions of Kubernetes (< 1.2) due to internal corporate constraints. 
+**WARNING**: 
+This post is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
 Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
-However, some companies may dive into Kubernetes early, contribute lots of code to make it work and these problems may persist, especially for new hires.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
 
-In this scenario, Kubernetes cluster are all installed and configured. 
-We are trying to create some "Hello World" pod.
+### Problem description
+
+In this problem, Kubernetes cluster are all installed and configured. 
+We are trying to create some "Hello World" pod, using the example described [here](https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition).
 
 ```
 tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
@@ -27,7 +29,7 @@ tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod
 pod "nginx" created
 ```
 
-However, there are some errors.
+However, one can see the following error messages:
 
 ```
 tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
@@ -38,12 +40,20 @@ tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
 FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
 40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
 40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
-40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt
+40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
 )
 ```
 
-Whenever we create a pod, the container image `gcr.io/google_containers/pause:0.8.0` is implicitly required (our Kubernetes is a bit old).  
-Currently, I pushed that image to internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from Salesforce tag `artifactrepo1.corp.net` to `gcr.io` tag). 
+The full error message is "image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt". 
+
+
+### `pause` container
+
+Whenever we create a pod, a `pause` container image such as `gcr.io/google_containers/pause:0.8.0` is implicitly required.  
+TODO: What pause do.
+If a machine is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry.
+Each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
+One work-around is to push that `pause` image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag `artifactrepo1.corp.net` to `gcr.io` tag).
 Essentially, I pre-loaded each Kubenetes slave with a `pause:0.8.0` Docker image.
 
 ```
@@ -62,6 +72,10 @@ The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
 152b0ca1d7a4: Pushed
 0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
 ```
+
+TODO: `kubelet` option 
+
+### Pulling fails even with pull image secret
 
 ```
 tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
@@ -132,3 +146,8 @@ FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                  
 54s         54s        1         nginx     Pod       spec.containers{nginx}              created     {kubelet kube-worker-1}   Created with docker id e2f7ea9c5415
 54s         54s        1         nginx     Pod       spec.containers{nginx}              started     {kubelet kube-worker-1}   Started with docker id e2f7ea9c5415
 ```
+
+### References
+
+* Hello1
+* Hello2
