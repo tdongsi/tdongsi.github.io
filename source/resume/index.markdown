@@ -118,39 +118,28 @@ SKIPPED:
 
 **Member of Technical Staff**, Salesforce (10/2016 - present)
 
-* AWS, Kubernetes, Docker, Jenkins, Spinnaker.
+* AWS, Kubernetes, Docker, Jenkins, CI/CD.
 
-**Software Engineer II in Quality**, Intuit Inc. (12/2014 - 10/2016) 
+**Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
 * Designed and implemented test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
-  Worked with business analysts and data scientists on project requirements to make informed testing decisions and developed appropriate tools and test solutions.
-* Recent Projects and Achievements:
+  Worked with business analysts and data scientists on project requirements to develop appropriate tools and test solutions.
+* Projects and Achievements:
   * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, 
     verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
   * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: 
-    Using Docker containers to recreate data warehouse infrastructure and pipelines as local environment for efficient ETL development and testing.
+    Using Docker containers to recreate data warehouse infrastructure and pipelines in local environment for efficient ETL development and testing.
   * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
-
-<!--
-*Recent Projects and Achievements*:
-
-* Designed and implemented test plans for QuickBooks Online ecosystem’s Data Mart project,
- verifying business analytics requirements and functionalities implemented and validated.
-* Implemented a test automation framework to facilitate automated testing of SQL scripts, verifying Extract-Transform-Load (ETL) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-* Achievements: Three successful releases of Data Mart with different analytic use cases, approved
-  and used by business analysts and data scientists. Two Intuit Spotlight Awards for demonstrating Intuit’s Operating Values “Learn Fast” and “Deliver Awesome”.
--->
   
-**Software QA Engineer**, Objectivity Inc. (7/2012 - 12/2014)
+**Software Engineer**, Objectivity Inc. (7/2012 - 12/2014)
 
-* Designed and implemented automation frameworks to facilitate scalable testing for company’s database products, Objectivity and InfiniteGraph. 
-  Worked with developers on product features to make informed testing decisions, developed appropriate test solutions.
-* Reviewed Java codes and enforced good practices for more robust and flexible Java API.
+* Designed and implemented automation frameworks to facilitate scalable testing for company’s database products, Objectivity and InfiniteGraph.
 * Selected Projects and Achievements:
     * Designed and implemented test plans for measuring data ingestion performance of graph database InfiniteGraph in distributed multi-client settings. 
       Fully automated performance tests using Python, in which multiple Java-based clients are compiled and ingest data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
     * Developed functional tests for Talend data connectors in ETL pipelines from MySQL and Cassandra databases into Objectivity databases.
+    * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
 <!--
 *Selected Projects and Achievements*:
