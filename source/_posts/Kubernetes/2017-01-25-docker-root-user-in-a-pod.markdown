@@ -11,7 +11,7 @@ categories:
 In the following scenario, we have some pod running in Kubernetes cluster.
 
 ```
-tdongsi-ltm4:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
+tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
 Name:				jenkins
 Namespace:			default
 Image(s):			docker.registry.company.net/tdongsi/jenkins:2.23
@@ -103,11 +103,11 @@ passwd: password updated successfully
 root@node-v4:/home/jenkins# exit
 logout
 
-[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" 280e5237cc6a ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" 280e5237cc6a docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
 b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
 
-[centos@kube-worker-3 ~]$ sudo docker push ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
-The push refers to a repository [ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent] (len: 1)
+[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+The push refers to a repository [docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent] (len: 1)
 b1fe6c66195e: Image already exists
 151c68e860a5: Image successfully pushed
 670d6fd894d6: Image successfully pushed
@@ -117,7 +117,7 @@ b1fe6c66195e: Image already exists
 After that, you can verify `sudo`ing in the new Docker image.
 
 ```
-tdongsi-ltm4:~ tdongsi$ docker pull ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
+tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent:2.80
 2.80: Pulling from tdongsi/matrix-jenkins-nodev4-agent
 bf5d46315322: Already exists
 9f13e0ac480c: Already exists
@@ -125,12 +125,12 @@ ebe26e644840: Pull complete
 40af181810e7: Pull complete
 ...
 
-tdongsi-ltm4:~ tdongsi$ docker run -d --restart=always --entrypoint="java" ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80 -jar /usr/share/jenkins/slave.jar -jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent:2.80 -jar /usr/share/jenkins/slave.jar -jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
 dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
-tdongsi-ltm4:~ tdongsi$ docker ps
+tdongsi-mac:~ tdongsi$ docker ps
 CONTAINER ID        IMAGE                                                                             COMMAND                  CREATED             STATUS              PORTS               NAMES
-dd9c207e2ef1        ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-nodev4-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
-tdongsi-ltm4:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
+dd9c207e2ef1        docker.registry.company.net/tdongsi/matrix-jenkins-nodev4-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
+tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
 jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
 [sudo] password for jenkins:
 /etc/hosts

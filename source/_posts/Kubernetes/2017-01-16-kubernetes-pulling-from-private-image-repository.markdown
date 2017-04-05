@@ -9,29 +9,32 @@ categories:
 - Docker
 ---
 
-This post is about using older Kubernetes (< 1.2) due to internal corporate constraints. 
-If you are using latest Kubernetes, you can skip this post.
+WARNING: 
+This post is for older versions of Kubernetes (< 1.2) due to internal corporate constraints. 
+Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and these problems may persist, especially for new hires.
 
-Kubernetes are all setup
+In this scenario, Kubernetes cluster are all installed and configured. 
+We are trying to create some "Hello World" pod.
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
 NAME            LABELS                                 STATUS    AGE
 kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
 kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
 kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
 pod "nginx" created
 ```
 
 However, there are some errors.
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
 NAME      READY     STATUS                                                                                       RESTARTS   AGE
 nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
 
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
 FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
 40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
 40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
@@ -40,20 +43,20 @@ FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                  
 ```
 
 Whenever we create a pod, the container image `gcr.io/google_containers/pause:0.8.0` is implicitly required (our Kubernetes is a bit old).  
-Currently, I pushed that image to Salesforce registry, downloaded to each Kubernetes slave, and retagged it (from Salesforce tag `artifactrepo1.corp.net` to `gcr.io` tag). 
+Currently, I pushed that image to internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from Salesforce tag `artifactrepo1.corp.net` to `gcr.io` tag). 
 Essentially, I pre-loaded each Kubenetes slave with a `pause:0.8.0` Docker image.
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
+tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
 0.8.0: Pulling from google_containers/pause
 a3ed95caeb02: Pull complete
 bccc832946aa: Pull complete
 Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
 Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
 
-tdongsi-ltm4:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
+tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
 
-tdongsi-ltm4:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
+tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
 The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
 5f70bf18a086: Mounted from tdongsi/nginx
 152b0ca1d7a4: Pushed
@@ -61,14 +64,14 @@ The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
 ```
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
 pod "nginx" created
 
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
 NAME      READY     STATUS                                                                                                                                                                                                   RESTARTS   AGE
 nginx     0/1       image pull failed for artifactrepo1.corp.net/tdongsi/nginx:1.7.9, this may be because there are no credentials on this request.  details: (Error: image tdongsi/nginx:1.7.9 not found)   0          50s
 
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe pod
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe pod
 Name:				nginx
 Namespace:			default
 Image(s):			artifactrepo1.corp.net/tdongsi/nginx:1.7.9
@@ -108,17 +111,17 @@ Events:
 Validate
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
 { "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }
 ```
 
 Update secret Type
 
 ```
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
 NAME      READY     STATUS    RESTARTS   AGE
 nginx     1/1       Running   0          15s
-tdongsi-ltm4:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get event
+tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get event
 FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
 1m          1m         1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-1
 1m          1m         1         nginx     Pod       implicitly required container POD   pulled      {kubelet kube-worker-1}   Container image "gcr.io/google_containers/pause:0.8.0" already present on machine
