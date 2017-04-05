@@ -22,7 +22,7 @@ The project is based on a Cassandra interview question found on Glassdoor.
 
 Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.
 
-## Input/Output
+### Input/Output
 
 **Input**
 
@@ -61,13 +61,13 @@ Example:
 
 ![alt text](https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png "Performance Plot")
 
-## Python modules
+### Python modules
 1. PerformanceLog.py: Main module to run the automated tasks. Please use "python PerformanceLog -h" for the required arguments. Example call for Windows is in the doc string.
 2. MyLogger.py: Logging support module
 3. CassandraRecord.py: Support module to record metrics into a Cassandra table.
 4. Plotter.py: Support module to plot metrics into plots and save into PNG file.
 
-### Automated tasks by the modules
+#### Automated tasks by the modules
 1. Check if Cassandra is Running
 2. Record certain JMX Metrics 
 3. Runs the external tool Cassandra Stress
@@ -75,7 +75,7 @@ Example:
 5. Record the metrics back into a Cassandra Table
 6. Graph the results (create these graphs at the end of the run).
 
-## External Python libraries required
+### External Python libraries required
 
 #### For CassandraRecord.py
 
@@ -88,7 +88,7 @@ This Python module used Matplotlib library. Please install the following Python 
 Installation of these Python libraries are straight-forward on Linux and Win32. On Win64, please find their installers here: http://www.lfd.uci.edu/~gohlke/pythonlibs/
 
 
-## Other files
+### Other files
 
 The following output files are produced. For consistency check, they are left behind.
 In the final version of the script, they may be cleaned up accordingly.
