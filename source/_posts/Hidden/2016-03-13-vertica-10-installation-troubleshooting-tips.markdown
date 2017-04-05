@@ -3,6 +3,7 @@ layout: post
 title: "Vertica installation: Troubleshooting tips"
 date: 2016-03-13 22:24:23 -0700
 comments: true
+published: false
 categories: 
 - Vertica
 - CentOS

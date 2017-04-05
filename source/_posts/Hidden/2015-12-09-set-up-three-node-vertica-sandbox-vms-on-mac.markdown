@@ -3,7 +3,7 @@ layout: post
 title: "Set up three-node Vertica VM sandbox"
 date: 2016-03-12 14:35:19 -0800
 comments: true
-published: true
+published: false
 categories: 
 - Vertica
 - CentOS
