@@ -3,7 +3,10 @@ layout: post
 title: "Kubernetes: Cluster setup with Docker Bootstrap"
 date: 2017-03-07 14:51:07 -0800
 comments: true
+published: false
 categories: 
+- Kubernetes
+- CentOS
 ---
 
 ### Overview
