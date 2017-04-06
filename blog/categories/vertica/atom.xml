@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-01-19T10:33:15-08:00</updated>
+  <updated>2017-04-05T18:07:07-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -700,115 +700,48 @@ Test readability will save (lots of) QE&rsquo;s time in both developing and main
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Vertica Installation: Troubleshooting Tips]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/13/vertica-10-installation-troubleshooting-tips/"/>
-    <updated>2016-03-13T22:24:23-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/13/vertica-10-installation-troubleshooting-tips</id>
-    <content type="html"><![CDATA[<p>In this post, I will list some problems that I encountered when installing and using the <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node VM cluster of Vertica</a> and how to work around those.
-Each installation problem has a documentation page that is displayed in the error message, such as <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">this page</a> for S0150 error.
-I listed the quick, single-command solutions here for reference purpose.
-However, there is no guarantee that such solutions will work in all contexts and it is recommended to read the documentation page to understand what went wrong.</p>
+    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
+    <updated>2016-02-29T00:54:02-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
+    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
 
-<!-- 
-#### S0180 "insufficient swap size"
+<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
+The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
+The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
 
-1. https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-centos-7
+<pre><code class="plain epochs table">=&gt; select * from epochs;
 
-<figure class='code'><figcaption><span>Adding swap fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[root@vertica72 osboxes]# swapoff /dev/sda2
-</span><span class='line'>[root@vertica72 osboxes]# swapon -s
-</span><span class='line'>[root@vertica72 osboxes]# swapon /swapfile
-</span><span class='line'>swapon: /swapfile: swapon failed: Invalid argument</span></code></pre></td></tr></table></div></figure>
-
-This is due to a bug
-
-1. http://superuser.com/questions/539287/swapon-failed-invalid-argument-on-a-linux-system-with-btrfs-filesystem
-
-
-1. https://www.centos.org/docs/5/html/Deployment_Guide-en-US/s1-swap-adding.html
--->
-
-
-<h3>S0081: SELinux appears to be enabled and not in permissive mode</h3>
-
-<pre><code class="plain">FAIL (S0081): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0081
-SELinux appears to be enabled and not in permissive mode.
+epoch_close_time              epoch_number
+2016-03-04 21:44:24.192495  610131
 </code></pre>
 
-<p>As mentioned in the HP Vertica documentation page, for CentOS 6, add the following line into file <code>/etc/sysconfig/selinux</code> as root/sudo:</p>
+<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
+The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
+You cannot run any historical queries prior to the AHM.
+By default, Vertica advances the AHM at an interval of 5 minutes.</p>
 
-<pre><code class="plain ">setenforce 0
+<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
+To find about the unrefreshed projection, use the following command:</p>
+
+<pre><code class="plain">SELECT * FROM projections where is_up_to_date = 'f';
 </code></pre>
 
-<h3>S0150: These disks do not have ‘deadline’ or ‘noop’ IO scheduling</h3>
+<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
+However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
+AHM could lag behind at the create epoch of some unrefreshed projection.
+Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
 
-<pre><code class="plain Error message">FAIL (S0150): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150
-These disks do not have ‘deadline’ or ‘noop’ IO scheduling: ‘/dev/sda1′
+<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
+
+<pre><code class="plain">select START_REFRESH();
 </code></pre>
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<pre><code class="plain Fix until next reboot">echo deadline &gt; /sys/block/sda/queue/scheduler
-</code></pre>
-
-<p>Changes to scheduler only last until the system is rebooted, so you need to add the above command to a startup script (such as <code>/etc/rc.local</code>) like in this command.</p>
-
-<pre><code class="plain Permanent fix">echo 'echo deadline &gt; /sys/block/sda/queue/scheduler' &gt;&gt; /etc/rc.local
-</code></pre>
-
-<h3>S0310: Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.</h3>
-
-<pre><code class="plain Error message">FAIL (S0310): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310
-Transparent hugepages is set to ‘always’. Must be ‘never’ or ‘madvise’.
-</code></pre>
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<pre><code class="plain Fix until next reboot">echo never &gt; /sys/kernel/mm/redhat_transparent_hugepage/enabled
-</code></pre>
-
-<p>The permanent fix is also available in the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0310">documentation page</a> in the error message above.</p>
-
-<h3>S0020: Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems</h3>
-
-<pre><code class="plain Error message">FAIL (S0020): https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0020
-Readahead size of sda (/dev/sda1,/dev/sda2) is too low for typical systems: 256 &lt; 2048
-</code></pre>
-
-<p>To fix this problem in CentOS 6, run this command as root/sudo:</p>
-
-<pre><code class="plain Run this command">/sbin/blockdev –setra 2048 /dev/sda
-</code></pre>
-
-<h3>ETL fails with &ldquo;ERROR 3587:  Insufficient resources to execute plan&rdquo;</h3>
-
-<p>After the three-node VM cluster is up and running, you might get the following error when trying to run some complex ETL script:</p>
-
-<pre><code class="plain Error message">vsql:repo_home/sql/my_etl.sql:1091: ERROR 3587:  Insufficient resources to execute plan on pool general 
-[Request Too Large:Memory(KB) Exceeded: Requested = 3541705, Free = 2962279 (Limit = 2970471, Used = 8192)]
-</code></pre>
-
-<p><a href="https://community.dev.hpe.com/t5/Vertica-Forum/ERROR-ERROR-3587-Insufficient-resources-to-execute-plan-on-pool/td-p/233226">Vertica recommends</a> a minimum of 4GB of memory per processor core.
-The comprehensive list of hardware requirements for Vertica can be found <a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">here</a>.
-Note that, it is also recommended all nodes in the cluster have similar processor and memory provisions.
-In other words, a node with 2 GB memory mixed with another with 4 GB is NOT recommended.</p>
-
-<p>In my case, each of my VMs had two processor cores with only 4 GB in memory.
-To fix the error above, I had to reconfigure the VMs to one processor core with 6 GB in memory each to get that particular ETL script working.</p>
 
 <h3>Links</h3>
 
 <ol>
-<li>Documentation pages for errors: e.g., <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#cshid=S0150">S0150</a>.
-
-<ul>
-<li>Read pages like this to figure out fixes for problems encountered during Vertica installation.</li>
-</ul>
-</li>
-<li><a href="https://my.vertica.com/docs/Hardware/HP_Vertica%20Planning%20Hardware%20Guide.pdf">Hardware Requirements for Vertica</a></li>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
 </ol>
 
 ]]></content>
