@@ -97,8 +97,6 @@ def getPrBody(String githubUsername, String githubToken, String repo, String id)
 return this
 ```
 
-A little bit about In-process Script Approval
-
 ``` plain Jenkinsfile
 def code
 
@@ -125,3 +123,25 @@ node('java-agent') {
 }
 ```
 
+### Troubleshooting
+
+A little bit about In-process Script Approval
+
+Named parameters do not work in Jenkinsfile
+
+``` groovy Named parameters
+// This does NOT work
+def bodyText = code.getPrBody(githubUsername: env.GITHUB_USERNAME, githubToken: env.GITHUB_PASSWORD, repo: 'Groovy4Jenkins', id: env.CHANGE_ID)
+
+// This works
+def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'Groovy4Jenkins', env.CHANGE_ID)
+```
+
+``` plain Error message
+java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, error, fileExists, findFiles
+...
+```
+
+### Reference
+
+* [JenkinsCI example](https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file)
