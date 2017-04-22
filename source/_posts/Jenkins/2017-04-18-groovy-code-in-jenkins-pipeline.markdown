@@ -142,6 +142,8 @@ java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [a
 ...
 ```
 
+Known issues about JsonSlurper: https://issues.jenkins-ci.org/browse/JENKINS-35140
+
 ### Reference
 
 * [JenkinsCI example](https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file)

@@ -98,6 +98,7 @@ SKIPPED:
 
 ### Honor & Awards
 
+* [**IoT Cloud Star**](/download/awards/2017_IoT_Star.jpg) [April 2017]: Awarded by VP of IoT Engineering at Release 208 All-Hands.
 * **SBG Data Hackathon - Best Idea** [August 2016]: Member of team “Ahab” that won Intuit Small Business Group's (SBG) Data Hackathon's Best Idea category. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
@@ -119,6 +120,8 @@ SKIPPED:
 **Member of Technical Staff**, Salesforce (10/2016 - present)
 
 * AWS, Kubernetes, Docker, Jenkins, CI/CD.
+* Achievements:
+  * ["IoT Cloud Star"](/download/awards/2017_IoT_Star.jpg)
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
