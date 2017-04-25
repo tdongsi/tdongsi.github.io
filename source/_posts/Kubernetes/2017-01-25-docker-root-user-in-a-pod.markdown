@@ -80,14 +80,7 @@ root@jenkins:~# vi /etc/hosts
 root@jenkins:~# exit
 ```
 
-For later versions of Docker, the more direct way is to use `docker exec` with the container name shown in `docker ps` output. 
-The above example can be simplified as follows:
-
-```
-[centos@kube-worker-1 ~]$ sudo docker exec --privileged -it <long_docker_name> bash
-```
-
-In that case, we eliminate the need of `nsenter` tool.
+For later versions of Docker, the more direct way is to use `docker exec` with the container name shown in `docker ps` output (see next section). 
 However, note that the above `docker exec` might not work for earlier versions of Docker (tested with Docker 1.6) and `nsenter` must be used.
 
 After entering the container as `root`, you might want to add the user into sudo group and save the modified Docker image.
@@ -144,6 +137,55 @@ ff02::2	ip6-allrouters
 172.17.0.2	dd9c207e2ef1
 jenkins@dd9c207e2ef1:~$ exit
 exit
+```
+
+### `docker exec` alternative
+
+Later versions of `docker` add `--user` flag that allows us to specify which user that we should enter the container as. 
+First, we figure out which Kubernetes node is running a particular pod by using the command `kubectl describe pod`. 
+After `ssh`-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command `docker ps -a`. 
+The following examples demonstrate entering a `jenkins-slave` container as `root` and `jenkins` user.
+
+``` plain Entering container 
+[root@dev-worker-2 ~]# docker ps -a
+CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
+10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_agent-bfa163ecaa218_2e0f0534
+767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_agent-bfa163ecaa218_7b979e57
+
+[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
+#
+# ls
+support  workspace
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# exit
+
+[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
+$ ls
+support  workspace
+$ id
+uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
+$ exit
+```
+
+As mentioned, older versions of `docker` does not support `--user` flag and does not allow entering container as root.
+In that case, use `nsenter` method presented in the previous section.
+
+``` plain Unsupported operation on Docker 1.6
+[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
+flag provided but not defined: --user
+See 'docker exec --help'.
+[root@kube-worker-1 ~]# docker version
+Client version: 1.6.2.el7
+Client API version: 1.18
+Go version (client): go1.4.2
+Git commit (client): c3ca5bb/1.6.2
+OS/Arch (client): linux/amd64
+Server version: 1.6.2.el7
+Server API version: 1.18
+Go version (server): go1.4.2
+Git commit (server): c3ca5bb/1.6.2
+OS/Arch (server): linux/amd64
 ```
 
 ### References
