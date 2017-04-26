@@ -11,14 +11,43 @@ categories:
 
 ### Docker in Docker vs Docker out of Docker
 
-Docker in Docker
+How to approach building Docker images from containerized Jenkins slaves.
 
 https://blog.docker.com/2013/09/docker-can-now-run-within-docker/
 https://github.com/jpetazzo/dind
 
+We should not use Docker-in-Docker approaches.
+
 ### Troubleshooting
 
-Problem description.
+Problem description: We are using "Docker out of Docker" approach to build Docker images in our containerized Jenkins slaves.
+However, we got hit by the following issues when reusing a Jenkins slave container image.
+
+``` plain Error message when running Docker
++ docker images
+Cannot connect to the Docker daemon. Is the docker daemon running on this host?
+```
+
+The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).
+ 
+``` plain Show GID of 
++ ls -l /var/run/docker.sock
+ 
+srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
++ cat /etc/group
+...
+docker:x:999:jenkins
+```
+
+The expectation is:
+```
++ ls -l /var/run/docker.sock
+srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
+```
+
+This is due to the container is built inside another k8s cluster. 
+The group `docker` happens to have the group ID 999 on that k8s cluster.
+The user `jenkins`, under which Jenkins pipeline is executed, does not have the permission to access that socket `/var/run/docker.sock`.
 
 By default, a unix domain socket (or IPC socket) is created at `/var/run/docker.sock`, requiring either root permission, or docker group membership.
 

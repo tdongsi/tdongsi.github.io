@@ -81,7 +81,7 @@ root@jenkins:~# exit
 ```
 
 For later versions of Docker, the more direct way is to use `docker exec` with the container name shown in `docker ps` output (see next section). 
-However, note that the above `docker exec` might not work for earlier versions of Docker (tested with Docker 1.6) and `nsenter` must be used.
+However, note that `docker exec` might not work for earlier versions of Docker (tested with Docker 1.6) and `nsenter` must be used instead.
 
 After entering the container as `root`, you might want to add the user into sudo group and save the modified Docker image.
 
