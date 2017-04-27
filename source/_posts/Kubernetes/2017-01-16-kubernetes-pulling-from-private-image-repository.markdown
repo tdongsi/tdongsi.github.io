@@ -3,7 +3,7 @@ layout: post
 title: "Kubernetes: pause container and private Docker registry"
 date: 2017-01-16 11:48:05 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Kubernetes
 - Docker

@@ -3,7 +3,7 @@ layout: post
 title: "Docker: Root user in a pod"
 date: 2017-01-25 18:22:51 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Docker
 - Kubernetes

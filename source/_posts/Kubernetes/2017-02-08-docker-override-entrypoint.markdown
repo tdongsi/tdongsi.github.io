@@ -3,7 +3,7 @@ layout: post
 title: "Docker: Override ENTRYPOINT"
 date: 2017-02-08 16:08:02 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Docker
 - Jenkins

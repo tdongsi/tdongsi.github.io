@@ -3,6 +3,7 @@ layout: post
 title: "Groovy code in Jenkins pipeline"
 date: 2017-04-18 17:07:44 -0700
 comments: true
+published: false
 categories: 
 - Groovy
 - Jenkins
