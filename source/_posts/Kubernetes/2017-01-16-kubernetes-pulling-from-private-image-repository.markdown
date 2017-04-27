@@ -44,15 +44,28 @@ FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                  
 )
 ```
 
-The full error message is "image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt". 
+The full error message for the third event above is quoted below:
 
+{% blockquote %}
+Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt
+{% endblockquote %}
 
 ### `pause` container
 
-Whenever we create a pod, a `pause` container image such as `gcr.io/google_containers/pause:0.8.0` is implicitly required.  
-TODO: What pause do.
-If a machine is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry.
-Each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
+Whenever we create a pod, a `pause` container image such as *gcr.io/google_containers/pause:0.8.0* is implicitly required. 
+What is that `pause` container's purpose?
+The `pause` container essentially holds the network namespace for the pod. 
+It does nothing useful and its container image (see [its Dockerfile](https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile)) basically contains a simple binary that goes to sleep and never wakes up (see [its code](https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c)).
+However, when the top container such as `nginx` container dies and gets restarted by kubernetes, all the network setup will still be there.
+Normally, if the last process in a network namespace dies, the namespace will be destroyed. 
+Restarting `nginx` container without `pause` would require creating all new network setup. 
+With `pause`, you will always have that one last thing in the namespace.
+
+What trouble does such `pause` container can give us? 
+As the full container image path indicates, the `pause` container image is downloaded from Google Container Registry ("gcr.io") by default.
+If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
+And that is what error message quoted above indicates.
+However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
 One work-around is to push that `pause` image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag `artifactrepo1.corp.net` to `gcr.io` tag).
 Essentially, I pre-loaded each Kubenetes slave with a `pause:0.8.0` Docker image.
 
@@ -73,7 +86,21 @@ The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
 0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
 ```
 
-TODO: `kubelet` option 
+The more scalable way, e.g. Puppet automation, is to use `kubelet` option "--pod-infra-container-image".
+In the config file "/etc/kubernetes/kubelet" of `kubelet` service, modify the following lines:
+
+``` plain Custom kubelet option
+# Add your own! 
+KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"
+```
+
+Note that if the private Docker registry "artifactrepo1.corp.net" requires authentication, specifying the container image in the above `kubelet` option might NOT work.
+Instead, the alternative way for scalable automation is to prepare a binary `tar` file for `pause` container image (with `docker save`) and pre-load the image on each kubernetes node with `docker load` command. 
+We can upload the binary `tar` file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.
+
+``` plain docker load
+docker load -i /path/to/pause-amd64.tar
+```
 
 ### Pulling fails even with pull image secret
 
@@ -149,5 +176,5 @@ FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                  
 
 ### References
 
-* Hello1
-* Hello2
+* [pause Dockerfile](https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile)
+* [pause source code](https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c)
