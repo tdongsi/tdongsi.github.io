@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Kubernetes: pulling from private image repository"
+title: "Kubernetes: pulling from private Docker registry"
 date: 2017-01-16 11:48:05 -0800
 comments: true
 published: true
@@ -8,11 +8,6 @@ categories:
 - Kubernetes
 - Docker
 ---
-
-**WARNING**: 
-This post is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
-Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
-However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
 
 ### Problem description
 
@@ -50,7 +45,7 @@ The full error message for the third event above is quoted below:
 Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt
 {% endblockquote %}
 
-### `pause` container
+### `pause` container with private Docker registry
 
 Whenever we create a pod, a `pause` container image such as *gcr.io/google_containers/pause:0.8.0* is implicitly required. 
 What is that `pause` container's purpose?
@@ -86,7 +81,7 @@ The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
 0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
 ```
 
-The more scalable way, e.g. Puppet automation, is to use `kubelet` option "--pod-infra-container-image".
+The more scalable way, such as for Puppet automation, is to use `kubelet` option "--pod-infra-container-image".
 In the config file "/etc/kubernetes/kubelet" of `kubelet` service, modify the following lines:
 
 ``` plain Custom kubelet option
@@ -95,7 +90,10 @@ KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0
 ```
 
 Note that if the private Docker registry "artifactrepo1.corp.net" requires authentication, specifying the container image in the above `kubelet` option might NOT work.
-Instead, the alternative way for scalable automation is to prepare a binary `tar` file for `pause` container image (with `docker save`) and pre-load the image on each kubernetes node with `docker load` command. 
+In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load `pause` container image. 
+Therefore, loading `pause` container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.
+
+In that case, the alternative way for scalable automation is to prepare a binary `tar` file for `pause` container image (with `docker save`) and pre-load the image on each kubernetes node with `docker load` command. 
 We can upload the binary `tar` file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.
 
 ``` plain docker load
@@ -104,7 +102,12 @@ docker load -i /path/to/pause-amd64.tar
 
 ### Pulling fails even with pull image secret
 
-```
+**WARNING**: 
+This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
+Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
+
+``` plain
 tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
 pod "nginx" created
 
