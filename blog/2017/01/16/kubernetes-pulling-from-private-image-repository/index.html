@@ -1,0 +1,432 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kubernetes: Pause Container and Private Docker Registry - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="This post documents dealing with implicit container pause in a corporate context, where Internet access is restricted and private Docker registry &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Kubernetes: Pause Container and Private Docker Registry</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-16T11:48:05-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:48 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
+
+<h3>Problem description</h3>
+
+<p>In this problem, Kubernetes cluster are all installed and configured.
+We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
+</span><span class='line'>NAME            LABELS                                 STATUS    AGE
+</span><span class='line'>kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
+</span><span class='line'>kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
+</span><span class='line'>kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+</span><span class='line'>pod "nginx" created</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, one can see the following error messages:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+</span><span class='line'>NAME      READY     STATUS                                                                                       RESTARTS   AGE
+</span><span class='line'>nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
+</span><span class='line'>FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
+</span><span class='line'>40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
+</span><span class='line'>40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
+</span><span class='line'>40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The full error message for the third event above is quoted below:</p>
+
+<blockquote><p>Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote>
+
+
+<h3>What is <code>pause</code> container?</h3>
+
+<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
+What is that <code>pause</code> container&rsquo;s purpose?
+The <code>pause</code> container essentially holds the network namespace for the pod.
+It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
+However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
+Normally, if the last process in a network namespace dies, the namespace will be destroyed.
+Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
+With <code>pause</code>, you will always have that one last thing in the namespace.</p>
+
+<h3><code>pause</code> container and private Docker registry</h3>
+
+<p>What trouble does such <code>pause</code> container can give us?
+As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
+If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
+And that is what error message quoted above indicates.
+However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
+One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
+Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>0.8.0: Pulling from google_containers/pause
+</span><span class='line'>a3ed95caeb02: Pull complete
+</span><span class='line'>bccc832946aa: Pull complete
+</span><span class='line'>Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
+</span><span class='line'>Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
+</span><span class='line'>5f70bf18a086: Mounted from tdongsi/nginx
+</span><span class='line'>152b0ca1d7a4: Pushed
+</span><span class='line'>0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
+In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
+
+<figure class='code'><figcaption><span>Custom kubelet option</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Add your own! 
+</span><span class='line'>KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
+In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
+Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
+
+<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
+We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>docker load -i /path/to/pause-amd64.tar</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+### Pulling fails even with pull image secret
+
+**WARNING**: 
+This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
+Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
+
+Validate
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
+</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
+</ul>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-01-16T11:48:05-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:48 am</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/docker/'>docker</a>, <a class='category' href='/blog/categories/kubernetes/'>kubernetes</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2016/10/30/automated-downloading-bart-parking-permits/" title="Previous Post: Automated downloading BART parking permits">&laquo; Automated downloading BART parking permits</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/" title="Next Post: Kubernetes: Pod-to-Node Communication Loss">Kubernetes: Pod-to-Node Communication Loss &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (3)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

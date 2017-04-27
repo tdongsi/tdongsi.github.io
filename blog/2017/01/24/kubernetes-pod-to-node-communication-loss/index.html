@@ -1,0 +1,464 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Kubernetes: Pod-to-Node Communication Loss - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="This post goes over what happens if we misconfigure etcd and flannel to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Kubernetes: Pod-to-Node Communication Loss</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
+This newbie mistake is rare but very perplexing and this post shows to troubleshoot it with <code>busybox</code> container.</p>
+
+<h3>Problem symptoms</h3>
+
+<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>16 packets transmitted, 0 received, 100% packet loss, time 14999ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
+
+<h3>Troubleshooting with <code>busybox</code></h3>
+
+<p>Try to run a test pod <code>busybox</code>.
+<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.61.7
+</span><span class='line'>PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.61.7 ping statistics ---
+</span><span class='line'>5 packets transmitted, 5 received, 0% packet loss, time 4000ms
+</span><span class='line'>rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>14 packets transmitted, 0 received, 100% packet loss, time 13000ms</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
+<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>/ # traceroute 10.252.158.72
+</span><span class='line'>traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
+</span><span class='line'> 2  *  *  *
+</span><span class='line'> 3  *  *  *
+</span><span class='line'> 4  *  *  *
+</span><span class='line'> 5  *  *  *
+</span><span class='line'>/ #
+</span><span class='line'>/ # traceroute 10.252.100.5
+</span><span class='line'>traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
+</span><span class='line'> 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
+</span><span class='line'> 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
+</span><span class='line'>/ # exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
+</span><span class='line'>Name:         jenkins
+</span><span class='line'>Namespace:        default
+</span><span class='line'>Labels:           &lt;none&gt;
+</span><span class='line'>Selector:     name=jenkins
+</span><span class='line'>Type:         NodePort
+</span><span class='line'>IP:           10.252.77.85
+</span><span class='line'>Port:         http    80/TCP
+</span><span class='line'>NodePort:     http    30080/TCP
+</span><span class='line'>Endpoints:        10.252.100.5:8080
+</span><span class='line'>Session Affinity: None
+</span><span class='line'>No events.</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>What went wrong?</h3>
+
+<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
+When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
+I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
+As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
+This leads to pod-to-VM communication loss as described above.
+The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
+
+<figure class='code'><figcaption><span>Update etcd</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
+</span><span class='line'>"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+</span><span class='line'>
+</span><span class='line'>[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
+</span><span class='line'>[centos@kube-master ~]$ etcdctl ls /kube-centos/network
+</span><span class='line'>/kube-centos/network/config</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/docker/'>docker</a>, <a class='category' href='/blog/categories/kubernetes/'>kubernetes</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/" title="Previous Post: Kubernetes: pause container and private Docker registry">&laquo; Kubernetes: pause container and private Docker registry</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/01/25/docker-root-user-in-a-pod/" title="Next Post: Docker: Root user in a pod">Docker: Root user in a pod &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (3)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

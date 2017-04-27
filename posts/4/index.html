@@ -11,9 +11,11 @@
   
   <meta name="description" content="Navigation: Overview,
 Pt 1,
-Pt 2
-. One of challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
-Challenges in functional &hellip;">
+Pt 2,
+Pt 3,
+Pt 4,
+Pt 5,
+Pt 6. As an example to discussion in this post, I will discuss how I recently added a new &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -108,6 +110,735 @@ Challenges in functional &hellip;">
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2016/04/17/sql-unit-data-parity/">(Pt. 7) Extending for Data Parity Checks</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-17T16:39:19-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>4:39 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
+<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+
+<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+
+<h3>Background of data parity checks</h3>
+
+<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
+In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
+In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
+
+<figure class='code'><figcaption><span>Data parity checks</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>select col1, col2 from old_table_name
+</span><span class='line'>
+</span><span class='line'>matches
+</span><span class='line'> 
+</span><span class='line'>select col3, col4 from new_table_name</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
+It would be very time-consuming to write and execute such test cases in Java and TestNG.
+Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
+Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
+
+<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
+
+<figure class='code'><figcaption><span>Test blocks for data parity check</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name" : "parity_check",
+</span><span class='line'>    "query" : "select col1, col2 from old_table_name
+</span><span class='line'>                EXCEPT
+</span><span class='line'>                select col3, col4 from new_table_name
+</span><span class='line'>                limit 20",
+</span><span class='line'>    "expected" : ""
+</span><span class='line'>}
+</span><span class='line'>*/
+</span><span class='line'>
+</span><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name" : "parity_check_reverse",
+</span><span class='line'>    "query" : "select col3, col4 from new_table_name
+</span><span class='line'>                EXCEPT
+</span><span class='line'>                select col1, col2 from old_table_name
+</span><span class='line'>                limit 20",
+</span><span class='line'>    "expected" : ""
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+
+<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+
+
+
+
+<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
+
+
+<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
+Similarly for <code>Table_B EXCEPT Table_A</code> query.
+Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
+
+<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
+Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
+In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
+
+<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
+When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
+This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
+For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
+However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
+In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
+
+<h3>Extending SQL Test Runner</h3>
+
+<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
+However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
+For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
+Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read (<a href="/blog/2016/03/20/sql-unit-functional-tests/">readability matters</a>).
+Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
+
+<figure class='code'><figcaption><span>New test block</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
+</span><span class='line'>{
+</span><span class='line'>    "name" : "parity_check",
+</span><span class='line'>    "query" : "select col1, col2 from old_table_name",
+</span><span class='line'>    "equal" : "select col3, col4 from new_table_name"
+</span><span class='line'>}
+</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
+That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
+
+<p>Implementation of this new feature is summarized in the following steps:</p>
+
+<ol>
+<li>Define new JSON block.</li>
+<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
+<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
+
+<ol>
+<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
+<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+</ol>
+</li>
+<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
+</ol>
+
+
+<p>For step 1, the new JSON block is already defined as above.
+From JSON, the corresponding POJO in step 2 can be easily defined:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
+</span><span class='line'>  <span class="c1">// Test name.</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// File lists to run</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Test query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
+</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
+Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
+
+<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
+We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
+Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
+Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/16/sql-unit-extension/">(Pt. 6) Extending SQL Test Runner</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-16T17:49:34-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:49 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
+<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>.</p>
+
+<p>In this post, I will discuss the design of the SQL Test Runner.
+From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
+In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
+
+<h3>Design Overview of SQL Test Runner</h3>
+
+<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+
+<p>1) Test frameworks should be closed to modifications.
+If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
+That could be confusing and counter-productive for anyone who are using it.</p>
+
+<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
+SQL Unit Testing in ETL context is a pretty new area for us.
+Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
+The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
+
+<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
+Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
+Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
+
+<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
+For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
+The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
+
+<figure class='code'><figcaption><span>Template Method for running test scripts in BaseTestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">CodeStrategy</span> <span class="n">codeHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">TestStrategy</span> <span class="n">testHandler</span><span class="o">;</span>
+</span><span class='line'><span class="kd">private</span> <span class="n">JdbcConnection</span> <span class="n">connection</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Override</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">runScript</span><span class="o">(</span><span class="n">String</span> <span class="n">filePath</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">,</span> <span class="n">SQLException</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">SoftAssert</span> <span class="n">sAssert</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SoftAssert</span><span class="o">();</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Read in the SQL script</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">content</span> <span class="o">=</span> <span class="n">SqlTestUtility</span><span class="o">.</span><span class="na">readFile</span><span class="o">(</span><span class="n">filePath</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// Remove comments</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">sqlCode</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">removeComments</span><span class="o">(</span><span class="n">content</span><span class="o">);</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">Matcher</span> <span class="n">m</span> <span class="o">=</span> <span class="n">TestBlockUtility</span><span class="o">.</span><span class="na">testBlockRegex</span><span class="o">.</span><span class="na">matcher</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">);</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">startIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</span><span class='line'>  <span class="k">while</span> <span class="o">(</span><span class="n">m</span><span class="o">.</span><span class="na">find</span><span class="o">())</span> <span class="o">{</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">String</span> <span class="n">currentSql</span> <span class="o">=</span> <span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">,</span> <span class="n">m</span><span class="o">.</span><span class="na">start</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">if</span> <span class="o">(</span> <span class="n">currentSql</span><span class="o">.</span><span class="na">trim</span><span class="o">().</span><span class="na">length</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">)</span>
+</span><span class='line'>          <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">currentSql</span><span class="o">,</span> <span class="n">connection</span><span class="o">);;</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">testHandler</span><span class="o">.</span><span class="na">runTest</span><span class="o">(</span> <span class="n">m</span><span class="o">.</span><span class="na">group</span><span class="o">(),</span> <span class="n">connection</span><span class="o">,</span> <span class="n">sAssert</span> <span class="o">);</span>
+</span><span class='line'>      
+</span><span class='line'>      <span class="n">startIndex</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="na">end</span><span class="o">();</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="n">codeHandler</span><span class="o">.</span><span class="na">runSqlCode</span><span class="o">(</span><span class="n">sqlCode</span><span class="o">.</span><span class="na">substring</span><span class="o">(</span><span class="n">startIndex</span><span class="o">),</span> <span class="n">connection</span> <span class="o">);</span>
+</span><span class='line'>  <span class="n">sAssert</span><span class="o">.</span><span class="na">assertAll</span><span class="o">();</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
+It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
+Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
+It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
+There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
+By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
+
+<figure class='code'><figcaption><span>Example unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- This will be handled by some CodeStrategy class</span>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- This will be handled by some TestStrategy class</span>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
+In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
+Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
+In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
+Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
+
+<figure class='code'><figcaption><span>Example TestRunner</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
+</span><span class='line'><span class="cm"> * Test runner that uses Vertica JDBC connection.</span>
+</span><span class='line'><span class="cm"> * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.</span>
+</span><span class='line'><span class="cm"> * </span>
+</span><span class='line'><span class="cm"> * @author tdongsi</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">VerticaRunner</span> <span class="kd">extends</span> <span class="n">BaseTestRunner</span> <span class="kd">implements</span> <span class="n">TestRunner</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">public</span> <span class="nf">VerticaRunner</span><span class="o">(</span><span class="n">JdbcConnection</span> <span class="n">jdbcConn</span><span class="o">,</span> <span class="n">String</span> <span class="n">vsqlPath</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setCodeHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">SqlCodeHandler</span><span class="o">());</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setTestHandler</span><span class="o">(</span><span class="k">new</span> <span class="nf">VerticaTestHandler</span><span class="o">(</span><span class="n">vsqlPath</span><span class="o">));</span>
+</span><span class='line'>      <span class="k">this</span><span class="o">.</span><span class="na">setConnection</span><span class="o">(</span><span class="n">jdbcConn</span><span class="o">);</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Extending Test Runner</h3>
+
+<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
+Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
+When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
+Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
+In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
+
+<p>Implementation of a new feature can be summarized in the following steps:</p>
+
+<ol>
+<li>Design new JSON block for the new test block.</li>
+<li>Define new POJO that maps to new JSON block.</li>
+<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
+<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
+</ol>
+
+
+<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
+If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
+It will break the current suite of tests for Vertica.
+Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+
+<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/14/sql-unit-vs-functional/">(Pt. 5) Big Data: Functional Tests vs. Unit Tests</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-14T17:21:12-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:21 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
+<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>.</p>
+
+<p>In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:</p>
+
+<table>
+<thead>
+<tr>
+<th>       </th>
+<th> Functional tests      </th>
+<th> Unit tests </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Data         </td>
+<td> Production-like data </td>
+<td> Mock (synthetic) data </td>
+</tr>
+<tr>
+<td> Environment  </td>
+<td> Pre-production. All tables deployed at once. </td>
+<td> Local VM. Regular setup/teardown. </td>
+</tr>
+<tr>
+<td> Coverage     </td>
+<td> Passive: Coverage depends on diverse real data. </td>
+<td> Active: Mock data created to force corner cases. </td>
+</tr>
+<tr>
+<td> Example usage </td>
+<td> Snapshot testing </td>
+<td> Incrementa data update testing </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>It should be noted that functional and unit tests are complementary to each other.
+Certain aspects of ETLs can be better verified as functional tests while others of the same ETLs should be verified as unit tests.
+For example, as discussed in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this post</a>, unit tests are better suited for testing incremental data update in ETL scripts.</p>
+
+<p>On the other hand, for example, an ETL that performs some kind of classification, such as categorizing user types based on some clickstream patterns, should be tested in functional tests.
+If there are more than 20 categories, it could become a daunting task to generate and maintain synthetic data for each of those categories.
+Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
+Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
+Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
+
+<!-- Analogy:
+Functional tests:
+- In Web App, running the web application on webserver, running automated Selenium WebDriver tests to verify the web application from browser.
+- In Big Data, running the DDL/DML/ETL scripts to populate the dimension and fact tables in schema, running automated SQL test queries to verify logics between tables.
+
+Unit tests:
+- In Web App, using mocking framework to mock out database, test behavior of a class/method using synthetic inputs, especially for corner cases.
+- In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
+-->
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/04/12/sql-unit-testing/">(Pt. 4) SQL Unit Testing</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-12T17:45:42-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>12</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:45 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
+<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
+<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
+<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>.</p>
+
+<!-- 
+Changes I made:
+1. Mix of SQL code and test blocks.
+1. New JSON block to run ETL script using VSQL
+
+I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
+
+Running ETL script through JDBC is probably not a good idea.
+
+Requirements of unit tests:
+
+Readability:
+
+#### Single-node VM
+
+Remove KSAFE.
+
+Add a new test.
+  
+Revert in Git.
+
+#### Adding  unit test
+
+Show SBG strategy.
+
+#### Other usages
+
+You can insert into the ETL script to verify step by step.
+However, there is only one set of mock data. 
+In unit testing, you might want multiple setup of mock data for different scenarios.
+=> the other way is actually more flexible
+
+Assumptions:
+
+1. No ;
+1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+
+
+-->
+
+
+<p>TODO indefinitely.</p>
+
+<p>The idea is to use a local Vertica VM as a sandbox test environment.
+It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
+
+<p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
+
+<ol>
+<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
+<li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
+<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
+</ol>
+
+
+<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
+They are followed by a new test block to run the ETL script.
+After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
+Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
+
+<figure class='code'><figcaption><span>Example unit test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/****************************</span>
+</span><span class='line'><span class="cm">* Day 1</span>
+</span><span class='line'><span class="cm">****************************/</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_id</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">,</span><span class="n">region_id</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="k">current_timestamp</span><span class="o">-</span><span class="mi">19</span><span class="p">,</span><span class="s1">&#39;US&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">stg_company_contact</span> <span class="p">(</span><span class="n">company_id</span><span class="p">,</span><span class="n">master_email</span><span class="p">,</span><span class="n">last_modify_date</span><span class="p">)</span>
+</span><span class='line'><span class="k">VALUES</span> <span class="p">(</span><span class="mi">123</span><span class="p">,</span><span class="s1">&#39;before@mockdata.com&#39;</span><span class="p">,</span> <span class="k">current_timestamp</span><span class="o">-</span><span class="mi">15</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">-- First ETL run</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_etl_run&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;vsql_file&quot; : [&quot;repo_home/sql/my_etl.sql&quot;]</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* @Test</span>
+</span><span class='line'><span class="cm">{</span>
+</span><span class='line'><span class="cm"> &quot;name&quot; : &quot;Day1_check_email_address&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;query&quot; : &quot;select company_id, email_address from dim_company&quot;,</span>
+</span><span class='line'><span class="cm"> &quot;expected&quot; : &quot;123 before@mockdata.com&quot;</span>
+</span><span class='line'><span class="cm">}</span>
+</span><span class='line'><span class="cm">*/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Calling unit test script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="nd">@BeforeClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
+</span><span class='line'>    <span class="n">setupSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@AfterClass</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">teardown</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">teardownSchema</span><span class="o">(</span><span class="s">&quot;UNITTEST&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;unittests/etl_incremental_update_email.test&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2016/04/10/sql-unit-incremental-data-update/">(Pt. 3) Testing Incremental Data Update</a></h1>
     
     
@@ -171,13 +902,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#x6f;&#58;&#x62;&#x65;&#x66;&#111;&#114;&#101;&#64;&#109;&#111;&#x63;&#107;&#100;&#x61;&#x74;&#97;&#46;&#99;&#111;&#x6d;&#46;">&#98;&#101;&#x66;&#111;&#x72;&#101;&#64;&#109;&#x6f;&#99;&#x6b;&#100;&#x61;&#116;&#x61;&#x2e;&#99;&#111;&#x6d;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#105;&#108;&#116;&#111;&#58;&#x62;&#x65;&#x66;&#111;&#x72;&#101;&#64;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;">&#x62;&#x65;&#102;&#111;&#x72;&#x65;&#x40;&#109;&#111;&#x63;&#x6b;&#x64;&#x61;&#x74;&#97;&#x2e;&#99;&#111;&#109;&#46;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#x61;&#x66;&#116;&#x65;&#114;&#x40;&#109;&#x6f;&#99;&#107;&#100;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;">&#x61;&#x66;&#116;&#101;&#114;&#64;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#46;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#x61;&#105;&#x6c;&#x74;&#x6f;&#58;&#97;&#102;&#116;&#x65;&#x72;&#64;&#109;&#111;&#99;&#107;&#100;&#97;&#x74;&#97;&#x2e;&#x63;&#x6f;&#109;">&#97;&#102;&#116;&#101;&#114;&#x40;&#x6d;&#x6f;&#99;&#x6b;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -193,7 +924,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#116;&#x6f;&#58;&#x62;&#101;&#121;&#x6f;&#x6e;&#x64;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#x2e;&#x63;&#x6f;&#x6d;&#x2e;">&#x62;&#x65;&#x79;&#x6f;&#110;&#x64;&#x40;&#109;&#111;&#x63;&#x6b;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#111;&#109;&#x2e;</a></li>
+<li>Email updated to <a href="&#109;&#97;&#x69;&#108;&#x74;&#x6f;&#58;&#x62;&#x65;&#x79;&#x6f;&#110;&#100;&#64;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#x6f;&#x6d;&#46;">&#x62;&#101;&#121;&#111;&#110;&#100;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;&#x2e;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -550,1178 +1281,6 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/28/sql-unit-test-runner/">(Pt. 2) SQL Test Runner</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-28T23:42:09-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>28</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:42 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>.</p>
-
-<p>In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in <a href="/blog/2016/03/20/sql-unit-functional-tests/">this post</a>.
-As mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
-
-<h3>Overview</h3>
-
-<p>In this test framework, a test block is defined in the following format: comment block opening <code>/*</code> followed by <code>@Test</code>, and a JSON object with some specified keys in the next subsection, closed by comment block closing <code>*/</code>.</p>
-
-<figure class='code'><figcaption><span>Example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name":"test_count",
-</span><span class='line'>  "query":"select count(1) from dim_product",
-</span><span class='line'>  "expected":"5"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The SQL Test Runner will:</p>
-
-<ol>
-<li>Pick up the test blocks, annotated as above.</li>
-<li>Extract the JSON to retrieve the test query and expected output.
-
-<ul>
-<li>As shown in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this</a> and <a href="/blog/2016/04/16/sql-unit-extension/">this</a>, we can add custom JSON for different testing needs.</li>
-</ul>
-</li>
-<li>Send the query to the database, and get the actual output from the database.</li>
-<li>Compare actual output with the expected output, raise <code>AssertionError</code> if needed.
-
-<ul>
-<li>Note that the Test Runner can either exit immediately upon <code>AssertionError</code> (hard assertion) or run all test queries and list all <code>AssertionError</code>s at the end (soft assertion).</li>
-</ul>
-</li>
-</ol>
-
-
-<p>As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in &ldquo;query&rdquo; clause) for aligning and formatting the query, especially when the query is long and complex.</p>
-
-<figure class='code'><figcaption><span>Example complex test query</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "check_traffic",
-</span><span class='line'>  "query" : "WITH Total_Traffic AS
-</span><span class='line'>      (
-</span><span class='line'>          SELECT temp.* from temp as clickstream_data
-</span><span class='line'>          where .... -- filtering
-</span><span class='line'>      )
-</span><span class='line'>      , Rock_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total_Traffic
-</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
-</span><span class='line'>      )
-</span><span class='line'>      , Instrumental_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total
-</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
-</span><span class='line'>      )
-</span><span class='line'>      , Defined_Traffic as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Rock_Music
-</span><span class='line'>          UNION
-</span><span class='line'>          select * from Instrumental_Music
-</span><span class='line'>      )
-</span><span class='line'>      select traffic_date_key
-</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
-</span><span class='line'>      from Defined_Traffic
-</span><span class='line'>      group by traffic_date_key",
-</span><span class='line'>  "expected" : "2016-03-16 123"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that in pure JSON, newlines are NOT allowed and deserializing the above JSON directly will give syntax errors.
-However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
-Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (<code>\s+</code>) in test block with a single space (<code></code>).
-The additional computation is minimal and it is quite a good trade-off for much better <em>readability</em> of the test scripts.</p>
-
-<h3>Example usage</h3>
-
-<p>This section list some simple examples to illustrate some standard, common usage of test blocks. The most common one is:</p>
-
-<figure class='code'><figcaption><span>Compare test query's output with expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"5"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Multiple rows, multiple columns can also be used as expected output.
-All output of the test query will be normalized to String before comparison.
-For <strong>readability</strong>, we can add whitespaces and newlines into expected output string to align rows and columns.
-Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (<code>\s+</code>) with a single space (<code></code>).</p>
-
-<figure class='code'><figcaption><span>Expected output with multiple rows, multiple columns</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'> "name":"test_data",
-</span><span class='line'> "query":"select price, product from dim_product order by product_key;",
-</span><span class='line'> "expected":"10 Chair
-</span><span class='line'>              20 Table
-</span><span class='line'>              30 Twin Bed
-</span><span class='line'>              40 King Bed"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In many situations, the row count of a table is not definitely known.
-However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
-The Test Runner allows you to add some simple logical expression in &ldquo;expected&rdquo; clause.
-It is tester&rsquo;s responsibility to make sure the test query returns some numbers and the logical expression makes sense.</p>
-
-<figure class='code'><figcaption><span>Expected output with logical expression</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>-- This is same as "expected" : "5"
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count_operator_equal",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"== 5"
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>-- There must be some entries, at least 10, in the table.
-</span><span class='line'>-- Evaluated as: actual value &gt; 10
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count_operator",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"&gt; 10"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that in the examples above, inline comments can be added into test block using SQL&rsquo;s <code>--</code> inline comment notation.
-In addition to &ldquo;name&rdquo;, &ldquo;query&rdquo; and &ldquo;expected&rdquo;, you can add a list of script files to be executed in a &ldquo;file&rdquo; clause, as shown in the following example.
-The test query will be executed after all the scripts have been executed.</p>
-
-<figure class='code'><figcaption><span>"file" key to execute shared statements</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_file_multiple",
-</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
-</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"],
-</span><span class='line'>    "query":"select count(1) from dim_product;",
-</span><span class='line'>    "expected":"0"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In practice, you should use the above &ldquo;file&rdquo; clause for:</p>
-
-<ul>
-<li>Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables with synthetic data.</li>
-<li>Reusing the most common tests (e.g., count, constraint checks).</li>
-<li>Making the original test scripts less cluttered with repeated SQL queries or statements.</li>
-</ul>
-
-
-<p>For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
-</span><span class='line'><span class="cm"> * POJO for simple JSON test block</span>
-</span><span class='line'><span class="cm"> * </span>
-</span><span class='line'><span class="cm"> * @author tdongsi</span>
-</span><span class='line'><span class="cm"> */</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryExpected</span> <span class="o">{</span>
-</span><span class='line'>  <span class="c1">// Test name</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// File lists to run</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Test query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Expected output of the test query above</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">expected</span><span class="o">;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that all attributes in POJO are optional, NOT required to be defined at all time.
-The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) combination, but you can see others such as the following:</p>
-
-<figure class='code'><figcaption><span>Some other uses</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>-- Just want to make sure this query can be executed. Outputs can vary.
-</span><span class='line'>{
-</span><span class='line'>    "name": "test_ignore_output",
-</span><span class='line'>    "query": "select * from dim_product order by product_key;",
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>-- Run some setup scripts
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_file_multiple",
-</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
-</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"]
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Advanced usage</h3>
-
-<p>Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
-</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
-</span><span class='line'><span class="cm"> * </span>
-</span><span class='line'><span class="cm"> * @author tdongsi</span>
-</span><span class='line'><span class="cm"> */</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
-</span><span class='line'>  <span class="c1">// Test name.</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// File lists to run</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Test query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As explained in more details in <a href="/blog/2016/04/17/sql-unit-data-parity/">this post</a>, &ldquo;equal&rdquo; is a recently added capability to easily compare two tables or projections from tables.</p>
-
-<figure class='code'><figcaption><span>"equal" clause</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_data_equivalent",
-</span><span class='line'>    "query":"select product_key, cost from dim_product WHERE ...;",
-</span><span class='line'>    "equal":"select product_key, cost from dim_inventory WHERE ...;"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/20/sql-unit-functional-tests/">(Pt. 1) Functional Testing for Data Marts</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-20T23:18:33-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:18 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>For overview, see <a href="/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
-
-<p>In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.</p>
-
-<h3>Level 0: Manual testing</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Easy to get started.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Time consuming for many tests with multiple runs.</li>
-<li>Not repeatable.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>Early on in Big Data projects, there was not much automation.
-Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
-There are not many tools available for automated testing of SQL scripts, especially for Vertica.</p>
-
-<p>At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
-Data analysts are <em>de facto</em> end-users and main testers and many of those test queries are based on their experience.</p>
-
-<p><img class="center" src="/images/sql/squirrel.png" title="Manual testing" ></p>
-
-<p>We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
-This process is pretty much manual. If an ETL is updated <code>n</code> times, we have to repeat this <code>n</code> times.
-Most of the test queries can only tests the <strong>end results</strong> of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
-If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
-Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is &ldquo;unusually&rdquo; high today, which &ldquo;seems&rdquo; to indicate that ETL went wrong in some intermediate step.</p>
-
-<!--
-Functions is not common. 
--->
-
-
-<h3>Level 1: TestNG</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Java and SQL codes are cluttered together.</li>
-<li>Hard to read, hard to maintain.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>After some rounds of manual testing, we started looking into automating the process.
-Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation.
-The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries.
-Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
-The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution.</p>
-
-<figure class='code'><figcaption><span>Test query as constant Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;select count(*) from dim_region&quot;</span><span class="o">;</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Here, the test queries are defined as constant strings in Java.
-Note that the test query above is intended to be simple to illustate the automation.
-The actual test queries are usually more complex than that.
-The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
-We also remove heuristic tests that cannot be verified using assertions.
-Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
-In addition, we add tests to verify intermediate steps of the ETL processes.</p>
-
-<p>The problem of this approach is that the SQL tests are heavily cluttered by Java codes.
-This problem is getting worse when the test queries are usually more complex that they cannot fit into single lines, such as one shown below.
-When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source files.</p>
-
-<figure class='code'><figcaption><span>A complex SQL query as Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'> <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;WITH Total_Traffic AS\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    SELECT temp.* from temp as clickstream_data\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    where filter_key = 1\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Rock_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE lower(evar28) LIKE &#39;rock_mus%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Instrumental_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE evar28 LIKE &#39;%[ins_mus]%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Defined_Traffic as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Rock_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    UNION\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Instrumental_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;select traffic_date_key\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, count(distinct visitor_id) as unique_visitor\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;from Defined_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;group by traffic_date_key&quot;</span><span class="o">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Level 2: Properties files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to manage SQL test queries. Each test has a name.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.</li>
-<li>All queries have to be in a single line. Hard to read for long test queries.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>For the next step, we tried to resolve the problem of Java and SQL codes mixed together.
-In this approach, SQL tests and Java codes are partitioned, with SQL queries are contained in <code>.properties</code> files, separate from supporting Java codes in <code>.java</code> files.
-The SQL test queries will be read by TestNG test cases, using key strings, before sending to database for execution.
-The same example above, when organized in this approach, will be as follows:</p>
-
-<figure class='code'><figcaption><span>Test query in properties file</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">TEST_QUERY_RESOURCE</span> <span class="o">=</span> <span class="s">&quot;test_queries.properties&quot;</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_count&quot;</span><span class="o">);</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'>        <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_data&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">dim_region_count</span><span class="o">=</span><span class="s">select count(*) from dim_region</span>
-</span><span class='line'><span class="na">dim_region_data</span><span class="o">=</span><span class="s">another test query to verify data</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using this approach, each test can have a name to express its purpose.
-One can get an overview of the SQL test queries by simply looking at the <code>properties</code> file.
-The supporting Java code that executes those test queries are abstracted into separate <code>java</code> files and can be ignored.</p>
-
-<p>The problems of the above approach are:</p>
-
-<p>(1) SQL test queries are really hard to read in <code>properties</code> file.
-Each SQL test string must be in a single line.
-Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid.
-Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with <a href="https://en.wikipedia.org/wiki/Star_schema">star schema</a>.
-For hundreds of test cases with complex queries like example below, it is impossible to read in <code>.properties</code> file.</p>
-
-<figure class='code'><figcaption><span>complex_test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">complex_query</span><span class="o">=</span><span class="s">WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE &#39;rock_mus%&#39;), Instrumental_Music as (select * from Total WHERE evar28 LIKE &#39;%[ins_mus]%&#39;), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>(2) Parts of tests are still in Java (in TestNG assertions), making them hard to maintain and less accessible to data analysts.
-From the <code>properties</code> file, it is not clear what is the expected output of the SQL queries.
-If there is a test failure, one still has to look it up in Java codes to understand and investigate.
-Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
-It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0.
-For example, a common test query is to find all duplicate records, which is expected to has zero row returned.
-Even those simple assertions have to be encoded using Java and TestNG&rsquo;s library methods.</p>
-
-<h3>Level 3: Script files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to maintain SQL test queries.</li>
-<li>Assertions/Expected outputs are paired with test queries.</li>
-<li>Readable by data analysts.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Slightly more complex setup to instantiate a SQL Test Runner.</li>
-<li>Slightly longer running time.</li>
-</ol>
-</li>
-</ul>
-
-
-<h4>Motivation</h4>
-
-<p>In recent Big Data projects, I tried to explore a way to improve readability of SQL tests.
-The main motivation for this &ldquo;Level 3&rdquo; is my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
-
-<p>Readable tests are easier to write, automate, and maintain.
-More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test?
-It does not make sense to write tests for tests.
-Only by making tests <strong>readable</strong>, you can verify and maintain the tests.</p>
-
-<p>Readable tests also promote collaboration between developers, data analysts and QEs.
-Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
-If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.</p>
-
-<h4>Implementation</h4>
-
-<p>In this approach, I implemented a <a href="/blog/2016/03/28/sql-unit-test-runner/">test framework</a>. The same tests shown in the last sections, using that framework, will look like this:</p>
-
-<figure class='code'><figcaption><span>Test query in test files</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">SqlTestRunner</span> <span class="n">testRunner</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Before</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;testscript/dim_region.test&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>dim_region.test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "dim_region_count",
-</span><span class='line'>  "query" : "select count(*) from dim_region",
-</span><span class='line'>  "expected" : "245"
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* This is a comment.
-</span><span class='line'>Complext test query follows.
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "check_traffic",
-</span><span class='line'>  "query" : "WITH Total_Traffic AS
-</span><span class='line'>      (
-</span><span class='line'>          SELECT temp.* from temp as clickstream_data
-</span><span class='line'>          where .... -- filtering
-</span><span class='line'>      )
-</span><span class='line'>      , Rock_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total_Traffic
-</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
-</span><span class='line'>      )
-</span><span class='line'>      , Instrumental_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total
-</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
-</span><span class='line'>      )
-</span><span class='line'>      , Defined_Traffic as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Rock_Music
-</span><span class='line'>          UNION
-</span><span class='line'>          select * from Instrumental_Music
-</span><span class='line'>      )
-</span><span class='line'>      select traffic_date_key
-</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
-</span><span class='line'>      from Defined_Traffic
-</span><span class='line'>      group by traffic_date_key",
-</span><span class='line'>  "expected" : "2016-03-16 123"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The file that contains SQL test queries is conventionally named with <code>.test</code> extension.
-However, the file can be a text file with any name.
-As you can see, the benefits of &ldquo;Level 2&rdquo; is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files.
-Each test query has a name (that tells its purpose) associated with it: key string in <code>.properties</code> file and value of &ldquo;name&rdquo; key in <code>.test</code> file.</p>
-
-<p>In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed.
-The TestNG assertions, which are ubiquitous in previous &ldquo;Level 1&rdquo; and &ldquo;Level 2&rdquo; approaches, are no longer present.
-Instead, the expected outputs are specified in <code>.test</code> file, in the same JSON block with each SQL query.
-The whole TestNG class will only contain code to initialize a connection to database and an instance of <a href="/blog/2016/03/28/sql-unit-test-runner/">SQL Test Runner</a>, all of which is <strong>one-time setup</strong>.
-As we continue writing functional tests, we can keep all tests in a single <code>.test</code> file or, optionally, group related tests into separate <code>.test</code> files.
-If we add more <code>.test</code> files, we can just specify the path to the files in functions annotated with <code>@Test</code>, as shown above.</p>
-
-<p>The main advantage of this test framework is readability of those tests, as shown in <code>.test</code> file.
-The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious.
-In the example above, the first test query&rsquo;s intention is clearer with assertion in the same location.
-In addition, compared with <code>.properties</code> file approach, the SQL query is now easier to read, due to <strong>line breaks</strong>, as shown in the second example.</p>
-
-<p>All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL.
-Different from usual software engineering projects, in Big Data projects, data analysts (i.e., users) know more about the data than typical quality engineers.
-Being able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
-If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.</p>
-
-<p>While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
-Even then, the additional computational time is totally justified with much better readability.
-Test readability will save (lots of) QE&rsquo;s time in both developing and maintaining tests, and engineer&rsquo;s time is million times more costly (per-hour-wise) than computer time.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/16/sql-unit-overview/">(Pt. 0) SQL Testing in Data Marts</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-16T00:43:09-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:43 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
-The journey of automated testing in data mart as well as other Big Data projects is tough: most of the business logics are implemented in SQL scripts.
-We don&rsquo;t even know how to test data marts' functionality from the beginning: how do we know if the SQL script works or if data is correct.
-Even worse, we don&rsquo;t know what defines &ldquo;unit testing&rdquo; for SQL scripts and could not enforce it on data engineers and scientists (the developers).
-The fact that most of data engineers and data analysts in my organization are more comfortable with SQL, not other languages like Java or Python, is another challenge in moving toward unit testing.</p>
-
-<p>We need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
-I recently gave a talk on the unit test framework that allows data engineers to verify their ETL scripts in SQL, their language of choice.
-I recap some of the key ideas and motivations when designing and implementing that test framework in a few blog posts.</p>
-
-<!--
-Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
--->
-
-
-<h3>Functional testing for Data Mart projects</h3>
-
-<p>We gradually figured out automated functional testing first and continued to improve it.
-This <a href="/blog/2016/03/20/sql-unit-functional-tests/">blog post</a> documents the journey of automated functional testing, the rationale after each cycle of its evolution.</p>
-
-<h3>SQL Test Runner</h3>
-
-<p>In the latest iteration of automated testing, supporting Java code is abstracted into a SQL Test Runner.
-Quality engineers and data analysts can now write test queries and assertions in more readable test blocks, using mostly SQL.
-This <a href="/blog/2016/03/28/sql-unit-test-runner/">blog post</a> provides some examples.
-As you can see, many design and impelmentation decisions are based on my motto: <strong>prioritize test readability</strong> when it makes sense.</p>
-
-<h3>Incremental data update</h3>
-
-<p>One of biggest challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
-Challenges in functional testing those scripts motivates me to ajdust the above test framework (SQL Test Runner) to allow adding unit-like tests for those ETL scripts.
-This <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">blog post</a> discusses &ldquo;incremental data update&rdquo; and how it should be tested as a number of unit tests.</p>
-
-<h3>Unit testing</h3>
-
-<p>This <a href="http://localhost:4000/blog/2016/04/12/sql-unit-testing/">blog post</a> goes into details of SQL Unit Testing.
-Keep in mind that the main users of this test framework are data engineers (developers) and data analysts (testers).
-Not all data engineers and analysts are comfortable with writing tests in Java or Python.
-This SQL Test framework will allow them to write their tests in SQL, by hiding all Java automation details.</p>
-
-<p>It should be noted that data analysts are really critical in validating data warehouses/datamarts.
-They are the most direct users and no one understands the data better than analysts.
-If the data analysts are able to read unit test scripts and confirm the expectation, quality engineers will save lots of time translating business requirements into SQL/Java tests.</p>
-
-<h3>Functional tests vs Unit tests</h3>
-
-<p>This <a href="/blog/2016/04/14/sql-unit-vs-functional/">blog post</a> recap the above sections by highlighting the difference between these groups of tests in the context of Big Data projects.
-Note that the two groups complement each other in assuring quality and functionality of Big Data projects.</p>
-
-<h3>Extending SQL Test Runner</h3>
-
-<p>SQL testing for ETL process is a pretty new area to us.
-Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
-This <a href="/blog/2016/04/16/sql-unit-extension/">blog post</a> explains how to extend the test framework to add new functionality or features.
-The SQL Unit Test framework is designed based on <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>, and uses design patterns like Template Method and Strategy to make it easy to add new functionality.
-For illustration, I will discuss how I recently added a new functionality to handle a <a href="/blog/2016/04/17/sql-unit-data-parity/">new kind of tests</a>.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/03/02/bash-trap/">Bash Trap</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-03-02T00:07:48-08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:07 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Code snippet</h3>
-
-<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
-In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
-
-<figure class='code'><figcaption><span>DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup trap to cleanup before exiting script</span>
-</span><span class='line'><span class="k">function</span> cleanup <span class="o">{</span>
-</span><span class='line'>    <span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'><span class="nb">trap </span>cleanup EXIT
-</span><span class='line'>
-</span><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
-Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
-
-<figure class='code'><figcaption><span>DON'T DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># This might not run when there is error</span>
-</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
-at the end of a deployment script, regardless of any error encountered during script execution.
-It is a good candidate for using <code>trap</code> statement.
-Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
-
-<h3>Trap multiple signals</h3>
-
-<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
-I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
-<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
-It is easy to confirm that with the following short bash script:</p>
-
-<figure class='code'><figcaption><span>Trap tests in Mac OSX</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 6613
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Interrupt: 2            ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 6624
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Terminated: 15          ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
-Having said that, I understand that my tests can only verify bash on Mac OSX.
-There are probably different shell variants on different operating systems which do not always work that way.</p>
-
-<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
-Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
-Not all cleanup steps could be and should be executed twice.
-For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
-
-<figure class='code'><figcaption><span>Problem of trapping multiple signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' INT TERM EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 7258
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 130                ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 7278
-</span><span class='line'>Terminated: 15
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 143                ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
-
-<h3>Other usage notes</h3>
-
-<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
-
-<figure class='code'><figcaption><span>List of signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ kill -l
-</span><span class='line'> 1) SIGHUP     2) SIGINT   3) SIGQUIT  4) SIGILL
-</span><span class='line'> 5) SIGTRAP    6) SIGABRT  7) SIGEMT   8) SIGFPE
-</span><span class='line'> 9) SIGKILL   10) SIGBUS  11) SIGSEGV 12) SIGSYS
-</span><span class='line'>13) SIGPIPE   14) SIGALRM 15) SIGTERM 16) SIGURG
-</span><span class='line'>17) SIGSTOP   18) SIGTSTP 19) SIGCONT 20) SIGCHLD
-</span><span class='line'>21) SIGTTIN   22) SIGTTOU 23) SIGIO   24) SIGXCPU
-</span><span class='line'>25) SIGXFSZ   26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
-</span><span class='line'>29) SIGINFO   30) SIGUSR1 31) SIGUSR2
-</span><span class='line'>
-</span><span class='line'>OR 
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ man signal</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
-This is useful for debugging purpose.
-The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
-
-<figure class='code'><figcaption><span>Tracing when a variable is used</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nb">declare</span> -t <span class="nv">VARIABLE</span><span class="o">=</span>value
-</span><span class='line'><span class="nb">trap</span> <span class="s2">&quot;echo VARIABLE is being used here.&quot;</span> DEBUG
-</span><span class='line'>
-</span><span class='line'><span class="c"># rest of the script</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>References</h3>
-
-<ol>
-<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
-<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
-<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/5">&larr; Older</a>
@@ -1742,23 +1301,23 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a>
       </li>
     
   </ul>
@@ -1795,7 +1354,7 @@ The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (1)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (2)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (3)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

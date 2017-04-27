@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-04-05T18:07:07-07:00</updated>
+  <updated>2017-04-26T19:39:51-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,798 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Override ENTRYPOINT]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint/"/>
+    <updated>2017-02-08T16:08:02-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint</id>
+    <content type="html"><![CDATA[<p>The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
+Simply running such docker image will give the following error:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
+</span><span class='line'>two arguments required, but got []
+</span><span class='line'>java -jar slave.jar [options...] &lt;secret key&gt; &lt;slave name&gt;
+</span><span class='line'> -cert VAL                       : Specify additional X.509 encoded PEM
+</span><span class='line'>                                   certificates to trust when connecting to
+</span><span class='line'>                                   Jenkins root URLs. If starting with @ then
+</span><span class='line'>                                   the remainder is assumed to be the name of
+</span><span class='line'>                                   the certificate file to read.
+</span><span class='line'> -credentials USER:PASSWORD      : HTTP BASIC AUTH header to pass in for making
+</span><span class='line'>                                   HTTP requests.
+</span><span class='line'> -headless                       : Run in headless mode, without GUI
+</span><span class='line'> -jar-cache DIR                  : Cache directory that stores jar files sent
+</span><span class='line'>                                   from the master
+</span><span class='line'> -noreconnect                    : If the connection ends, don't retry and just
+</span><span class='line'>                                   exit.
+</span><span class='line'> -proxyCredentials USER:PASSWORD : HTTP BASIC AUTH header to pass in for making
+</span><span class='line'>                                   HTTP authenticated proxy requests.
+</span><span class='line'> -tunnel HOST:PORT               : Connect to the specified host and port,
+</span><span class='line'>                                   instead of connecting directly to Jenkins.
+</span><span class='line'>                                   Useful when connection to Hudson needs to be
+</span><span class='line'>                                   tunneled. Can be also HOST: or :PORT, in
+</span><span class='line'>                                   which case the missing portion will be
+</span><span class='line'>                                   auto-configured like the default behavior
+</span><span class='line'> -url URL                        : Specify the Jenkins root URLs to connect to.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Most of the error messages above is from Jenkins binary <code>slave.jar</code> and has nothing to do with Docker.
+To make the container run on Docker, we must override its <code>ENTRYPOINT</code> at runtime to provide the arguments required.
+However, one common mistake while trying to override is as follows:</p>
+
+<figure class='code'><figcaption><span>Standard mistake</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
+</span><span class='line'>--entrypoint java -jar /usr/share/jenkins/slave.jar
+</span><span class='line'>"--entrypoint" is not a valid option</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Except for passing argument to the <code>ENTRYPOINT</code>, the Docker image is usually the last parameter.
+Another attempt to make it &ldquo;right&rdquo; is as follows:</p>
+
+<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always \
+</span><span class='line'>--entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
+</span><span class='line'>
+</span><span class='line'>container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
+</span><span class='line'>stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
+</span><span class='line'>docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
+</span><span class='line'>caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
+</span><span class='line'> file or directory".
+</span><span class='line'>ERRO[0001] error getting events from daemon: net/http: request canceled</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This attempt try to put the entire overridden command as the parameter for &ldquo;&ndash;entrypoint&rdquo; flag.
+However, this does NOT work because, as stated in documentation, the entrypoint should specify the <strong>executable</strong>, not the command.
+The correct way to do it is as follows:</p>
+
+<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
+</span><span class='line'>gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
+</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+</span><span class='line'>
+</span><span class='line'>Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
+</span><span class='line'>java.net.ConnectException: Connection refused
+</span><span class='line'>  at java.net.PlainSocketImpl.socketConnect(Native Method)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As seeen above, the executable is passed into &ldquo;&ndash;entrypoint&rdquo; flag, while its arguments are being passed <strong>after</strong> the image name.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/run/">Guide of Docker Run</a></li>
+<li><a href="https://docs.docker.com/engine/reference/commandline/run/">Docker Run CLI options</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Root User in a Pod]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod/"/>
+    <updated>2017-01-25T18:22:51-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod</id>
+    <content type="html"><![CDATA[<p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
+</span><span class='line'>Name:             jenkins
+</span><span class='line'>Namespace:            default
+</span><span class='line'>Image(s):         docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>Node:             kube-worker-1/10.252.158.72
+</span><span class='line'>Start Time:           Tue, 24 Jan 2017 16:57:47 -0800
+</span><span class='line'>Labels:               name=jenkins
+</span><span class='line'>Status:               Running
+</span><span class='line'>Reason:
+</span><span class='line'>Message:
+</span><span class='line'>IP:               172.17.27.3
+</span><span class='line'>Replication Controllers:  &lt;none&gt;
+</span><span class='line'>Containers:
+</span><span class='line'>  jenkins:
+</span><span class='line'>    Container ID: docker://943d6e55038804c8
+</span><span class='line'>    Image:        docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>    Image ID:     docker://242c1836544e5ca31616
+</span><span class='line'>    State:        Running
+</span><span class='line'>      Started:        Tue, 24 Jan 2017 16:57:48 -0800
+</span><span class='line'>    Ready:        True
+</span><span class='line'>    Restart Count:    0
+</span><span class='line'>    Environment Variables:
+</span><span class='line'>Conditions:
+</span><span class='line'>  Type        Status
+</span><span class='line'>  Ready   True
+</span><span class='line'>Volumes:
+</span><span class='line'>  jenkins-data:
+</span><span class='line'>    Type: HostPath (bare host directory volume)
+</span><span class='line'>    Path: /jdata
+</span><span class='line'>No events. </span></code></pre></td></tr></table></div></figure>
+
+
+<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
+Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@jenkins:~$ sudo ls /etc/hosts
+</span><span class='line'>[sudo] password for jenkins:
+</span><span class='line'>Sorry, try again.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Modifying the Docker image to set root password (e.g., by editing <code>Dockerfile</code> and rebuild) is sometimes not an option,
+such as when the Docker image is downloaded from another source and read-only.
+Moreover, if the container is running in production, we don&rsquo;t want to stop the container while troubleshooting some temporary issues.</p>
+
+<h3><code>nsenter</code> approach</h3>
+
+<p>I found one way to enter a &ldquo;live&rdquo; container as root by using <code>nsenter</code>.
+In summary, we find the process ID of the target container and provide it to <code>nsenter</code> as an argument.
+In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following <code>docker</code> commands.</p>
+
+<figure class='code'><figcaption><span>Finding running container ID and name</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker ps
+</span><span class='line'>CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_...
+</span><span class='line'>fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Use <code>docker inspect</code> to find the process ID based on the container ID.
+The Go template <code>{ {.State.Pid} }</code> (NOTE: without space) is used to simplify the output to a single numerical Pid.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker inspect --format { {.State.Pid} } 943d6e5a3bb8
+</span><span class='line'>9176
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
+</span><span class='line'>root@jenkins:/# cd ~
+</span><span class='line'>root@jenkins:~# vi /etc/hosts
+</span><span class='line'>root@jenkins:~# exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For later versions of Docker, the more direct way is to use <code>docker exec</code> with the container name shown in <code>docker ps</code> output (see next section).
+However, note that <code>docker exec</code> might not work for earlier versions of Docker (tested with Docker 1.6) and <code>nsenter</code> must be used instead.</p>
+
+<p>After entering the container as <code>root</code>, you might want to add the user into sudo group and save the modified Docker image.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
+</span><span class='line'>root@node-v4:~# cd /home/jenkins
+</span><span class='line'>root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
+</span><span class='line'>root@node-v4:/home/jenkins# passwd jenkins
+</span><span class='line'>Enter new UNIX password:
+</span><span class='line'>Retype new UNIX password:
+</span><span class='line'>passwd: password updated successfully
+</span><span class='line'>root@node-v4:/home/jenkins# exit
+</span><span class='line'>logout
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" \
+</span><span class='line'>280e5237cc6a docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>The push refers to a repository [docker.registry.company.net/tdongsi/jenkins-agent] (len: 1)
+</span><span class='line'>b1fe6c66195e: Image already exists
+</span><span class='line'>151c68e860a5: Image successfully pushed
+</span><span class='line'>670d6fd894d6: Image successfully pushed
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After that, you can verify <code>sudo</code>ing in the new Docker image.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>2.80: Pulling from tdongsi/jenkins-agent
+</span><span class='line'>bf5d46315322: Already exists
+</span><span class='line'>9f13e0ac480c: Already exists
+</span><span class='line'>ebe26e644840: Pull complete
+</span><span class='line'>40af181810e7: Pull complete
+</span><span class='line'>...
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" \
+</span><span class='line'>docker.registry.company.net/tdongsi/jenkins-agent:2.80 -jar /usr/share/jenkins/slave.jar \
+</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+</span><span class='line'>dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker ps
+</span><span class='line'>CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>dd9c207e2ef1        docker.registry.company.net/tdongsi/jenkins-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
+</span><span class='line'>[sudo] password for jenkins:
+</span><span class='line'>/etc/hosts
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
+</span><span class='line'>127.0.0.1 localhost
+</span><span class='line'>::1   localhost ip6-localhost ip6-loopback
+</span><span class='line'>fe00::0   ip6-localnet
+</span><span class='line'>ff00::0   ip6-mcastprefix
+</span><span class='line'>ff02::1   ip6-allnodes
+</span><span class='line'>ff02::2   ip6-allrouters
+</span><span class='line'>172.17.0.2    dd9c207e2ef1
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ exit
+</span><span class='line'>exit</span></code></pre></td></tr></table></div></figure>
+
+
+<h3><code>docker exec</code> approach</h3>
+
+<p>Later versions of <code>docker</code> adds <code>--user</code> flag that allows us to specify which user that we should enter the container as.
+First, we figure out which Kubernetes node is running a particular pod by using the command <code>kubectl describe pod</code>.
+After <code>ssh</code>-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command <code>docker ps -a</code>.
+The following examples demonstrate entering a <code>jenkins-slave</code> container as <code>root</code> and <code>jenkins</code> user.</p>
+
+<figure class='code'><figcaption><span>Entering container </span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@dev-worker-2 ~]# docker ps -a
+</span><span class='line'>CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_...
+</span><span class='line'>767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_...
+</span><span class='line'>
+</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
+</span><span class='line'>#
+</span><span class='line'># ls
+</span><span class='line'>support  workspace
+</span><span class='line'># id
+</span><span class='line'>uid=0(root) gid=0(root) groups=0(root)
+</span><span class='line'># exit
+</span><span class='line'>
+</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
+</span><span class='line'>$ ls
+</span><span class='line'>support  workspace
+</span><span class='line'>$ id
+</span><span class='line'>uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
+</span><span class='line'>$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As mentioned, older versions of <code>docker</code> does not support <code>--user</code> flag and does not allow entering container as root.
+In that case, use <code>nsenter</code> method presented in the previous section.</p>
+
+<figure class='code'><figcaption><span>Unsupported operation on Docker 1.6</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
+</span><span class='line'>flag provided but not defined: --user
+</span><span class='line'>See 'docker exec --help'.
+</span><span class='line'>[root@kube-worker-1 ~]# docker version
+</span><span class='line'>Client version: 1.6.2.el7
+</span><span class='line'>Client API version: 1.18
+</span><span class='line'>Go version (client): go1.4.2
+</span><span class='line'>Git commit (client): c3ca5bb/1.6.2
+</span><span class='line'>OS/Arch (client): linux/amd64
+</span><span class='line'>Server version: 1.6.2.el7
+</span><span class='line'>Server API version: 1.18
+</span><span class='line'>Go version (server): go1.4.2
+</span><span class='line'>Git commit (server): c3ca5bb/1.6.2
+</span><span class='line'>OS/Arch (server): linux/amd64</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jpetazzo/nsenter">nsenter tool</a></li>
+<li><a href="https://docs.docker.com/engine/reference/commandline/exec/">docker exec</a> manual</li>
+<li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Kubernetes: Pod-to-Node Communication Loss]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/"/>
+    <updated>2017-01-24T15:05:15-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss</id>
+    <content type="html"><![CDATA[<p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
+This newbie mistake is rare but very perplexing and this post shows to troubleshoot it with <code>busybox</code> container.</p>
+
+<h3>Problem symptoms</h3>
+
+<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>16 packets transmitted, 0 received, 100% packet loss, time 14999ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
+
+<h3>Troubleshooting with <code>busybox</code></h3>
+
+<p>Try to run a test pod <code>busybox</code>.
+<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.61.7
+</span><span class='line'>PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.61.7 ping statistics ---
+</span><span class='line'>5 packets transmitted, 5 received, 0% packet loss, time 4000ms
+</span><span class='line'>rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>14 packets transmitted, 0 received, 100% packet loss, time 13000ms</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
+<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>/ # traceroute 10.252.158.72
+</span><span class='line'>traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
+</span><span class='line'> 2  *  *  *
+</span><span class='line'> 3  *  *  *
+</span><span class='line'> 4  *  *  *
+</span><span class='line'> 5  *  *  *
+</span><span class='line'>/ #
+</span><span class='line'>/ # traceroute 10.252.100.5
+</span><span class='line'>traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
+</span><span class='line'> 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
+</span><span class='line'> 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
+</span><span class='line'>/ # exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
+</span><span class='line'>Name:         jenkins
+</span><span class='line'>Namespace:        default
+</span><span class='line'>Labels:           &lt;none&gt;
+</span><span class='line'>Selector:     name=jenkins
+</span><span class='line'>Type:         NodePort
+</span><span class='line'>IP:           10.252.77.85
+</span><span class='line'>Port:         http    80/TCP
+</span><span class='line'>NodePort:     http    30080/TCP
+</span><span class='line'>Endpoints:        10.252.100.5:8080
+</span><span class='line'>Session Affinity: None
+</span><span class='line'>No events.</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>What went wrong?</h3>
+
+<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
+When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
+I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
+As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
+This leads to pod-to-VM communication loss as described above.
+The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
+
+<figure class='code'><figcaption><span>Update etcd</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
+</span><span class='line'>"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+</span><span class='line'>
+</span><span class='line'>[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
+</span><span class='line'>[centos@kube-master ~]$ etcdctl ls /kube-centos/network
+</span><span class='line'>/kube-centos/network/config</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Kubernetes: Pause Container and Private Docker Registry]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/"/>
+    <updated>2017-01-16T11:48:05-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository</id>
+    <content type="html"><![CDATA[<p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
+
+<h3>Problem description</h3>
+
+<p>In this problem, Kubernetes cluster are all installed and configured.
+We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
+</span><span class='line'>NAME            LABELS                                 STATUS    AGE
+</span><span class='line'>kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
+</span><span class='line'>kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
+</span><span class='line'>kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+</span><span class='line'>pod "nginx" created</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, one can see the following error messages:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+</span><span class='line'>NAME      READY     STATUS                                                                                       RESTARTS   AGE
+</span><span class='line'>nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
+</span><span class='line'>FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
+</span><span class='line'>40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
+</span><span class='line'>40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
+</span><span class='line'>40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The full error message for the third event above is quoted below:</p>
+
+<blockquote><p>Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote>
+
+
+<h3>What is <code>pause</code> container?</h3>
+
+<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
+What is that <code>pause</code> container&rsquo;s purpose?
+The <code>pause</code> container essentially holds the network namespace for the pod.
+It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
+However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
+Normally, if the last process in a network namespace dies, the namespace will be destroyed.
+Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
+With <code>pause</code>, you will always have that one last thing in the namespace.</p>
+
+<h3><code>pause</code> container and private Docker registry</h3>
+
+<p>What trouble does such <code>pause</code> container can give us?
+As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
+If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
+And that is what error message quoted above indicates.
+However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
+One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
+Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>0.8.0: Pulling from google_containers/pause
+</span><span class='line'>a3ed95caeb02: Pull complete
+</span><span class='line'>bccc832946aa: Pull complete
+</span><span class='line'>Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
+</span><span class='line'>Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
+</span><span class='line'>5f70bf18a086: Mounted from tdongsi/nginx
+</span><span class='line'>152b0ca1d7a4: Pushed
+</span><span class='line'>0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
+In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
+
+<figure class='code'><figcaption><span>Custom kubelet option</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Add your own! 
+</span><span class='line'>KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
+In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
+Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
+
+<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
+We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>docker load -i /path/to/pause-amd64.tar</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+### Pulling fails even with pull image secret
+
+**WARNING**: 
+This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
+Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
+
+Validate
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
+</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Automated Downloading BART Parking Permits]]></title>
@@ -2786,13 +3578,13 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 
 <ul>
 <li><code>stg_company_id</code> -> ID: 123, region: US.</li>
-<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#x6f;&#58;&#x62;&#x65;&#x66;&#111;&#114;&#101;&#64;&#109;&#111;&#x63;&#107;&#100;&#x61;&#x74;&#97;&#46;&#99;&#111;&#x6d;&#46;">&#98;&#101;&#x66;&#111;&#x72;&#101;&#64;&#109;&#x6f;&#99;&#x6b;&#100;&#x61;&#116;&#x61;&#x2e;&#99;&#111;&#x6d;&#46;</a> (same company)</li>
+<li><code>stg_company_contact</code> -> ID: 123, email: <a href="&#109;&#x61;&#105;&#108;&#116;&#111;&#58;&#x62;&#x65;&#x66;&#111;&#x72;&#101;&#64;&#109;&#x6f;&#x63;&#107;&#100;&#97;&#116;&#x61;&#x2e;&#x63;&#111;&#109;&#x2e;">&#x62;&#x65;&#102;&#111;&#x72;&#x65;&#x40;&#109;&#111;&#x63;&#x6b;&#x64;&#x61;&#x74;&#97;&#x2e;&#99;&#111;&#109;&#46;</a> (same company)</li>
 </ul>
 </li>
 <li>Day 3
 
 <ul>
-<li>Email updated to <a href="&#x6d;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#x61;&#x66;&#116;&#x65;&#114;&#x40;&#109;&#x6f;&#99;&#107;&#100;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;">&#x61;&#x66;&#116;&#101;&#114;&#64;&#109;&#x6f;&#x63;&#x6b;&#100;&#97;&#116;&#97;&#46;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
+<li>Email updated to <a href="&#x6d;&#x61;&#105;&#x6c;&#x74;&#x6f;&#58;&#97;&#102;&#116;&#x65;&#x72;&#64;&#109;&#111;&#99;&#107;&#100;&#97;&#x74;&#97;&#x2e;&#x63;&#x6f;&#109;">&#97;&#102;&#116;&#101;&#114;&#x40;&#x6d;&#x6f;&#99;&#x6b;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#111;&#x6d;</a> in <code>stg_company_contact</code>.</li>
 <li><code>stg_company_id</code> has one row with ID = 123.</li>
 <li><code>stg_company_contact</code> has two rows with ID = 123.</li>
 </ul>
@@ -2808,7 +3600,7 @@ The following example scenario illustrates the challenge and complexity of ETLs 
 <li>Day 15
 
 <ul>
-<li>Email updated to <a href="&#109;&#97;&#105;&#108;&#116;&#x6f;&#58;&#x62;&#101;&#121;&#x6f;&#x6e;&#x64;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#x2e;&#x63;&#x6f;&#x6d;&#x2e;">&#x62;&#x65;&#x79;&#x6f;&#110;&#x64;&#x40;&#109;&#111;&#x63;&#x6b;&#x64;&#x61;&#x74;&#x61;&#46;&#x63;&#111;&#109;&#x2e;</a></li>
+<li>Email updated to <a href="&#109;&#97;&#x69;&#108;&#x74;&#x6f;&#58;&#x62;&#x65;&#x79;&#x6f;&#110;&#100;&#64;&#x6d;&#111;&#x63;&#107;&#x64;&#x61;&#x74;&#x61;&#x2e;&#99;&#x6f;&#x6d;&#46;">&#x62;&#101;&#121;&#111;&#110;&#100;&#x40;&#x6d;&#111;&#x63;&#107;&#x64;&#97;&#x74;&#97;&#46;&#x63;&#x6f;&#x6d;&#x2e;</a></li>
 <li><code>stg_company_id</code> has zero row with ID = 123.</li>
 <li><code>stg_company_contact</code> has one row with ID = 123.</li>
 </ul>
@@ -3158,1098 +3950,6 @@ After one-time setup (in <code>@BeforeClass</code> and <code>@AfterClass</code> 
 
 
 <p>The full setup for unit testing will be discussed in the next blog post.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 2) SQL Test Runner]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/28/sql-unit-test-runner/"/>
-    <updated>2016-03-28T23:42:09-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/28/sql-unit-test-runner</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>.</p>
-
-<p>In this blog post, I shows some example test cases using the SQL Test Runner, introduced in &ldquo;Level 3&rdquo; in <a href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/">this post</a>.
-As mentioned in that post and will be illustrated here, many decisions are based on my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
-
-<h3>Overview</h3>
-
-<p>In this test framework, a test block is defined in the following format: comment block opening <code>/*</code> followed by <code>@Test</code>, and a JSON object with some specified keys in the next subsection, closed by comment block closing <code>*/</code>.</p>
-
-<figure class='code'><figcaption><span>Example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name":"test_count",
-</span><span class='line'>  "query":"select count(1) from dim_product",
-</span><span class='line'>  "expected":"5"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The SQL Test Runner will:</p>
-
-<ol>
-<li>Pick up the test blocks, annotated as above.</li>
-<li>Extract the JSON to retrieve the test query and expected output.
-
-<ul>
-<li>As shown in <a href="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/">this</a> and <a href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/">this</a>, we can add custom JSON for different testing needs.</li>
-</ul>
-</li>
-<li>Send the query to the database, and get the actual output from the database.</li>
-<li>Compare actual output with the expected output, raise <code>AssertionError</code> if needed.
-
-<ul>
-<li>Note that the Test Runner can either exit immediately upon <code>AssertionError</code> (hard assertion) or run all test queries and list all <code>AssertionError</code>s at the end (soft assertion).</li>
-</ul>
-</li>
-</ol>
-
-
-<p>As shown in the following example, we can add newlines and whitespaces to the test query (i.e., value in &ldquo;query&rdquo; clause) for aligning and formatting the query, especially when the query is long and complex.</p>
-
-<figure class='code'><figcaption><span>Example complex test query</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "check_traffic",
-</span><span class='line'>  "query" : "WITH Total_Traffic AS
-</span><span class='line'>      (
-</span><span class='line'>          SELECT temp.* from temp as clickstream_data
-</span><span class='line'>          where .... -- filtering
-</span><span class='line'>      )
-</span><span class='line'>      , Rock_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total_Traffic
-</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
-</span><span class='line'>      )
-</span><span class='line'>      , Instrumental_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total
-</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
-</span><span class='line'>      )
-</span><span class='line'>      , Defined_Traffic as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Rock_Music
-</span><span class='line'>          UNION
-</span><span class='line'>          select * from Instrumental_Music
-</span><span class='line'>      )
-</span><span class='line'>      select traffic_date_key
-</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
-</span><span class='line'>      from Defined_Traffic
-</span><span class='line'>      group by traffic_date_key",
-</span><span class='line'>  "expected" : "2016-03-16 123"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that in pure JSON, newlines are NOT allowed and deserializing the above JSON directly will give syntax errors.
-However, as you can see, newlines and whitespaces greatly improve readability of the complex test query.
-Therefore, I add a pre-processing step in SQL Test Runner to replace all whitespace characters (<code>\s+</code>) in test block with a single space (<code></code>).
-The additional computation is minimal and it is quite a good trade-off for much better <em>readability</em> of the test scripts.</p>
-
-<h3>Example usage</h3>
-
-<p>This section list some simple examples to illustrate some standard, common usage of test blocks. The most common one is:</p>
-
-<figure class='code'><figcaption><span>Compare test query's output with expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"5"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Multiple rows, multiple columns can also be used as expected output.
-All output of the test query will be normalized to String before comparison.
-For <strong>readability</strong>, we can add whitespaces and newlines into expected output string to align rows and columns.
-Before comparison, the actual and expected output is pre-processed to replace all whitespace characters (<code>\s+</code>) with a single space (<code></code>).</p>
-
-<figure class='code'><figcaption><span>Expected output with multiple rows, multiple columns</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'> "name":"test_data",
-</span><span class='line'> "query":"select price, product from dim_product order by product_key;",
-</span><span class='line'> "expected":"10 Chair
-</span><span class='line'>              20 Table
-</span><span class='line'>              30 Twin Bed
-</span><span class='line'>              40 King Bed"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In many situations, the row count of a table is not definitely known.
-However, we still know that its row count should fall in some number range, such as more than 100 or less than one million.
-The Test Runner allows you to add some simple logical expression in &ldquo;expected&rdquo; clause.
-It is tester&rsquo;s responsibility to make sure the test query returns some numbers and the logical expression makes sense.</p>
-
-<figure class='code'><figcaption><span>Expected output with logical expression</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>-- This is same as "expected" : "5"
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count_operator_equal",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"== 5"
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>-- There must be some entries, at least 10, in the table.
-</span><span class='line'>-- Evaluated as: actual value &gt; 10
-</span><span class='line'>{
-</span><span class='line'>   "name":"test_count_operator",
-</span><span class='line'>   "query":"select count(*) from dim_product;",
-</span><span class='line'>   "expected":"&gt; 10"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that in the examples above, inline comments can be added into test block using SQL&rsquo;s <code>--</code> inline comment notation.
-In addition to &ldquo;name&rdquo;, &ldquo;query&rdquo; and &ldquo;expected&rdquo;, you can add a list of script files to be executed in a &ldquo;file&rdquo; clause, as shown in the following example.
-The test query will be executed after all the scripts have been executed.</p>
-
-<figure class='code'><figcaption><span>"file" key to execute shared statements</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_file_multiple",
-</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
-</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"],
-</span><span class='line'>    "query":"select count(1) from dim_product;",
-</span><span class='line'>    "expected":"0"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In practice, you should use the above &ldquo;file&rdquo; clause for:</p>
-
-<ul>
-<li>Adding more complicated setup statements or tests in external test scripts. Example: creating and populating tables with synthetic data.</li>
-<li>Reusing the most common tests (e.g., count, constraint checks).</li>
-<li>Making the original test scripts less cluttered with repeated SQL queries or statements.</li>
-</ul>
-
-
-<p>For reference, the JSON test blocks are mapped into POJOs by the SQL Test Runner, defined by the following NameQueryExepected class:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
-</span><span class='line'><span class="cm"> * POJO for simple JSON test block</span>
-</span><span class='line'><span class="cm"> * </span>
-</span><span class='line'><span class="cm"> * @author tdongsi</span>
-</span><span class='line'><span class="cm"> */</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryExpected</span> <span class="o">{</span>
-</span><span class='line'>  <span class="c1">// Test name</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// File lists to run</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Test query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Expected output of the test query above</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">expected</span><span class="o">;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that all attributes in POJO are optional, NOT required to be defined at all time.
-The most commonly used is (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) combination, but you can see others such as the following:</p>
-
-<figure class='code'><figcaption><span>Some other uses</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>-- Just want to make sure this query can be executed. Outputs can vary.
-</span><span class='line'>{
-</span><span class='line'>    "name": "test_ignore_output",
-</span><span class='line'>    "query": "select * from dim_product order by product_key;",
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>-- Run some setup scripts
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_file_multiple",
-</span><span class='line'>    "file":["testscript/sql/vertica/dim_product_table_drop.sql", 
-</span><span class='line'>            "testscript/sql/vertica/dim_product_table_create.sql"]
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Advanced usage</h3>
-
-<p>Another variant to NameQueryExpected POJO is NameQueryEqual POJO, defined as follows:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="cm">/**</span>
-</span><span class='line'><span class="cm"> * POJO for JSON test block comparing two projections</span>
-</span><span class='line'><span class="cm"> * </span>
-</span><span class='line'><span class="cm"> * @author tdongsi</span>
-</span><span class='line'><span class="cm"> */</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">NameQueryEqual</span> <span class="o">{</span>
-</span><span class='line'>  <span class="c1">// Test name.</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">name</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// File lists to run</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">file</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Test query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">query</span><span class="o">;</span>
-</span><span class='line'>  <span class="c1">// Equivalent query in SQL</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">equal</span><span class="o">;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As explained in more details in <a href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/">this post</a>, &ldquo;equal&rdquo; is a recently added capability to easily compare two tables or projections from tables.</p>
-
-<figure class='code'><figcaption><span>"equal" clause</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>    "name":"test_data_equivalent",
-</span><span class='line'>    "query":"select product_key, cost from dim_product WHERE ...;",
-</span><span class='line'>    "equal":"select product_key, cost from dim_inventory WHERE ...;"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 1) Functional Testing for Data Marts]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/"/>
-    <updated>2016-03-20T23:18:33-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests</id>
-    <content type="html"><![CDATA[<p>For overview, see <a href="http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview/">here</a>.</p>
-
-<p>In this blog post, I will go over on different approaches over time to verify if a data mart or data warehouse is implemented correctly, and pros and cons associated with each approach.</p>
-
-<h3>Level 0: Manual testing</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Easy to get started.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Time consuming for many tests with multiple runs.</li>
-<li>Not repeatable.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>Early on in Big Data projects, there was not much automation.
-Big Data projects are much different from typical software projects: most of the code complexity (and bugs) lies in Extract-Transform-Load (ETL) processes, typically implemented as a number of SQL scripts.
-There are not many tools available for automated testing of SQL scripts, especially for Vertica.</p>
-
-<p>At the beginning, quality engineers and data analysts tested data marts by using a number of SQL queries as test queries.
-Data analysts are <em>de facto</em> end-users and main testers and many of those test queries are based on their experience.</p>
-
-<p><img class="center" src="http://tdongsi.github.io/images/sql/squirrel.png" title="Manual testing" ></p>
-
-<p>We used some SQL clients such as SQuirreL as shown above, connected to Vertica using some JDBC driver, ran the test queries and verified that the outputs match our expectations.
-This process is pretty much manual. If an ETL is updated <code>n</code> times, we have to repeat this <code>n</code> times.
-Most of the test queries can only tests the <strong>end results</strong> of ETL processes, where data analysts have domain knowledge on: they know what numbers from those final views or tables should look like.
-If there are multiple steps (multiple SQL scripts) in those ETL processes, the intermediate tables are not really accessible to data analysts.
-Sometimes, some of these tests are pretty heuristic and arbitrary: e.g., this number of products sold in some channel is &ldquo;unusually&rdquo; high today, which &ldquo;seems&rdquo; to indicate that ETL went wrong in some intermediate step.</p>
-
-<!--
-Functions is not common. 
--->
-
-
-<h3>Level 1: TestNG</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Java and SQL codes are cluttered together.</li>
-<li>Hard to read, hard to maintain.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>After some rounds of manual testing, we started looking into automating the process.
-Similar to manual testing, the test cases should be in SQL, to be executed against the data marts for validation.
-The only difference is that it is up to the QEs to organize and automate the execution of those SQL test queries.
-Since the test queries can be sent over a JDBC client like SQuirreL, we can do those programmatically as TestNG test cases.
-The test SQL queries, defined as Java strings in TestNG test cases, are sent to the data marts through their respective JDBC interface for execution.</p>
-
-<figure class='code'><figcaption><span>Test query as constant Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;select count(*) from dim_region&quot;</span><span class="o">;</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Here, the test queries are defined as constant strings in Java.
-Note that the test query above is intended to be simple to illustate the automation.
-The actual test queries are usually more complex than that.
-The results will be captured in JUnit/TestNG tests, and expectations are verified by using various TestNG assertions.
-We also remove heuristic tests that cannot be verified using assertions.
-Instead, those tests will be verified during User-Acceptance Test phase where data analysts will try out the final views of data marts.
-In addition, we add tests to verify intermediate steps of the ETL processes.</p>
-
-<p>The problem of this approach is that the SQL tests are heavily cluttered by Java codes.
-This problem is getting worse when the test queries are usually more complex that they cannot fit into single lines, such as one shown below.
-When the number of SQL tests grows larger, it is hard to keep track of all SQL test queries in Java source files.</p>
-
-<figure class='code'><figcaption><span>A complex SQL query as Java string</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'> <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="s">&quot;WITH Total_Traffic AS\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    SELECT temp.* from temp as clickstream_data\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    where filter_key = 1\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Rock_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE lower(evar28) LIKE &#39;rock_mus%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Instrumental_Music as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Total\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    WHERE evar28 LIKE &#39;%[ins_mus]%&#39;\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, Defined_Traffic as\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;(\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Rock_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    UNION\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;    select * from Instrumental_Music\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;)\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;select traffic_date_key\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;, count(distinct visitor_id) as unique_visitor\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;from Defined_Traffic\n&quot;</span> <span class="o">+</span>
-</span><span class='line'>          <span class="s">&quot;group by traffic_date_key&quot;</span><span class="o">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Level 2: Properties files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to manage SQL test queries. Each test has a name.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Test queries and their assertions (expected ouputs) are not paired. Hard to look up and update expected outputs.</li>
-<li>All queries have to be in a single line. Hard to read for long test queries.</li>
-</ol>
-</li>
-</ul>
-
-
-<p>For the next step, we tried to resolve the problem of Java and SQL codes mixed together.
-In this approach, SQL tests and Java codes are partitioned, with SQL queries are contained in <code>.properties</code> files, separate from supporting Java codes in <code>.java</code> files.
-The SQL test queries will be read by TestNG test cases, using key strings, before sending to database for execution.
-The same example above, when organized in this approach, will be as follows:</p>
-
-<figure class='code'><figcaption><span>Test query in properties file</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">DIM_REGION_COUNT</span> <span class="o">=</span> <span class="mi">245</span><span class="o">;</span>
-</span><span class='line'><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">TEST_QUERY_RESOURCE</span> <span class="o">=</span> <span class="s">&quot;test_queries.properties&quot;</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// First test query</span>
-</span><span class='line'>        <span class="n">String</span> <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_count&quot;</span><span class="o">);</span>
-</span><span class='line'>        <span class="kt">int</span> <span class="n">output</span> <span class="o">=</span> <span class="n">getJdbcConnection</span><span class="o">().</span><span class="na">executeQuery</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
-</span><span class='line'>        <span class="n">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="n">output</span> <span class="o">==</span> <span class="n">DIM_REGION_COUNT</span><span class="o">,</span> <span class="s">&quot;dim_region count:&quot;</span><span class="o">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c1">// Second test query</span>
-</span><span class='line'>        <span class="n">query</span> <span class="o">=</span> <span class="n">PropertyUtil</span><span class="o">.</span><span class="na">getProperty</span><span class="o">(</span><span class="n">TEST_QUERY_RESOURCE</span><span class="o">,</span> <span class="s">&quot;dim_region_data&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">dim_region_count</span><span class="o">=</span><span class="s">select count(*) from dim_region</span>
-</span><span class='line'><span class="na">dim_region_data</span><span class="o">=</span><span class="s">another test query to verify data</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using this approach, each test can have a name to express its purpose.
-One can get an overview of the SQL test queries by simply looking at the <code>properties</code> file.
-The supporting Java code that executes those test queries are abstracted into separate <code>java</code> files and can be ignored.</p>
-
-<p>The problems of the above approach are:</p>
-
-<p>(1) SQL test queries are really hard to read in <code>properties</code> file.
-Each SQL test string must be in a single line.
-Adding white spaces, such as newlines and tabs, for clarity is not possible as it will make the test query truncated and invalid.
-Unfortunately, it is very common that SQL queries are long, with multiple JOIN statements, especially in data mart with <a href="https://en.wikipedia.org/wiki/Star_schema">star schema</a>.
-For hundreds of test cases with complex queries like example below, it is impossible to read in <code>.properties</code> file.</p>
-
-<figure class='code'><figcaption><span>complex_test_queries.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">complex_query</span><span class="o">=</span><span class="s">WITH Total_Traffic AS ( SELECT temp.* from temp as clickstream_data where filter_key = 1), Rock_Music as ( select * from Total_Traffic WHERE lower(evar28) LIKE &#39;rock_mus%&#39;), Instrumental_Music as (select * from Total WHERE evar28 LIKE &#39;%[ins_mus]%&#39;), Defined_Traffic as (select * from Rock_Music UNION select * from Instrumental_Music) select traffic_date_key, count(distinct visitor_id) as unique_visitor from Defined_Traffic group by traffic_date_key</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>(2) Parts of tests are still in Java (in TestNG assertions), making them hard to maintain and less accessible to data analysts.
-From the <code>properties</code> file, it is not clear what is the expected output of the SQL queries.
-If there is a test failure, one still has to look it up in Java codes to understand and investigate.
-Many data engineers and data analysts may be not familiar with Java and TestNG enough to look for and understand failures in test cases.
-It is also worth noting that most of SQL queries are expected to return zero row or integer values like 0.
-For example, a common test query is to find all duplicate records, which is expected to has zero row returned.
-Even those simple assertions have to be encoded using Java and TestNG&rsquo;s library methods.</p>
-
-<h3>Level 3: Script files</h3>
-
-<ul>
-<li><strong>Pros</strong>:
-
-<ol>
-<li>Automated, repeatable. Run multiple times with minimal additional effort.</li>
-<li>It is easier to maintain SQL test queries.</li>
-<li>Assertions/Expected outputs are paired with test queries.</li>
-<li>Readable by data analysts.</li>
-</ol>
-</li>
-<li><strong>Cons</strong>:
-
-<ol>
-<li>Slightly more complex setup to instantiate a SQL Test Runner.</li>
-<li>Slightly longer running time.</li>
-</ol>
-</li>
-</ul>
-
-
-<h4>Motivation</h4>
-
-<p>In recent Big Data projects, I tried to explore a way to improve readability of SQL tests.
-The main motivation for this &ldquo;Level 3&rdquo; is my testing philosophy: <strong>prioritize readability of tests when possible</strong>.</p>
-
-<p>Readable tests are easier to write, automate, and maintain.
-More importantly, ask yourself: If you write a software, you have tests to validate it; if you write a test, how do you validate your test?
-It does not make sense to write tests for tests.
-Only by making tests <strong>readable</strong>, you can verify and maintain the tests.</p>
-
-<p>Readable tests also promote collaboration between developers, data analysts and QEs.
-Readable tests can be easily shared with developers and data analysts for debugging purposes, especially when they are most comfortable in SQL.
-If the tests are readable and accessible to developers, they can easily run the tests on their own, without much intervention from QEs.</p>
-
-<h4>Implementation</h4>
-
-<p>In this approach, I implemented a <a href="http://tdongsi.github.io/blog/2016/03/28/sql-unit-test-runner/">test framework</a>. The same tests shown in the last sections, using that framework, will look like this:</p>
-
-<figure class='code'><figcaption><span>Test query in test files</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="n">SqlTestRunner</span> <span class="n">testRunner</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Before</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setup</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">testRunner</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SqlTestRunner</span><span class="o">(</span><span class="n">getJdbcConnection</span><span class="o">());</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="nd">@Test</span><span class="o">(</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
-</span><span class='line'><span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate_dim_region</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">testRunner</span><span class="o">.</span><span class="na">runScript</span><span class="o">(</span><span class="s">&quot;testscript/dim_region.test&quot;</span><span class="o">);</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>dim_region.test</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "dim_region_count",
-</span><span class='line'>  "query" : "select count(*) from dim_region",
-</span><span class='line'>  "expected" : "245"
-</span><span class='line'>}
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* This is a comment.
-</span><span class='line'>Complext test query follows.
-</span><span class='line'>*/
-</span><span class='line'>
-</span><span class='line'>/* @Test
-</span><span class='line'>{
-</span><span class='line'>  "name" : "check_traffic",
-</span><span class='line'>  "query" : "WITH Total_Traffic AS
-</span><span class='line'>      (
-</span><span class='line'>          SELECT temp.* from temp as clickstream_data
-</span><span class='line'>          where .... -- filtering
-</span><span class='line'>      )
-</span><span class='line'>      , Rock_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total_Traffic
-</span><span class='line'>          WHERE lower(evar28) LIKE 'rock_mus%'
-</span><span class='line'>      )
-</span><span class='line'>      , Instrumental_Music as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Total
-</span><span class='line'>          WHERE evar28 LIKE '%[ins_mus]%'
-</span><span class='line'>      )
-</span><span class='line'>      , Defined_Traffic as
-</span><span class='line'>      (
-</span><span class='line'>          select * from Rock_Music
-</span><span class='line'>          UNION
-</span><span class='line'>          select * from Instrumental_Music
-</span><span class='line'>      )
-</span><span class='line'>      select traffic_date_key
-</span><span class='line'>      , count(distinct visitor_id) as unique_visitor
-</span><span class='line'>      from Defined_Traffic
-</span><span class='line'>      group by traffic_date_key",
-</span><span class='line'>  "expected" : "2016-03-16 123"
-</span><span class='line'>}
-</span><span class='line'>*/</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The file that contains SQL test queries is conventionally named with <code>.test</code> extension.
-However, the file can be a text file with any name.
-As you can see, the benefits of &ldquo;Level 2&rdquo; is retained: the supporting Java code and the actual SQL test queries are partitioned into separate files.
-Each test query has a name (that tells its purpose) associated with it: key string in <code>.properties</code> file and value of &ldquo;name&rdquo; key in <code>.test</code> file.</p>
-
-<p>In addition to those retained benefits, the most obvious benefit of this new approach is that the supporting Java code is minimal since all TestNG assertions have been removed.
-The TestNG assertions, which are ubiquitous in previous &ldquo;Level 1&rdquo; and &ldquo;Level 2&rdquo; approaches, are no longer present.
-Instead, the expected outputs are specified in <code>.test</code> file, in the same JSON block with each SQL query.
-The whole TestNG class will only contain code to initialize a connection to database and an instance of <a href="http://tdongsi.github.io/blog/2016/03/28/sql-unit-test-runner/">SQL Test Runner</a>, all of which is <strong>one-time setup</strong>.
-As we continue writing functional tests, we can keep all tests in a single <code>.test</code> file or, optionally, group related tests into separate <code>.test</code> files.
-If we add more <code>.test</code> files, we can just specify the path to the files in functions annotated with <code>@Test</code>, as shown above.</p>
-
-<p>The main advantage of this test framework is readability of those tests, as shown in <code>.test</code> file.
-The expected outputs of the SQL queries are specified in the same place, making the tests' intentions more obvious.
-In the example above, the first test query&rsquo;s intention is clearer with assertion in the same location.
-In addition, compared with <code>.properties</code> file approach, the SQL query is now easier to read, due to <strong>line breaks</strong>, as shown in the second example.</p>
-
-<p>All test automation (in Java) is abstracted from data analysts, and they can read and possibly add tests totally in SQL.
-Different from usual software engineering projects, in Big Data projects, data analysts (i.e., users) know more about the data than typical quality engineers.
-Being able to get their input is essential in ensuring Big Data projects doing the right thing in the right ways.
-If they are able to read unit test scripts and confirm the expectations, QEs will save lots of time of translating business requirements to SQL tests.</p>
-
-<p>While it is true that we have additional computational time due to additional layers of abstraction in Java, it is minimal compared to the time to run those queries in databases.
-Even then, the additional computational time is totally justified with much better readability.
-Test readability will save (lots of) QE&rsquo;s time in both developing and maintaining tests, and engineer&rsquo;s time is million times more costly (per-hour-wise) than computer time.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 0) SQL Testing in Data Marts]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview/"/>
-    <updated>2016-03-16T00:43:09-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/16/sql-unit-overview</id>
-    <content type="html"><![CDATA[<p>Data mart is a smaller version of a data warehouse, help driving business decisions of a department in a large company.
-The journey of automated testing in data mart as well as other Big Data projects is tough: most of the business logics are implemented in SQL scripts.
-We don&rsquo;t even know how to test data marts' functionality from the beginning: how do we know if the SQL script works or if data is correct.
-Even worse, we don&rsquo;t know what defines &ldquo;unit testing&rdquo; for SQL scripts and could not enforce it on data engineers and scientists (the developers).
-The fact that most of data engineers and data analysts in my organization are more comfortable with SQL, not other languages like Java or Python, is another challenge in moving toward unit testing.</p>
-
-<p>We need an automation framework so that data engineers and quality engineers can start creating automated unit tests, instead of depending on data analysts to verify data marts manually.
-I recently gave a talk on the unit test framework that allows data engineers to verify their ETL scripts in SQL, their language of choice.
-I recap some of the key ideas and motivations when designing and implementing that test framework in a few blog posts.</p>
-
-<!--
-Note that SQL scripts is only a small part of ETL processes. There are other scripts such as bash, python scripts, Java programs, and/or commerical tools such as Tidal that move data and execute those SQL scripts.
--->
-
-
-<h3>Functional testing for Data Mart projects</h3>
-
-<p>We gradually figured out automated functional testing first and continued to improve it.
-This <a href="http://tdongsi.github.io/blog/2016/03/20/sql-unit-functional-tests/">blog post</a> documents the journey of automated functional testing, the rationale after each cycle of its evolution.</p>
-
-<h3>SQL Test Runner</h3>
-
-<p>In the latest iteration of automated testing, supporting Java code is abstracted into a SQL Test Runner.
-Quality engineers and data analysts can now write test queries and assertions in more readable test blocks, using mostly SQL.
-This <a href="http://tdongsi.github.io/blog/2016/03/28/sql-unit-test-runner/">blog post</a> provides some examples.
-As you can see, many design and impelmentation decisions are based on my motto: <strong>prioritize test readability</strong> when it makes sense.</p>
-
-<h3>Incremental data update</h3>
-
-<p>One of biggest challenges in SQL testing is &ldquo;incremental data update&rdquo; in ETL scripts.
-Challenges in functional testing those scripts motivates me to ajdust the above test framework (SQL Test Runner) to allow adding unit-like tests for those ETL scripts.
-This <a href="http://tdongsi.github.io/blog/2016/04/10/sql-unit-incremental-data-update/">blog post</a> discusses &ldquo;incremental data update&rdquo; and how it should be tested as a number of unit tests.</p>
-
-<h3>Unit testing</h3>
-
-<p>This <a href="http://localhost:4000/blog/2016/04/12/sql-unit-testing/">blog post</a> goes into details of SQL Unit Testing.
-Keep in mind that the main users of this test framework are data engineers (developers) and data analysts (testers).
-Not all data engineers and analysts are comfortable with writing tests in Java or Python.
-This SQL Test framework will allow them to write their tests in SQL, by hiding all Java automation details.</p>
-
-<p>It should be noted that data analysts are really critical in validating data warehouses/datamarts.
-They are the most direct users and no one understands the data better than analysts.
-If the data analysts are able to read unit test scripts and confirm the expectation, quality engineers will save lots of time translating business requirements into SQL/Java tests.</p>
-
-<h3>Functional tests vs Unit tests</h3>
-
-<p>This <a href="http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional/">blog post</a> recap the above sections by highlighting the difference between these groups of tests in the context of Big Data projects.
-Note that the two groups complement each other in assuring quality and functionality of Big Data projects.</p>
-
-<h3>Extending SQL Test Runner</h3>
-
-<p>SQL testing for ETL process is a pretty new area to us.
-Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise.
-This <a href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/">blog post</a> explains how to extend the test framework to add new functionality or features.
-The SQL Unit Test framework is designed based on <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>, and uses design patterns like Template Method and Strategy to make it easy to add new functionality.
-For illustration, I will discuss how I recently added a new functionality to handle a <a href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/">new kind of tests</a>.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Bash Trap]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/02/bash-trap/"/>
-    <updated>2016-03-02T00:07:48-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/02/bash-trap</id>
-    <content type="html"><![CDATA[<h3>Code snippet</h3>
-
-<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
-In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
-
-<figure class='code'><figcaption><span>DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup trap to cleanup before exiting script</span>
-</span><span class='line'><span class="k">function</span> cleanup <span class="o">{</span>
-</span><span class='line'>    <span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'><span class="nb">trap </span>cleanup EXIT
-</span><span class='line'>
-</span><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
-Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
-
-<figure class='code'><figcaption><span>DON'T DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># This might not run when there is error</span>
-</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
-at the end of a deployment script, regardless of any error encountered during script execution.
-It is a good candidate for using <code>trap</code> statement.
-Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
-
-<h3>Trap multiple signals</h3>
-
-<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
-I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
-<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
-It is easy to confirm that with the following short bash script:</p>
-
-<figure class='code'><figcaption><span>Trap tests in Mac OSX</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 6613
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Interrupt: 2            ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 6624
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Terminated: 15          ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
-Having said that, I understand that my tests can only verify bash on Mac OSX.
-There are probably different shell variants on different operating systems which do not always work that way.</p>
-
-<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
-Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
-Not all cleanup steps could be and should be executed twice.
-For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
-
-<figure class='code'><figcaption><span>Problem of trapping multiple signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' INT TERM EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 7258
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 130                ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 7278
-</span><span class='line'>Terminated: 15
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 143                ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
-
-<h3>Other usage notes</h3>
-
-<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
-
-<figure class='code'><figcaption><span>List of signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ kill -l
-</span><span class='line'> 1) SIGHUP     2) SIGINT   3) SIGQUIT  4) SIGILL
-</span><span class='line'> 5) SIGTRAP    6) SIGABRT  7) SIGEMT   8) SIGFPE
-</span><span class='line'> 9) SIGKILL   10) SIGBUS  11) SIGSEGV 12) SIGSYS
-</span><span class='line'>13) SIGPIPE   14) SIGALRM 15) SIGTERM 16) SIGURG
-</span><span class='line'>17) SIGSTOP   18) SIGTSTP 19) SIGCONT 20) SIGCHLD
-</span><span class='line'>21) SIGTTIN   22) SIGTTOU 23) SIGIO   24) SIGXCPU
-</span><span class='line'>25) SIGXFSZ   26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
-</span><span class='line'>29) SIGINFO   30) SIGUSR1 31) SIGUSR2
-</span><span class='line'>
-</span><span class='line'>OR 
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ man signal</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
-This is useful for debugging purpose.
-The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
-
-<figure class='code'><figcaption><span>Tracing when a variable is used</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nb">declare</span> -t <span class="nv">VARIABLE</span><span class="o">=</span>value
-</span><span class='line'><span class="nb">trap</span> <span class="s2">&quot;echo VARIABLE is being used here.&quot;</span> DEBUG
-</span><span class='line'>
-</span><span class='line'><span class="c"># rest of the script</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>References</h3>
-
-<ol>
-<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
-<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
-<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
-</ol>
-
 ]]></content>
   </entry>
   
