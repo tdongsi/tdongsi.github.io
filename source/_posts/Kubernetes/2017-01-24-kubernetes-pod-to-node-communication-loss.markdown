@@ -27,7 +27,7 @@ PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
 jenkins@jenkins:~$ exit
 ```
 
-Even more strange, the pod-to-pod communication is fine (as described below), even though the second pod is on the same node (e.g., `10.252.158.72`) that the first pod cannot communciate to.
+Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., `10.252.158.72`) that the first pod cannot communciate to.
 
 ### Troubleshooting with `busybox`
 
@@ -38,8 +38,6 @@ Try to run a test pod `busybox`.
 mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
 --image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
 Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
 Waiting for pod default/busybox to be running, status is Running, pod ready: false
 Waiting for pod default/busybox to be running, status is Running, pod ready: false
 
@@ -90,7 +88,7 @@ traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
 / # exit
 ```
 
-`10.252.100.5` is the IP of the service, as shown in the command below.
+For the context, `10.252.100.5` is the IP of the service, as shown in the command below.
 
 ```
 mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
@@ -107,7 +105,7 @@ Session Affinity:	None
 No events.
 ```
 
-### What was wrong?
+### What went wrong?
 
 It's a newbie mistake when configuring Kubernetes.
 When setting up `etcd` and configuring it to hold `flannel` configuration, it is important to pick an unused network.
