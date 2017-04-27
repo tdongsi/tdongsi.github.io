@@ -9,8 +9,11 @@ categories:
 - Jenkins
 ---
 
+The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
+Simply running such docker image will give the following error:
+
 ```
-tdongsi-ltm4:jenkins tdongsi$ docker run --restart=always 1234567890123.dkr.ecr.us-east-1.amazonaws.com/matrix-jenkins-nodev4-agent:2.60
+mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
 two arguments required, but got []
 java -jar slave.jar [options...] <secret key> <slave name>
  -cert VAL                       : Specify additional X.509 encoded PEM
@@ -36,24 +39,46 @@ java -jar slave.jar [options...] <secret key> <slave name>
  -url URL                        : Specify the Jenkins root URLs to connect to.
 ```
 
-```
-tdongsi-ltm4:jenkins tdongsi$ docker run --restart=always 1234567890123.dkr.ecr.us-east-1.amazonaws.com/matrix-jenkins-nodev4-agent:2.60 --entrypoint java -jar /usr/share/jenkins/slave.jar
+Most of the error messages above is from Jenkins binary `slave.jar` and has nothing to do with Docker.
+To make the container run on Docker, we must override its `ENTRYPOINT` at runtime to provide the arguments required.
+However, one common mistake while trying to override is as follows:
+
+``` plain Standard mistake
+mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
+--entrypoint java -jar /usr/share/jenkins/slave.jar
 "--entrypoint" is not a valid option
 ```
 
-```
-tdongsi-ltm4:jenkins tdongsi$ docker run --restart=always --entrypoint="java -jar /usr/share/jenkins/slave.jar" 1234567890123.dkr.ecr.us-east-1.amazonaws.com/matrix-jenkins-nodev4-agent:2.60
-container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
-docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such file or directory".
+Except for passing argument to the `ENTRYPOINT`, the Docker image is usually the last parameter. 
+Another attempt to make it "right" is as follows:
+
+``` plain Another attempt, still not working
+mymac:jenkins tdongsi$ docker run --restart=always \
+--entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
+
+container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
+stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
+docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
+caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
+ file or directory".
 ERRO[0001] error getting events from daemon: net/http: request canceled
 ```
 
+This attempt try to put the entire overridden command as the parameter for "--entrypoint" flag. 
+However, this does NOT work because, as stated in documentation, the entrypoint should specify the **executable**, not the command.
+The correct way to do it is as follows:
+
 ```
-tdongsi-ltm4:jenkins tdongsi$ docker run --restart=always --entrypoint="java" 1234567890123.dkr.ecr.us-east-1.amazonaws.com/matrix-jenkins-nodev4-agent:2.60 -jar /usr/share/jenkins/slave.jar -jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
+gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
+-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+
 Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
 java.net.ConnectException: Connection refused
 	at java.net.PlainSocketImpl.socketConnect(Native Method)
 ```
+
+As seeen above, the executable is passed into "--entrypoint" flag, while its arguments are being passed **after** the image name.
 
 ### Reference
 
