@@ -3,6 +3,7 @@ layout: post
 title: "(Pt. 7) Extending for data parity checks"
 date: 2016-04-17 16:39:19 -0700
 comments: true
+published: false
 categories: 
 - Math
 - SQL

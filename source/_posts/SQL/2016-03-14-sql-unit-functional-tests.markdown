@@ -3,7 +3,7 @@ layout: post
 title: "(Pt. 1) Functional testing for Data Marts"
 date: 2016-03-20 23:18:33 -0700
 comments: true
-published: true
+published: false
 categories: 
 - Vertica
 - Testing
