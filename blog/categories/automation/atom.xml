@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Automation | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/automation/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-04-27T14:14:56-07:00</updated>
+  <updated>2017-04-30T00:33:00-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -67,489 +67,298 @@ C:\Github\bart-parking\bart&gt;
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
-    <updated>2016-04-17T16:39:19-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
-<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
-<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
-<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+    <title type="html"><![CDATA[Bash Trap]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/02/bash-trap/"/>
+    <updated>2016-03-02T00:07:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/02/bash-trap</id>
+    <content type="html"><![CDATA[<h3>Code snippet</h3>
 
-<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
+In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
 
-<h3>Background of data parity checks</h3>
+<pre><code class="bash DO THIS"># Setup trap to cleanup before exiting script
+function cleanup {
+    echo "Removing temp files..."
+    if [[ -f $CMD_TMPFILE ]] ; then
+        rm $CMD_TMPFILE
+    fi
+    if [[ -f $LOG_TMPFILE ]] ; then
+        rm $LOG_TMPFILE
+    fi
+}
+trap cleanup EXIT
 
-<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
-In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
-In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
+# Setup
 
-<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
-
-matches
-
-select col3, col4 from new_table_name
+# Thousand lines of code here
 </code></pre>
 
-<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
-It would be very time-consuming to write and execute such test cases in Java and TestNG.
-Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
-Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
+<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
+Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
 
-<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
+<pre><code class="bash DON'T DO THIS">
+# Setup
 
-<pre><code class="plain Test blocks for data parity check">/* @Test
-{
-    "name" : "parity_check",
-    "query" : "select col1, col2 from old_table_name
-                EXCEPT
-                select col3, col4 from new_table_name
-                limit 20",
-    "expected" : ""
-}
-*/
+# Thousand lines of code here
 
-/* @Test
-{
-    "name" : "parity_check_reverse",
-    "query" : "select col3, col4 from new_table_name
-                EXCEPT
-                select col1, col2 from old_table_name
-                limit 20",
-    "expected" : ""
-}
-*/
+# This might not run when there is error
+echo "Removing temp files..."
+if [[ -f $CMD_TMPFILE ]] ; then
+    rm $CMD_TMPFILE
+fi
+if [[ -f $LOG_TMPFILE ]] ; then
+    rm $LOG_TMPFILE
+fi
 </code></pre>
 
-<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
+<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
+at the end of a deployment script, regardless of any error encountered during script execution.
+It is a good candidate for using <code>trap</code> statement.
+Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
 
-<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
+<h3>Trap multiple signals</h3>
 
+<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
+I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
+<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
+It is easy to confirm that with the following short bash script:</p>
 
+<pre><code class="plain Trap tests in Mac OSX">MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo SIGNAL CAPTURED' EXIT
+sleep 3
 
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -INT %1
+[1] 6613
+SIGNAL CAPTURED
+[1]+  Interrupt: 2            ./test_trap.sh
 
-<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
-
-
-<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
-Similarly for <code>Table_B EXCEPT Table_A</code> query.
-Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
-
-<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
-Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
-In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
-
-<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
-When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
-This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
-For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
-However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
-In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
-
-<h3>Extending SQL Test Runner</h3>
-
-<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
-However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
-For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
-Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read (<a href="/blog/2016/03/20/sql-unit-functional-tests/">readability matters</a>).
-Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
-
-<pre><code class="plain New test block">/* @Test
-{
-    "name" : "parity_check",
-    "query" : "select col1, col2 from old_table_name",
-    "equal" : "select col3, col4 from new_table_name"
-}
-*/
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -TERM %1
+[1] 6624
+SIGNAL CAPTURED
+[1]+  Terminated: 15          ./test_trap.sh
 </code></pre>
 
-<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
-That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
+<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
+Having said that, I understand that my tests can only verify bash on Mac OSX.
+There are probably different shell variants on different operating systems which do not always work that way.</p>
 
-<p>Implementation of this new feature is summarized in the following steps:</p>
+<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
+Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
+Not all cleanup steps could be and should be executed twice.
+For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
+
+<pre><code class="plain Problem of trapping multiple signals">MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo SIGNAL CAPTURED' INT TERM EXIT
+sleep 3
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -INT %1
+[1] 7258
+SIGNAL CAPTURED
+SIGNAL CAPTURED
+[1]+  Exit 130                ./test_trap.sh
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -TERM %1
+[1] 7278
+Terminated: 15
+SIGNAL CAPTURED
+SIGNAL CAPTURED
+[1]+  Exit 143                ./test_trap.sh
+</code></pre>
+
+<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
+
+<h3>Other usage notes</h3>
+
+<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
+
+<pre><code class="plain List of signals">MTVL1288aeea2-82:octopress tdongsi$ kill -l
+ 1) SIGHUP   2) SIGINT   3) SIGQUIT  4) SIGILL
+ 5) SIGTRAP  6) SIGABRT  7) SIGEMT   8) SIGFPE
+ 9) SIGKILL 10) SIGBUS  11) SIGSEGV 12) SIGSYS
+13) SIGPIPE 14) SIGALRM 15) SIGTERM 16) SIGURG
+17) SIGSTOP 18) SIGTSTP 19) SIGCONT 20) SIGCHLD
+21) SIGTTIN 22) SIGTTOU 23) SIGIO   24) SIGXCPU
+25) SIGXFSZ 26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
+29) SIGINFO 30) SIGUSR1 31) SIGUSR2
+
+OR 
+
+MTVL1288aeea2-82:octopress tdongsi$ man signal
+</code></pre>
+
+<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
+This is useful for debugging purpose.
+The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
+
+<pre><code class="bash Tracing when a variable is used">declare -t VARIABLE=value
+trap "echo VARIABLE is being used here." DEBUG
+
+# rest of the script
+</code></pre>
+
+<h3>References</h3>
 
 <ol>
-<li>Define new JSON block.</li>
-<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
-<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
-
-<ol>
-<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
-<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
+<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
+<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
+<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
 </ol>
-</li>
-<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
-</ol>
-
-
-<p>For step 1, the new JSON block is already defined as above.
-From JSON, the corresponding POJO in step 2 can be easily defined:</p>
-
-<pre><code class="java">/**
- * POJO for JSON test block comparing two projections
- * 
- * @author tdongsi
- */
-public class NameQueryEqual {
-    // Test name.
-    public String name;
-    // File lists to run
-    public List&lt;String&gt; file;
-    // Test query in SQL
-    public String query;
-    // Equivalent query in SQL
-    public String equal;
-}
-</code></pre>
-
-<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
-Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
-
-<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
-We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
-Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
-Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 6) Extending SQL Test Runner]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/"/>
-    <updated>2016-04-16T17:49:34-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
-<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
-<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>.</p>
-
-<p>In this post, I will discuss the design of the SQL Test Runner.
-From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
-In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
-
-<h3>Design Overview of SQL Test Runner</h3>
-
-<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
-
-<p>1) Test frameworks should be closed to modifications.
-If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
-That could be confusing and counter-productive for anyone who are using it.</p>
-
-<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
-SQL Unit Testing in ETL context is a pretty new area for us.
-Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
-The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
-
-<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
-Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
-Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
-
-<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
-For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
-The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
-
-<pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
-private TestStrategy testHandler;
-private JdbcConnection connection;
-
-@Override
-public final void runScript(String filePath) throws IOException, SQLException {
-    SoftAssert sAssert = new SoftAssert();
-
-    // Read in the SQL script
-    String content = SqlTestUtility.readFile(filePath);
-
-    // Remove comments
-    String sqlCode = TestBlockUtility.removeComments(content);
-
-    Matcher m = TestBlockUtility.testBlockRegex.matcher(sqlCode);
-    int startIndex = 0;
-    while (m.find()) {
-
-        String currentSql = sqlCode.substring(startIndex, m.start());
-        if ( currentSql.trim().length() &gt; 0 )
-            codeHandler.runSqlCode(currentSql, connection);;
-
-        testHandler.runTest( m.group(), connection, sAssert );
-
-        startIndex = m.end();
-    }
-
-    codeHandler.runSqlCode(sqlCode.substring(startIndex), connection );
-    sAssert.assertAll();
-}
-</code></pre>
-
-<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
-It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
-Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
-It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
-There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
-By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
-
-<pre><code class="sql Example unit test script">-- This will be handled by some CodeStrategy class
-INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
-VALUES (123,current_timestamp-19,'US');
-
-INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
-VALUES (123,'before@mockdata.com', current_timestamp-15);
-
--- This will be handled by some TestStrategy class
-/* @Test
--- First ETL run
-{
-    "name" : "Day1_etl_run",
-    "vsql_file" : ["repo_home/sql/my_etl.sql"]
-}
-*/
-
-/* @Test
-{
-    "name" : "Day1_check_email_address",
-    "query" : "select company_id, email_address from dim_company",
-    "expected" : "123 before@mockdata.com"
-}
-*/
-</code></pre>
-
-<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
-In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
-Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
-In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
-Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
-
-<pre><code class="java Example TestRunner">/**
- * Test runner that uses Vertica JDBC connection.
- * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
- * 
- * @author tdongsi
- */
-public class VerticaRunner extends BaseTestRunner implements TestRunner {
-    public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
-        this.setCodeHandler(new SqlCodeHandler());
-        this.setTestHandler(new VerticaTestHandler(vsqlPath));
-        this.setConnection(jdbcConn);
-    }
-}
-</code></pre>
-
-<h3>Extending Test Runner</h3>
-
-<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
-Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
-When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
-Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
-In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
-
-<p>Implementation of a new feature can be summarized in the following steps:</p>
-
-<ol>
-<li>Design new JSON block for the new test block.</li>
-<li>Define new POJO that maps to new JSON block.</li>
-<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
-<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
-</ol>
-
-
-<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
-If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
-It will break the current suite of tests for Vertica.
-Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
-
-<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[(Pt. 5) Big Data: Functional Tests vs. Unit Tests]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional/"/>
-    <updated>2016-04-14T17:21:12-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/14/sql-unit-vs-functional</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
-<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>.</p>
-
-<p>In the context of Big Data projects, the differences between functional tests and unit tests can be summarized as follows:</p>
-
-<table>
-<thead>
-<tr>
-<th>       </th>
-<th> Functional tests      </th>
-<th> Unit tests </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> Data         </td>
-<td> Production-like data </td>
-<td> Mock (synthetic) data </td>
-</tr>
-<tr>
-<td> Environment  </td>
-<td> Pre-production. All tables deployed at once. </td>
-<td> Local VM. Regular setup/teardown. </td>
-</tr>
-<tr>
-<td> Coverage     </td>
-<td> Passive: Coverage depends on diverse real data. </td>
-<td> Active: Mock data created to force corner cases. </td>
-</tr>
-<tr>
-<td> Example usage </td>
-<td> Snapshot testing </td>
-<td> Incrementa data update testing </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
-
-<p>It should be noted that functional and unit tests are complementary to each other.
-Certain aspects of ETLs can be better verified as functional tests while others of the same ETLs should be verified as unit tests.
-For example, as discussed in <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">this post</a>, unit tests are better suited for testing incremental data update in ETL scripts.</p>
-
-<p>On the other hand, for example, an ETL that performs some kind of classification, such as categorizing user types based on some clickstream patterns, should be tested in functional tests.
-If there are more than 20 categories, it could become a daunting task to generate and maintain synthetic data for each of those categories.
-Furthermore, synthetic data generation requires careful consideration and proper execution to have adequate coverage.
-Otherwise, the synthetic data might not be as diverse as production data and we end up with less corner cases than production data.
-Instead, in this particular case, we could use production-like data directly and write test queries in functional tests to check for corner cases for each category.</p>
-
-<!-- Analogy:
-Functional tests:
-- In Web App, running the web application on webserver, running automated Selenium WebDriver tests to verify the web application from browser.
-- In Big Data, running the DDL/DML/ETL scripts to populate the dimension and fact tables in schema, running automated SQL test queries to verify logics between tables.
-
-Unit tests:
-- In Web App, using mocking framework to mock out database, test behavior of a class/method using synthetic inputs, especially for corner cases.
-- In Big Data, using a local VM, test behavior of a column modified by an ETL script using synthetic data, especially for corner cases.
--->
 
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[(Pt. 4) SQL Unit Testing]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing/"/>
-    <updated>2016-04-12T17:45:42-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/12/sql-unit-testing</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>.</p>
+    <title type="html"><![CDATA[Use JMockit ONLY]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework/"/>
+    <updated>2016-02-21T12:20:46-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework</id>
+    <content type="html"><![CDATA[<p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
+Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
 
-<!-- 
-Changes I made:
-1. Mix of SQL code and test blocks.
-1. New JSON block to run ETL script using VSQL
+<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
+Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
+It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
+This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
+For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
-I would also discuss some guidelines of unit testing for ETL and when it makes sense to focus.
-
-Running ETL script through JDBC is probably not a good idea.
-
-Requirements of unit tests:
-
-Readability:
-
-#### Single-node VM
-
-Remove KSAFE.
-
-Add a new test.
+<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
+]]></content>
+  </entry>
   
-Revert in Git.
+  <entry>
+    <title type="html"><![CDATA[Mocking Current Date and Time in Python]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/27/python-1-mock-datetime-freezegun/"/>
+    <updated>2016-01-27T17:36:53-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/27/python-1-mock-datetime-freezegun</id>
+    <content type="html"><![CDATA[<h3>Calendar types</h3>
 
-#### Adding  unit test
+<p>There are surprisingly many types of calendar.
+Some of them are: regular calendar, lunar calendar, fiscal calendar, retail calendar.
+See <a href="https://github.com/tdongsi/calendars">here</a> for more information of each calendar type.
+Out of the above calendar types, retail calendar seems to have more complex rules.
+However, this calendar type is frequently used in industries like retail and manufacturing for ease of planning around it.</p>
 
-Show SBG strategy.
+<h3>Mocking current time in Python</h3>
 
-#### Other usages
+<p>Due to retail calendar&rsquo;s desirable characteristics, we may have code that work with retail calendars in commercial applications eventually.
+I ended up working with a utility Python module for retail calendar with functions which return values based on current time/date.
+For example, a utility function to check if a given date is in the current 544 year works like this:</p>
 
-You can insert into the ETL script to verify step by step.
-However, there is only one set of mock data. 
-In unit testing, you might want multiple setup of mock data for different scenarios.
-=> the other way is actually more flexible
+<pre><code class="python Original version">def is_current_year_544(given_date):
+    my_today = datetime.date.today()
+    if year_start_544(my_today) &lt;= given_date &lt;= year_end_544(my_today):
+        return "Y"
+    else:
+        return "N"
+</code></pre>
 
-Assumptions:
+<p>Some utility functions in that module are even more complicated than this example function.
+For those, I think calling <code>today</code> or <code>now</code> inside those functions is a bad design.
+They are essentially another <em>variable</em> in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter.
+In addition, being able to specify what &ldquo;today&rdquo; or &ldquo;now&rdquo; value is will make automated unit testing easier.
+For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.
+A probably better, more testable function would be something like this.</p>
 
-1. No ;
-1. ETL is simple enough: the same tables are not updated and transformed multiple times in multiple steps. 
+<pre><code class="python More desirable">def is_current_year_544(given_date, run_date = datetime.date.today()):
+    if year_start_544(run_date) &lt;= given_date &lt;= year_end_544(run_date):
+        return "Y"
+    else:
+        return "N"
+</code></pre>
+
+<p>However, in reality, you sometimes have to live with the original utility Python module.
+Then, the workaround for unit testing is to &ldquo;mock&rdquo; current date and time, i.e., overriding those returned by <code>today</code> and <code>now</code> methods with some specific values.
+In Python, it can be done by using some mocking framework, such as illustrated <a href="http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking">here</a>.
+Fortunately, my life was made even easier with <a href="https://github.com/spulec/freezegun"><code>freezegun</code> library</a>.
+To install <code>freezegun</code> on Mac OSX, simply run</p>
+
+<pre><code class="plain   ">pip install freezegun
+</code></pre>
+
+<p>Using this <code>freezegun</code> library, I can easily specify my &ldquo;current date&rdquo; as &ldquo;July 29, 2006&rdquo; by adding the following decorator with some string &ldquo;2006-07-29&rdquo; for that date.</p>
+
+<pre><code class="python Unit test with mocking">    @freeze_time("2006-07-29")
+    def test_year544_end(self):
+        """
+        Mock today() at 2006-07-29
+        """
+        self._verify_544_methods()
+</code></pre>
+
+<p>For full usage of <code>freezegun</code>, refer to its <a href="https://github.com/spulec/freezegun">quickstart guide</a>.
+It should be noted that <code>freezegun</code> can mock <code>datetime</code> calls from other modules and it works great for testing with <code>datetime</code> calls.
+However, you might encounter some occasional failures in your unit tests when working with <code>time</code> module.
+From my personal experience, in those cases, note that time zones must be accounted for when mocking with <code>time</code> module by specifying <code>tz_offset</code> in the decorator <code>freeze_time</code>.</p>
+
+<h3>External Links</h3>
+
+<ul>
+<li><a href="https://github.com/spulec/freezegun">freeze_gun</a></li>
+<li><a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">Retail Calendar</a></li>
+<li><a href="http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm">ISO Calendar</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Unicode in Perl]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/18/unicode-in-perl/"/>
+    <updated>2015-11-18T15:40:20-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/18/unicode-in-perl</id>
+    <content type="html"><![CDATA[<p>For automation in Perl, Unicode can be tricky, especially when you want your automated jobs/tests to work across platforms (Windows and *nix). If you have a choice, another scripting language like Python may be better off in dealing with Unicode texts. If you don&rsquo;t have a choice and must use Perl (specifically Perl 5) like I used to, some of these tips may help get you started.</p>
+
+<p>The most common code snippet that I used in my Perl codes when dealing with Unicode texts is this Unicode preamble:</p>
+
+<pre><code class="perl Unicode preamble">#!/usr/bin/env perl
+use strict;
+
+##############################################################
+#### Unicode preamble
+use utf8;      # so literals and identifiers in Perl scripts can be in UTF-8
+use warnings;  # on by default
+use warnings  qw(FATAL utf8);    # fatalize encoding glitches
+use open      qw(:std :utf8);    # undeclared streams in UTF-8
+use charnames qw(:full :short);  # unneeded in v5.16
+
+##############################################################
+
+my $name = '你好世界';
+my $checkPrint = "Print Unicode variable: $name \n";
+print $checkPrint;
+</code></pre>
+
+<p>The first two lines are standard and should be included in any Perl script. The rest are specifically for dealing with UTF-8 (the most commonly used encoding of Unicode). Another useful code snippet is for printing Unicode codepoints (Quiz: what is the difference between a codepoint and its encoding?):</p>
+
+<pre><code class="perl Print Unicode codepoints">my $unicode_helloworld = "\x{4F60}\x{597D}\x{4E16}\x{754C}";
+print "Unicode codepoints: $unicode_helloworld\n";
+</code></pre>
+
+<p>More recipes for working with Unicode in Perl 5 can be found in References below.</p>
+
+<p>One dilemma you might be facing when your Perl codes run in Windows is to choose which encoding for your script files: ANSI or UTF-8. In my own experience:</p>
+
+<ul>
+<li>If the script file encoding is ANSI, I usually have better luck in &ldquo;What you see is what you get&rdquo; department: for example, files created in filesystem have the filenames with same Unicode characters, such as Japanese/Chinese characters, in Perl scripts. The downside of ANSI encoding is when I try to do regex matching of those Japanese/Chinese characters, I get &ldquo;malformed regex&rdquo; error.</li>
+<li>If the script file encoding is UTF-8, the files created in filesystem usually have different Japanese/Chinese characters from those in Perl scripts. However, Japanese/Chinese characters in other places such as log files are matching with ones in Perl scripts. There is no &ldquo;malformed regex&rdquo; error when doing regex matching. However, that correctly formed regex matching may be useless if you need to do matching for output from filesystem such as &ldquo;ls&rdquo; command&rsquo;s output.</li>
+</ul>
 
 
+<!---
+Overall, I used ANSI encoding for my Perl scripts as my automation project at that time has to run on Windows/Linux/Mac and interacts regularly with filesystem.
 -->
 
 
-<p>TODO indefinitely.</p>
-
-<p>The idea is to use a local Vertica VM as a sandbox test environment.
-It could be a <a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">single cluster VM</a> or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node cluster VM</a>.</p>
-
-<p>The following changes in SQL Test Runner are critical to enable unit testing:</p>
+<p>References:</p>
 
 <ol>
-<li>Mix of SQL code and test blocks: We can use SQL code to do necessary data setup before running SQL queries and verifying expected outputs.</li>
-<li>New test block to run ETL script using VSQL CLI: The ETL scripts are considered (large) classes/functions under test, and this new kind of test block simplify running those &ldquo;functions&rdquo; again and again with different synthetic data. Running using VSQL CLI is required since we execute ETL scripts in production using that tool.</li>
-<li>Automated execution of DDL/DML files for loading other static dimension tables.</li>
+<li><a href="http://perldoc.perl.org/perluniintro.html">http://perldoc.perl.org/perluniintro.html</a></li>
+<li><a href="https://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8">https://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8</a></li>
+<li><a href="http://www.perl.com/pub/2012/04/perlunicook-standard-preamble.html">http://www.perl.com/pub/2012/04/perlunicook-standard-preamble.html</a></li>
 </ol>
 
-
-<p>In the following example, two <code>INSERT</code> statements is used to set up data in two input staging tables.
-They are followed by a new test block to run the ETL script.
-After the ETL is executed, the output data, <code>email_address</code> column for example, in the target dimension table is verified using the <a href="/blog/2016/03/28/sql-unit-test-runner/">standard test block</a>.
-Other static dimension tables such as <code>dim_country</code> that the ETL script <code>my_etl.sql</code> depends on, can be created and populated using Java code.</p>
-
-<pre><code class="sql Example unit test">/****************************
-* Day 1
-****************************/
-
-INSERT INTO stg_company_id (company_id,last_modify_date,region_id)
-VALUES (123,current_timestamp-19,'US');
-
-INSERT INTO stg_company_contact (company_id,master_email,last_modify_date)
-VALUES (123,'before@mockdata.com', current_timestamp-15);
-
-/* @Test
--- First ETL run
-{
- "name" : "Day1_etl_run",
- "vsql_file" : ["repo_home/sql/my_etl.sql"]
-}
-*/
-
-/* @Test
-{
- "name" : "Day1_check_email_address",
- "query" : "select company_id, email_address from dim_company",
- "expected" : "123 before@mockdata.com"
-}
-*/
-</code></pre>
-
-<pre><code class="java Calling unit test script">@BeforeClass
-public void setup() {
-    testRunner = new SqlTestRunner(getJdbcConnection());
-    setupSchema("UNITTEST");
-}
-
-@AfterClass
-public void teardown() {
-    teardownSchema("UNITTEST");
-}
-
-@Test(enabled = true)
-public void validate_dim_region() throws Exception {
-        testRunner.runScript("unittests/etl_incremental_update_email.test");
-}
-</code></pre>
-
-<p>For full unit test script, see <a href="/blog/2016/04/10/sql-unit-incremental-data-update/">here</a>.</p>
 ]]></content>
   </entry>
   

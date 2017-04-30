@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-04-27T14:14:56-07:00</updated>
+  <updated>2017-04-30T00:33:00-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -291,300 +291,126 @@ The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/"
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[(Pt. 7) Extending for Data Parity Checks]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity/"/>
-    <updated>2016-04-17T16:39:19-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/17/sql-unit-data-parity</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
-<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
-<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>,
-<a href="/blog/2016/04/16/sql-unit-extension/">Pt 6</a>.</p>
+    <title type="html"><![CDATA[Use JMockit ONLY]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework/"/>
+    <updated>2016-02-21T12:20:46-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework</id>
+    <content type="html"><![CDATA[<p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
+Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
 
-<p>As an example to discussion in <a href="/blog/2016/04/16/sql-unit-extension/">this post</a>, I will discuss how I recently added a new functionality to handle a new kind of tests.</p>
+<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
+Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
+It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
+This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
+For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
 
-<h3>Background of data parity checks</h3>
-
-<p>Recently, I had to do lots of data parity checks to verify changes in Extract-Load processes (i.e., EL with no Transform).
-In those data parity checks, we want to make sure data in some columns of two tables (i.e., two projections) must be the same.
-In other words, we want to verify if the two following SQL queries return completely matching rows and columns:</p>
-
-<pre><code class="plain Data parity checks">select col1, col2 from old_table_name
-
-matches
-
-select col3, col4 from new_table_name
-</code></pre>
-
-<p>The straight-forward test would be to get all the rows and columns of those two projections, and perform equality check one by one.
-It would be very time-consuming to write and execute such test cases in Java and TestNG.
-Even when the query returns can be managed within the memory limit, it is still time-consuming to do data transfer for the two query returns, join the columns to prepare for comparison row by row.
-Moreover, note that these expensive operations are carried out on the client side, our computers.</p>
-
-<p>The more efficient way for this data parity check is to use these two SQL test queries in these test blocks (read <a href="/blog/2016/03/28/sql-unit-test-runner/">this post</a> for more introduction):</p>
-
-<pre><code class="plain Test blocks for data parity check">/* @Test
-{
-    "name" : "parity_check",
-    "query" : "select col1, col2 from old_table_name
-                EXCEPT
-                select col3, col4 from new_table_name
-                limit 20",
-    "expected" : ""
-}
-*/
-
-/* @Test
-{
-    "name" : "parity_check_reverse",
-    "query" : "select col3, col4 from new_table_name
-                EXCEPT
-                select col1, col2 from old_table_name
-                limit 20",
-    "expected" : ""
-}
-*/
-</code></pre>
-
-<p>The two SQL test queries is based on the following <a href="https://en.wikipedia.org/wiki/Algebra_of_sets">set theory identities</a>:</p>
-
-<p><span class="math display">\[A = B \Leftrightarrow A \subseteq B \mbox{ and } B \subseteq A\]</span></p>
-
-
-
-
-<p><span class="math display">\[A \subseteq B \Leftrightarrow A \setminus B = \varnothing\]</span></p>
-
-
-<p>If the query <code>Table_A EXCEPT Table_B</code> returns nothing, it indicates that data in <code>Table_A</code> is a subset of data in <code>Table_B</code>.
-Similarly for <code>Table_B EXCEPT Table_A</code> query.
-Therefore, if two test cases pass, it means that the data in <code>Table_A</code> is equal to the data in <code>Table_B</code>.</p>
-
-<p>Using these two queries, we shift most of computing works (<code>EXCEPT</code> operations) to the database server side, which is faster since the server cluster is usually much more powerful than our computers.
-Moreover, in most of the cases when the tests pass, the data transfer would be minimal (zero row).
-In short, these <code>EXCEPT</code>-based checks will save us lots of computation time and data transfer time.</p>
-
-<p>The <code>limit 20</code> clause is also for minimizing data transfer and local computing works.
-When the expected return of the SQL query is nothing (i.e., <code>"expected" : ""</code>), we should always add LIMIT clause to the query.
-This will save some waiting time and make our log files cleaner when something went wrong and caused the test to fail.
-For example, using the above test blocks, if there are one million additional, erroneous rows of data in <code>new_table_name</code> for some reason, the test case &ldquo;parity_check_reverse&rdquo; will fail.
-However, instead of transferring one million rows, only 20 of those will be sent to the local host (test machine), thanks to the <code>LIMIT</code> clauses.
-In addition, the log file of the Test Runner will NOT be flooded with one million rows of erroneous data while 20 sample rows are probably enough to investigate what happened.</p>
-
-<h3>Extending SQL Test Runner</h3>
-
-<p>If we only need to do a few simple data parity checks, a few (&ldquo;name&rdquo;, &ldquo;query&rdquo;, &ldquo;expected&rdquo;) test blocks as shown above will suffice.
-However, there were tens of table pairs to be checked and many tables are really wide, about 100 columns.
-For wide tables, for easy investigation if data parity checks fail, we check data in group of 6-10 columns.
-Writing test blocks like above can become a daunting task, and such test blocks for wide tables can become hard to read (<a href="/blog/2016/03/20/sql-unit-functional-tests/">readability matters</a>).
-Therefore, I create a new test block construct that is more friendly to write and read, as shown below.</p>
-
-<pre><code class="plain New test block">/* @Test
-{
-    "name" : "parity_check",
-    "query" : "select col1, col2 from old_table_name",
-    "equal" : "select col3, col4 from new_table_name"
-}
-*/
-</code></pre>
-
-<p>Under the hood, this test block should be equivalent to the two test blocks shown in the last section.
-That is, based on the two projection queries found in &ldquo;query&rdquo; and &ldquo;equal&rdquo; clauses, the SQL Test Runner will generate two test blocks with <code>EXCEPT</code>-based test queries as shown above.</p>
-
-<p>Implementation of this new feature is summarized in the following steps:</p>
-
-<ol>
-<li>Define new JSON block.</li>
-<li>Define new POJO (named <code>NameQueryEqual</code>) that maps to new JSON block.</li>
-<li>Create a new class (named <code>NewTestHandler</code> for easy reference) that implements TestStrategy interface to handle the new POJO. Specifically:
-
-<ol>
-<li>From <code>NameQueryEqual</code> POJO, generate two <code>NameQueryExpected</code> POJOs with relevant queries (using <code>EXCEPT</code> operations).</li>
-<li>Reuse the old TestHandler class to process two <code>NameQueryExpected</code> POJOs.</li>
-</ol>
-</li>
-<li>Create a new test runner that extends the <code>BaseTestRunner</code> and uses the new <code>TestStrategy</code>.</li>
-</ol>
-
-
-<p>For step 1, the new JSON block is already defined as above.
-From JSON, the corresponding POJO in step 2 can be easily defined:</p>
-
-<pre><code class="java">/**
- * POJO for JSON test block comparing two projections
- * 
- * @author tdongsi
- */
-public class NameQueryEqual {
-    // Test name.
-    public String name;
-    // File lists to run
-    public List&lt;String&gt; file;
-    // Test query in SQL
-    public String query;
-    // Equivalent query in SQL
-    public String equal;
-}
-</code></pre>
-
-<p>For step 3, as emphasized in the <a href="/2016/04/16/sql-unit-extension/">last post</a>, we should NOT modify the old test runner to handle this new POJO.
-Instead, we should create a new class <code>NewTestHandler</code> that implements TestStrategy interface to handle the new POJO and create a new test runner that uses the new TestStrategy (Strategy pattern).</p>
-
-<p>The implementation of the new test block handler is NOT really complex, thanks to modular design of SQL Test Runner.
-We only need to extract two projections from <code>NameQueryEqual</code>&rsquo;s attributes, generate two <code>EXCEPT</code>-based queries for those two projections (with <code>LIMIT</code> clauses), and create two  <code>NameQueryExpected</code> POJOs for those test queries.
-Since we already have a TestHanlder class that can run and verify those <code>NameQueryExpected</code> objects, we only need to include a TestHandler object into the <code>NewTestHandler</code> class and delegate handling <code>NameQueryExpected</code> objects to it.
-Note that this approach is recommended over subclassing <code>TestHandler</code> to include new code for handling the new <code>NameQueryEqual</code> POJO (i.e., &ldquo;composition over inheritance&rdquo;).</p>
+<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
 ]]></content>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[(Pt. 6) Extending SQL Test Runner]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension/"/>
-    <updated>2016-04-16T17:49:34-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/16/sql-unit-extension</id>
-    <content type="html"><![CDATA[<p>Navigation: <a href="/blog/2016/03/16/sql-unit-overview/">Overview</a>,
-<a href="/blog/2016/03/20/sql-unit-functional-tests/">Pt 1</a>,
-<a href="/blog/2016/03/28/sql-unit-test-runner/">Pt 2</a>,
-<a href="/blog/2016/04/10/sql-unit-incremental-data-update/">Pt 3</a>,
-<a href="/blog/2016/04/12/sql-unit-testing/">Pt 4</a>,
-<a href="/blog/2016/04/14/sql-unit-vs-functional/">Pt 5</a>.</p>
+    <title type="html"><![CDATA[AWS: Developing With Amazon S3]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3/"/>
+    <updated>2016-01-18T17:13:28-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/01/18/aws-developing-with-amazon-s3</id>
+    <content type="html"><![CDATA[<p>Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data.
+This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.</p>
 
-<p>In this post, I will discuss the design of the SQL Test Runner.
-From that, I explain how to easily extend the Test Runner to add new capability for new testing needs.
-In the <a href="http://localhost:4000/blog/2016/04/17/sql-unit-data-parity/">next post</a>, I will give an example on how I added a new functionality to handle a new kind of tests.</p>
+<h3>S3 Buckets and Objects</h3>
 
-<h3>Design Overview of SQL Test Runner</h3>
+<p>Files of any kind such as text, video, photo are stored as objects in S3 <em>buckets</em>.
+The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
+A bucket can be <em>versioning-enabled</em>, it will store every version of every object in the bucket.</p>
 
-<p>When designing the SQL Test Runner, the following requirements should be taken into account:</p>
+<p>Each <em>object</em> in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and <code>!-_.*'/</code> are allowed in a key name.</p>
 
-<p>1) Test frameworks should be closed to modifications.
-If we have added a few hundred test cases that are running fine in the current test suite, we don&rsquo;t want them to suddenly fail just because a new feature must be added into the test framework.
-That could be confusing and counter-productive for anyone who are using it.</p>
+<p>Bucket naming tips:</p>
 
-<p>2) At the same time, the test framework should be open to extension: ability to add new capability, to address new testing needs.
-SQL Unit Testing in ETL context is a pretty new area for us.
-Therefore, while the current SQL Unit Test framework appears adequate for most testing now, it must be able to support any new testing needs should they arise in the future.
-The test framework should be flexible enough to add new capability to support different kinds of ETLs.</p>
-
-<p>These two are also known as <a href="https://en.wikipedia.org/wiki/Open/closed_principle">Open/Closed principle</a>.
-Besides that principle, SQL Test Runner codes also use <a href="https://en.wikipedia.org/wiki/Template_method_pattern"><strong>Template Method</strong></a> and <a href="https://en.wikipedia.org/wiki/Strategy_pattern"><strong>Strategy</strong></a> design patterns.
-Knowing these design patterns will make it easier to understand the overall code structure and package organization of SQL Test Runner.</p>
-
-<p>At the top level, there is a TestRunner interface that any SQL Test Runner class should implement.
-For convenience, an abstract class BaseTestRunner is provided as a template with simple processing flow and naive parsing provided in its <code>runScript</code> method, as shown below (Template Method design pattern).
-The template method <code>runScript</code> extracts the SQL statements and test blocks (<code>/* @Test ... */</code> blocks), then delegates to <code>codeHandler</code> and <code>testHandler</code> to process them, respectively.</p>
-
-<pre><code class="java Template Method for running test scripts in BaseTestRunner">private CodeStrategy codeHandler;
-private TestStrategy testHandler;
-private JdbcConnection connection;
-
-@Override
-public final void runScript(String filePath) throws IOException, SQLException {
-    SoftAssert sAssert = new SoftAssert();
-
-    // Read in the SQL script
-    String content = SqlTestUtility.readFile(filePath);
-
-    // Remove comments
-    String sqlCode = TestBlockUtility.removeComments(content);
-
-    Matcher m = TestBlockUtility.testBlockRegex.matcher(sqlCode);
-    int startIndex = 0;
-    while (m.find()) {
-
-        String currentSql = sqlCode.substring(startIndex, m.start());
-        if ( currentSql.trim().length() &gt; 0 )
-            codeHandler.runSqlCode(currentSql, connection);;
-
-        testHandler.runTest( m.group(), connection, sAssert );
-
-        startIndex = m.end();
-    }
-
-    codeHandler.runSqlCode(sqlCode.substring(startIndex), connection );
-    sAssert.assertAll();
-}
-</code></pre>
-
-<p>In the <code>BaseTestRunner</code> class, the <code>codeHandler</code> attribute can be any object that implements <code>CodeStrategy</code> interface (Strategy design pattern).
-It will handle executing SQL statements that are found in the unit test scripts, such as the first two <code>INSERT</code> statements in the example script below.
-Similarly, the <code>testHandler</code> attribute in the <code>BaseTestRunner</code> can be any object that implements <code>TestStrategy</code> interface.
-It will handle test blocks (<code>/* @Test ... */</code> blocks) such as the two test blocks in the example script below.
-There are many different ways to process a test block: the first test block might be executed using a Vertica-specific interface, while the second one is executed with a generic JDBC interface.
-By using the Strategy design pattern, if there is a necessary change in executing SQL code or test blocks, the test framework is flexible enough to easily integrate that change.</p>
-
-<pre><code class="sql Example unit test script">-- This will be handled by some CodeStrategy class
-INSERT INTO stg_company_id (company_id,last_modify_date,region_id) 
-VALUES (123,current_timestamp-19,'US');
-
-INSERT INTO stg_company_contact (company_id,master_email,last_modify_date) 
-VALUES (123,'before@mockdata.com', current_timestamp-15);
-
--- This will be handled by some TestStrategy class
-/* @Test
--- First ETL run
-{
-    "name" : "Day1_etl_run",
-    "vsql_file" : ["repo_home/sql/my_etl.sql"]
-}
-*/
-
-/* @Test
-{
-    "name" : "Day1_check_email_address",
-    "query" : "select company_id, email_address from dim_company",
-    "expected" : "123 before@mockdata.com"
-}
-*/
-</code></pre>
-
-<p>The <code>codeHandler</code> and <code>testHandler</code> attributes are undefined in the abstract class BaseTestRunner, leaving the actual test runners to provide with concrete classes when they subclass the BaseTestRunner.
-In this way, when another team needs to run a new format of test blocks or run test blocks in a different way, it will only need to define a new class that implements TestStrategy interface to handle those new test blocks.
-Then, a new test runner class can be created by simply subclassing the BaseTestRunner, and provide the new TestStrategy class instead.
-In the following example TestRunner class, a new <code>VerticaTestHandler</code> class is created to handle test blocks that are specific to Vertica, as opposed to generic JDBC-compatible databases.
-Other components such as SqlCodeHandler to process SQL statements can be reused for this new TestRunner.</p>
-
-<pre><code class="java Example TestRunner">/**
- * Test runner that uses Vertica JDBC connection.
- * It can handle test block of NameVsqlfile format that runs ETL scripts using local vsql.
- * 
- * @author tdongsi
- */
-public class VerticaRunner extends BaseTestRunner implements TestRunner {
-    public VerticaRunner(JdbcConnection jdbcConn, String vsqlPath) {
-        this.setCodeHandler(new SqlCodeHandler());
-        this.setTestHandler(new VerticaTestHandler(vsqlPath));
-        this.setConnection(jdbcConn);
-    }
-}
-</code></pre>
-
-<h3>Extending Test Runner</h3>
-
-<p>When extending a test runner, the behaviors of the test runners should NOT be inherited.
-Instead, they should be encapsulated in classes that specify how to handle SQL statements (CodeStrategy interface) or test blocks <code>/* @Test {...} */</code> (TestStrategy interface).
-When a new test runner is created to meet new testing needs, we should not subclass the previous test runner.
-Instead, we can delegate the old behaviors to the old handlers while adding new classes to handle new behaviors or new functionality.
-In other words, &ldquo;composition over inheritance&rdquo; principle applies here to separate test runner classes and test processing behaviors that each test runner uses.</p>
-
-<p>Implementation of a new feature can be summarized in the following steps:</p>
-
-<ol>
-<li>Design new JSON block for the new test block.</li>
-<li>Define new POJO that maps to new JSON block.</li>
-<li>Create a new class that implements TestStrategy/CodeStrategy interface to handle the new POJO.</li>
-<li>Create a new test runner that uses the new TestStrategy/CodeStrategy.</li>
-</ol>
+<ul>
+<li>To ensure uniqueness, you might prefix the bucket name with the name of your organization.</li>
+<li>Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.</li>
+</ul>
 
 
-<p>For example, our current test runner that can run an ETL script in Vertica database using <code>vsql</code> command-line tool.
-If we need a test runner that is able to run an ETL script in <strong>Netezza</strong> database, we should not modify our <em>current</em> test runner.
-It will break the current suite of tests for Vertica.
-Instead, we should create a new test runner class with new class extend TestStrategy to handle running ETL in Netezza.</p>
+<p>Object key naming tips:</p>
 
-<p>In <a href="/blog/2016/04/17/sql-unit-data-parity/">another example</a>, I give more detailed steps of implementation when we need to add new capability to SQL Test Runner.</p>
+<ul>
+<li>Use prefixes and <code>/</code> (or other delimiters) to logically group your objects. For example, <code>prog/java/arrays.html</code>. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
+
+<ul>
+<li>However, the Amazon S3 console supports the <a href="http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html">folder concept</a> for convenience and usability. Amazon S3 does this by using key name prefixes for objects.</li>
+</ul>
+</li>
+<li>For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See &ldquo;Programming Considerations&rdquo; section below.</li>
+</ul>
+
+
+<h3>Operations on Objects</h3>
+
+<p>Basic operations on S3 objects and buckets are:</p>
+
+<ul>
+<li>Put: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.</li>
+<li>Get: Retrieve a whole object or part of an object.</li>
+<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html">List Keys</a>: List object keys by prefix and delimiter.</li>
+<li>Delete: Delete one or more objects.
+
+<ul>
+<li>If versioning is not enabled, an object is permanently deleted by specifying its key.</li>
+<li>If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.</li>
+<li>If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a &ldquo;404 Not Found&rdquo; error by S3.</li>
+</ul>
+</li>
+<li>Restore: Restore an object archived on Amazon Glacier.</li>
+</ul>
+
+
+<h4>Other operations in S3</h4>
+
+<p>Advanced operations that you should know when situations arise.</p>
+
+<p><strong>Scenario 1</strong>: You want to let users upload files to your buckets for some time duration.
+<strong>Solution 1</strong>: You should never share your AWS credentials to let users upload files to your buckets.
+Instead, generate a <strong>pre-signed URL</strong> with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time.
+You share this pre-signed URL to users who will use this to access your S3 buckets.</p>
+
+<p><strong>Scenario 2</strong>: Encryption and strict data security is required.
+<strong>Solution 2</strong>: You can enable:</p>
+
+<ul>
+<li>Securing data in transit.
+
+<ul>
+<li>SSL-encrypted data transfer by using HTTPS</li>
+<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html">Client-side encryption</a></li>
+</ul>
+</li>
+<li>Securing data at rest on AWS server.
+
+<ul>
+<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html">Server-side encryption</a></li>
+</ul>
+</li>
+</ul>
+
+
+<p><strong>Scenario 3</strong>: You want your web applications that are loaded in one domain to interact with S3 resources in a different domain.
+<strong>Solution 3</strong>: Check out <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html">CORS</a>.</p>
+
+<h3>Programming considerations</h3>
+
+<ul>
+<li>According to <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">this guideline</a>, <strong>avoid</strong> using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object&rsquo;s metadata. See examples in the link for more information.</li>
+<li>If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle <a href="http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html">NoSuchBucket errors</a> when buckets do not exist.</li>
+<li>Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.</li>
+<li>Cache bucket and key names if possible.</li>
+<li>Set bucket region closest to latency-sensitive users.</li>
+<li>Compress objects to reduce the size of data transferred and storage used.</li>
+<li>Use an exponential back-off algorithm to retry after failed connection attempts. See <a href="http://docs.aws.amazon.com/general/latest/gr/api-retries.html">here</a>.</li>
+<li>Enable application logging. For example, <a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html">in Java</a>.</li>
+<li>Enable <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html">server access logging</a>.</li>
+</ul>
+
 ]]></content>
   </entry>
   

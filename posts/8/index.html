@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Amazon Web Services (AWS) is a collection of web services that deliver computing resources (hardware and software) to end-users over the Internet. &hellip;">
+  <meta name="description" content="Continued from the previous posts. Partitioned Managed Tables In general, partitioning data means distributing data load horizontally, moving data &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -104,7 +104,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/01/14/aws-overview-of-services/">AWS: Overview of Services</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/12/06/programming-hive-partitioned-tables/">Learning Hive (Pt. 7): Partitioned Tables</a></h1>
     
     
       <p class="meta">
@@ -113,828 +113,241 @@
 
 
 
-<time class='entry-date' datetime='2016-01-14T18:36:45-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:36 pm</span></time>
+<time class='entry-date' datetime='2015-12-06T21:09:51-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>9:09 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>Amazon Web Services (AWS) is a collection of web services that deliver computing resources (hardware and software) to end-users over the Internet.
-Not all AWS are equal but for AWS beginners, we usually don&rsquo;t know which are more important and which are secondary, supporting services.
-Personally, I am initially overwhelmed by the number of services offered as well as large amount of documentation associated with each service.</p>
-
-<p>This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:</p>
-
-<ul>
-<li>AWS Infrastructure: Physical data centers and physical network connections.</li>
-<li>Infrastructure Services (IaaS).</li>
-<li>Platform Services (PaaS).</li>
-</ul>
-
-
-<h3>AWS Global Infrastructure</h3>
-
-<p>AWS are available in many locations world-wide. These locations are divided into <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">regions and Availability Zones</a>.
-As of January 2016, there are 11 regions, each <strong>region</strong> contains two or more Availability Zones.
-Your resources, such as EC2 instances, reside in the region of your choice.
-AWS regions are isolated from each other and you usually cannot access resources in another region.
-Furthermore, some newer services may be available in some regions while not in others.</p>
-
-<p>Each <strong>Availability Zone</strong> (AZ) is basically a separate physical data center, and provides low latency connectivity to all other AZs in the same region.
-Although you cannot access resources in another region, but you can seamlessly manage resources in different AZs within the same region.
-It is recommended that you provision your resources across multiple AZs to achieve redundancy. When a single AZ has a problem, your resources will be still available in other AZs.
-For example, S3 stores your data in multiple AZs within your region of choice.</p>
-
-<p><strong>Edge locations</strong> serve requests for CloudFront and Route 53 services. CloudFront is a content delivery network
-(CDN), while Route 53 is a DNS service.
-Requests going to either one of these services will be automatically routed to the nearest edge location (out of 53 available edge locations, as of Jan 2016). This allows for low latency no matter where the end user is located.</p>
-
-<h3>Infrastructure Services</h3>
-
-<p>AWS offerings are divided into two large groups: Infrastructure and Platform, which are further divided into different categories.
-In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in &ldquo;Use it like&rdquo; column next to &ldquo;AWS name&rdquo; column.
-Note that they are just analogies, purely for illustration purposes.
-The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in parentheses.</p>
-
-<p>The grouping of Amazon Web Services as below is purely for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services.
-For example, EC2 instances are usually deployed in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
-In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets.
-This Amazon DynamoDB have some database &ldquo;triggers&rdquo; implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
-These examples show that how these AWS offerings can be inter-dependent and inter-connected in practice.</p>
-
-<h4>Compute</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Amazon EC2</strong> <br/>(Elastic Compute Cloud) </td>
-<td> Application server </td>
-<td> Remote, virtual server instances. <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html">What is EC2</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html">Instance types</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">Tags</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html">Key Pairs</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html">EC2 and VPC</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instances-and-amis.html">AMI</a></td>
-</tr>
-<tr>
-<td> <strong>Amazon ELB</strong> <br/>(Elastic Load Balancing) </td>
-<td>  </td>
-<td> Incoming traffic load balancing. <br/><a href="http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html">ELB</a> <br/><a href="http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html">ELB Terms and Concepts</a></td>
-</tr>
-<tr>
-<td> <strong>AWS Lambda</strong> </td>
-<td>  </td>
-<td> Like a cluster of one node.</td>
-</tr>
-<tr>
-<td> <strong>Amazon EC2 <br/>Container Service</strong> </td>
-<td> </td>
-<td> Deployment Service </td>
-</tr>
-<tr>
-<td> <strong>Auto Scaling</strong> </td>
-<td> </td>
-<td> Scaling <br/><a href="http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/how-as-works.html">Auto Scaling Group</a></td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Networking</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/vpc/"><strong>VPC</strong></a> <br>(Virtual Private Cloud) </td>
-<td> VLAN </td>
-<td> Virtual networking environment. <br/>Interaction with EC2 instances as if you are in the same existing network. </td>
-</tr>
-<tr>
-<td> <strong>Amazon Route 53</strong> </td>
-<td> DNS server </td>
-<td> DNS service. <br/>Use Route 53 for <em>cross-region</em> failover configuration. </td>
-</tr>
-<tr>
-<td> <strong>AWS Direct Connect</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>Amazon CloudFront</strong> </td>
-<td> CDN </td>
-<td> Content delivery service. <br/>Working like a cache for frequently accessed web pages or images to reduce latency. </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Storage</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/s3/"><strong>Amazon S3</strong></a> <br/>(Simple Storage Service) </td>
-<td> FTP server. </td>
-<td> Object store. Not a file system like EBS. <br/> More on <a href="http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3">S3 vs. EBS</a>.</td>
-</tr>
-<tr>
-<td> <strong>Amazon EBS</strong> <br/>(Elastic Block Storage) </td>
-<td> Hard drive to EC2. </td>
-<td> Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. </td>
-</tr>
-<tr>
-<td> <a href="http://aws.amazon.com/glacier/"><strong>Glacier</strong></a> </td>
-<td> <a href="https://en.wikipedia.org/wiki/Memory_hierarchy">Tape backup</a>. </td>
-<td> Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.</td>
-</tr>
-<tr>
-<td> <strong>Elastic File System</strong> </td>
-<td> File system. </td>
-<td> Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on <a href="http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use">EFS vs. EBS vs. S3</a>.</td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<!-- 
-EBS means you need to manage a volume + machines to attach it to. You need to add space as it's filling up and perform backups (not saying you shouldn't back up your S3 data, just that it's not as critical).
-
-It also makes it harder to scale: when you want to add additional machines, you either need to pull off the images to a separate machine or clone the images across all. This also means you're adding a bottleneck: you'll have to manage your own upload process that will either upload to all machines or have a single machine managing it.
-
-S3 is mostly recommended for static files: like a FTP service. You might want to use EBS if you have a private application that requires private read/write access to some storage.
+  <div class="entry-content"><!--
+Chapter 4
 -->
 
 
-<h4>Administration &amp; Security</h4>
+<p>Continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
 
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/iam/"><strong>AWS IAM</strong></a></td>
-<td> </td>
-<td> Manage users, keys, and certificates. <br/>You can set up additional users and new AWS keys, modify policies. <br/>Follow <a href="http://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html">Best Practices</a></td>
-</tr>
-<tr>
-<td> <strong>CloudWatch</strong> </td>
-<td> </td>
-<td> Monitoring metrics and performance. </td>
-</tr>
-<tr>
-<td> <strong>CloudTrail</strong> </td>
-<td> </td>
-<td> Logging calls to services. </td>
-</tr>
-</tbody>
-</table>
+<h3>Partitioned Managed Tables</h3>
 
+<p>In general, partitioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.</p>
 
-<p><br/></p>
+<p>In &ldquo;Programming Hive&rdquo;, the authors present a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
 
-<h4>Applications</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>WorkSpaces</strong> </td>
-<td> VirtualBox <br/>Remote Desktop </td>
-<td> Desktop as a Service. <br/> Cloud-based desktop service with installed common applications. </td>
-</tr>
-<tr>
-<td> <strong>WorkDocs</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h3>Platform Services</h3>
-
-<h4>Databases</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="https://aws.amazon.com/rds/"><strong>RDS</strong></a> <br/>(Relational Database Service) </td>
-<td> MySQL, PostgreSQL, etc. <br/>Relational databases. </td>
-<td> Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.</td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/rds/aurora/"><strong>Aurora</strong></a> </td>
-<td> Managed MySQL. </td>
-<td> MySQL users can import their data. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/elasticache/"><strong>ElastiCache</strong></a></td>
-<td> Memcached. Redis. </td>
-<td> For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/dynamodb/"><strong>DynamoDB</strong></a> </td>
-<td> MongoDB </td>
-<td> Managed NoSQL database service. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/redshift/"><strong>Redshift</strong></a> </td>
-<td> OLAP system </td>
-<td> Data warehouse service. </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Analytics</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="https://aws.amazon.com/kinesis/"><strong>Kinesis</strong></a> </td>
-<td> Apache Kafka, Storm. </td>
-<td> Event stream processing platform. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/elasticmapreduce/"><strong>EMR</strong></a> <br/>(Elastic MapReduce) </td>
-<td> MapReduce. HBase. </td>
-<td> Big Data processing. <br/>Spark is also available.</td>
-</tr>
-<tr>
-<td> <strong>Data Pipeline</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>App Services</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Cloud Search</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>SES</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>SWF</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>Elastic Transcoder</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Deployment &amp; Management</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Code Commit</strong> </td>
-<td> Git </td>
-<td> Source control service.</td>
-</tr>
-<tr>
-<td> <strong>Code Deploy</strong> </td>
-<td> </td>
-<td> Code deployment service. </td>
-</tr>
-<tr>
-<td> <strong>CloudFormation</strong> </td>
-<td> Chef (in JSON) </td>
-<td> Infrastructure as Code. <br/>Provisioning using source-controlled codes.</td>
-</tr>
-<tr>
-<td> <strong>Elastic Beanstalk</strong> </td>
-<td> CloudFormation simplified for WebApps. </td>
-<td> Higher-level of CloudFormation for web applications. <br/>Example usage: Blue-Green deployment (easier than CloudFormation).  </td>
-</tr>
-<tr>
-<td> <strong>OpsWork</strong> </td>
-<td> Chef </td>
-<td> Higher-level of CloudFormation. <br/>Configuration Management.  </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Mobile Services</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>SNS</strong> </td>
-<td> </td>
-<td> Notifications. </td>
-</tr>
-<tr>
-<td> <strong>Cognito</strong> </td>
-<td> </td>
-<td> Mobile authentication and data syncing. </td>
-</tr>
-<tr>
-<td> <strong>Mobile Analytics</strong> </td>
-<td> </td>
-<td> Measure and analyze mobile application usage data. </td>
-</tr>
-</tbody>
-</table>
-
-
-<h3>Other information</h3>
-
-<p>Globally accessible services:</p>
-
-<ul>
-<li>IAM</li>
-<li>Route 53</li>
-<li>Cloud Front</li>
-<li>Web App Firewall</li>
-</ul>
-
-
-<p>Regionally accessible services:</p>
-
-<ul>
-<li>S3</li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">Using Virtual Machine for ETL Testing</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-10T23:49:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:49 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Vertica Virtual Machine as sandbox test environment</h3>
-
-<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer.
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
-The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
-If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
-
-<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
-Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
-Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
-Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
-In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
-Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
-
-<h3>Single-node VM and KSAFE clause</h3>
-
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
-
-<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
-
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
-
-<ul>
-<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
-<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
-<li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
-
-<ul>
-<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
-</ul>
-</li>
-<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
-</ul>
-
-
-<h4>Find and replace a string in multiple files</h4>
-
-<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
-
-<ul>
-<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
-<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
-</ul>
-
-
-<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/">Vertica Tip: Find Empty Tables</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-12-18T21:39:56-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>9:39 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>This post is a reminder of using Vertica&rsquo;s system tables for administrating and monitoring our own tables. One common house-cleaning operation when developing/testing in Vertica is to find and drop tables that are empty (truncated) and never used again.</p>
-
-<p>You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with <code>direct</code> <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm">hint</a> will give a significant performance boost (see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Best practices</a>).</p>
-
-<h3>v_monitor schema and COLUMN_STORAGE system table</h3>
-
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a> in <code>v_monitor</code> schema returns the &ldquo;amount of disk storage used by each column of each projection on each node&rdquo;. Therefore, to get the size of each table, you only need to aggregate the <code>used_byte</code> data, grouped by schema name and table name.</p>
-
-<figure class='code'><figcaption><span>Query to list tables' sizes in a schema</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">anchor_table_schema</span><span class="p">,</span> <span class="n">anchor_table_name</span><span class="p">,</span> <span class="k">sum</span><span class="p">(</span><span class="n">used_bytes</span><span class="p">)</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">v_monitor</span><span class="p">.</span><span class="n">column_storage</span>
-</span><span class='line'><span class="k">where</span> <span class="n">anchor_table_schema</span> <span class="o">=</span> <span class="s1">&#39;some_schema&#39;</span>
-</span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">anchor_table_schema</span><span class="p">,</span> <span class="n">anchor_table_name</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>According to <a href="http://vertica.tips/2014/01/25/table-size/">here</a>, the number from the above query is the <em>compressed</em> size of the Vertica tables. To get the <em>raw</em> size of the tables, which probably only matters for license limit, perform a <em>license audit</em>, and query the system table <code>license_audits</code> in <code>v_catalog</code> schema. However, the most important takeaway is that empty tables will not appear in this <code>COLUMN_STORAGE</code> system table.</p>
-
-<h3>v_catalog schema and TABLES system table</h3>
-
-<p>The <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a> is probably more well-known. It contains all the information about all the tables in all the schemas. For example, to list all the tables in some schema:</p>
-
-<figure class='code'><figcaption><span>Query to list all tables in a schema</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">table_schema</span><span class="p">,</span> <span class="k">table_name</span> <span class="k">from</span> <span class="n">tables</span>
-</span><span class='line'><span class="k">where</span> <span class="n">table_schema</span> <span class="o">=</span> <span class="s1">&#39;some_schema&#39;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Another useful system table in <code>v_catalog</code> schema is <code>USER_FUNCTIONS</code> which lists all user-defined functions and their function signatures in the database.</p>
-
-<h3>Find all the empty (truncated) tables</h3>
-
-<p>Having all the tables in <code>v_catalog.tables</code> table and only non-empty tables in <code>v_monitor.column_storage</code> table, finding empty tables is pretty straight-forward in SQL:</p>
-
-<figure class='code'><figcaption><span>Query to find empty tables in a schema</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="k">table_name</span>
-</span><span class='line'><span class="k">from</span> <span class="n">v_catalog</span><span class="p">.</span><span class="n">tables</span>
-</span><span class='line'><span class="k">where</span> <span class="n">table_schema</span> <span class="o">=</span> <span class="s1">&#39;some_schema&#39;</span>
-</span><span class='line'><span class="k">EXCEPT</span>
-</span><span class='line'><span class="k">select</span> <span class="n">anchor_table_name</span>
-</span><span class='line'><span class="k">from</span> <span class="n">v_monitor</span><span class="p">.</span><span class="n">column_storage</span>
-</span><span class='line'><span class="k">where</span> <span class="n">anchor_table_schema</span> <span class="o">=</span> <span class="s1">&#39;some_schema&#39;</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="n">country</span> <span class="n">STRING</span><span class="p">,</span> <span class="k">state</span> <span class="n">STRING</span><span class="p">);</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p></p>
-
-<h3>External Links</h3>
-
-<ol>
-<li><a href="http://vertica.tips/2014/01/25/table-size/">Finding table&rsquo;s compressed size</a></li>
-<li><a href="http://vertica.tips/2014/01/24/license-audit-utilization-raw-size/">Vertica License audit</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm">COLUMN_STORAGE system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/TABLES.htm">TABLES system table</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/CATALOG/USER_FUNCTIONS.htm">USER_FUNCTIONS system table</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/12/17/vertica-tip-using-vsql/">Vertica Tip: Using Vsql CLI</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-12-17T22:54:07-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:54 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Using vsql</h3>
-
-<p>You can connect to Vertica database with username and password. When doing this, note that the password might be seen in the command history.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql -h internal.vertica.net -p 5433 -d VMart -U vertica_user -w password </span></code></pre></td></tr></table></div></figure>
-
-
-<p>Or you can connect to Vertica with Kerberos authentication.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql -h internal.vertica.net -p 5433 -d VMart -k KerberosServiceName -K KerberosHostName</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that from time to time, you could run into Kerberos GSI failure because the ticket expired. This is how you can renew and extend the ticket: run the following command to refresh Kerberos cache for the headless account <code>vertica_user</code>.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>kinit -kt /home/path/to/vertica_user.keytab vertica_user@CORP.INTERNAL.NET</span></code></pre></td></tr></table></div></figure>
-
-
-<p>You can also run a single SQL command from command line with <code>-c</code> option or, alternatively, a SQL script file with multiple commands with <code>-f</code> option.
-These options can be very useful to automate in shell/python scripts.
-Note that you can also parameterize your scripts by using <code>-v</code> option to assign variables inside your SQL scripts.</p>
-
-<h3>Vsql meta commands</h3>
-
-<p>Here is list of commonly used vsql <a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">meta commands</a>:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>dbadmin=&gt; \dt — (list of all tables)
-</span><span class='line'>dbadmin=&gt; \dt user* — (list of tables starting with user)
-</span><span class='line'>dbadmin=&gt; \d tablename — (describe table)
-</span><span class='line'>dbadmin=&gt; \dv — (list of all views)</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Here are the vsql commands to export a file:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>dbadmin=&gt; \o sample_users_lists.csv
-</span><span class='line'>dbadmin=&gt; \f|
-</span><span class='line'>dbadmin=&gt; select * from my_dwh.users limit 20;
-</span><span class='line'>dbadmin=&gt; \o
-</span><span class='line'>dbadmin=&gt; \q</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>External links</h3>
-
-<ol>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/ConnectingToHPVertica/vsql/CommandLineOptions.htm">Command line options</a></li>
-<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands.htm">Meta Commands</a></li>
-<li><a href="http://my.vertica.com/docs/7.0.x/HTML/index.htm#Authoring/ProgrammersGuide/vsql/Meta-Commands/TheDPATTERNMeta-commands.htm">Meta Commands: \d[Pattern]</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Tip: Best Practices</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-12-16T23:12:06-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:12 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>This post lists some tips and tricks that I learnt when working with Vertica database.</p>
-
-<h3>General Tips and Tricks</h3>
-
-<h4>CREATE (INSERT)</h4>
-
-<ul>
-<li><p>If you want to write data directly to disk and bypass memory, then you should include <code>/*+ direct */</code> as a &ldquo;hint&rdquo; in your <code>INSERT</code> statement. This is especially helpful when you are loading data from big files into Vertica. If you don&rsquo;t use <code>/*+ direct */</code>, then <code>INSERT</code> statement first uses memory, which may be more useful when you want to optimally do inserts and run queries.</p></li>
-<li><p>ALWAYS include <code>COMMIT</code> in your SQL statements when you are creating or updating Vertica schemas, because there is NO auto commit in Vertica.</p></li>
-<li><p>If you are copying a table, <strong>DO NOT</strong> use <code>CREATE TABLE copy AS SELECT * FROM source</code>. This will give you a copy table with default projections and storage policy. Instead, you should use <code>CREATE TABLE</code> statement with the <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm"><code>LIKE existing_table</code> clause</a> and use <code>INSERT /*+ direct */</code> statement. Creating a table with <code>LIKE</code> option replicates the table definition and storage policy associated with the source table, which can make a significant difference in data loading performance. Note that the <code>LIKE</code> clause does not work if the existing source table is a temporary table.</p></li>
-</ul>
-
-
-<figure class='code'><figcaption><span>DO NOT do this</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span>
-</span><span class='line'><span class="k">as</span> <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>DO this</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span> <span class="k">LIKE</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span> <span class="k">INCLUDING</span> <span class="n">PROJECTIONS</span><span class="p">;</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="cm">/*+ direct */</span> <span class="k">INTO</span> <span class="n">to_schema</span><span class="p">.</span><span class="n">to_table_name</span> <span class="k">SELECT</span> <span class="o">*</span> <span class="k">from</span> <span class="n">from_schema</span><span class="p">.</span><span class="n">from_table_name</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>Before making a copy of a table, be sure to consider alternatives in order to execute optimal queries: create views, rewrite queries, use sub-queries, limit queries to only a subset of data for analysis.</li>
-</ul>
-
-
-<h4>READ</h4>
-
-<ul>
-<li><p>Avoid joining large tables (e.g., > 50M records). Run a <code>count(*)</code> on tables before joining and use <code>MERGE JOIN</code> to optimally join tables. When you use smaller subsets of data, the Vertica Optimizer will pick the <code>MERGE JOIN</code> algorithm instead of the <code>HASH JOIN</code> one, which is less optimal.</p></li>
-<li><p>When an approximate value will be enough, Vertica offers an alternative to <code>COUNT(DISTINCT)</code>: <code>APPROXIMATE_COUNT_DISTINCT</code>. This function is recommended when you have a large data set and you do not require an exact count of distinct values: e.g., sanity checks that verify the tables are populated. According to <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Optimizations/OptimizingCOUNTDISTINCTByCalculatingApproximateCounts.htm">this documentation</a>, you can get much better performance than <code>COUNT(DISTINCT)</code>. <a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">Here</a> is an example of the <code>APPROXIMATE_COUNT_DISTINCT</code> syntax that you should use.</p></li>
-</ul>
-
-
-<h4>UPDATE &amp; DELETE</h4>
-
-<ul>
-<li><p>Deletes and updates take exclusive locks on the table. Hence, only one <code>DELETE</code> or <code>UPDATE</code> transaction on that table can be in progress at a time and only when no <code>INSERTs</code> are in progress. Deletes and updates on different tables can be run concurrently.</p></li>
-<li><p>Try to avoid <code>DELETE</code> or <code>UPDATE</code> as much as you can, especially on shared Vertica databases. Instead, it may work better to move the data you want to update to a new temporary table, work on that copy, drop the original table, and rename the temporary table with the original table name. For example:</p></li>
-</ul>
-
+<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory <code>employees</code> under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="n">temp_table</span> <span class="k">LIKE</span> <span class="n">src_table</span> <span class="k">INCLUDING</span> <span class="n">PROJECTIONS</span><span class="p">;</span>
-</span><span class='line'><span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">temp_table</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">statement</span> <span class="n">based</span> <span class="k">on</span> <span class="n">the</span> <span class="n">updated</span> <span class="k">data</span> <span class="k">or</span> <span class="n">the</span> <span class="n">needed</span> <span class="k">rows</span><span class="p">);</span>
-</span><span class='line'><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">src_table</span><span class="p">;</span>
-</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">temp_table</span> <span class="k">RENAME</span> <span class="k">TO</span> <span class="n">src_table</span><span class="p">;</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>AB
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>BC
+</span><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AL
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AK
+</span><span class='line'>...
 </span></code></pre></td></tr></table></div></figure>
 
 
-<ul>
-<li>Delete from tables marks rows with delete vectors and stores them so data can be rolled back to a previous epoch. The data must be eventually purged before the database can reclaim disk space.</li>
-</ul>
+<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
 
+<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
 
-<h3>Query plan</h3>
-
-<p>A query plan is a sequence of step-like paths that the HP Vertica cost-based query optimizer selects to access or alter information in your HP Vertica database. You can get information about <a href="https://my.vertica.com/docs/7.0.x/HTML/Content/Authoring/AdministratorsGuide/EXPLAIN/HowToGetQueryPlanInformation.htm">query plans</a> by prefixing the SQL query with the <code>EXPLAIN</code> command.</p>
-
-<figure class='code'><figcaption><span>EXPLAIN statement</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">EXPLAIN</span> <span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="n">customer_state</span> <span class="k">FROM</span> <span class="n">customer_dimension</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">customer_state</span> <span class="k">in</span> <span class="p">(</span><span class="s1">&#39;MA&#39;</span><span class="p">,</span><span class="s1">&#39;NH&#39;</span><span class="p">)</span> <span class="k">AND</span> <span class="n">customer_gender</span> <span class="o">=</span> <span class="s1">&#39;Male&#39;</span>
-</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">customer_name</span> <span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* DESCRIBE EXTENDED also shows partition keys */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">employees</span> <span class="n">PARTITION</span><span class="p">(</span> <span class="n">country</span><span class="o">=</span><span class="err">‘</span><span class="n">US</span><span class="err">’</span><span class="p">);</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p></p>
+<h4>Strict mode</h4>
 
-<p>The output from a query plan is presented in a tree-like structure, where each step path represents a single operation in the database that the optimizer uses for its execution strategy. The following example output is based on the previous query:</p>
+<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
 
-<figure class='code'><figcaption><span>Query Plan description</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode<span class="p">;</span>
+</span><span class='line'>hive.mapred.mode<span class="o">=</span>nonstrict
+</span><span class='line'>
+</span><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode <span class="o">=</span> strict<span class="p">;</span>
+</span><span class='line'>hive&gt; SELECT e.name FROM employees e<span class="p">;</span> /* does not work */
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Partitioned External Tables</h3>
+
+<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">log_messages</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">hms</span>             <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">severity</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">server</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">process_id</span>      <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">message</span>         <span class="n">STRING</span><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="k">year</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">month</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">day</span> <span class="nb">INT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\t&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;hdfs://master_server/data/log_messages/2012/01/02&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="n">EXTENDED</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span><span class="o">=</span><span class="mi">2012</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
+
+<h4>Example use case of partitioned external tables</h4>
+
+<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
+
+<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>2) Alter the table to point the partition to the S3 location:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'> <span class="k">SET</span> <span class="k">LOCATION</span> <span class="s1">&#39;s3n://ourbucket/logs/2011/01/02&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop fs -rmr /data/log_messages/2011/01/02
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Altering Partitioned Tables</h3>
+
+<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Add partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Change partition location */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">bucket</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Drop partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">DROP</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Alter storage properties of partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">FILEFORMAT</span> <span class="n">SEQUENCEFILE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Archive partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">ARCHIVE</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/05/programming-hive-ddl-table/">Learning Hive (Pt. 6): HiveQL Data Definition</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-05T20:15:56-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>5</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>8:15 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
+
+<h3>Creating Tables</h3>
+
+<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -956,51 +369,836 @@ Note that you can also parameterize your scripts by using <code>-v</code> option
 <span class='line-number'>20</span>
 <span class='line-number'>21</span>
 <span class='line-number'>22</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>EXPLAIN SELECT
-</span><span class='line'>customer_name,
-</span><span class='line'>customer_state
-</span><span class='line'>FROM customer_dimension
-</span><span class='line'>WHERE customer_state in <span class="o">(</span><span class="s1">&#39;MA&#39;</span>,<span class="s1">&#39;NH&#39;</span><span class="o">)</span>
-</span><span class='line'>AND <span class="nv">customer_gender</span> <span class="o">=</span> <span class="s1">&#39;Male&#39;</span>
-</span><span class='line'>ORDER BY customer_name
-</span><span class='line'>LIMIT 10<span class="p">;</span>
-</span><span class='line'>Access Path:
-</span><span class='line'>+-SELECT  LIMIT <span class="m">10</span> <span class="o">[</span>Cost: 370, Rows: 10<span class="o">]</span> <span class="o">(</span>PATH ID: 0<span class="o">)</span>
-</span><span class='line'><span class="p">|</span>  Output Only: <span class="m">10</span> tuples
-</span><span class='line'><span class="p">|</span>  Execute on: Query Initiator
-</span><span class='line'><span class="p">|</span> +---&gt; SORT <span class="o">[</span>Cost: 370, Rows: 544<span class="o">]</span> <span class="o">(</span>PATH ID: 1<span class="o">)</span>
-</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Order: customer_dimension.customer_name ASC
-</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Output Only: <span class="m">10</span> tuples
-</span><span class='line'><span class="p">|</span> <span class="p">|</span>      Execute on: Query Initiator
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> +---&gt; STORAGE ACCESS <span class="k">for</span> customer_dimension <span class="o">[</span>Cost: 331, Rows: 544<span class="o">]</span> <span class="o">(</span>PATH ID: 2<span class="o">)</span>
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Projection: public.customer_dimension_DBD_1_rep_vmartdb_design_vmartdb_design_node0001
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Materialize: customer_dimension.customer_state, customer_dimension.customer_name
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Filter: <span class="o">(</span>customer_dimension.customer_gender <span class="o">=</span> <span class="s1">&#39;Male&#39;</span><span class="o">)</span>
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Filter: <span class="o">(</span>customer_dimension.customer_state <span class="o">=</span> ANY <span class="o">(</span>ARRAY<span class="o">[</span><span class="s1">&#39;MA&#39;</span>, <span class="s1">&#39;NH&#39;</span><span class="o">]))</span>
-</span><span class='line'><span class="p">|</span> <span class="p">|</span> <span class="p">|</span>      Execute on: Query Initiator
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* NOTE: the LOCATION clause uses the default location */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">.</span><span class="n">student</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student name&#39;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">sid</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student ID&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;Description of the table&#39;</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;me&#39;</span> <span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/user/hive/warehouse/college.db/student&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * copy the schema of an existing table</span>
+</span><span class='line'><span class="cm"> * you can specify optional LOCATION but no other can be defined</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">mydb</span><span class="p">.</span><span class="n">clone</span> <span class="k">LIKE</span> <span class="n">mydb</span><span class="p">.</span><span class="n">employees</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Create external table</span>
+</span><span class='line'><span class="cm">* Read all data files with comma-delimited format</span>
+</span><span class='line'><span class="cm">* from /data/stocks</span>
+</span><span class='line'><span class="cm">* LOCATION is required for external table</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">stocks</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">exchange</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">symbol</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">volume</span>          <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">price_adj_close</span> <span class="nb">FLOAT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;,&#39;</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/data/stocks&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Copy external table schema.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">ext_clone</span>
+</span><span class='line'><span class="k">LIKE</span> <span class="n">stocks</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/path/to/data&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Drop table</span>
+</span><span class='line'><span class="cm">* For managed tables, the table metadata and data are deleted.</span>
+</span><span class='line'><span class="cm">* For external tables, the metadata is deleted but the data is not.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>If you want to understand the details of the query plan, observe the real-time flow of data through the plan to identify possible query bottlenecks, you can:</p>
+<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
+
+<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; use college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.048 seconds
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in current database */
+</span><span class='line'>hive&gt; show tables<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.031 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in the specified database */
+</span><span class='line'>hive&gt; show tables in college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.034 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* use regex to search tables in current database */
+</span><span class='line'>hive&gt; show tables <span class="s1">&#39;.*e.*&#39;</span><span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.025 seconds, Fetched: <span class="m">2</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show table properties */
+</span><span class='line'>hive&gt; show tblproperties student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>COLUMN_STATS_ACCURATE <span class="nb">true</span>
+</span><span class='line'>comment   List of students
+</span><span class='line'>numFiles  1
+</span><span class='line'>numRows   0
+</span><span class='line'>rawDataSize   0
+</span><span class='line'>totalSize 213
+</span><span class='line'>transient_lastDdlTime 1421796179
+</span><span class='line'>Time taken: 0.28 seconds, Fetched: <span class="m">7</span> row<span class="o">(</span>s<span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can use <code>DESCRIBE</code> command to display table information as shown below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; describe extended student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'>Detailed Table Information    Table<span class="o">(</span>tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor<span class="o">(</span>cols:<span class="o">[</span>FieldSchema<span class="o">(</span>name:sid, <span class="nb">type</span>:int, comment:Student ID<span class="o">)</span>, FieldSchema<span class="o">(</span>name:sname, <span class="nb">type</span>:string, comment:Student name<span class="o">)</span>, ...
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: <span class="m">6</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* more readable and verbose */
+</span><span class='line'>hive&gt; describe formatted student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'><span class="c"># col_name                data_type               comment             </span>
+</span><span class='line'>      
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Detailed Table Information       </span>
+</span><span class='line'>Database:             college                 
+</span><span class='line'>Owner:                cloudera                
+</span><span class='line'>CreateTime:           Tue Jan <span class="m">20</span> 15:22:58 PST 2015 
+</span><span class='line'>LastAccessTime:       UNKNOWN                 
+</span><span class='line'>Protect Mode:         None                    
+</span><span class='line'>Retention:            <span class="m">0</span>                    
+</span><span class='line'>Location:             hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE           
+</span><span class='line'>Table Parameters:     
+</span><span class='line'>  COLUMN_STATS_ACCURATE   <span class="nb">true                </span>
+</span><span class='line'><span class="nb"> </span>comment              List of students
+</span><span class='line'>  numFiles                <span class="m">1</span>
+</span><span class='line'>  numRows                 <span class="m">0</span>
+</span><span class='line'>  rawDataSize             <span class="m">0</span>
+</span><span class='line'>  totalSize               <span class="m">213</span>
+</span><span class='line'>  transient_lastDdlTime   <span class="m">1421796179</span>
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Storage Information      </span>
+</span><span class='line'>SerDe Library:        org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe  
+</span><span class='line'>InputFormat:          org.apache.hadoop.mapred.TextInputFormat    
+</span><span class='line'>OutputFormat:         org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat  
+</span><span class='line'>Compressed:           No                      
+</span><span class='line'>Num Buckets:          -1                      
+</span><span class='line'>Bucket Columns:       <span class="o">[]</span>                   
+</span><span class='line'>Sort Columns:         <span class="o">[]</span>                   
+</span><span class='line'>Storage Desc Params:      
+</span><span class='line'>  field.delim             <span class="p">;</span>
+</span><span class='line'>  serialization.format    <span class="p">;</span>
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: <span class="m">36</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* see schema <span class="k">for</span> a column */
+</span><span class='line'>hive&gt; describe student.sid<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     from deserializer
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Managed tables vs. External tables</h3>
+
+<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>.
+It is internal/managed because the life cycle of their data is managed by Hive.
+By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands).
+When we drop a managed table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>hive&gt; dfs -ls /user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 /user/hive/warehouse/college.db/student
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
+
+<p>Managed tables are not convenient for sharing data with other tools.
+Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data.
+In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location.
+The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located.
+Dropping an external table does not delete the data since Hive does not <em>own</em> the data.
+However, the <em>metadata</em> for that table will be deleted.</p>
+
+<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Location:            hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
+
+<h3>Altering Tables</h3>
+
+<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
+
+<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Renaming table */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">college</span> <span class="k">RENAME</span> <span class="k">TO</span> <span class="n">university</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Change columns: rename, change its position, type, or comment.</span>
+</span><span class='line'><span class="cm"> * The keyword COLUMN is optional, as well as COMMENT clause.</span>
+</span><span class='line'><span class="cm"> * This command changes metadata only. </span>
+</span><span class='line'><span class="cm"> * The data has to be moved to match the new columns if needed.</span>
+</span><span class='line'><span class="cm"> * Use FIRST, instead of AFTER, if the column is moved to first.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">CHANGE</span> <span class="k">COLUMN</span> <span class="n">hms</span> <span class="n">hours_minutes_seconds</span> <span class="nb">INT</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;New comment&#39;</span>
+</span><span class='line'><span class="k">AFTER</span> <span class="n">severity</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Add columns, to the end of existing columns.</span>
+</span><span class='line'><span class="cm"> * Use CHANGE COLUMN to rearrange if needed.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">ADD</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Remove all the existing columns and replaces with new </span>
+</span><span class='line'><span class="cm"> * specified columns.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">REPLACE</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * You can add table properties or set current properties,</span>
+</span><span class='line'><span class="cm"> * but not remove them </span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span>
+</span><span class='line'><span class="s1">&#39;some_key&#39;</span> <span class="o">=</span> <span class="s1">&#39;some_value&#39;</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Learning Hive (Pt. 5): HiveQL Data Definition</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-02T18:32:21-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>6:32 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
+
+<h3>Databases</h3>
+
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span><span class="p">;</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="s1">&#39;h.*&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/my/preferred/directory&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add comments to table */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="s1">&#39;A college admission database&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* show comments */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add properties */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;CD&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="o">=</span> <span class="s1">&#39;today&#39;</span> <span class="p">);</span>
+</span><span class='line'><span class="cm">/* show properties */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">EXTENDED</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* set working database */</span>
+</span><span class='line'><span class="n">USE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* this will show tables in this database */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">TABLES</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* Drop tables if there is any table in the database */</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span> <span class="k">CASCADE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* You can set additional key-value pairs in properties.</span>
+</span><span class='line'><span class="cm"> * No other metadata about the database can be changed. No way to delete a DB PROPERTY.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="s1">&#39;editor&#39;</span> <span class="o">=</span> <span class="s1">&#39;DC&#39;</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; describe database default<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>default   Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+</span><span class='line'>Time taken: 0.01 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>hive&gt; describe database college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college       hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+</span><span class='line'>Time taken: 0.011 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive        <span class="m">213</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive         <span class="m">66</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.cli.print.current.db<span class="o">=</span><span class="nb">true</span><span class="p">;</span>
+</span><span class='line'>hive <span class="o">(</span>default<span class="o">)</span>&gt; USE college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.278 seconds
+</span><span class='line'>hive <span class="o">(</span>college<span class="o">)</span>&gt;
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/26/programming-hive-data-types/">Learning Hive (Pt. 4): Data Types</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-26T18:01:37-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:01 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers different data types and file formats supported by Hive.</p>
+
+<h3>Data Types</h3>
+
+<p>The following primitive data types are supported:</p>
+
+<ul>
+<li>TINYINT: 1 byte signed integer</li>
+<li>SMALLINT: 2 bytes</li>
+<li>INT: 4 bytes</li>
+<li>BIGINT: 8 bytes</li>
+<li>BOOLEAN</li>
+<li>FLOAT</li>
+<li>DOUBLE</li>
+<li>STRING: Single or double quotes can be used for literals.</li>
+<li>TIMESTAMP: Integer, float, or string.
+
+<ul>
+<li>Integer: For seconds from Unix epoch.</li>
+<li>Float: Seconds from Unix epoch and nanoseconds.</li>
+<li>String: JDBC-compliant java.sql.Timestamp format convention, i.e. YYYY-MM-DD hh:mm:ss.fffffffff</li>
+</ul>
+</li>
+<li>BINARY: array of bytes. Used to include arbitrary bytes and prevent Hive from attempting to parse them.</li>
+</ul>
+
+
+<p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
+
+<p>NOTE: Not mentioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0.
+In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+
+<p>Besides primitive data types, Hive supports the following collection data types:</p>
+
+<ul>
+<li>STRUCT: Analogous to a C <code>struct</code> or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
+
+<ul>
+<li>Example: Declaration -> <code>struct&lt;name:string,id:int&gt;</code>. Literal -> <code>struct('John',1)</code>.</li>
+</ul>
+</li>
+<li>MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons[&lsquo;John&rsquo;].
+
+<ul>
+<li>Example: Declaration -> <code>map&lt;string,int&gt;</code>. Literal -> <code>map('John',1)</code>.</li>
+</ul>
+</li>
+<li>ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
+
+<ul>
+<li>Example: Declaration -> <code>array&lt;string&gt;</code>. Literal -> <code>array('John','Peter')</code>.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Relational databases don&rsquo;t usually support such collection types because they tend to break <strong>normal form</strong>.
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).</p>
+
+<h3>Text File Formats</h3>
+
+<p>Hive can use comma-separated values (CSV) or tab-separated values (TSV) text file format. A Hive table declaration with all row format specified (with default values, however) looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span>
+</span><span class='line'><span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\001&#39;</span>
+</span><span class='line'><span class="n">COLLECTION</span> <span class="n">ITEMS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\002&#39;</span>
+</span><span class='line'><span class="k">MAP</span> <span class="n">KEYS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\003&#39;</span>
+</span><span class='line'><span class="n">LINES</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\n&#39;</span>
+</span><span class='line'><span class="n">STORED</span> <span class="k">AS</span> <span class="n">TEXTFILE</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Schema on Read</h3>
+
+<p>Different from databases, Hive has no control over the underlying storage: for example, you can modify files on HDFS that Hive will query. Hive tries its best to read the data and match the schema. If the file content does not match the schema such as non-numeric strings found when numbers expected, you may get null values.</p>
+
+<h3>Additional References</h3>
+
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
 
 <ol>
-<li>query the <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li>review <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li>use <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement to view further detailed analysis of your query.</li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/Tutorial">https://cwiki.apache.org/confluence/display/Hive/Tutorial</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
 </ol>
 
+</div>
+  
+  
 
-<h3>External Links</h3>
 
-<ol>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm">Vertica documentation</a></li>
-<li><a href="http://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Aggregate/APPROXIMATE_COUNT_DISTINCT.htm">APPROXIMATE_COUNT_DISTINCT</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AdministratorsGuide/Tables/CreatingATableLikeAnother.htm">Create a Table Like Another</a></li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/SystemTables/MONITOR/QUERY_PLAN_PROFILES.htm">V_MONITOR.QUERY_PLAN_PROFILES</a> system table.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/AdministratorsGuide/Profiling/ProfilingQueryPlanProfiles.htm">Profiling Query Plans</a>.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/PROFILE.htm">PROFILE</a> statement.</li>
-</ol>
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/24/programming-hive-getting-started/">Learning Hive (Pt. 3): Runtime Modes</a></h1>
+    
+    
+      <p class="meta">
+        
 
+
+
+
+<time class='entry-date' datetime='2015-11-24T18:24:30-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:24 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
+
+<h3>Runtime Modes</h3>
+
+<p>There are different runtime modes for Hadoop.
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
+
+<table>
+<thead>
+<tr>
+<th> Local Mode </th>
+<th> Distributed Mode </th>
+<th> Pseudodistributed Mode </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Filesystem references use local filesystem. </td>
+<td> Filesystem references use HDFS. </td>
+<td> Similar to distributed mode. </td>
+</tr>
+<tr>
+<td> MapReduce tasks in same process. </td>
+<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
+<td> Similar to distributed mode.</td>
+</tr>
+<tr>
+<td> Default mode. </td>
+<td> Usually configured for server clusters. </td>
+<td> Like a cluster of one node.</td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
+
+<h3>Metastore Using JDBC</h3>
+
+<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
+In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionURL<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>JDBC connect string for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionDriverName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>com.mysql.jdbc.Driver<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>Driver class name for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionUserName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>hive<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The information stored in metastore is typically much smaller than the data stored in Hive.
+Therefore, you typically don’t need a powerful dedicated database server for the metastore.
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
 </div>
   
   
@@ -1081,7 +1279,7 @@ Note that you can also parameterize your scripts by using <code>-v</code> option
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (14)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (7)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (12)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (3)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (2)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (20)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (14)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (13)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (5)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (3)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/security/'>security (1)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/sqlite/'>sqlite (1)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
