@@ -10,7 +10,7 @@ categories:
 ---
 
 This post goes over what happens if we misconfigure `etcd` and `flannel` to use the same network (e.g., "10.252.61.0/16") as the infrastructure (e.g., "10.252.158.72" node). 
-This newbie mistake is rare but very perplexing and this post shows to troubleshoot it with `busybox` container.
+This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with `busybox` container.
 
 ### Problem symptoms
 
