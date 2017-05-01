@@ -95,7 +95,7 @@ SKIPPED:
   * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras, with applications targeted for smartphones, VR headsets, and driverless car navigation systems. 
     The algorithms, based on probabilistic models and statistical inference methods, are implemented and published in peer-reviewed conferences (ICRA, IROS).
 * Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore. GPA: *4.42/5*
-
+ 
 ### Honor & Awards
 
 * [**Employee Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: Awarded by SVP of IoT Engineering at IoT Cloud All-Hands ([announcement](/download/awards/2017_IoT_slide.jpg)).
@@ -193,3 +193,7 @@ Lifelong learning and professional training after college.
 * Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
 * Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008. [Technical report](/download/pubs/MEng.pdf)
 * Robust extraction of shady roads for vision-based UGV navigation. IROS 2008. [Technical report](/download/pubs/MEng.pdf)
+
+### Others
+
+* [My only presence on Youtube](https://www.youtube.com/watch?v=ysGM3CfBVpU). 
