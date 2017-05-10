@@ -20,8 +20,14 @@ Cannot connect to the Docker daemon. Is the docker daemon running on this host?
 ```
 
 The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).
- 
-``` plain Show GID of 
+
+TODO: https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925
+
+The current user (`jenkins` in the example) must have permissions to talk to `/var/run/docker.sock` on that system.
+By convention, that permission is given to `root` user or users in `docker` group. 
+However, the following commands show that it is not the case.
+
+``` plain Show GID of docker group
 + ls -l /var/run/docker.sock
  
 srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
@@ -31,6 +37,7 @@ docker:x:999:jenkins
 ```
 
 The expectation is:
+
 ```
 + ls -l /var/run/docker.sock
 srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
@@ -108,3 +115,10 @@ Group account information is stored in `/etc/group`.
 * [groupadd examples](http://linux.101hacks.com/unix/groupadd/)
 * [chown examples](http://www.thegeekstuff.com/2012/06/chown-examples/)
 * [find files with group name or ID](https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/)
+
+TODO
+* https://github.com/docker/compose/issues/1214
+* http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container
+* https://github.com/jenkinsci/docker/issues/196
+* https://github.com/jhipster/generator-jhipster/issues/4804
+* https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group

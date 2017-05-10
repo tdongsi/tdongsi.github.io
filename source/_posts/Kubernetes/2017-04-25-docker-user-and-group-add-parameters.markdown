@@ -13,3 +13,4 @@ categories:
 ### Reference
 
 * http://stackoverflow.com/questions/41100333/difference-between-docker-run-user-and-group-add-parameters
+* https://github.com/jhipster/jhipster.github.io/pull/368/files
