@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "Groovy code in Jenkins pipeline"
+title: "Groovy Script in Jenkins pipeline"
 date: 2017-04-18 17:07:44 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Groovy
 - Jenkins
