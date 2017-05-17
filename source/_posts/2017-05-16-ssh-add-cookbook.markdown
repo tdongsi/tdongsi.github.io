@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "ssh-add cookbook"
-date: 2017-05-16 16:38:46 -0700
+title: "SSH cookbook: ssh-add"
+date: 2015-05-16 16:38:46 -0700
 comments: true
 categories: 
 - Security
