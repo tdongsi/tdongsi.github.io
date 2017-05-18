@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Bash | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/bash/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-16T16:56:32-07:00</updated>
+  <updated>2017-05-18T00:24:17-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -395,228 +395,65 @@ Last login: Mon May 15 20:23:46 2017 from 10.10.74.67
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Set Up Public-key SSH on Windows]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/03/22/install-ssh-on-windows/"/>
-    <updated>2015-03-22T11:57:33-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/03/22/install-ssh-on-windows</id>
-    <content type="html"><![CDATA[<p>Setting up public-key SSH on Windows is much more tricky than Linux (see <a href="/blog/2015/03/02/install-ssh-on-linux/">here</a>).</p>
+    <title type="html"><![CDATA[SSH Cookbook: Ssh]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/05/11/ssh-cookbook/"/>
+    <updated>2015-05-11T13:45:35-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/05/11/ssh-cookbook</id>
+    <content type="html"><![CDATA[<p>This blog lists some recipes that is related to <code>ssh</code> commands.</p>
 
-<h3>Install OpenSSH for Windows</h3>
+<h3>Quick recipes</h3>
 
-<p>In the following instructions, the example machine hostname (SSH server) is <code>frak16</code>, with username <code>oqa</code> in the domain <code>OBJY</code>.
-Sometimes, another machine (client) is used to connect to this <code>frak16</code> machine to test connection settings.</p>
+<p>Recipe 1: <a href="https://askubuntu.com/questions/53553/how-do-i-retrieve-the-public-key-from-a-ssh-private-key">link</a></p>
 
-<p>(1) Install OpenSSH for Windows to the SSH server, e.g., <code>frak16</code>, at the following location <code>SSH_DIR=C:\space\oqa\OpenSSH</code>.
-Use OpenSSH installer from <a href="http://www.mls-software.com/opensshd.html">here</a>.
-Do NOT use OpenSSH for Windows from Sourceforge, which is outdated, even though many top links from Google search &ldquo;OpenSSH windows&rdquo; point to it.
-Select &ldquo;Configure as Domain User&rdquo; when installing.</p>
-
-<p>(2) In the <code>PATH</code> environment variable, make sure that <code>$(SSH_DIR)\bin</code> folder comes before MKS and Cygwin&rsquo;s bins folder, if applicable.
-We need to use OpenSSH version of <code>chmod</code> and <code>chown</code>.</p>
-
-<p>(3) Edit the file <code>etc/passwd</code> inside <code>SSH_DIR</code> (defined above).
-Make sure that the home directory for your username is present and in <strong>Cygwin notation</strong>, e.g., &ldquo;/cygdrive/c/space/oqa&rdquo; for user <code>oqa</code>.
-Make sure there is only one <code>oqa</code> user, like <code>U-OBJY\oqa</code> (domain user) for <code>OBJY</code> domain.
-Delete other <code>oqa</code> users such as local users if needed.</p>
-
-<pre><code>oqa:unused_by_nt/2000/xp:13331:10513:oqa,U-OBJY\oqa,S-1-5-21-343818398-1708537768-1417001333-3331:/cygdrive/c/space/oqa:/bin/switch
+<pre><code class="plain Recipe 1: Generate public key from private key">ssh-keygen -y -f ~/.ssh/id_rsa &gt; ~/.ssh/id_rsa.pub
 </code></pre>
 
-<p>(4) Edit <code>$(SSH_DIR)\etc\banner.txt</code> to include welcome message that you prefer, to make it less verbose and more informative. I would change it to include the current host name to indicate which host is currently connected.</p>
+<p>Recipe 2: <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#verify-key-pair-fingerprints">link</a></p>
 
-<p>(5a) (Optional but recommended) Run SSH server is debug mode to verify that settings are correct. Run the following command for a test run:</p>
-
-<pre><code>C:\space\cuongd\OpenSSH&gt;usr\sbin\sshd -d -d -d
+<pre><code class="plain Recipe 2: Show fingerprint of the private key in MD5 format (used by Github, AWS)">openssl rsa -in ~/.ssh/id_rsa -pubout -outform DER | openssl md5 -c
 </code></pre>
 
-<p>(5b) Use ssh from another host (as client) to test connection. You will have to enter username and password to connect to <code>frak16</code> from this client.</p>
+<h3><code>-R</code> and <code>-L</code> of <code>ssh</code></h3>
 
-<pre><code class="plain From another machine as client">ssh username@hostname -v
+<p>Those options stands for remote and local port forwarding.
+There are blog posts explain these options better than <a href="https://unix.stackexchange.com/questions/115897/whats-ssh-port-forwarding-and-whats-the-difference-between-ssh-local-and-remot#">this</a>.
+The awesome answer and sketches are reproduced here for occasional review:</p>
 
-### Example
-ssh oqa@frak16 -v
+<p><img class="center" src="/images/bash/LocalForwarding.png" width="600" height="500"></p>
+
+<p><img class="center" src="/images/bash/RemoteForwarding.png" width="490" height="500"></p>
+
+<pre><code class="plain Example 1">ssh -L 80:localhost:80 SUPERSERVER
 </code></pre>
 
-<p>If the client is Windows and using OpenSSH, make sure the client&rsquo;s <code>etc/ssh_config</code> file in its OpenSSH installation folder is as follows:</p>
+<p>In Example 1, you specify that a connection made to the local port 80 is to be forwarded to port 80 on SUPERSERVER.
+That means if someone connects to your computer with a webbrowser, he gets the response of the webserver running on SUPERSERVER.
+You, on your local machine, have no webserver running.</p>
 
-<pre><code class="plain ssh_config">
-# Site-wide defaults for various options
-
-# Host *
-#   ForwardAgent no
-#   ForwardX11 no
-#   RhostsAuthentication no
-#   RhostsRSAAuthentication yes
-#   RSAAuthentication yes
-#   PasswordAuthentication yes
-#   FallBackToRsh no
-#   UseRsh no
-#   BatchMode no
-#   CheckHostIP yes
-#   StrictHostKeyChecking yes
-#   IdentityFile ~/.ssh/identity
-#   IdentityFile ~/.ssh/id_dsa
-IdentityFile /cygdrive/c/space/cuongd/.ssh/id_rsa    &lt;--- Verify THIS
-#   Port 22
-#   Protocol 2,1
-#   Cipher blowfish
-#   EscapeChar ~
+<pre><code class="plain Example 2">ssh -R 80:localhost:80 tinyserver
 </code></pre>
 
-<p>(6) After making sure the SSH is installed and working properly on <code>frak16</code>, run the following in a Command prompt with Admin power to start SSH as a service:</p>
+<p>In Example 2, you specify, that a connection made to the port 80 of tinyserver is to be forwarded to port 80 on your local machine.
+That means if someone connects to the small and slow server with a webbrowser, he gets the response of the webserver running on your local machine.
+The tinyserver, which has not enough diskspace for the big website, has no webserver running.
+But people connecting to tinyserver think so.</p>
 
-<pre><code>net start opensshd
+<p>Other things could be: The powerful machine has five webservers running on five different ports.
+If a user connects to one of the five tinyservers at port 80 with his webbrowser, the request is redirected to the corresponding webserver running on the powerful machine.
+That would be</p>
+
+<pre><code class="plain Example 3 (before)">ssh -R 80:localhost:30180 tinyserver1
+ssh -R 80:localhost:30280 tinyserver2
+etc.
 </code></pre>
 
-<p>Now, you can connect to this Windows machine <code>frak16</code> using password authentication.</p>
+<p>Or maybe your machine is only the connection between the powerful and the small servers.
+Then it would be (for one of the tinyservers that play to have their own webservers):</p>
 
-<h3>Set up public-key SSH</h3>
-
-<p>(1) If the client is already set up, it should have its public key file. Copy content of that file to <code>$(HOME_DIR)\.ssh\authorized_keys</code> file on the SSH server (e.g., <code>frak16</code>).</p>
-
-<p>If you don&rsquo;t have the public key file for the client, run <code>ssh-keygen -t rsa</code> on the client machine.
-The client machine&rsquo;s public key file has the name like &ldquo;id_rsa.pub&rdquo;.</p>
-
-<p>(2) On the SSH server (e.g., <code>frak16</code>), edit <code>$(SSH_DIR)\etc\sshd_config</code> to enable PubkeyAuthentication. The following lines must be enabled:</p>
-
-<pre><code class="plain sshd_config">RSAAuthentication yes
-PubkeyAuthentication yes
+<pre><code class="plain Example 3 (after)">ssh -R 80:SUPERSERVER:30180 tinyserver1
+ssh -R 80:SUPERSERVER:30280 tinyserver2
+etc
 </code></pre>
-
-<p>(3) Recursively from <code>$(HOME_DIR)</code>, use <code>chown</code> to set ownership to <code>oqa</code> and <code>chmod</code> to set all folders and files in <code>$(HOME_DIR)\.ssh</code> to read-only.</p>
-
-<pre><code class="plain Set ownership and access">### Set the ownership to user oqa
-c:\space\oqa&gt;chown -R oqa .
-c:\space\oqa&gt;chmod -R 700 .ssh
-c:\space\oqa\.ssh&gt;chmod 600 authorized_keys
-</code></pre>
-
-<p>(4) Run SSH server in debug mode again to verify that public-key SSH settings are correct.
-Run this command &ldquo;ssh oqa@frak16 &lsquo;ipconfig&rsquo;&rdquo; from the client machine and verify that no password is required.</p>
-
-<p>(5) Start SSH server permanently by running, in an elevated Command Prompt.
-As of 2015 Feb, I tried running SSH as a Windows service but it does not work reliably.</p>
-
-<pre><code class="plain Start SSH">$(SSH_DIR)\usr\sbin\sshd.exe
-</code></pre>
-
-<h3>Troubleshooting</h3>
-
-<p>Some of the most frequently encountered problems are discussed in this section.</p>
-
-<h4>Ownership of <code>.ssh</code> folder</h4>
-
-<p>You might encounter this problem when configuring public-key authentication.
-If you try to run the server in debug mode, you might see the following messages:</p>
-
-<pre><code class="plain SSH server output in debug mode (sshd -d -d -d)">debug2: input_userauth_request: try method publickey
-debug1: test whether pkalg/pkblob are acceptable
-debug1: temporarily_use_uid: 13331/10513 (e=13331/10513)
-debug1: trying public key file /cygdrive/c/space/oqa/.ssh/authorized_keys
-debug3: secure_filename: checking '/cygdrive/c/space/oqa/.ssh'
-Authentication refused: bad ownership or modes for directory /cygdrive/c/space/o
-qa/.ssh
-</code></pre>
-
-<p>In this case, it&rsquo;s an ownership problem on the SSH server.
-You can try another location for <code>.ssh</code> folder on the SSH server to see if it resolves the problem.
-In most cases, you can manually fix the above problem by using the following commands:</p>
-
-<pre><code class="plain">### Set the ownership to user oqa
-c:\space\oqa&gt;chown -R oqa .
-c:\space\oqa&gt;chmod -R 700 .ssh
-c:\space\oqa\.ssh&gt;chmod 600 authorized_keys
-</code></pre>
-
-<p>Note that <code>chmod</code> from OpenSSH must be used, instead of <code>chmod</code> from MKS or Cygwin.
-In addition, if there is a Local User <code>oqa</code>, remove that user so that <code>chown</code> will assign ownership to Domain User <code>oqa</code>.</p>
-
-<h4>Outdated SSH installer</h4>
-
-<pre><code class="plain">C:\space\cuongd&gt;scp test.txt oqa@frak16:/cygdrive/c/space/oqa
-
-Received disconnect from 172.21.62.116: 2: fork failed: Resource temporarily una
-vailable
-lost connection
-</code></pre>
-
-<p>If you see errors like this, you probably used OpenSSH installer from Sourceforge.
-That installer is outdated and buggy.
-Use the latest installer from <a href="http://www.mls-software.com/opensshd.html">here</a> instead.</p>
-
-<h4>Cannot bind any address</h4>
-
-<p>You might find the following error message when connecting to an SSH server running in debug mode.</p>
-
-<pre><code class="plain">debug1: rexec_argv[3]='-d'
-debug2: fd 3 setting O_NONBLOCK
-debug3: sock_set_v6only: set socket 3 IPV6_V6ONLY
-debug1: Bind to port 22 on ::.
-Bind to port 22 on :: failed: Address already in use.
-debug2: fd 3 setting O_NONBLOCK
-debug1: Bind to port 22 on 0.0.0.0.
-Bind to port 22 on 0.0.0.0 failed: Address already in use.
-Cannot bind any address.
-</code></pre>
-
-<p>If you installed Cygwin and/or MKS on your Windows SSH server, their SSH services (sshd for Cygwin and secshd for MKS) are probably using the port 22.
-Verify that by using the following command in Windows:</p>
-
-<pre><code class="plain Check service usage">C:\space\cuongd\OpenSSH&gt;netstat -b -a
-
-Active Connections
-
-  Proto  Local Address          Foreign Address        State
-  TCP    0.0.0.0:22             frak15:0               LISTENING
-[secshd.exe]
-  TCP    0.0.0.0:23             frak15:0               LISTENING
-[telnetd.exe]
-  TCP    0.0.0.0:135            frak15:0               LISTENING
-  RpcSs
-[svchost.exe]
-</code></pre>
-
-<p>You can turn off SSH services from Cygwin and MKS by going to Computer > Manage > Go to Services > Stop the relevant service (Windows 7).</p>
-
-<h4>File transfer</h4>
-
-<p>If you installed <code>putty</code> on Windows, note that you CANNOT simply use <code>pscp</code> (that is included with <code>putty</code> installation) to transfer file to another Windows machine with OpenSSH.</p>
-
-<pre><code class="plain PSCP error">C:\space\cuongd&gt;pscp -i C:\space\cuongd\.ssh\id_rsa_putty test.txt oqa@frak16:/cygdrive/c/space/oqa
-Error: Unable to use key file "C:\space\cuongd\.ssh\id_rsa" (OpenSSH SSH-2 private key)
-</code></pre>
-
-<p>You have to convert the OpenSSH&rsquo;s generated private key to a Putty private key, as detailed <a href="http://www.cnx-software.com/2012/07/20/how-use-putty-with-an-ssh-private-key-generated-by-openssh/">here</a>.</p>
-
-<p>An alternative is to use <code>scp</code> that is included with the OpenSSH installation. Note that this might not work (you still have to enter your password):</p>
-
-<pre><code class="plain This will not work. Password required.">C:\space\cuongd&gt;scp -i C:\space\cuongd\.ssh\id_rsa test.txt oqa@frak16:/cygdrive/c/space/oqa
-</code></pre>
-
-<p>Since OpenSSH for Windows is extracted from Cygwin, trying Cygwin-style command turns out to be a good idea. This command allows password-less file transfer:</p>
-
-<pre><code class="plain Password NOT required.">C:\space\cuongd&gt;scp -i /cygdrive/c/space/cuongd/.ssh/id_rsa test.txt oqa@frak16:/cygdrive/c/space/oqa
-</code></pre>
-
-<p>Note that files transferred over <code>scp</code> may not be readable (mode 000), regardless of file mode on the sending host.
-Therefore, remember to <code>chmod a+r</code> on the receiving host after file transfer, especially in an automation script, or you&rsquo;ll get errors related to file access/file not found.</p>
-
-<h4>Other troubleshooting tips</h4>
-
-<ul>
-<li>You may miss adding/setting some environment variables, e.g., <code>PATH</code>. After editing environment variables, you may need to restart your SSHD on a <strong>new</strong> Command Prompt windows to have those new environment variables in effect.</li>
-<li>Remember to disable firewall on Windows machines.</li>
-</ul>
-
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://www.mls-software.com/opensshd.html">Latest OpenSSH installer</a></li>
-<li><a href="http://www.cnx-software.com/2012/07/20/how-use-putty-with-an-ssh-private-key-generated-by-openssh/">Use Putty with an SSH private key generated by OpenSSH</a></li>
-<li><a href="http://www.worldgoneweb.com/2011/installing-openssh-on-windows-7/">And old tutorial</a>: uses an old OpenSSH installer from Sourceforge. Most of the steps are not needed in the new installers.</li>
-</ol>
-
 ]]></content>
   </entry>
   
