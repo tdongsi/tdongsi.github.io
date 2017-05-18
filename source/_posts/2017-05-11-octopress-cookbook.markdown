@@ -17,14 +17,13 @@ In summary, the workflow for writing blog in Octopress is as follows:
   * `rake generate`
     * After this step, the published artifacts are generated in the "public" directory.
   * `rake preview`
+    * Published pages will be served locally at "localhost:4000". Preview it in any browser.
+    * Updated Markdown files will be regenerated automatically.
 * Publish:
   * `rake generate`
+    * This step makes sure latest changes are added.
   * `rake deploy`
     * After this step, the content in the "public" directory is copied into "_deploy" directory and git add/commit/push to the remote Github branch.
-
-Markdown editing:
-
-* [Cheat sheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
 
 ### Setting up new blog
 
@@ -109,7 +108,16 @@ See [here](https://help.github.com/articles/error-permission-denied-publickey/) 
 * [Clone to a specific folder](http://stackoverflow.com/questions/651038/how-do-you-clone-a-git-repository-into-a-specific-folder)
 * [Github instructions on public SSH key](https://help.github.com/articles/error-permission-denied-publickey/)
 
-Recipes
+Recipes:
 
 * [Latex for Math formulas](http://blog.zhengdong.me/2012/12/19/latex-math-in-octopress/)
 * [New page](http://gangmax.me/blog/2012/05/04/add-about-page-in-octopress/)
+* [Include code from file](http://octopress.org/docs/plugins/include-code/)
+* [rake isolate/integrate](https://blog.pixelingene.com/2011/09/tips-for-speeding-up-octopress-site-generation/)
+* [Image](http://octopress.org/docs/plugins/image-tag/)
+
+Markdown editing tips:
+
+* [Cheat sheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
+* Use  `<!-- more —>` to specify Excerpt.
+* Internal link: `(/2012/01/05/hello-world)` gives the link "http://userName.github.io/repoName/blog/2012/01/05/hello-world"
