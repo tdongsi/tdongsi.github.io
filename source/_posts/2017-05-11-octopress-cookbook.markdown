@@ -8,6 +8,59 @@ categories:
 - Ruby
 ---
 
+### Basic workflow
+
+In summary, the workflow for writing blog in Octopress is as follows:
+
+* `rake new_post["Post title"]`
+* Edit & Preview:
+  * `rake generate`
+    * After this step, the published artifacts are generated in the "public" directory.
+  * `rake preview`
+* Publish:
+  * `rake generate`
+  * `rake deploy`
+    * After this step, the content in the "public" directory is copied into "_deploy" directory and git add/commit/push to the remote Github branch.
+
+Markdown editing:
+
+* [Cheat sheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
+
+### Setting up new blog
+
+This section assumes that we will publish in `gh-pages` branch which is more common (publishing in `master` branch only works for `username.github.io` repository).
+In general, any project that we work in a repo `foo` (with main development in branches `master`/`develop`) on Github can have associated documentation HTML site in `gh-pages` branch.
+Such documentation site can be accessed publicly at "username.github.io/foo/".
+Octopress allows easy generation of such static HTML sites.
+One can arrange such that each blog post is a tutorial or a documentation page, written in Markdown and "compiled" into HTML.
+
+The process of setting up such a static "documentation" site is as follows:
+
+1. Download the zip file from octopress master branch [here](https://github.com/imathis/octopress). Note that [this link](https://github.com/octopress/octopress) is version 3, which is different.
+1. Unzip the zip file into the repo. Rename it to "docs" or "octopress".
+1. Commit it to `master` or `develop` branch.
+1. Run `rake install` to generate files. Check in the generated files.
+1. Create `_deploy` folder for deployment. For new static site, `rake setup_github_pages` works.
+1. Start blogging/writing documentation. Use the workflow in the last section: `rake generate` -> `rake preview` -> `rake deploy`.
+1. For layout editing, check out one of early commits in [this repo](https://github.com/tdongsi/javascript).
+
+NOTE: when previewing the one published in `gh-pages`, you need to edit "destination: public" in `_config.yml` file to "destination: public/repo_name".
+
+### Add a new page
+
+This section is about adding a new page, opposed to a new post.
+The common examples of such page in an Octopress-based blog is "About" page or "Resume" page.
+To create a new page, use the following command:
+
+```
+rake new_page["About"]
+```
+
+This will create a new file at "source/about/index.markdown" and you can edit that file to add content.
+After `rake generate` command, the "source/about/index.markdown" will "compiled" into "public/about/index.html" that is displayed in the web browser.
+After the page content is ready, you may want to add an "About" link in the navigation bar to that page. 
+To do that, edit the file "source/_includes/custom/navigation.html".
+
 ### Deployment
 
 Octopress deploys latest changes with the command `rake deploy`. 
@@ -55,3 +108,8 @@ See [here](https://help.github.com/articles/error-permission-denied-publickey/) 
 * [Clone a specific Git branch](http://stackoverflow.com/questions/1911109/how-to-clone-a-specific-git-branch)
 * [Clone to a specific folder](http://stackoverflow.com/questions/651038/how-do-you-clone-a-git-repository-into-a-specific-folder)
 * [Github instructions on public SSH key](https://help.github.com/articles/error-permission-denied-publickey/)
+
+Recipes
+
+* [Latex for Math formulas](http://blog.zhengdong.me/2012/12/19/latex-math-in-octopress/)
+* [New page](http://gangmax.me/blog/2012/05/04/add-about-page-in-octopress/)
