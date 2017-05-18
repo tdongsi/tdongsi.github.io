@@ -6,7 +6,6 @@ comments: true
 categories: 
 - Vertica
 - SQL
-- SQLite
 ---
 
 I am pleasantly surprised that Vertica SQL supports `WITH` clause, as documented [here](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm).
