@@ -1,9 +1,9 @@
 ---
 layout: post
 title: "Jenkins Pipeline Shared Libraries"
-date: 2017-02-17 14:38:14 -0800
+date: 2017-03-17 14:38:14 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Jenkins
 - Git
