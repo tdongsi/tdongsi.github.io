@@ -59,3 +59,4 @@ For Maven, use this.
 ### References
 
 * [Gradle build environment](https://docs.gradle.org/current/userguide/build_environment.html)
+* https://discuss.gradle.org/t/gradle-gradle-properties-file-not-being-read/7574/12 
