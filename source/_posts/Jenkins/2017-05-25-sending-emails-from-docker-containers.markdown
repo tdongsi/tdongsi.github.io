@@ -8,15 +8,18 @@ categories:
 - Jenkins
 ---
 
-Sending email at the end of pipeline in a containerized Jenkins system.
+In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.
 
-### Sending SMTP email
+### Sending emails in standard Jenkins setup
 
-[Setup Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04)
+We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by [setting up Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04).
 
 ``` plain /etc/postfix/main.cf
-# See /usr/share/postfix/main.cf.dist for a commented, more complete version
+# See /usr/share/postfix/main.cf.bak for a commented, more complete version
 
+myhostname = dev-worker-1.example.com
 smtpd_banner = $myhostname ESMTP $mail_name
 biff = no
 
@@ -38,7 +41,7 @@ smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
 
-myhostname = dev-worker-1.example.com
+
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = dev-worker-1.example.com
@@ -93,8 +96,9 @@ For the second requirement, the whole docker network as well as localhost should
 In our kubernetes setup, the docker network should be `flannel0`, add this following line below the `mynetworks` lines:
 
 ``` plain Modified /etc/postfix/main.cf
-# See /usr/share/postfix/main.cf.dist for a commented, more complete version
+# See /usr/share/postfix/main.cf.bak for a commented, more complete version
 
+myhostname = dev-worker-1.example.com
 smtpd_banner = $myhostname ESMTP $mail_name
 biff = no
 
@@ -116,7 +120,6 @@ smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
 
-myhostname = dev-worker-1.example.com
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = dev-worker-1.example.com
@@ -137,3 +140,8 @@ Note the differences in `inet_interfaces` and `mynetworks`.
 * [Setup Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04)
 * [Configure Postfix for Docker Containers](http://docs.blowb.org/setup-host/postfix.html)
 * [More on Postfix for Docker Containers](http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/)
+
+TODO
+
+* https://stackoverflow.com/questions/26215021/configure-sendmail-inside-a-docker-container
+* https://serverfault.com/questions/631941/send-mail-from-docker-container-with-hosts-postfix 
