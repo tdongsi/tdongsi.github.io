@@ -16,7 +16,7 @@ In this post, we looks into sending notification emails at the end of CI pipelin
 We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
 For corporate network, you may have to use an SMTP relay server instead.
 For those cases, you can configure SMTP communication by [setting up Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04).
-A typical SMTP settings is defined in `main.cf` file like this:
+Its typical settings is defined in */etc/postfix/main.cf* file like this:
 
 ``` plain /etc/postfix/main.cf example
 # See /usr/share/postfix/main.cf.bak for a commented, more complete version
@@ -66,13 +66,13 @@ postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address 
 
 After the `postfix` service is up, Jenkins can be configured to send email with [Mailer plugin](https://wiki.jenkins-ci.org/display/JENKINS/Mailer).
 Mail server can be configured in **Manage Jenkins** page, **E-mail Notification** section.
-You can visit [this post](http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email) for more detailed instructions and screenshots.
-You can also test the configuration by sending test e-mail in the same **E-mail Notification** section.
+Please visit [this post](http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email) for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same **E-mail Notification** section.
 
 ### Sending email from container
 
 Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with [Kubernetes plugin](https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin)). 
-For email notifications in such CI systems, one option is to reuse `postfix` service that is usually already configured and ready on the Kubernetes nodes and expose it to the Docker containers.
+For email notifications in such CI systems, one option is to reuse `postfix` service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.
 
 There are two changes need to be made on Postfix to expose it to Docker containers on one host.
 
@@ -141,7 +141,7 @@ inet_interfaces = localhost, 172.22.91.1
 inet_protocols = all
 ```
 
-Note the differences in `inet_interfaces` and `mynetworks`.
+Note the differences in `inet_interfaces` and `mynetworks` from the last section.
 One can simply enter the Docker container/Kubernetes pod to verify such setup. 
 Note that application `mailx` maybe not available in a container since we tend to keep the containers light-weight.
 Instead, prepare a `sendmail.txt` file (based on [this](http://docs.blowb.org/setup-host/postfix.html)) with the following SMTP commands and use `nc` to send out the email as shown below.
