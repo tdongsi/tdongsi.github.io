@@ -10,41 +10,67 @@ categories:
 - Groovy
 ---
 
-Use Jenkinsfile as Infrastructure as Code.
-
 When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles [DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself). 
-A very common use case is that you have many projects that are built in the similar way.
+A very common use case is that you have many projects that are built in the similar way, such as Nexus authentication step in Gradle build.
 One way is to use [Workflow plugin](https://github.com/jenkinsci/workflow-cps-global-lib-plugin).
-
 Comprehensive user documentation can be found in [this section](https://jenkins.io/doc/book/pipeline/shared-libraries/) of Jenkins handbook.
 
-However, there is an older way of sharing code is to deploy the Groovy sources to Jenkins.
+In the following sections, we review the older ways of updating shared Groovy code which are still used in some Jenkins system.
 
-1) Copy to the folder and restart Jenkins.
+### Simple copying
 
-http://stackoverflow.com/questions/29826559/loading-multiple-build-scripts-dry-using-jenkins-workflow-plugin
+A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its `$JENKINS_HOME`. 
+All such Groovy files are stored in *$JENKINS_HOME/workflow-libs* folder, following this directory structure:
 
-`git pull` and then restart.
+``` plain Directory structure of a Shared Library repository
+(root)
++- src                     # Groovy source files
+|   +- org
+|       +- foo
+|           +- Bar.groovy  # for org.foo.Bar class
++- vars
+|   +- foo.groovy          # for global 'foo' variable
+|   +- foo.txt             # help for 'foo' variable
++- resources               # resource files (external libraries only)
+|   +- org
+|       +- foo
+|           +- bar.json    # static helper data for org.foo.Bar
+```
 
-2) A more scalable solution is to use Git, exposed by Jenkins.
+By manually modifying the Groovy files (e.g., *vars/foo.groovy*) and restarting Jenkins, you can update their behaviors accordingly. 
+This method is dirty since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.
 
-This older method is no longer mentioned in documentation, as of February 2017.
+### Git-based update
+
+A more scalable alternative for updating Groovy codes is to use `git push`, exposed by Jenkins.
+
+As a side note, this method is no longer mentioned in documentation, as of March 2017.
 In fact, you have to look into a [very old commit](https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d) 
 or [outdated, unofficial fork](https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib) to find this method briefly mentioned at all.
-
 It is also occasionally mentioned in support articles such as [this](https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs).
 
-Jenkins acts as [an SSH server](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH).
+In this method, the directory *$JENKINS_HOME/workflow-libs* is exposed by Jenkins as a Git repository. 
+You can deploy new changes to this directory through `git push` and any such event will trigger Jenkins to recompile Groovy files. 
+There is no Jenkins restart required for this method.
+Having the shared library scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.
+The Git repository is exposed in two endpoints:
 
-### Jenkinsfile to update global library
+* http://server/jenkins/workflowLibs.git (when your Jenkins is `http://server/jenkins/`).
+* ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as [an SSH server](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH))
 
-```
+#### Jenkinsfile to update global library
+
+In this Git-based update approach, all Groovy files should be in some Git repository (e.g., "shared-lib") with directory structure shown in the last section. 
+Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in the Git repository to update Jenkins.
+The Jenkinsfile for such workflow-libs should be as follows:
+
+``` 
   stage 'Checkout'
   checkout scm
 
   if (env.BRANCH_NAME == 'master') {
     stage 'Commit'
-    println "Committing to Jenkins Global Library"
+    println "Committing to Jenkins workflow-libs"
     sshagent(['jenkins_ssh_key']) {
       sh """
          git branch master
@@ -57,16 +83,22 @@ Jenkins acts as [an SSH server](https://wiki.jenkins-ci.org/display/JENKINS/Jenk
   }
 ```
 
-`sshagent(['jenkins_ssh_key'])` indicates that the current slave is known as an SSH agent to Jenkins master, 
-using Jenkins credentials with ID `jenkins_ssh_key`. 
-The credential `jenkins_ssh_key` is a global.
-
-The stage "Checkout" checks out the latest code from Git repo (the same repository and branch of the current Jenkinsfile).
+`sshagent(['jenkins_ssh_key'])` indicates that the current node/slave is known as an SSH agent to Jenkins master, using Jenkins credentials with ID `jenkins_ssh_key`. 
 `git remote add` uses the currently checked out Git repo and branch as a remote branch (named "jenkins") to the `workflowLibs` repository.
-The `workflowLibs` repository is managed by Jenkins, exposed at that location. 
+The `workflowLibs` repository is managed by Jenkins, exposed at that location *ssh://tdongsi@\${JENKINS_PORT_12222_TCP_ADDR}:12222/workflowLibs.git*. 
 Then we force push any new changes to the Git repository on Jenkins. 
-After the push, the Git repository `workflowLibs` on Jenkins should have latest change.
-The cool thing about this setup is that upon a push event, the Jenkins will automatically update its global library, without the need of restarting.
+After the push, the Git repository `workflowLibs` on Jenkins should have latest change, same as the current "shared-lib" repository.
+Upon a `git push` event, the Jenkins will automatically update its global library, without the need of restarting.
+
+### Jenkinsfile as "Infrastructure as Code"
+
+Jenkinsfiles have been extensively used for creating CI/CD pipelines at work.
+It provides many benefits, associated with "Infrastructure as Code" paradigm:
+
+* Code review/iteration on the pipelines.
+* Audit trail. Less risk for human error.
+* Single source of truth.
+* Easy/Quick restoration of the pipelines in the events of catastrophe/moving Jenkins.
 
 ### References
 
