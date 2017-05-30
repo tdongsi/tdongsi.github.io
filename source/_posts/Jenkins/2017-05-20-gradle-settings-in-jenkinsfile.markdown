@@ -33,7 +33,9 @@ We usually add the credentials into our Maven Settings in *settings.xml* file.
 </settings>
 ```
 
-In Jenkins, it is not safe to store credentials in plain text files.
+However, for automated build and deployment in Jenkins pipelines, it is not safe to store credentials in plain text files. 
+Instead, one should store Nexus credentials as [secrets in Jenkins](https://wiki.jenkins-ci.org/display/JENKINS/Credentials+Plugin) and pass them into Jenkinsfile using their IDs (`credentialsId`). 
+See [this article](https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs) for the full picture of related plugins used for storing and passing secrets in Jenkins.
 
 ``` groovy Nexus authentication for Maven in Jenkinsfile.
   withCredentials([
@@ -49,7 +51,8 @@ In Jenkins, it is not safe to store credentials in plain text files.
   }
 ```
 
-TODO: explain withCredentials and credentialsId.
+The step `withCredentials` will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
+`mvnSettingsFile` is my Groovy function that generates the `settings.xml` based on the pre-defined format and provided Nexus credentials.
 
 ### Gradle
 
@@ -104,7 +107,7 @@ Compared with Maven solution in the last section, there is no intermediate step 
 ### More Tips
 
 If Maven/Gradle build is used in multiple repositories across organization, it is recommended to move the above Groovy code into shared Jenkins library, as shown in [last post](/blog/2017/03/17/jenkins-pipeline-shared-libraries/).
-For example, the Gradle builds can be simplified by adding this into common workflow-lib.
+For example, the Gradle builds can be simplified by adding this into the shared library *workflow-lib*.
 
 ``` groovy useNexus.groovy
 def call(Closure body) {
@@ -131,9 +134,10 @@ useNexus {
 }
 ```
 
-As shown above, it will reduce lots of redundant codes repeated again and again in Jenkinsfile across multiple repositories in an organizaiton for Gradle builds.
+As shown above, it will reduce lots of redundant codes for Gradle builds, repeated again and again in Jenkinsfiles across multiple repositories in an organizaiton.
 
 ### References
 
+* [Secrets in Jenkins build jobs](https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs)
 * [Gradle build environment](https://docs.gradle.org/current/userguide/build_environment.html)
 * [Stackoverflow dicussion](https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe): for older versions of Gradle.
