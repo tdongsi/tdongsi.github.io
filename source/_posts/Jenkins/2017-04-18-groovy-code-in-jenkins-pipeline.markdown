@@ -9,10 +9,26 @@ categories:
 - Jenkins
 ---
 
+In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.
 
+### Basic example of Loading Groovy scripts
 
+``` plain script example.groovy
+def example1() {
+  println 'Hello from example1'
+}
 
-``` plain Jenkinsfile
+def example2() {
+  println 'Hello from example2'
+}
+
+return this
+```
+
+The `example.groovy` script defines `example1` and `example2` functions before ending with `return this`. 
+Note that `return this` is definitely required and one common mistake is to forget ending the Groovy script with it.
+
+``` groovy Jenkinsfile
 def code
 
 node('java-agent') {
@@ -32,21 +48,12 @@ node('java-agent') {
 code.example2()
 ```
 
-``` plain script example.groovy
-def example1() {
-  println 'Hello from example1'
-}
+In Jenkinsfile, simply use [`load` step](https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script) to load the Groovy script.
+After the Groovy script is loaded, the functions insides can be used where it can be referenced, as shown above.
 
-def example2() {
-  println 'Hello from example2'
-}
+### Demo: Processing Github JSON from Groovy
 
-return this
-```
-
-The `example.groovy` script defines `example1` and `example2` functions before ending with return this.
-
-### Processing Github JSON from Groovy
+In this demo, we first show how to process JSON response from Github API in Groovy.
 
 ``` groovy Processing JSON from Github
 String username = System.getenv('GITHUB_USERNAME')
@@ -68,7 +75,7 @@ if ( bodyText.find('Safari') ) {
 }
 ```
 
-The equivalent bash command is
+The equivalent bash command for retrieving JSON response from Github API is as follows:
 
 ``` plain Equivalent bash command
 // Groovy formatted string
@@ -80,7 +87,10 @@ String example = 'curl -s -H "Authorization: token XXX" https://api.github.com/r
 
 ### Processing Github JSON from Jenkinsfile
 
-```
+Continuing the demo from the last section, we now put the Groovy code into a callable function in a script called "github.groovy". 
+Then, in our Jenkinsfile, we proceed to load the script and use the function to process JSON response from Github API.
+
+``` groovy github.groovy
 import groovy.json.JsonSlurper
 
 def getPrBody(String githubUsername, String githubToken, String repo, String id) {
@@ -98,7 +108,7 @@ def getPrBody(String githubUsername, String githubToken, String repo, String id)
 return this
 ```
 
-``` plain Jenkinsfile
+``` groovy Jenkinsfile
 def code
 
 node('java-agent') {
@@ -112,11 +122,12 @@ node('java-agent') {
   
   stage('Execute') {
     withCredentials([
-      [$class: 'UsernamePasswordMultiBinding', credentialsId: 'githubCredentials', passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
+      [$class: 'UsernamePasswordMultiBinding', credentialsId: 'githubCredentials', 
+      passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
     ]) {
-      code.test()
 
-      def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'Groovy4Jenkins', env.CHANGE_ID)
+      def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 
+                                    'Groovy4Jenkins', env.CHANGE_ID)
       println bodyText
 
     }
@@ -124,11 +135,13 @@ node('java-agent') {
 }
 ```
 
-### Troubleshooting
+### Troubleshooting tips
 
-A little bit about In-process Script Approval
+When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
+In those cases, usually it can be resolved by manually approving some method signatures in **Jenkins > Manage Jenkins > In-process Script Approval** page. 
+Adminstrators privilege is required for doing so.
 
-Named parameters do not work in Jenkinsfile
+Named parameters in Groovy apparently is not supported in Jenkinsfile:
 
 ``` groovy Named parameters
 // This does NOT work
@@ -143,8 +156,9 @@ java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [a
 ...
 ```
 
-Known issues about JsonSlurper: https://issues.jenkins-ci.org/browse/JENKINS-35140
+There is also some known [issue about JsonSlurper](https://issues.jenkins-ci.org/browse/JENKINS-35140).
 
 ### Reference
 
 * [JenkinsCI example](https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file)
+* [`load` step](https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script)
