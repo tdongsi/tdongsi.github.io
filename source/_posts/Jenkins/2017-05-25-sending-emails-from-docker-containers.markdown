@@ -37,8 +37,6 @@ readme_directory = no
 smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
 smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
 smtpd_use_tls=yes
-smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
-smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
@@ -104,7 +102,7 @@ flannel0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1472
 For the second requirement, the whole docker network as well as localhost should be added to `mynetworks`. 
 In our kubernetes setup, the docker network should be `flannel0` and its subnet's CIDR notation is added to the `mynetworks` line:
 
-``` plain Modified /etc/postfix/main.cf
+``` plain Modified "/etc/postfix/main.cf"
 # See /usr/share/postfix/main.cf.bak for a commented, more complete version
 
 myhostname = dev-worker-1.example.com
@@ -123,8 +121,6 @@ readme_directory = no
 smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
 smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
 smtpd_use_tls=yes
-smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
-smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
@@ -184,3 +180,8 @@ In the case of many nodes in Kubernetes cluster with different `docker0` IP, the
 * [Setup Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04)
 * [Configure Postfix for Docker Containers](http://docs.blowb.org/setup-host/postfix.html)
 * [More on Postfix for Docker Containers](http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/)
+
+``` plain postfix version used in this post
+[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+mail_version = 2.10.1
+```
