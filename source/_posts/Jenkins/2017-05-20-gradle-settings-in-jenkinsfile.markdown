@@ -18,7 +18,7 @@ Maven builds in corporates usually use private repositories on Nexus, instead of
 To do that, we usually configure Maven to check Nexus instead of the default, built-in connection to Maven Central.
 These configurations is stored in ***~/.m2/settings.xml*** file.
 
-For authentication with Nexus and for deployment, we must provide credentials accordingly. 
+For authentication with Nexus and for deployment, we must [provide credentials accordingly](https://books.sonatype.com/nexus-book/reference/_adding_credentials_to_your_maven_settings.html). 
 We usually add the credentials into our Maven Settings in ***settings.xml*** file.
 
 ``` xml Example Credentials in settings.xml
@@ -33,7 +33,7 @@ We usually add the credentials into our Maven Settings in ***settings.xml*** fil
 </settings>
 ```
 
-In Jenkins, it is not safe to store those in files.
+In Jenkins, it is not safe to store credentials in plain text files.
 
 ``` groovy Nexus authentication for Maven in Jenkinsfile.
   withCredentials([
@@ -41,20 +41,43 @@ In Jenkins, it is not safe to store those in files.
     [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
   ]) {
     withEnv([
-      'ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/',
-      'ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases',
-      'ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots'
+      'nexusPublic=https://nexus.example.com/nexus/content/groups/public/'
     ]) {
       mvnSettingsFile(${env.nexusUsername}, ${env.nexusPassword})
     }
   }
 ```
 
+TODO: explain withCredentials and credentialsId.
+
 ### Gradle
 
-In Gralde, the authentication is specified in both build.gradle and graddle.settings file.
+In Gradle, Nexus authentication can be specified in both `build.gradle` and `gradle.properties` file.
 
-For Gradle, use this. Add link to Jenkins shared libraries.
+``` groovy Example build.gradle
+    repositories {
+        maven {
+            credentials {
+                username nexusUsername
+                password nexusPassword
+            }
+            url { nexusPublic }
+        }
+    }
+```
+
+``` properties Example gradle.properties
+nexusUsername=myUsername
+nexusPassword=password123
+nexusPublic=https://nexus.example.com/nexus/content/groups/public/
+```
+
+The default location of the `gradle.properties` file is `~/.gradle`. 
+This is due to the environment variable `GRADLE_USER_HOME` usually set to `~/.gradle`.
+For custom location of `~/.gradle`, ensure that the variable `GRADLE_USER_HOME` set accordingly.
+
+However, similar to Maven, for Jenkins pipeline automation, it is not safe to store credentials in plain text file `gradle.properties`.
+For that purpose, you should use the following Groovy code:
 
 ``` groovy Nexus authentication for Gradle in Jenkinsfile.
   withCredentials([
@@ -71,12 +94,12 @@ For Gradle, use this. Add link to Jenkins shared libraries.
   }
 ```
 
-Based on the https://docs.gradle.org/current/userguide/build_environment.html
+In Gradle, the solution is made easier because Gradle respects properies set through environment variales.
+Based on [its doc](https://docs.gradle.org/current/userguide/build_environment.html), if the environment variable name looks like ***ORG_GRADLE_PROJECT_prop=somevalue***, then Gradle will set a `prop` property on your project object, with the value of `somevalue`.
 
-If the environment variable name looks like ORG_GRADLE_PROJECT_prop=somevalue, then Gradle will set a prop property on your project object, with the value of somevalue
-
+TODO: shared libraries.
 
 ### References
 
 * [Gradle build environment](https://docs.gradle.org/current/userguide/build_environment.html)
-* https://discuss.gradle.org/t/gradle-gradle-properties-file-not-being-read/7574/12 
+* [Stackoverflow dicussion](https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe): for older versions of Gradle.
