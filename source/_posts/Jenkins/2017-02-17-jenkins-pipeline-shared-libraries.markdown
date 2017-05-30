@@ -71,14 +71,14 @@ The Jenkinsfile for such workflow-libs should be as follows:
   checkout scm
 
   if (env.BRANCH_NAME == 'master') {
-    stage 'Commit'
-    println "Committing to Jenkins workflow-libs"
+    stage 'Update'
+    println "Updating Jenkins workflow-libs"
     sshagent(['jenkins_ssh_key']) {
       sh """
          git branch master
          git checkout master
-         ssh-keyscan -H -p 12222 \${JENKINS_PORT_12222_TCP_ADDR} >> ~/.ssh/known_hosts
-         git remote add jenkins ssh://tdongsi@\${JENKINS_PORT_12222_TCP_ADDR}:12222/workflowLibs.git
+         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} >> ~/.ssh/known_hosts
+         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
          git push --force jenkins master
       """
     }
@@ -87,15 +87,26 @@ The Jenkinsfile for such workflow-libs should be as follows:
 
 Some comments on this Jenkinsfile:
 
-* `sshagent(['jenkins_ssh_key'])` indicates that the current node/slave is known as an SSH agent to Jenkins master, using Jenkins credentials with ID `jenkins_ssh_key`. 
+* `sshagent(['jenkins_ssh_key'])` indicates that the current node/slave is known as [an SSH agent](https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin) to Jenkins master, using Jenkins credentials with ID `jenkins_ssh_key`. 
 * `git remote add` uses the currently checked out Git repo and branch as a remote branch (named "jenkins") to the `workflowLibs` repository.
-* The `workflowLibs` repository is managed by Jenkins, exposed at that location *ssh://tdongsi@\${JENKINS_PORT_12222_TCP_ADDR}:12222/workflowLibs.git*. 
+* The `workflowLibs` repository is managed by Jenkins, exposed at that location *ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git*. 
 * Then we force push any new changes to the Git repository on Jenkins. 
 
 After the push, the Git repository `workflowLibs` on Jenkins should have latest change, same as the current "shared-lib" repository.
 Upon a `git push` event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
+Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.
 
-TODO: private key/ public key.
+``` plain Key pair generation
+mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
+
+jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
+Generating public/private rsa key pair.
+Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+```
+
+The generated public key should be added to the user via *jenkinsurl.com/user/tdongsi/configure* URL and private key should be added to the credentials ID `jenkins_ssh_key`.
 
 ### References
 
