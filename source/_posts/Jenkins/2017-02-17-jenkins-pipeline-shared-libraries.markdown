@@ -15,7 +15,7 @@ A very common use case is that you have many projects that are built in the simi
 One way is to use [Workflow plugin](https://github.com/jenkinsci/workflow-cps-global-lib-plugin).
 Comprehensive user documentation can be found in [this section](https://jenkins.io/doc/book/pipeline/shared-libraries/) of Jenkins handbook.
 
-In the following sections, we review the older ways of updating shared Groovy code which are still used in some Jenkins system.
+In the following sections, we review a couple **older**, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.
 
 ### Simple copying
 
@@ -38,7 +38,7 @@ All such Groovy files are stored in *$JENKINS_HOME/workflow-libs* folder, follow
 ```
 
 By manually modifying the Groovy files (e.g., *vars/foo.groovy*) and restarting Jenkins, you can update their behaviors accordingly. 
-This method is dirty since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.
+This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.
 
 ### Git-based update
 
@@ -51,20 +51,22 @@ It is also occasionally mentioned in support articles such as [this](https://sup
 
 In this method, the directory *$JENKINS_HOME/workflow-libs* is exposed by Jenkins as a Git repository. 
 You can deploy new changes to this directory through `git push` and any such event will trigger Jenkins to recompile Groovy files. 
-There is no Jenkins restart required for this method.
-Having the shared library scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.
+There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
 The Git repository is exposed in two endpoints:
 
 * http://server/jenkins/workflowLibs.git (when your Jenkins is `http://server/jenkins/`).
 * ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as [an SSH server](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH))
 
+This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., "shared-lib" on Github) and only `git push` to the `workflowLibs.git` repository in the event of deployment.
+Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.
+
 #### Jenkinsfile to update global library
 
-In this Git-based update approach, all Groovy files should be in some Git repository (e.g., "shared-lib") with directory structure shown in the last section. 
-Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in the Git repository to update Jenkins.
+In this Git-based update approach, all Groovy files should be in some Git repository (e.g., "shared-lib") with certain directory structure (shown in the last section). 
+Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
 The Jenkinsfile for such workflow-libs should be as follows:
 
-``` 
+``` plain Jenkinsfile for deployment
   stage 'Checkout'
   checkout scm
 
@@ -83,24 +85,18 @@ The Jenkinsfile for such workflow-libs should be as follows:
   }
 ```
 
-`sshagent(['jenkins_ssh_key'])` indicates that the current node/slave is known as an SSH agent to Jenkins master, using Jenkins credentials with ID `jenkins_ssh_key`. 
-`git remote add` uses the currently checked out Git repo and branch as a remote branch (named "jenkins") to the `workflowLibs` repository.
-The `workflowLibs` repository is managed by Jenkins, exposed at that location *ssh://tdongsi@\${JENKINS_PORT_12222_TCP_ADDR}:12222/workflowLibs.git*. 
-Then we force push any new changes to the Git repository on Jenkins. 
+Some comments on this Jenkinsfile:
+
+* `sshagent(['jenkins_ssh_key'])` indicates that the current node/slave is known as an SSH agent to Jenkins master, using Jenkins credentials with ID `jenkins_ssh_key`. 
+* `git remote add` uses the currently checked out Git repo and branch as a remote branch (named "jenkins") to the `workflowLibs` repository.
+* The `workflowLibs` repository is managed by Jenkins, exposed at that location *ssh://tdongsi@\${JENKINS_PORT_12222_TCP_ADDR}:12222/workflowLibs.git*. 
+* Then we force push any new changes to the Git repository on Jenkins. 
+
 After the push, the Git repository `workflowLibs` on Jenkins should have latest change, same as the current "shared-lib" repository.
-Upon a `git push` event, the Jenkins will automatically update its global library, without the need of restarting.
+Upon a `git push` event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
 
-### Jenkinsfile as "Infrastructure as Code"
-
-Jenkinsfiles have been extensively used for creating CI/CD pipelines at work.
-It provides many benefits, associated with "Infrastructure as Code" paradigm:
-
-* Code review/iteration on the pipelines.
-* Audit trail. Less risk for human error.
-* Single source of truth.
-* Easy/Quick restoration of the pipelines in the events of catastrophe/moving Jenkins.
+TODO: private key/ public key.
 
 ### References
 
-* https://github.com/jenkinsci/workflow-remote-loader-plugin
-
+* [Git-based update](https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib)
