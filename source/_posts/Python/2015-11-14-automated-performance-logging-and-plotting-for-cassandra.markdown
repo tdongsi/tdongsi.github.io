@@ -35,29 +35,24 @@ When running the script from command line, the following arguments must be provi
 
 Example:
 
+``` plain
 > python PerformanceLog.py -installDir C:\datastax -host localhost -jmxTerm lib\jmxterm.jar -osString win
+```
 
 **Output**
 
-* CSV file with each field for each JMX metric.
+* CSV file with each field for each JMX metric. Example:
 
-Example:
-
->	SSTableCount,DataSize,c95thPercentile
->
->	0,0,0.0
->
->	7,31306299,9337.784849999995
->
->	7,31306299,9262.307649999999
->
->	...
+``` plain CSV output
+SSTableCount,DataSize,c95thPercentile
+0,0,0.0
+7,31306299,9337.784849999995
+7,31306299,9262.307649999999
+...
+```
 
 * Records in a Cassandra table
-
-* Performance plot as PNG file (automatically generated from CSV output file)
-
-Example:
+* Performance plot as PNG file (automatically generated from CSV output file). Example:
 
 ![alt text](https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png "Performance Plot")
 

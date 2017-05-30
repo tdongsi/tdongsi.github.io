@@ -19,6 +19,8 @@ ssh-add /path/to/file/id_rsa.pem
 ``` plain Listing identities
 # Display the keys' fingerprints only
 ssh-add -l
+# Display same in MD5 format
+ssh-add -l -E md5
 # Display the entire public key
 ssh-add -L
 ```
