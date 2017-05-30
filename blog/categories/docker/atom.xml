@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Docker | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/docker/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-18T00:24:17-07:00</updated>
+  <updated>2017-05-30T00:49:12-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,274 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Sending Emails From Docker Containers]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/"/>
+    <updated>2017-05-25T13:42:45-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers</id>
+    <content type="html"><![CDATA[<p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+
+<h3>Sending emails in standard Jenkins setup</h3>
+
+<p>We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">setting up Postfix</a>.
+Its typical settings is defined in <em>/etc/postfix/main.cf</em> file like this:</p>
+
+<pre><code class="plain /etc/postfix/main.cf example"># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+
+myhostname = dev-worker-1.example.com
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+
+readme_directory = no
+
+# TLS parameters
+smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+smtpd_use_tls=yes
+
+# See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+# information on enabling SSL in the smtp client.
+
+
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = dev-worker-1.example.com
+mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+relayhost = smtprelay-prd.example.com
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = localhost
+inet_protocols = all
+</code></pre>
+
+<p>We can test the setup by sending a test email with the following command:</p>
+
+<pre><code class="plain Send a test email">[tdongsi@dev-worker-1 ~]# echo "Test localhost" | mailx -s Test tdongsi@example.com
+send-mail: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+</code></pre>
+
+<p>After the <code>postfix</code> service is up, Jenkins can be configured to send email with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Mailer">Mailer plugin</a>.
+Mail server can be configured in <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+Please visit <a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">this post</a> for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same <strong>E-mail Notification</strong> section.</p>
+
+<h3>Sending email from container</h3>
+
+<p>Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>).
+For email notifications in such CI systems, one option is to reuse <code>postfix</code> service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.</p>
+
+<p>There are two changes need to be made on Postfix to expose it to Docker containers on one host.</p>
+
+<ol>
+<li>Exposing Postfix to the docker network, that is, Postfix must be configured to bind to localhost as well as the docker network.</li>
+<li>Accepting all incoming connections which come from any Docker containers.</li>
+</ol>
+
+
+<p>Docker bridge (<code>docker0</code>) acts a a bridge between your ethernet port and docker containers so that data can go back and forth.
+We achieve the first requirement by adding the IP of <code>docker0</code> to <code>inet_iterfaces</code>.</p>
+
+<pre><code class="plain ifconfig example output">[centos@dev-worker-1 ~]$ ifconfig
+docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1472
+        inet 172.22.91.1  netmask 255.255.255.0  broadcast 0.0.0.0
+        ether 02:42:88:5f:24:28  txqueuelen 0  (Ethernet)
+        RX packets 8624183  bytes 18891507332 (17.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 15891332  bytes 16911210191 (15.7 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+flannel0: flags=4305&lt;UP,POINTOPOINT,RUNNING,NOARP,MULTICAST&gt;  mtu 1472
+        inet 172.22.91.0  netmask 255.255.0.0  destination 172.22.91.0
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+        RX packets 10508237  bytes 7051646109 (6.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 15511583  bytes 18744591891 (17.4 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</code></pre>
+
+<p>For the second requirement, the whole docker network as well as localhost should be added to <code>mynetworks</code>.
+In our kubernetes setup, the docker network should be <code>flannel0</code> and its subnet&rsquo;s CIDR notation is added to the <code>mynetworks</code> line:</p>
+
+<pre><code class="plain Modified "/etc/postfix/main.cf""># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+
+myhostname = dev-worker-1.example.com
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+
+readme_directory = no
+
+# TLS parameters
+smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+smtpd_use_tls=yes
+
+# See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+# information on enabling SSL in the smtp client.
+
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = dev-worker-1.example.com
+mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+relayhost = smtprelay-prd.example.com
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.22.0.0/16
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = localhost, 172.22.91.1
+inet_protocols = all
+</code></pre>
+
+<p>Note the differences in <code>inet_interfaces</code> and <code>mynetworks</code> from the last section.
+One can simply enter the Docker container/Kubernetes pod to verify such setup.
+Note that application <code>mailx</code> maybe not available in a container since we tend to keep the containers light-weight.
+Instead, prepare a <code>sendmail.txt</code> file (based on <a href="http://docs.blowb.org/setup-host/postfix.html">this</a>) with the following SMTP commands and use <code>nc</code> to send out the email as shown below.</p>
+
+<pre><code class="plain Send test email from container">mymac:k8s tdongsi$ kubectl --kubeconfig kubeconfig --namespace jenkins exec -it jenkins-8hgsn -- bash -il
+
+jenkins@jenkins-8hgsn:~/test$ cat sendmail.txt
+HELO x
+MAIL FROM: test@example.com
+RCPT TO: tdongsi@example.com
+DATA
+From: test@example.com
+To: $YOUR_EMAIL
+Subject: This is a test
+
+The test is successful
+
+.
+quit
+
+jenkins@jenkins-8hgsn:~/test$ nc 172.22.91.1 25 &lt;sendmail.txt
+220 dev-worker-1.eng.sfdc.net ESMTP Postfix
+250 dev-worker-1.eng.sfdc.net
+250 2.1.0 Ok
+250 2.1.5 Ok
+354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
+250 2.0.0 Ok: queued as 1EF9E60C34
+221 2.0.0 Bye
+</code></pre>
+
+<p>For containerized Jenkins system, mail server can also be configured in same <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+The only difference is the IP/hostname provided to <strong>SMTP server</strong> option.
+Instead of providing the known SMTP server&rsquo;s IP and host, one should use the IP of <code>docker0</code>, as explained above.
+In the case of many nodes in Kubernetes cluster with different <code>docker0</code> IP, the Docker container of Jenkins master should reside only on one host and <code>docker0</code>&rsquo;s IP on that host should be used.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">Standard email setup in Jenkins</a></li>
+<li><a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">Setup Postfix</a></li>
+<li><a href="http://docs.blowb.org/setup-host/postfix.html">Configure Postfix for Docker Containers</a></li>
+<li><a href="http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/">More on Postfix for Docker Containers</a></li>
+</ul>
+
+
+<pre><code class="plain postfix version used in this post">[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+mail_version = 2.10.1
+</code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Copy File Into a Container]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/"/>
+    <updated>2017-02-09T15:17:19-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container</id>
+    <content type="html"><![CDATA[<p>In the following scenario, we have a running Docker container or a running pod in Kubernetes cluster.
+We want to add some files into the running containers to fix some issue, verify, and commit the changes.</p>
+
+<h3>Best-case scenario: <code>docker cp</code></h3>
+
+<p>The most obvious way is to create a Dockerfile and rebuild the Docker image.
+The Dockerfile will look like this:</p>
+
+<pre><code class="plain Dockerfile">FROM olderImage
+ADD myfile /path/myfile
+...
+</code></pre>
+
+<p>However, in this approach, we need to stop the Docker containers, update, and re-run with the new Docker images.
+It does not work if we want to work with <strong><em>running</em></strong> containers.
+For running containers, the better way to add files into containers is to copy files into containers.
+For the more updated versions of Docker (1.8+), the recommended way for copying is to use <a href="https://docs.docker.com/engine/reference/commandline/cp/"><code>docker cp</code> command</a>.</p>
+
+<h3>Copy file directly</h3>
+
+<p><code>docker cp</code> does not always work, especially in older versions of Docker.
+In older versions of Docker, the <code>docker cp</code> command only allowed copying files from a <strong>container</strong> to the <strong>host</strong>.
+Only since Docker 1.8, copying files from the host to a container is added.
+You will get some error with unhelpful messages like this in older versions of Docker:</p>
+
+<pre><code class="plain Unsupported "docker cp"">[centos@comp ~]$ ls maven_3.3.9-3_all.deb
+maven_3.3.9-3_all.deb
+
+[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
+FATA[0000] Error: Path not specified
+[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
+FATA[0000] Error: Path not specified
+[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/
+FATA[0000] Error: Path not specified
+[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/maven_3.3.9-3_all.deb
+FATA[0000] Error: Path not specified
+</code></pre>
+
+<p>If you find yourself stuck with older versions of Docker, the alternative is to manually copy the files from hosts filesystem to containers filesystem location.
+First, you need to determine where the containers filesystem (volume) is mounted on the host:</p>
+
+<pre><code class="plain Using inspect to find Volume location">[centos@comp ~]$ sudo docker ps
+CONTAINER ID      IMAGE    COMMAND ...
+9a8d782156ca
+
+[centos@comp ~]$ sudo docker inspect -f { {.Id} } 9a8d782156ca
+9a8d782156ca9a3bd59545a18943de408ca58f42c4389c12e9bb43f4ad239d52
+
+[centos@comp ~]$ sudo docker inspect -f { {.Volumes} } 9a8d782156ca
+map[/home/jenkins:/var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438]
+[centos@comp ~]$ sudo ls /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
+test.txt
+</code></pre>
+
+<p>NOTE: In the shell commands above, there is no space between <code>{</code> (space is added for Jekyll blog engine).
+After the mounting path is determined, you can manipulate the container'ss filesystem directly, including copying files into it.</p>
+
+<pre><code class="plain Directly copy file into containers filesystem">[centos@comp ~]$ sudo cp maven_3.3.9-3_all.deb /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
+</code></pre>
+
+<p>You can verify such manipulation by <code>docker exec</code>-ing into the container and verify the files:</p>
+
+<pre><code class="plain Before and After">jenkins@9a8d782156ca:~$ ls
+test.txt
+
+jenkins@9a8d782156ca:~$ ls
+maven_3.3.9-3_all.deb  test.txt
+</code></pre>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/commandline/cp/">docker cp</a></li>
+<li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Docker: Override ENTRYPOINT]]></title>
@@ -404,235 +672,6 @@ The solution is simply reset flanneld with another subnet after resetting config
 </code></pre>
 
 <p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Kubernetes: Pause Container and Private Docker Registry]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/"/>
-    <updated>2017-01-16T11:48:05-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository</id>
-    <content type="html"><![CDATA[<p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
-
-<h3>Problem description</h3>
-
-<p>In this problem, Kubernetes cluster are all installed and configured.
-We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
-NAME            LABELS                                 STATUS    AGE
-kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
-kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
-kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
-tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
-pod "nginx" created
-</code></pre>
-
-<p>However, one can see the following error messages:</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
-NAME      READY     STATUS                                                                                       RESTARTS   AGE
-nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
-
-tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
-FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
-40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
-40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
-40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
-)
-</code></pre>
-
-<p>The full error message for the third event above is quoted below:</p>
-
-<p><blockquote><p>Failed to pull image &ldquo;gcr.io/google_containers/pause:0.8.0&rdquo;: image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get <a href="https://gcr.io/v1/_ping:">https://gcr.io/v1/_ping:</a> dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add <code>--insecure-registry gcr.io</code> to the daemon&rsquo;s arguments. In the case of HTTPS, if you have access to the registry&rsquo;s CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote></p>
-
-<h3>What is <code>pause</code> container?</h3>
-
-<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
-What is that <code>pause</code> container&rsquo;s purpose?
-The <code>pause</code> container essentially holds the network namespace for the pod.
-It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
-However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
-Normally, if the last process in a network namespace dies, the namespace will be destroyed.
-Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
-With <code>pause</code>, you will always have that one last thing in the namespace.</p>
-
-<h3><code>pause</code> container and private Docker registry</h3>
-
-<p>What trouble does such <code>pause</code> container can give us?
-As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
-If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
-And that is what error message quoted above indicates.
-However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
-One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
-Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
-0.8.0: Pulling from google_containers/pause
-a3ed95caeb02: Pull complete
-bccc832946aa: Pull complete
-Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
-Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
-
-tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
-
-tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
-The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
-5f70bf18a086: Mounted from tdongsi/nginx
-152b0ca1d7a4: Pushed
-0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
-</code></pre>
-
-<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
-In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
-
-<pre><code class="plain Custom kubelet option"># Add your own! 
-KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"
-</code></pre>
-
-<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
-In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
-Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
-
-<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
-We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
-
-<pre><code class="plain docker load">docker load -i /path/to/pause-amd64.tar
-</code></pre>
-
-<!--
-### Pulling fails even with pull image secret
-
-**WARNING**: 
-This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
-Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
-However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
-
-Validate
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
-</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
--->
-
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker Image for ETL Development in Vertica]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica/"/>
-    <updated>2016-09-01T11:38:27-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/09/01/docker-image-for-vertica</id>
-    <content type="html"><![CDATA[<p>Docker is Awesome!!!</p>
-
-<p>I wish I knew Docker earlier, before going through the hassle of creating VMs (<a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">one-node</a>
- or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node</a> cluster) for local ETL development and testing.
-Docker can make the whole setup even easier.
-It can be done in just a few commands, using <a href="https://github.com/tdongsi/vertica/tree/master/docker">a Vertica Dockerfile</a>, created based on <a href="https://github.com/wmarinho/docker-hp-vertica">this</a>.
-In addition to easy virtualization, Docker also enables the entire setup can be automated in a script, allowing it to be version-controlled (i.e., <a href="https://en.wikipedia.org/wiki/Infrastructure_as_Code">Infrastructure as Code</a>).</p>
-
-<p>Some notes about this Dockerfile, compared to <code>wmarinho</code>&rsquo;s:</p>
-
-<ul>
-<li>Added new schema, new user and new role as examples. Avoid using <code>dbadmin</code> user for development purpose.</li>
-<li>Added Java and Maven for Java-based ETL and automated test execution.</li>
-<li>Demonstrated running Bash and SQL scripts to initialize the container/database.</li>
-</ul>
-
-
-<h3>How to run</h3>
-
-<p>Before running <code>docker build</code>, download Vertica Community Edition from <a href="https://my.vertica.com/">https://my.vertica.com/</a> and place in the same folder as the <code>Dockerfile</code>.
-This <code>Dockerfile</code> takes &ldquo;vertica-7.2.3-0.x86_64.RHEL6.rpm&rdquo; as the install file.</p>
-
-<pre><code class="plain Windows output">epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
-$ docker build -t vertica .
-...
-
-epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
-$ docker images
-REPOSITORY          TAG                 IMAGE ID            CREATED
-SIZE
-vertica             latest              d2607fa1f457        13 seconds ago
-1.638 GB
-&lt;none&gt;              &lt;none&gt;              486163abe73f        11 minutes ago
-1.638 GB
-centos              centos6.6           2c886f766286        8 weeks ago
-202.6 MB
-
-epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
-$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t
--i d2607fa1f457 /bin/bash
-Info: no password specified, using none
-        Starting nodes:
-                v_docker_node0001 (127.0.0.1)
-        Starting Vertica on all nodes. Please wait, databases with large catalog
- may take a while to initialize.
-        Node Status: v_docker_node0001: (DOWN)
-        Node Status: v_docker_node0001: (DOWN)
-        Node Status: v_docker_node0001: (DOWN)
-        Node Status: v_docker_node0001: (DOWN)
-        Node Status: v_docker_node0001: (UP)
-Database docker started successfully
-creating schema
-CREATE SCHEMA
-creating user
-CREATE USER
-creating role
-CREATE ROLE
-grant usage, create on schema
-GRANT PRIVILEGE
-</code></pre>
-
-<h3>Troubleshooting Notes</h3>
-
-<p>In Mac OSX, remember that the <code>entrypoint.sh</code> file should have executable permission.
-Otherwise, you might get the error &ldquo;oci runtime error: exec: &rdquo;/entrypoint.sh": permission denied".
-After changing the file permission, you have to rebuild the image with <code>docker build</code> before <code>docker run</code> again.</p>
-
-<h4>&ldquo;Insufficient resources&rdquo; error when running ETL</h4>
-
-<p>You might get &ldquo;Insufficient resources to execute plan on pool general &hellip; Memory exceeded&rdquo; error when running a large ETL script against the Vertica container.
-For complex ETL, Vertica might need additional memory to execute the query plan.
-Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work if using <strong>Docker Toolbox</strong>.
-To set higher memory allowance, stop the <code>docker-machine</code> and set memory as follows:</p>
-
-<pre><code class="plain">tdongsi$ docker-machine stop
-Stopping "default"...
-Machine "default" was stopped.
-
-tdongsi$ VBoxManage modifyvm default --memory 8192
-
-tdongsi$ docker-machine start
-Starting "default"...
-(default) Check network to re-create if needed...
-(default) Waiting for an IP...
-Machine "default" was started.
-Waiting for SSH to be available...
-Detecting the provisioner...
-Started machines may have new IP addresses. You may need to re-run the `docker-machine env` command.
-</code></pre>
-
-<p>Note that after running the above commands, <code>docker-machine inspect</code> still shows <code>"Memory":"2048"</code>.
-To verify if memory is properly allocated as desired, run <code>free</code> command, for example, inside the container to verify.</p>
-
-<h3>Links</h3>
-
-<ul>
-<li><a href="https://github.com/tdongsi/vertica/tree/master/docker">My Dockerfile for ETL development and testing on Vertica</a></li>
-<li><a href="https://github.com/wmarinho/docker-hp-vertica">Original Dockerfile</a></li>
-<li><a href="https://www.docker.com/">Docker</a></li>
-</ul>
-
 ]]></content>
   </entry>
   

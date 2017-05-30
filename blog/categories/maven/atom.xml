@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Maven | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/maven/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-18T00:24:17-07:00</updated>
+  <updated>2017-05-30T00:49:12-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,141 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Maven and Gradle Builds in Jenkinsfile]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile/"/>
+    <updated>2017-05-20T23:27:08-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile</id>
+    <content type="html"><![CDATA[<p>In this post, we will look into Nexus authentication for Maven and Gradle builds in Jenkins pipelines.</p>
+
+<h3>Maven</h3>
+
+<p>Maven builds in corporates usually use private repositories on Nexus, instead of public ones in Maven Central Repository.
+To do that, we usually configure Maven to check Nexus instead of the default, built-in connection to Maven Central.
+These configurations is stored in <em>~/.m2/settings.xml</em> file.</p>
+
+<p>For authentication with Nexus and for deployment, we must <a href="https://books.sonatype.com/nexus-book/reference/_adding_credentials_to_your_maven_settings.html">provide credentials accordingly</a>.
+We usually add the credentials into our Maven Settings in <em>settings.xml</em> file.</p>
+
+<pre><code class="xml Example Credentials in settings.xml">&lt;settings&gt;
+  &lt;servers&gt;
+    &lt;server&gt;
+      &lt;id&gt;nexus&lt;/id&gt;
+      &lt;username&gt;deployment&lt;/username&gt;
+      &lt;password&gt;deployment123&lt;/password&gt;
+    &lt;/server&gt;
+  &lt;/servers&gt;
+&lt;/settings&gt;
+</code></pre>
+
+<p>However, for automated build and deployment in Jenkins pipelines, it is not safe to store credentials in plain text files.
+Instead, one should store Nexus credentials as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Credentials+Plugin">secrets in Jenkins</a> and pass them into Jenkinsfile using their IDs (<code>credentialsId</code>).
+See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">this article</a> for the full picture of related plugins used for storing and passing secrets in Jenkins.</p>
+
+<pre><code class="groovy Nexus authentication for Maven in Jenkinsfile.">  withCredentials([
+    [$class: 'StringBinding', credentialsId: 'nexusUsername', variable: 'nexusUsername'],
+    [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
+  ]) {
+    withEnv([
+      'nexusPublic=https://nexus.example.com/nexus/content/groups/public/'
+    ]) {
+      mvnSettingsFile(${env.nexusUsername}, ${env.nexusPassword})
+      sh `mvn -s settings.xml clean build`
+    }
+  }
+</code></pre>
+
+<p>The <a href="https://jenkins.io/doc/pipeline/steps/credentials-binding/">step <code>withCredentials</code></a> will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
+<code>mvnSettingsFile</code> is my Groovy function that generates the <code>settings.xml</code> based on the pre-defined format and provided Nexus credentials.</p>
+
+<h3>Gradle</h3>
+
+<p>In Gradle, Nexus authentication can be specified in both <code>build.gradle</code> and <code>gradle.properties</code> file, where <code>build.gradle</code> should be checked into VCS (e.g., git) while <code>gradle.properties</code> contains sensitive credentials information.</p>
+
+<pre><code class="groovy Example build.gradle">    repositories {
+        maven {
+            credentials {
+                username nexusUsername
+                password nexusPassword
+            }
+            url { nexusPublic }
+        }
+    }
+</code></pre>
+
+<pre><code class="properties Example gradle.properties">nexusUsername=myUsername
+nexusPassword=password123
+nexusPublic=https://nexus.example.com/nexus/content/groups/public/
+</code></pre>
+
+<p>The default location of the <code>gradle.properties</code> file is <code>~/.gradle</code>.
+This is due to the environment variable <code>GRADLE_USER_HOME</code> usually set to <code>~/.gradle</code>.
+For custom location of <code>gradle.properties</code> (i.e., other than <code>~/.gradle</code>), ensure that the variable <code>GRADLE_USER_HOME</code> is set accordingly.</p>
+
+<p>However, similar to Maven, for Jenkins pipeline automation, it is not safe to store credentials in plain text file <code>gradle.properties</code>, no matter how &ldquo;hidden&rdquo; its location is.
+For that purpose, you should use the following Groovy code:</p>
+
+<pre><code class="groovy Nexus authentication for Gradle in Jenkinsfile.">  withCredentials([
+    [$class: 'StringBinding', credentialsId: 'nexusUsername', variable: 'ORG_GRADLE_PROJECT_nexusUsername'],
+    [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'ORG_GRADLE_PROJECT_nexusPassword']
+  ]) {
+    withEnv([
+      'ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/',
+      'ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases',
+      'ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots'
+    ]) {
+      sh './gradlew jenkinsBuild'
+    }
+  }
+</code></pre>
+
+<p>Note that, in Gradle, the solution is much simpler because Gradle respects properies set through environment variales.
+Based on <a href="https://docs.gradle.org/current/userguide/build_environment.html">its doc</a>, if the environment variable name looks like <strong><em>ORG_GRADLE_PROJECT_prop=somevalue</em></strong>, then Gradle will set a <code>prop</code> property on your project object, with the value of <code>somevalue</code>.
+Therefore, in <code>withCredentials</code> step, we specifically bind the secrets <code>nexusUsername</code> and <code>nexusPassword</code> to the environment variables <em>ORG_GRADLE_PROJECT_nexusUsername</em> and <em>ORG_GRADLE_PROJECT_nexusPassword</em> and not some arbitrary variable names.
+These environment variables should match the ones used in <code>builde.gradle</code> and, in the following Closure, we simply call the standard Gradle wrapper command <code>./gradlew &lt;target&gt;</code>.
+Compared with Maven solution in the last section, there is no intermediate step to generate <code>settings.xml</code> based on the provided secrets.</p>
+
+<h3>More Tips</h3>
+
+<p>If Maven/Gradle build is used in multiple repositories across organization, it is recommended to move the above Groovy code into shared Jenkins library, as shown in <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">last post</a>.
+For example, the Gradle builds can be simplified by defining <code>useNexus</code> step (see <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/#defining-steps">here</a>) and adding it into the shared library <em>workflow-lib</em>.</p>
+
+<pre><code class="groovy vars/useNexus.groovy">def call(Closure body) {
+  withCredentials([
+    [$class: 'StringBinding', credentialsId: 'nexusUsername', variable: 'ORG_GRADLE_PROJECT_nexusUsername'],
+    [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'ORG_GRADLE_PROJECT_nexusPassword']
+  ]) {
+    withEnv([
+      'ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/',
+      'ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases',
+      'ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots'
+    ]) {
+      body()
+    }
+  }
+}
+</code></pre>
+
+<p>After that, all the Gradle builds with Nexus authentication in Jenkinsfile will now be reduced to simply this:</p>
+
+<pre><code class="groovy Simplified Nexus authentication for Gradle in Jenkinsfile.">useNexus {
+  sh './gradlew jenkinsBuild'
+}
+</code></pre>
+
+<p>As shown above, it will reduce lots of redundant codes for Gradle builds, repeated again and again in Jenkinsfiles across multiple repositories in an organizaiton.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">Secrets in Jenkins build jobs</a></li>
+<li><a href="https://docs.gradle.org/current/userguide/build_environment.html">Gradle build environment</a></li>
+<li><a href="https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe">Stackoverflow dicussion</a>: for older versions of Gradle.</li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Java: Unit Test Performance]]></title>

@@ -9,8 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="We have all seen it before: intermittent unit test failures.
-It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit &hellip;">
+  <meta name="description" content="Problem I have been commuting to San Francisco using BART.
+For BART commutes, before having the Monthly Parking Permit, you usually have no choice &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -105,7 +105,7 @@ It could be agonizing that unit tests pass locally, but then fail in the Jenkins
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/06/30/java-intermittent-test-failures/">Unit Tests Pass on Local but Fail on CI</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a></h1>
     
     
       <p class="meta">
@@ -114,161 +114,33 @@ It could be agonizing that unit tests pass locally, but then fail in the Jenkins
 
 
 
-<time class='entry-date' datetime='2016-06-30T17:51:13-07:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:51 pm</span></time>
+<time class='entry-date' datetime='2016-10-30T17:12:31-07:00'><span class='date'><span class='date-month'>Oct</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:12 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>We have all seen it before: intermittent unit test failures.
-It could be agonizing that unit tests pass locally, but then fail in the Jenkins unit test build.</p>
+  <div class="entry-content"><h3>Problem</h3>
 
-<p>In our experience, one of the most common causes is:
-<strong>static initialization code that dynamically sets a static member variable from a config file value.</strong></p>
+<p>I have been commuting to San Francisco using <a href="http://www.bart.gov/">BART</a>.
+For BART commutes, before having the Monthly Parking Permit, you usually have no choice but using Daily Parking Permits for car parking.
+You will often end up having to download multiple PDF files for the daily permits and print them to put on your vehicle&rsquo;s dashboard.
+The <a href="https://www.select-a-spot.com/bart/">BART reservation website</a> offers no easy way to download all of them in one click (see the screenshot).</p>
 
-<p>What happens locally?
-If you’re running from the command line, you probably have some environment variables set.
-These allow some ConfigHelper class to find the resource properties files and load them.
-In the end, code that looks like the following often ends up succeeding:</p>
+<p><img src="https://github.com/tdongsi/bart-parking/blob/develop/BART.jpg?raw=true" title="Screenshot" alt="BART Screenshot" /></p>
 
-<figure class='code'><figcaption><span>DbQueue class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MY_CONFIG</span> <span class="o">=</span> <span class="n">ConfigHelper</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="s">&quot;config_key&quot;</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>Personally, the BART commute itself is not that bad, especially when I usually find a seat.
+But it is really painful to download every &hellip; single &hellip; PDF &hellip; permit manually before printing them.</p>
 
+<h3>Solution</h3>
 
-<p>But the unit tests on the CI server run without being set up for a Tomcat application server run.
-Instead, they run using some mock framework such as JMockit.
-Mocking in this scenario is a good, desirable thing.
-However, it also means that code like that ends up failing to find those resources.
-In the example above, the class <code>DbQueue</code>&rsquo;s static code was invoked <strong>even though the class itself has been mocked out</strong>.
-And very often, classes like that throw some misleading exceptions, especially when trying to load and convert to a numeric value from a resource.</p>
+<p>I wrote <a href="https://github.com/tdongsi/bart-parking">some Python scripts</a> to automate the process of downloading every single permits.
+The scripts requires <a href="http://docs.python-requests.org/en/master/user/install"><code>requests</code> package</a> installed before running.
+Usually, a simple <code>pip install requests</code> command is all you need for its installation.
+Then, simply run the <code>main.py</code> script and input your username and password, as shown below.</p>
 
-<p>So, how do we fix it?
-How do we prevent that class static member initialization code from being invoked in Jenkins test build?
-The answer is when we mock the class in JMockit using the <code>@Mocked</code> annotation, we can provide the <code>stubOutClassInitialization=true</code> parameter, like this:</p>
-
-<figure class='code'><figcaption><span>Mock with JMockit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyTest</span> <span class="o">{</span>
-</span><span class='line'>    <span class="nd">@Mocked</span><span class="o">(</span> <span class="n">stubOutClassInitialization</span> <span class="o">=</span> <span class="kc">true</span> <span class="o">)</span>
-</span><span class='line'>    <span class="n">DbQueue</span> <span class="n">queue</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="o">...</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
-The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/06/06/java-unit-test-performance/">Java: Unit Test Performance</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-06-06T22:47:42-07:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>10:47 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
-However, for that strategy to work, we should pay attention to unit test performance.
-It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
-In addition, the runtime will get compounded as we add more unit tests.
-Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
-
-<p>1) Do NOT add loggings/printing to your tests.
-Use TestNG assertions instead of checking screen output.
-Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
-The logs don&rsquo;t matter when we&rsquo;re running in parallel.
-Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
-
-<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
-This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
-For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
-
-<p>3) Mock logging and config classes if applicable.
-Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
-If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
-
-<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
-However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
-As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
-Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
-
-<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
-
-<figure class='code'><figcaption><span>Maven-surefire options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;parallel&gt;</span>classes<span class="nt">&lt;/parallel&gt;</span>
-</span><span class='line'><span class="nt">&lt;forkCount&gt;</span>${forkCount}<span class="nt">&lt;/forkCount&gt;</span>
-</span><span class='line'><span class="nt">&lt;reuseForks&gt;</span>false<span class="nt">&lt;/resuseForks&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">Convert Python Objects to JSON (Ordered Keys)</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-05-25T01:26:22-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>1:26 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In the JSON output shown in the last <a href="/blog/2016/05/21/convert-python-objects-to-json/">post</a>, the keys are printed out of order since they are unordered in the internal dictionary <code>__dict__</code>.
-In theory, it does not matter when converting to/from JSON.
-However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
-For example, in the <code>Config</code> object in the last post, it is better to see <code>source</code> and <code>target</code> configurations side by side and, then, get to know what kind of tests from <code>testName</code> key before reading details of tests in <code>queries</code> key.
-Setting <code>sort_keys</code> option in <code>json.dump</code> is not applicable here since the keys will be sorted by their names, not their order of appearance like we do in the Java example.</p>
-
-<p>To have the keys appear in order as defined when converting to JSON, we have two options:</p>
-
-<h3>Option 1: use OrderedDict as your base class</h3>
-
-<p>This option is just a quick and dirty workaround: our <code>Config</code> class should extend <code>collections.OrderedDict</code> class and, in the code, we refer to <code>object["att"]</code> instead of <code>object.att</code>.</p>
-
-<figure class='code'><figcaption><span>Example of using OrderedDict as your Config class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -286,174 +158,83 @@ Setting <code>sort_keys</code> option in <code>json.dump</code> is not applicabl
 <span class='line-number'>16</span>
 <span class='line-number'>17</span>
 <span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">OrderedConfig</span><span class="p">(</span><span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">pass</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>C:\Github\bart-parking\bart&gt;python main.py
+</span><span class='line'>bart-view   : INFO     Please input your username and password.
+</span><span class='line'>Username:YOUR_USERNAME
+</span><span class='line'>Password:
+</span><span class='line'>bart-view   : INFO     Done reading username and password
+</span><span class='line'>requests.packages.urllib3.connectionpool: INFO     Starting new HTTPS connection (1): www.select-a-spot.com
+</span><span class='line'>bart        : INFO     Login Response: https://www.select-a-spot.com/bart/users/login/ 302
+</span><span class='line'>bart        : INFO     Created folder to save permit PDF files.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1183167.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1183161.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1183136.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1180762.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1177938.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1177937.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1177935.
+</span><span class='line'>bart        : INFO     Finished downloading permit 1177929.
 </span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">ordered_config_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">query_generator</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">hive_source</span> <span class="o">=</span> <span class="n">OrderedConfig</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">hive_source</span><span class="p">[</span><span class="s">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;hive&quot;</span>
-</span><span class='line'>    <span class="n">hive_source</span><span class="p">[</span><span class="s">&quot;url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'>    <span class="n">vertica_target</span> <span class="o">=</span> <span class="n">OrderedConfig</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">vertica_target</span><span class="p">[</span><span class="s">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;vertica&quot;</span>
-</span><span class='line'>    <span class="n">vertica_target</span><span class="p">[</span><span class="s">&quot;url&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">config</span> <span class="o">=</span> <span class="n">OrderedConfig</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">config</span><span class="p">[</span><span class="s">&quot;source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hive_source</span>
-</span><span class='line'>    <span class="n">config</span><span class="p">[</span><span class="s">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vertica_target</span>
-</span><span class='line'>    <span class="n">config</span><span class="p">[</span><span class="s">&quot;testName&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;count&quot;</span>
-</span><span class='line'>    <span class="n">config</span><span class="p">[</span><span class="s">&quot;queries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">query_generator</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>C:\Github\bart-parking\bart&gt;</span></code></pre></td></tr></table></div></figure>
 
 
-<p>We have some extra typing, but in general, it is good enough for some configuration objects.
-Note that you can now dump your configuration object directly into file because it now behaves like a dictionary.</p>
+<h3>External links</h3>
 
-<figure class='code'><figcaption><span>Pretty print</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="nt">&quot;source&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;hive&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="nt">&quot;target&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;vertica&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="nt">&quot;testName&quot;</span><span class="p">:</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span>
-</span><span class='line'>    <span class="nt">&quot;queries&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+<ul>
+<li><a href="https://github.com/tdongsi/bart-parking">Github repo</a></li>
+</ul>
+
+</div>
+  
+  
 
 
-<h3>Option 2: use OrderedDict as your attribute dictionary.</h3>
-
-<p>In order to refer to attributes directly as <code>object.att</code> and still get JSON ordered like in the Java example, it will need some works.
-Note that the obvious solution <code>__dict__ = OrderedDict()</code> will NOT work due to a Python bug.</p>
-
-<figure class='code'><figcaption><span>Failed attempt due to a Python bug</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>   <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>       <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>      <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">vars</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I got an empty object as my JSON output.
-It can be pretty confusing since we can still refer to attributes using standard notation <code>object.att</code> and correctly retrieve values.
-After searching the web, I finally figured out that it is a known bug, as documented <a href="https://mail.python.org/pipermail/python-bugs-list/2006-April/033155.html">here</a>.
-It says that if <code>__dict__</code> is not an actual <code>dict()</code>, then it is ignored, and attribute lookup fails if using that dictionary directly.</p>
-
-<p>To work around that problem, we have to use <code>OrderedDict</code> as an attribute in <code>__dict__</code> and modify <code>__getattr__</code> and <code>__setattr__</code> methods to use this <code>OrderedDict</code> instead.
-The modified <code>Config</code> class and modified <code>default=</code> parameter is shown below.</p>
-
-<figure class='code'><figcaption><span>Modified Config class</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">ODICT</span> <span class="o">=</span> <span class="s">&quot;odict&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">]</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">][</span><span class="n">item</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span></code></pre></td></tr></table></div></figure>
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/09/01/docker-image-for-vertica/">Docker Image for ETL Development in Vertica</a></h1>
+    
+    
+      <p class="meta">
+        
 
 
 
 
-<figure class='code'><figcaption><span>Modified JSON dump</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="nb">vars</span><span class="p">(</span><span class="n">o</span><span class="p">)[</span><span class="n">Config</span><span class="o">.</span><span class="n">ODICT</span><span class="p">],</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+<time class='entry-date' datetime='2016-09-01T11:38:27-07:00'><span class='date'><span class='date-month'>Sep</span> <span class='date-day'>1</span><span class='date-suffix'>st</span>, <span class='date-year'>2016</span></span> <span class='time'>11:38 am</span></time>
+        
+      </p>
+    
+  </header>
 
 
-<p>The JSON output now has the keys appear in the order as they are defined, similar to Jackson example above:</p>
+  <div class="entry-content"><p>Docker is Awesome!!!</p>
 
-<figure class='code'><figcaption><span>Pretty print with ordering</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="nt">&quot;source&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;hive&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;192.168.5.184&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;cloudera&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;password&quot;</span><span class="p">:</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="nt">&quot;target&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;vertica&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;192.168.5.174&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;dbadmin&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;password&quot;</span><span class="p">:</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="nt">&quot;testName&quot;</span><span class="p">:</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span>
-</span><span class='line'>    <span class="nt">&quot;queries&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>I wish I knew Docker earlier, before going through the hassle of creating VMs (<a href="/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">one-node</a>
+ or <a href="/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/">three-node</a> cluster) for local ETL development and testing.
+Docker can make the whole setup even easier.
+It can be done in just a few commands, using <a href="https://github.com/tdongsi/vertica/tree/master/docker">a Vertica Dockerfile</a>, created based on <a href="https://github.com/wmarinho/docker-hp-vertica">this</a>.
+In addition to easy virtualization, Docker also enables the entire setup can be automated in a script, allowing it to be version-controlled (i.e., <a href="https://en.wikipedia.org/wiki/Infrastructure_as_Code">Infrastructure as Code</a>).</p>
+
+<p>Some notes about this Dockerfile, compared to <code>wmarinho</code>&rsquo;s:</p>
+
+<ul>
+<li>Added new schema, new user and new role as examples. Avoid using <code>dbadmin</code> user for development purpose.</li>
+<li>Added Java and Maven for Java-based ETL and automated test execution.</li>
+<li>Demonstrated running Bash and SQL scripts to initialize the container/database.</li>
+</ul>
 
 
-<p>With that, for configuration editing purposes, using the Python object to JSON conversion is more convenient than Java (POJO) to JSON conversion.
-We can add new custom attributes if needed without having to define a new class.
-The <code>Config</code> class is all you need for all configuration writing.
-The full working code for converting Python object to JSON is shown below.</p>
+<h3>How to run</h3>
 
-<figure class='code'><figcaption><span>Full code</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<p>Before running <code>docker build</code>, download Vertica Community Edition from <a href="https://my.vertica.com/">https://my.vertica.com/</a> and place in the same folder as the <code>Dockerfile</code>.
+This <code>Dockerfile</code> takes &ldquo;vertica-7.2.3-0.x86_64.RHEL6.rpm&rdquo; as the install file.</p>
+
+<figure class='code'><figcaption><span>Windows output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -490,219 +271,59 @@ The full working code for converting Python object to JSON is shown below.</p>
 <span class='line-number'>35</span>
 <span class='line-number'>36</span>
 <span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-<span class='line-number'>63</span>
-<span class='line-number'>64</span>
-<span class='line-number'>65</span>
-<span class='line-number'>66</span>
-<span class='line-number'>67</span>
-<span class='line-number'>68</span>
-<span class='line-number'>69</span>
-<span class='line-number'>70</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">collections</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">json</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+</span><span class='line'>$ docker build -t vertica .
+</span><span class='line'>...
 </span><span class='line'>
-</span><span class='line'><span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+</span><span class='line'>epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+</span><span class='line'>$ docker images
+</span><span class='line'>REPOSITORY          TAG                 IMAGE ID            CREATED
+</span><span class='line'>SIZE
+</span><span class='line'>vertica             latest              d2607fa1f457        13 seconds ago
+</span><span class='line'>1.638 GB
+</span><span class='line'>&lt;none&gt;              &lt;none&gt;              486163abe73f        11 minutes ago
+</span><span class='line'>1.638 GB
+</span><span class='line'>centos              centos6.6           2c886f766286        8 weeks ago
+</span><span class='line'>202.6 MB
 </span><span class='line'>
-</span><span class='line'>    <span class="n">ODICT</span> <span class="o">=</span> <span class="s">&quot;odict&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">]</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">][</span><span class="n">item</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ODICT</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">get_hive_config</span><span class="p">():</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Get pre-defined Hive configuration.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :return: Config object for Hive.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">conn</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s">&quot;hive&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s">&quot;192.168.5.184&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">user</span> <span class="o">=</span> <span class="s">&quot;cloudera&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s">&quot;password&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">conn</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">get_vertica_config</span><span class="p">():</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Get pre-defined Vertica configuration.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :return: Config object for Vertica.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">conn</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s">&quot;vertica&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s">&quot;192.168.5.174&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">user</span> <span class="o">=</span> <span class="s">&quot;dbadmin&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s">&quot;password&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">conn</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">create_config_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">query_generator</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">hive_source</span> <span class="o">=</span> <span class="n">get_hive_config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">vertica_target</span> <span class="o">=</span> <span class="n">get_vertica_config</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">hive_source</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">vertica_target</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">testName</span> <span class="o">=</span> <span class="s">&quot;count&quot;</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">queries</span> <span class="o">=</span> <span class="n">query_generator</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="nb">vars</span><span class="p">(</span><span class="n">o</span><span class="p">)[</span><span class="n">Config</span><span class="o">.</span><span class="n">ODICT</span><span class="p">],</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">FILE_NAME</span> <span class="o">=</span> <span class="s">&quot;hive_vertica_count.json&quot;</span>
-</span><span class='line'>    <span class="n">query_generator</span> <span class="o">=</span> <span class="n">generate_count_queries</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">create_config_file</span><span class="p">(</span><span class="n">FILE_NAME</span><span class="p">,</span> <span class="n">query_generator</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
-</span><span class='line'>    <span class="n">main</span><span class="p">()</span>
-</span></code></pre></td></tr></table></div></figure>
-
-</div>
-  
-  
+</span><span class='line'>epigineer@epigineerpc MINGW64 /c/Work/Github/vertica/docker (develop)
+</span><span class='line'>$ docker run -p 5433:5433 --hostname=verthost --privileged=true --memory 4G -t
+</span><span class='line'>-i d2607fa1f457 /bin/bash
+</span><span class='line'>Info: no password specified, using none
+</span><span class='line'>        Starting nodes:
+</span><span class='line'>                v_docker_node0001 (127.0.0.1)
+</span><span class='line'>        Starting Vertica on all nodes. Please wait, databases with large catalog
+</span><span class='line'> may take a while to initialize.
+</span><span class='line'>        Node Status: v_docker_node0001: (DOWN)
+</span><span class='line'>        Node Status: v_docker_node0001: (DOWN)
+</span><span class='line'>        Node Status: v_docker_node0001: (DOWN)
+</span><span class='line'>        Node Status: v_docker_node0001: (DOWN)
+</span><span class='line'>        Node Status: v_docker_node0001: (UP)
+</span><span class='line'>Database docker started successfully
+</span><span class='line'>creating schema
+</span><span class='line'>CREATE SCHEMA
+</span><span class='line'>creating user
+</span><span class='line'>CREATE USER
+</span><span class='line'>creating role
+</span><span class='line'>CREATE ROLE
+</span><span class='line'>grant usage, create on schema
+</span><span class='line'>GRANT PRIVILEGE</span></code></pre></td></tr></table></div></figure>
 
 
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/05/21/convert-python-objects-to-json/">Convert Python Objects to JSON</a></h1>
-    
-    
-      <p class="meta">
-        
+<h3>Troubleshooting Notes</h3>
 
+<p>In Mac OSX, remember that the <code>entrypoint.sh</code> file should have executable permission.
+Otherwise, you might get the error &ldquo;oci runtime error: exec: &rdquo;/entrypoint.sh": permission denied".
+After changing the file permission, you have to rebuild the image with <code>docker build</code> before <code>docker run</code> again.</p>
 
+<h4>&ldquo;Insufficient resources&rdquo; error when running ETL</h4>
 
+<p>You might get &ldquo;Insufficient resources to execute plan on pool general &hellip; Memory exceeded&rdquo; error when running a large ETL script against the Vertica container.
+For complex ETL, Vertica might need additional memory to execute the query plan.
+Simply setting higher memory allocation using <code>--memory</code> option of <code>docker run</code> might NOT work if using <strong>Docker Toolbox</strong>.
+To set higher memory allowance, stop the <code>docker-machine</code> and set memory as follows:</p>
 
-<time class='entry-date' datetime='2016-05-21T22:09:50-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2016</span></span> <span class='time'>10:09 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>JSON serialization in Java</h3>
-
-<p>In Java, it is pretty straight-forward to convert Java objects (POJO) to JSON using <a href="https://github.com/FasterXML/jackson">Jackson library</a>.
-The following code will convert an example POJO to JSON:</p>
-
-<figure class='code'><figcaption><span>Example POJO</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Config</span> <span class="o">{</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">type</span><span class="o">;</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">host</span><span class="o">;</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">user</span><span class="o">;</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">password</span><span class="o">;</span>
-</span><span class='line'>  <span class="kd">public</span> <span class="n">String</span> <span class="n">url</span><span class="o">;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Jackson examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">ObjectMapper</span> <span class="n">mapper</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">ObjectMapper</span><span class="o">();</span>
-</span><span class='line'><span class="n">Config</span> <span class="n">conn</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">Config</span><span class="o">();</span>
-</span><span class='line'><span class="n">conn</span><span class="o">.</span><span class="na">type</span> <span class="o">=</span> <span class="s">&quot;hive&quot;</span><span class="o">;</span>
-</span><span class='line'><span class="n">conn</span><span class="o">.</span><span class="na">host</span> <span class="o">=</span> <span class="s">&quot;192.168.5.184&quot;</span><span class="o">;</span>
-</span><span class='line'><span class="n">conn</span><span class="o">.</span><span class="na">user</span> <span class="o">=</span> <span class="s">&quot;cloudera&quot;</span><span class="o">;</span>
-</span><span class='line'><span class="n">conn</span><span class="o">.</span><span class="na">password</span> <span class="o">=</span> <span class="s">&quot;password&quot;</span><span class="o">;</span>
-</span><span class='line'><span class="n">conn</span><span class="o">.</span><span class="na">url</span> <span class="o">=</span> <span class="s">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span><span class="o">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// POJO to JSON in file</span>
-</span><span class='line'><span class="n">mapper</span><span class="o">.</span><span class="na">writeValue</span><span class="o">(</span><span class="k">new</span> <span class="nf">File</span><span class="o">(</span><span class="s">&quot;config.json&quot;</span><span class="o">),</span> <span class="n">obj</span><span class="o">);</span>
-</span><span class='line'><span class="c1">// POJO to JSON in String</span>
-</span><span class='line'><span class="n">String</span> <span class="n">jsonInString</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="na">writerWithDefaultPrettyPrinter</span><span class="o">()</span>
-</span><span class='line'>      <span class="o">.</span><span class="na">writeValueAsString</span><span class="o">(</span><span class="n">conn</span><span class="o">);</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The JSON output is shown below.
-Note that the keys (e.g., &ldquo;type&rdquo;, &ldquo;host&rdquo;) appear in the same order as defined in the <code>Config</code> class.
-This will become important later when we try to convert Python objects to JSON.</p>
-
-<figure class='code'><figcaption><span>JSON representation of Config object</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
-</span><span class='line'>  <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;hive&quot;</span><span class="p">,</span>
-</span><span class='line'>  <span class="nt">&quot;host&quot;</span> <span class="p">:</span> <span class="s2">&quot;192.168.5.184&quot;</span><span class="p">,</span>
-</span><span class='line'>  <span class="nt">&quot;user&quot;</span> <span class="p">:</span> <span class="s2">&quot;cloudera&quot;</span><span class="p">,</span>
-</span><span class='line'>  <span class="nt">&quot;password&quot;</span> <span class="p">:</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span>
-</span><span class='line'>  <span class="nt">&quot;url&quot;</span> <span class="p">:</span> <span class="s2">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>JSON serialization in Python</h3>
-
-<p>In Python, we have <code>json</code> module to convert a <em>serializable</em> object to JSON format.
-The first attempt at JSON serialization in Python may look like this, with a slightly complex Python object is intentionally used as an example:</p>
-
-<figure class='code'><figcaption><span>First attempt at JSON serialization</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -716,173 +337,122 @@ The first attempt at JSON serialization in Python may look like this, with a sli
 <span class='line-number'>12</span>
 <span class='line-number'>13</span>
 <span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>    <span class="k">pass</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ docker-machine stop
+</span><span class='line'>Stopping "default"...
+</span><span class='line'>Machine "default" was stopped.
 </span><span class='line'>
+</span><span class='line'>tdongsi$ VBoxManage modifyvm default --memory 8192
 </span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">get_hive_config</span><span class="p">():</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Get pre-defined Hive configuration.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :return: Config object for Hive.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">conn</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s">&quot;hive&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s">&quot;192.168.5.184&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">user</span> <span class="o">=</span> <span class="s">&quot;cloudera&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s">&quot;password&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">conn</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">get_vertica_config</span><span class="p">():</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Get pre-defined Vertica configuration.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :return: Config object for Vertica.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">conn</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s">&quot;vertica&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="s">&quot;192.168.5.174&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">user</span> <span class="o">=</span> <span class="s">&quot;dbadmin&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s">&quot;password&quot;</span>
-</span><span class='line'>    <span class="n">conn</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">conn</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">create_config_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">query_generator</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">hive_source</span> <span class="o">=</span> <span class="n">get_hive_config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">vertica_target</span> <span class="o">=</span> <span class="n">get_vertica_config</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">hive_source</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">vertica_target</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">testName</span> <span class="o">=</span> <span class="s">&quot;count&quot;</span>
-</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">queries</span> <span class="o">=</span> <span class="n">query_generator</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">FILE_NAME</span> <span class="o">=</span> <span class="s">&quot;hive_vertica_count.json&quot;</span>
-</span><span class='line'>    <span class="n">query_generator</span> <span class="o">=</span> <span class="n">generate_count_queries</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">create_config_file</span><span class="p">(</span><span class="n">FILE_NAME</span><span class="p">,</span> <span class="n">query_generator</span><span class="p">)</span>
+</span><span class='line'>tdongsi$ docker-machine start
+</span><span class='line'>Starting "default"...
+</span><span class='line'>(default) Check network to re-create if needed...
+</span><span class='line'>(default) Waiting for an IP...
+</span><span class='line'>Machine "default" was started.
+</span><span class='line'>Waiting for SSH to be available...
+</span><span class='line'>Detecting the provisioner...
+</span><span class='line'>Started machines may have new IP addresses. You may need to re-run the `docker-machine env` command.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that after running the above commands, <code>docker-machine inspect</code> still shows <code>"Memory":"2048"</code>.
+To verify if memory is properly allocated as desired, run <code>free</code> command, for example, inside the container to verify.</p>
+
+<h3>Links</h3>
+
+<ul>
+<li><a href="https://github.com/tdongsi/vertica/tree/master/docker">My Dockerfile for ETL development and testing on Vertica</a></li>
+<li><a href="https://github.com/wmarinho/docker-hp-vertica">Original Dockerfile</a></li>
+<li><a href="https://www.docker.com/">Docker</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-08-17T23:12:54-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:12 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>MySQL has traditionally lagged behind in support for the SQL standard.
+Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
+If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
+
+<h3>WITH clause</h3>
+
+<p>As discussed in this <a href="/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
+In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
+This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
+Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
+There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
+
+<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
+This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
+
+<h3>Analytic functions</h3>
+
+<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
+Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
+The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
+
+<figure class='code'><figcaption><span>Example of ROW_NUMBER, RANK, and DENSE_RANK functions</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span>
+</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">dense_rank</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">customer_dimension</span>
+</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_name</span>
+</span><span class='line'><span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>This first attempt with <code>json.dump(config, config_file)</code> will fail with the following error:</p>
+<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
 
-<figure class='code'><figcaption><span>JSON serialization error</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="ne">TypeError</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">__main__</span><span class="o">.</span><span class="n">Config</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x10ab824d0</span><span class="o">&gt;</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">JSON</span> <span class="n">serializable</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As the message indicates, <code>Config</code> object is not JSON serializable.
-<code>json.dump</code> function expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.</p>
-
-<table>
-<thead>
-<tr>
-<th> Python </th>
-<th> JSON </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> dict </td>
-<td> object </td>
-</tr>
-<tr>
-<td> list, tuple </td>
-<td> array </td>
-</tr>
-<tr>
-<td> str, unicode </td>
-<td> string </td>
-</tr>
-<tr>
-<td> int, long, float </td>
-<td> number </td>
-</tr>
-<tr>
-<td> True </td>
-<td> true </td>
-</tr>
-<tr>
-<td> False </td>
-<td> false </td>
-</tr>
-<tr>
-<td> None </td>
-<td> null </td>
-</tr>
-</tbody>
+<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
+<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
+<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
+<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
+<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
+<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
+<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
+<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
+<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
+<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
+<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
+<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
 </table>
 
 
-<p><br></p>
+<p><br/></p>
 
-<p>The solution for that problem is to specify the <code>default</code> parameter with a function that returns object&rsquo;s <code>__dict__</code> attribute.
-<code>__dict__</code> is the internal attribute dictionary that contains all attributes associated with an object.
-Object attribute references are translated to lookups in this dictionary, e.g., <code>o.x</code> is translated to <code>o.__dict__["x"]</code>.</p>
+<p>Sadly, these useful analytic functions are not supported in MySQL.
+Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
 
-<figure class='code'><figcaption><span>Correct options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">config_file</span><span class="p">:</span>
-</span><span class='line'>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">config_file</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">vars</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Pretty print without ordering</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -900,31 +470,122 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 <span class='line-number'>16</span>
 <span class='line-number'>17</span>
 <span class='line-number'>18</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="s">&quot;source&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="s">&quot;url&quot;</span><span class="p">:</span> <span class="s">&quot;jdbc:hive2://192.168.5.184:10000/DWH&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;host&quot;</span><span class="p">:</span> <span class="s">&quot;192.168.5.184&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;password&quot;</span><span class="p">:</span> <span class="s">&quot;password&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;type&quot;</span><span class="p">:</span> <span class="s">&quot;hive&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;user&quot;</span><span class="p">:</span> <span class="s">&quot;cloudera&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="s">&quot;queries&quot;</span><span class="p">:</span> <span class="s">&quot;...&quot;</span><span class="p">,</span>
-</span><span class='line'>    <span class="s">&quot;target&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="s">&quot;url&quot;</span><span class="p">:</span> <span class="s">&quot;jdbc:vertica://192.168.5.174:5433/VMart&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;host&quot;</span><span class="p">:</span> <span class="s">&quot;192.168.5.174&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;password&quot;</span><span class="p">:</span> <span class="s">&quot;password&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;type&quot;</span><span class="p">:</span> <span class="s">&quot;vertica&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="s">&quot;user&quot;</span><span class="p">:</span> <span class="s">&quot;dbadmin&quot;</span>
-</span><span class='line'>    <span class="p">},</span>
-</span><span class='line'>    <span class="s">&quot;testName&quot;</span><span class="p">:</span> <span class="s">&quot;count&quot;</span>
-</span><span class='line'><span class="p">}</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- In Vertica</span>
+</span><span class='line'><span class="k">SELECT</span>
+</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
+</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">table_1</span> <span class="n">t</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- In MySQL</span>
+</span><span class='line'><span class="k">SELECT</span>
+</span><span class='line'><span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_1</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_1</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_2</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col_3</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_3</span><span class="p">,</span>
+</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
+</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">table_1</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span><span class="p">,</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
+</span><span class='line'>     <span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_1</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Here, we use <code>vars</code> <a href="https://docs.python.org/2/library/functions.html#vars">built-in function</a> to retrieve the object&rsquo;s <code>__dict__</code> attribute.
-Note that simply using <code>json.dump(vars(config), config_file)</code> will NOT work if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
-For more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
-The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
+<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
+In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
+Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
+You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
+
+<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
+In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
+
+<figure class='code'><figcaption><span>Input table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>+----+-------+
+</span><span class='line'>| Id | Score |
+</span><span class='line'>+----+-------+
+</span><span class='line'>| 1  | 3.50  |
+</span><span class='line'>| 2  | 3.65  |
+</span><span class='line'>| 3  | 4.00  |
+</span><span class='line'>| 4  | 3.85  |
+</span><span class='line'>| 5  | 4.00  |
+</span><span class='line'>| 6  | 3.65  |
+</span><span class='line'>+----+-------+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>+-------+------+
+</span><span class='line'>| Score | Rank |
+</span><span class='line'>+-------+------+
+</span><span class='line'>| 4.00  | 1    |
+</span><span class='line'>| 4.00  | 1    |
+</span><span class='line'>| 3.85  | 2    |
+</span><span class='line'>| 3.65  | 3    |
+</span><span class='line'>| 3.65  | 3    |
+</span><span class='line'>| 3.50  | 4    |
+</span><span class='line'>+-------+------+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The solution in Vertica SQL would be straight-forward as follows:</p>
+
+<figure class='code'><figcaption><span>Solution in Vertica SQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">Score</span><span class="p">,</span>
+</span><span class='line'><span class="n">DENSE_RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span>
+</span><span class='line'><span class="k">FROM</span> <span class="n">Scores</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
+
+<figure class='code'><figcaption><span>Solution in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">Score</span><span class="p">,</span> <span class="n">Rank</span> <span class="k">FROM</span>
+</span><span class='line'><span class="p">(</span> <span class="k">SELECT</span> <span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span><span class="p">,</span>
+</span><span class='line'><span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span>
+</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">Score</span> <span class="k">FROM</span> <span class="n">Scores</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
+</span><span class='line'><span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span> <span class="p">)</span> <span class="n">x</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
+<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
+<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
+<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
+</ul>
+
 </div>
   
   
@@ -937,7 +598,7 @@ The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/"
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller Primality Test</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a></h1>
     
     
       <p class="meta">
@@ -946,53 +607,27 @@ The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/"
 
 
 
-<time class='entry-date' datetime='2016-04-20T22:07:17-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>10:07 pm</span></time>
+<time class='entry-date' datetime='2016-07-14T17:59:14-07:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:59 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>In Qualification Round of Google Code Jam 2016, there is an interesting <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=p2">Coin Jam problem</a>.
-The summarized problem statement is as follows:</p>
+  <div class="entry-content"><p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
 
-<blockquote><p>A jamcoin is a string of N ≥ 2 digits with the following properties:</p><p>1) Every digit is either 0 or 1.<br/>2) The first digit is 1 and the last digit is 1.<br/>3) If you interpret the string in any base between 2 and 10, inclusive, the resulting number is not prime.</p><p>Can you produce J different jamcoins of length N, along with proof that they are legitimate?</p><p>For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.</p></blockquote>
+<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
+It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
+Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
+Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
 
+<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
+Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
+That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
 
-<p>The name &ldquo;jamcoin&rdquo; is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
-In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.</p>
+<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
 
-<p>The very first idea, building a sieve of primes for up to 10<sup>16</sup> for trial division, seems not feasible for this problem since it will take lots of time and space (e.g., $\mathcal{O}(n\log{}n \log{}\log{}n)$ and $\mathcal{O}(n)$ for <a href="https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes">sieve of Eratosthenes</a>, respectively).</p>
-
-<p>Note that we don&rsquo;t need to find all but only J of those jamcoins.
-Therefore, we can keep iterating over all possible &ldquo;jam coins&rdquo; to find the first J numbers that satisfy the conditions.
-To quickly determine if a large number is a composite/prime number, we can use Rabin-Miller primality test.
-For reference, the Rabin-Miller primality test is based on the following <a href="http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html">theorem</a>:</p>
-
-<ul>
-<li>If p is a prime, let s be such that $p-1 = 2^{s}d$ and $d$ is odd. Then for any $1 \leq n \leq p-1$, one of two things happens:</li>
-</ul>
-
-
-<p><span class="math display">\[\begin{align}
-&amp; n^d = 1 \mod p \mbox{, or} \\
-&amp; n^{2^j d} = -1 \mod p \mbox{ for some } 0 \leq j &lt; s.
-\end{align}\]</span></p>
-
-
-<p>In Rabin-Miller test, we pick $k$ random samples of $n$ in the interval $1 \leq n \leq p-1$.
-If p is not a prime, then it is at least a &frac34; chance that a randomly chosen $n$ will be a fail.
-For large $k$ independent tests, the probability that it passes all trials is (&frac14;)<sup>k</sup> ~ 0.</p>
-
-<p>The test is very fast, with runtime complexity of $k \log{}^3 n$ where k is the trial number.
-Since we looks for composite numbers, this algorithm is even better-suited: even if a number passes all Rabin-Miller trials, we are still NOT sure if it is a prime.
-However, if a number fails one of Rabin-Miller trial, we are sure that it is a composite number.</p>
-
-<p>Implementation of this algorithm in different languages can be found on the web, such as <a href="https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Primality_Testing">here</a>.
-I re-implemented this algorithm in Python (shown below) since 1) it is simple enough (just slightly more complex than Euclid&rsquo;s <code>gcd</code> algorithm), and 2) I want to avoid disqualification from Google Code Jam for plagiarism.</p>
-
-<figure class='code'><figcaption><span>My implementation of Rabin-Miller test </span></figcaption>
-<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Improved priority-queue recipe</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -1054,228 +689,327 @@ I re-implemented this algorithm in Python (shown below) since 1) it is simple en
 <span class='line-number'>60</span>
 <span class='line-number'>61</span>
 <span class='line-number'>62</span>
-<span class='line-number'>63</span>
-<span class='line-number'>64</span>
-<span class='line-number'>65</span>
-<span class='line-number'>66</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'>
-</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">heapq</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">itertools</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">decompose</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Decompose num = 2**exp * d where d is odd.</span>
+</span><span class='line'><span class="k">class</span> <span class="nc">PriorityQueue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 </span><span class='line'>
-</span><span class='line'><span class="sd">    :param num: the input number.</span>
-</span><span class='line'><span class="sd">    :return: (exp, d) where num = 2**exp * d</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="n">exp</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>    <span class="k">while</span> <span class="n">num</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c"># check num % 2 == 0 but probably faster</span>
-</span><span class='line'>        <span class="n">num</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span>
-</span><span class='line'>        <span class="n">exp</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">exp</span><span class="p">,</span> <span class="n">num</span>
+</span><span class='line'>    <span class="n">_REMOVED</span> <span class="o">=</span> <span class="s">&quot;&lt;REMOVED&gt;&quot;</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">is_pseudo_prime</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Rabin Miller test of primality.</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
 </span><span class='line'>
-</span><span class='line'><span class="sd">    :param prime: the input number.</span>
-</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trial.</span>
-</span><span class='line'><span class="sd">    :return: True if all trials passed, False if not.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot;Add a new task or update the priority of an existing task&quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">:</span>
+</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
-</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span>
-</span><span class='line'>                    <span class="mi">43</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">67</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">count</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
+</span><span class='line'>        <span class="c"># weight = -priority since heap is a min-heap</span>
+</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">priority</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span><span class="p">]</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+</span><span class='line'>        <span class="n">heapq</span><span class="o">.</span><span class="n">heappush</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">pass</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check if prime pass the Rabin-Miller trial.</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Mark the given task as REMOVED.</span>
 </span><span class='line'>
-</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: True if composite, False if probably prime.</span>
+</span><span class='line'><span class="sd">        Do this to avoid breaking heap-invariance of the internal heap.</span>
 </span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">entry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span>
+</span><span class='line'>        <span class="k">pass</span>
 </span><span class='line'>
-</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Get task with highest priority.</span>
 </span><span class='line'>
-</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
-</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
-</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="bp">False</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">True</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Labor saving steps</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">False</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="bp">True</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
-</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-</span><span class='line'>            <span class="k">return</span> <span class="bp">False</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="bp">True</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Some notes about this implementation:</p>
-
-<ul>
-<li>Because the function <code>rabin_miller_trial</code> is unlikely reused anywhere else, it is nested inside <code>is_pseudo_prime</code> to keep its function signature simple, intuitive.</li>
-<li>Use <code>pow(x, y, z)</code> in Python to compute more efficiently than <code>(x ** y % z)</code>.</li>
-<li><code>random.randint(2, prime - 2)</code> is used since it is useless to pick <code>1</code> and <code>p-1</code> and trials would be wasted.</li>
-<li>Labor saving steps: we first test for divisibility by small primes that are less than 100 before starting Rabin-Miller trials.</li>
-</ul>
-
-
-<p>Going back to the Coin Jam problem, note that the problem requires us not only to check if numbers are composite but also find any non-trivial factor for those numbers.
-Fortunately, as explained in <a href="https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test">Wikipedia</a>, we can modify the Rabin-Miller test to add greatest common divisor <code>gcd</code> calculations to find a factor of p with minimal additional computational cost.
-The modified Rabin-Miller for finding factor of composite numbers is shown below.</p>
-
-<figure class='code'><figcaption><span>Modified Rabin-Miller test for finding a factor </span></figcaption>
-<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-<span class='line-number'>63</span>
-<span class='line-number'>64</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">fractions</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">random</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">find_factor</span><span class="p">(</span><span class="n">prime</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Modify Rabin Miller test of primality to find factor of composite.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :param prime: the input number.</span>
-</span><span class='line'><span class="sd">    :param trial: Number of Rabin-Miller trials.</span>
-</span><span class='line'><span class="sd">    :return: 1 if prime (all trials passed), &gt; 1 if composite.</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># small primes &lt; 100</span>
-</span><span class='line'>    <span class="n">SMALL_PRIMES</span> <span class="o">=</span> <span class="p">[</span> <span class="mi">2</span><span class="p">,</span>   <span class="mi">3</span><span class="p">,</span>   <span class="mi">5</span><span class="p">,</span>   <span class="mi">7</span><span class="p">,</span>  <span class="mi">11</span><span class="p">,</span>  <span class="mi">13</span><span class="p">,</span>  <span class="mi">17</span><span class="p">,</span>  <span class="mi">19</span><span class="p">,</span>  <span class="mi">23</span><span class="p">,</span>  <span class="mi">29</span><span class="p">,</span>  <span class="mi">31</span><span class="p">,</span>  <span class="mi">37</span><span class="p">,</span>  <span class="mi">41</span><span class="p">,</span>
-</span><span class='line'>                  <span class="mi">43</span><span class="p">,</span>  <span class="mi">47</span><span class="p">,</span>  <span class="mi">53</span><span class="p">,</span>  <span class="mi">59</span><span class="p">,</span>  <span class="mi">61</span><span class="p">,</span>  <span class="mi">67</span><span class="p">,</span>  <span class="mi">71</span><span class="p">,</span>  <span class="mi">73</span><span class="p">,</span>  <span class="mi">79</span><span class="p">,</span>  <span class="mi">83</span><span class="p">,</span>  <span class="mi">89</span><span class="p">,</span>  <span class="mi">97</span><span class="p">,</span> <span class="mi">101</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Find factor based on the Rabin-Miller trial.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :param num: a random &quot;witness&quot; of primality.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: &gt; 1 if composite, 1 if probably prime.</span>
+</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
 </span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
+</span><span class='line'>                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
+</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
+</span><span class='line'>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s">&quot;The priority queue is empty&quot;</span><span class="p">)</span>
 </span><span class='line'>
-</span><span class='line'>        <span class="c"># For first iteration, 1 or -1 remainder implies prime</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
-</span><span class='line'>        <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check task with highest priority, without removing.</span>
 </span><span class='line'>
-</span><span class='line'>        <span class="c"># For next iterations, -1 implies prime, others imply composite</span>
-</span><span class='line'>        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">exponent</span><span class="p">):</span>
-</span><span class='line'>            <span class="n">num</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">num</span> <span class="o">==</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
+</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
+</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
 </span><span class='line'>            <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">gcd</span> <span class="o">=</span> <span class="n">fractions</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">num</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span>
-</span><span class='line'>                <span class="k">if</span> <span class="n">gcd</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>                    <span class="k">return</span> <span class="n">gcd</span>
+</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
 </span><span class='line'>
-</span><span class='line'>        <span class="c"># It is a composite, but could not find a factor</span>
-</span><span class='line'>        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+</span><span class='line'>        <span class="k">return</span> <span class="bp">None</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c"># Labor saving steps</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">prime</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Unexpected input&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">SMALL_PRIMES</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">prime</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="mi">1</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">prime</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="n">p</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Starting Rabin-Miller algorithm</span>
-</span><span class='line'>    <span class="n">exponent</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="n">decompose</span><span class="p">(</span><span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">num</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">factor</span> <span class="o">=</span> <span class="n">rabin_miller_trial</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">factor</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span class='line'>            <span class="k">return</span> <span class="n">factor</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="mi">1</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">]</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;[</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="s">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
-Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
-If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
+<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
+
+<ul>
+<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
+<li>Methods and supporting data structures are encapsulated into a class.</li>
+<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
+<li>Method <code>peek</code> is added.</li>
+<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
+<li>Override <code>__str__</code> method for pretty printing.</li>
+</ul>
+
+
+<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
+The Skyline problem states that:</p>
+
+<blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote>
+
+
+<p><img class="center" src="/images/python/skyline.png" width="800" height="260" title="Example" alt="An image of example input and output"></p>
+
+<p>One possible approach is to use a priority queue to keep track of the current highest building
+while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
+Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
+
+<figure class='code'><figcaption><span>Solution to Skyline problem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">solve_skyline</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Solve the Skyline problem.</span>
+</span><span class='line'>
+</span><span class='line'><span class="sd">    :param mlist: list of buildings in format (start, end, height).</span>
+</span><span class='line'><span class="sd">    :return: List of end points</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">skyline</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span class='line'>    <span class="n">cur_height</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="n">pq</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="p">()</span>
+</span><span class='line'>    <span class="n">events</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">START</span> <span class="o">=</span> <span class="s">&quot;start&quot;</span>
+</span><span class='line'>    <span class="n">END</span> <span class="o">=</span> <span class="s">&quot;end&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">building</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">building</span>
+</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">start</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">START</span><span class="p">))</span>
+</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">END</span><span class="p">))</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># k_events is the ordered list of x-coordinates where buildings start or end (events)</span>
+</span><span class='line'>    <span class="n">k_events</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c"># Add and remove buildings into a priority-queue for each event.</span>
+</span><span class='line'>    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">k_events</span><span class="p">:</span>
+</span><span class='line'>        <span class="c"># print skyline</span>
+</span><span class='line'>        <span class="n">buildings</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">buildings</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">e</span>
+</span><span class='line'>            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="n">START</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">mlist</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+</span><span class='line'>            <span class="k">elif</span> <span class="n">label</span> <span class="o">==</span> <span class="n">END</span><span class="p">:</span>
+</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c"># after processing all buildings for a x-coordinate &quot;key&quot;, check the current highest building</span>
+</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="n">pq</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
+</span><span class='line'>        <span class="n">new_height</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">temp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">new_height</span> <span class="o">=</span> <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span class='line'>        <span class="k">if</span> <span class="n">new_height</span> <span class="o">!=</span> <span class="n">cur_height</span><span class="p">:</span>
+</span><span class='line'>            <span class="n">skyline</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">new_height</span><span class="p">))</span>
+</span><span class='line'>            <span class="n">cur_height</span> <span class="o">=</span> <span class="n">new_height</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">skyline</span>
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-07-05T00:15:57-07:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>5</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:15 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
+The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
+After that, we move on with the other way and check in commits for that.
+Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to &ldquo;squash&rdquo; the commits to erase the mistake and avoid confusing others such as reviewers.</p>
+
+<p>In the example shown below, my commit <code>daefc6e</code> was a mistake, and I reverted it with <code>f3886c2</code> commit, and then I checked in my correct solution in <code>b4cb02d</code> commit.
+I wanted to squash those commits in an interactive rebase session, as seen in the following:</p>
+
+<figure class='code'><figcaption><span>Rebase commands shown in text editor</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>pick daefc6e KSAFE REMOVAL.
+</span><span class='line'>squash f3886c2 Revert "KSAFE REMOVAL."
+</span><span class='line'>squash b4cb02d Update constants.
+</span><span class='line'>
+</span><span class='line'># Rebase 41ab184..b4cb02d onto 41ab184
+</span><span class='line'>#
+</span><span class='line'># Commands:
+</span><span class='line'>#  p, pick = use commit
+</span><span class='line'>#  r, reword = use commit, but edit the commit message
+</span><span class='line'>#  e, edit = use commit, but stop for amending
+</span><span class='line'>#  s, squash = use commit, but meld into previous commit
+</span><span class='line'>#  f, fixup = like "squash", but discard this commit's log message
+</span><span class='line'>#  x, exec = run command (the rest of the line) using shell
+</span><span class='line'>#
+</span><span class='line'># These lines can be re-ordered; they are executed from top to bottom.
+</span><span class='line'>#
+</span><span class='line'># If you remove a line here THAT COMMIT WILL BE LOST.
+</span><span class='line'>#
+</span><span class='line'># However, if you remove everything, the rebase will be aborted.
+</span><span class='line'>#
+</span><span class='line'># Note that empty commits are commented out</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, <code>git rebase</code> always fail in such situations with the following &ldquo;error&rdquo; message:</p>
+
+<figure class='code'><figcaption><span>git rebase fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ git rebase -i origin/feature/foobar
+</span><span class='line'>You asked to amend the most recent commit, but doing so would make
+</span><span class='line'>it empty. You can repeat your command with --allow-empty, or you can
+</span><span class='line'>remove the commit entirely with "git reset HEAD^".
+</span><span class='line'>rebase in progress; onto 41ab184
+</span><span class='line'>You are currently rebasing branch 'feature/foobar' on '41ab184'.
+</span><span class='line'>
+</span><span class='line'>No changes
+</span><span class='line'>
+</span><span class='line'>Could not apply f3886c23589e0964a4483f6454c6edeba7d63fb7... KSAFE REMOVAL.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The error message is very confusing.
+When <code>daefc6e</code> and <code>f3886c2</code> commits are squashed, the net effect is nothing, which is the &ldquo;empty commit&rdquo; mentioned in that error message.
+However, retrying the <code>git rebase</code> command with <code>--allow-empty</code> as said does not work.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ git rebase --interactive --allow-empty 
+</span><span class='line'>error: unknown option `allow-empty' </span></code></pre></td></tr></table></div></figure>
+
+
+<p>Using <code>git rebase --continue</code> does not work as expected: it does not squash three commits into one.</p>
+
+<p>After some Google searching, it turns out that the above error message comes from <code>git commit --amend</code>, which is delegated by <code>git rebase</code> to handle the squash.
+When the message says &ldquo;repeat your command&rdquo;, it means repeating the <code>git commit --amend</code> command, something would never occurs to us.
+Therefore, the right thing to do here is repeat <code>commit</code> and continue with the interactive rebase session:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ git commit --amend --allow-empty
+</span><span class='line'>[detached HEAD 706f662] Revert "KSAFE REMOVAL."
+</span><span class='line'>
+</span><span class='line'>$ git rebase --continue
+</span><span class='line'>[detached HEAD 923477f] Revert "KSAFE REMOVAL."
+</span><span class='line'> 1 file changed, 3 insertions(+), 3 deletions(-)
+</span><span class='line'>Successfully rebased and updated refs/heads/feature/foobar.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>By doing that, we will now have all three commits squashed into one and help cleaning up the commit log.</p>
+
+<!--
+http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
+-->
+
 </div>
   
   
@@ -1303,23 +1037,23 @@ If J is much larger and close to the number of all jamcoins with length N availa
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/">Maven and Gradle Builds in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2017/05/15/kubernetes-kube-router/">Kubernetes: Kube-router</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a>
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a>
+        <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a>
       </li>
     
   </ul>
@@ -1356,7 +1090,7 @@ If J is much larger and close to the number of all jamcoins with length N availa
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (4)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (5)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

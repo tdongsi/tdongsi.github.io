@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-18T00:24:17-07:00</updated>
+  <updated>2017-05-30T00:49:12-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,507 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Sending Emails From Docker Containers]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/"/>
+    <updated>2017-05-25T13:42:45-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers</id>
+    <content type="html"><![CDATA[<p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+
+<h3>Sending emails in standard Jenkins setup</h3>
+
+<p>We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">setting up Postfix</a>.
+Its typical settings is defined in <em>/etc/postfix/main.cf</em> file like this:</p>
+
+<figure class='code'><figcaption><span>/etc/postfix/main.cf example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can test the setup by sending a test email with the following command:</p>
+
+<figure class='code'><figcaption><span>Send a test email</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]# echo "Test localhost" | mailx -s Test tdongsi@example.com
+</span><span class='line'>send-mail: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+</span><span class='line'>postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After the <code>postfix</code> service is up, Jenkins can be configured to send email with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Mailer">Mailer plugin</a>.
+Mail server can be configured in <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+Please visit <a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">this post</a> for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same <strong>E-mail Notification</strong> section.</p>
+
+<h3>Sending email from container</h3>
+
+<p>Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>).
+For email notifications in such CI systems, one option is to reuse <code>postfix</code> service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.</p>
+
+<p>There are two changes need to be made on Postfix to expose it to Docker containers on one host.</p>
+
+<ol>
+<li>Exposing Postfix to the docker network, that is, Postfix must be configured to bind to localhost as well as the docker network.</li>
+<li>Accepting all incoming connections which come from any Docker containers.</li>
+</ol>
+
+
+<p>Docker bridge (<code>docker0</code>) acts a a bridge between your ethernet port and docker containers so that data can go back and forth.
+We achieve the first requirement by adding the IP of <code>docker0</code> to <code>inet_iterfaces</code>.</p>
+
+<figure class='code'><figcaption><span>ifconfig example output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@dev-worker-1 ~]$ ifconfig
+</span><span class='line'>docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.1  netmask 255.255.255.0  broadcast 0.0.0.0
+</span><span class='line'>        ether 02:42:88:5f:24:28  txqueuelen 0  (Ethernet)
+</span><span class='line'>        RX packets 8624183  bytes 18891507332 (17.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15891332  bytes 16911210191 (15.7 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</span><span class='line'>
+</span><span class='line'>flannel0: flags=4305&lt;UP,POINTOPOINT,RUNNING,NOARP,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.0  netmask 255.255.0.0  destination 172.22.91.0
+</span><span class='line'>        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+</span><span class='line'>        RX packets 10508237  bytes 7051646109 (6.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15511583  bytes 18744591891 (17.4 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the second requirement, the whole docker network as well as localhost should be added to <code>mynetworks</code>.
+In our kubernetes setup, the docker network should be <code>flannel0</code> and its subnet&rsquo;s CIDR notation is added to the <code>mynetworks</code> line:</p>
+
+<figure class='code'><figcaption><span>Modified "/etc/postfix/main.cf"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.22.0.0/16
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost, 172.22.91.1
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note the differences in <code>inet_interfaces</code> and <code>mynetworks</code> from the last section.
+One can simply enter the Docker container/Kubernetes pod to verify such setup.
+Note that application <code>mailx</code> maybe not available in a container since we tend to keep the containers light-weight.
+Instead, prepare a <code>sendmail.txt</code> file (based on <a href="http://docs.blowb.org/setup-host/postfix.html">this</a>) with the following SMTP commands and use <code>nc</code> to send out the email as shown below.</p>
+
+<figure class='code'><figcaption><span>Send test email from container</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:k8s tdongsi$ kubectl --kubeconfig kubeconfig --namespace jenkins exec -it jenkins-8hgsn -- bash -il
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ cat sendmail.txt
+</span><span class='line'>HELO x
+</span><span class='line'>MAIL FROM: test@example.com
+</span><span class='line'>RCPT TO: tdongsi@example.com
+</span><span class='line'>DATA
+</span><span class='line'>From: test@example.com
+</span><span class='line'>To: $YOUR_EMAIL
+</span><span class='line'>Subject: This is a test
+</span><span class='line'>
+</span><span class='line'>The test is successful
+</span><span class='line'>
+</span><span class='line'>.
+</span><span class='line'>quit
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ nc 172.22.91.1 25 &lt;sendmail.txt
+</span><span class='line'>220 dev-worker-1.eng.sfdc.net ESMTP Postfix
+</span><span class='line'>250 dev-worker-1.eng.sfdc.net
+</span><span class='line'>250 2.1.0 Ok
+</span><span class='line'>250 2.1.5 Ok
+</span><span class='line'>354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
+</span><span class='line'>250 2.0.0 Ok: queued as 1EF9E60C34
+</span><span class='line'>221 2.0.0 Bye</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>For containerized Jenkins system, mail server can also be configured in same <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+The only difference is the IP/hostname provided to <strong>SMTP server</strong> option.
+Instead of providing the known SMTP server&rsquo;s IP and host, one should use the IP of <code>docker0</code>, as explained above.
+In the case of many nodes in Kubernetes cluster with different <code>docker0</code> IP, the Docker container of Jenkins master should reside only on one host and <code>docker0</code>&rsquo;s IP on that host should be used.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">Standard email setup in Jenkins</a></li>
+<li><a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">Setup Postfix</a></li>
+<li><a href="http://docs.blowb.org/setup-host/postfix.html">Configure Postfix for Docker Containers</a></li>
+<li><a href="http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/">More on Postfix for Docker Containers</a></li>
+</ul>
+
+
+<figure class='code'><figcaption><span>postfix version used in this post</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+</span><span class='line'>mail_version = 2.10.1</span></code></pre></td></tr></table></div></figure>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Maven and Gradle Builds in Jenkinsfile]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile/"/>
+    <updated>2017-05-20T23:27:08-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile</id>
+    <content type="html"><![CDATA[<p>In this post, we will look into Nexus authentication for Maven and Gradle builds in Jenkins pipelines.</p>
+
+<h3>Maven</h3>
+
+<p>Maven builds in corporates usually use private repositories on Nexus, instead of public ones in Maven Central Repository.
+To do that, we usually configure Maven to check Nexus instead of the default, built-in connection to Maven Central.
+These configurations is stored in <em>~/.m2/settings.xml</em> file.</p>
+
+<p>For authentication with Nexus and for deployment, we must <a href="https://books.sonatype.com/nexus-book/reference/_adding_credentials_to_your_maven_settings.html">provide credentials accordingly</a>.
+We usually add the credentials into our Maven Settings in <em>settings.xml</em> file.</p>
+
+<figure class='code'><figcaption><span>Example Credentials in settings.xml</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;settings&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;servers&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;server&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;id&gt;</span>nexus<span class="nt">&lt;/id&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;username&gt;</span>deployment<span class="nt">&lt;/username&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;password&gt;</span>deployment123<span class="nt">&lt;/password&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;/server&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/servers&gt;</span>
+</span><span class='line'><span class="nt">&lt;/settings&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, for automated build and deployment in Jenkins pipelines, it is not safe to store credentials in plain text files.
+Instead, one should store Nexus credentials as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Credentials+Plugin">secrets in Jenkins</a> and pass them into Jenkinsfile using their IDs (<code>credentialsId</code>).
+See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">this article</a> for the full picture of related plugins used for storing and passing secrets in Jenkins.</p>
+
+<figure class='code'><figcaption><span>Nexus authentication for Maven in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">mvnSettingsFile</span><span class="o">(</span><span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">},</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">})</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="err">`</span><span class="n">mvn</span> <span class="o">-</span><span class="n">s</span> <span class="n">settings</span><span class="o">.</span><span class="na">xml</span> <span class="n">clean</span> <span class="n">build</span><span class="err">`</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <a href="https://jenkins.io/doc/pipeline/steps/credentials-binding/">step <code>withCredentials</code></a> will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
+<code>mvnSettingsFile</code> is my Groovy function that generates the <code>settings.xml</code> based on the pre-defined format and provided Nexus credentials.</p>
+
+<h3>Gradle</h3>
+
+<p>In Gradle, Nexus authentication can be specified in both <code>build.gradle</code> and <code>gradle.properties</code> file, where <code>build.gradle</code> should be checked into VCS (e.g., git) while <code>gradle.properties</code> contains sensitive credentials information.</p>
+
+<figure class='code'><figcaption><span>Example build.gradle</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">repositories</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">maven</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">credentials</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">username</span> <span class="n">nexusUsername</span>
+</span><span class='line'>            <span class="n">password</span> <span class="n">nexusPassword</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="n">url</span> <span class="o">{</span> <span class="n">nexusPublic</span> <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Example gradle.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">nexusUsername</span><span class="o">=</span><span class="s">myUsername</span>
+</span><span class='line'><span class="na">nexusPassword</span><span class="o">=</span><span class="s">password123</span>
+</span><span class='line'><span class="na">nexusPublic</span><span class="o">=</span><span class="s">https://nexus.example.com/nexus/content/groups/public/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The default location of the <code>gradle.properties</code> file is <code>~/.gradle</code>.
+This is due to the environment variable <code>GRADLE_USER_HOME</code> usually set to <code>~/.gradle</code>.
+For custom location of <code>gradle.properties</code> (i.e., other than <code>~/.gradle</code>), ensure that the variable <code>GRADLE_USER_HOME</code> is set accordingly.</p>
+
+<p>However, similar to Maven, for Jenkins pipeline automation, it is not safe to store credentials in plain text file <code>gradle.properties</code>, no matter how &ldquo;hidden&rdquo; its location is.
+For that purpose, you should use the following Groovy code:</p>
+
+<figure class='code'><figcaption><span>Nexus authentication for Gradle in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;./gradlew jenkinsBuild&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that, in Gradle, the solution is much simpler because Gradle respects properies set through environment variales.
+Based on <a href="https://docs.gradle.org/current/userguide/build_environment.html">its doc</a>, if the environment variable name looks like <strong><em>ORG_GRADLE_PROJECT_prop=somevalue</em></strong>, then Gradle will set a <code>prop</code> property on your project object, with the value of <code>somevalue</code>.
+Therefore, in <code>withCredentials</code> step, we specifically bind the secrets <code>nexusUsername</code> and <code>nexusPassword</code> to the environment variables <em>ORG_GRADLE_PROJECT_nexusUsername</em> and <em>ORG_GRADLE_PROJECT_nexusPassword</em> and not some arbitrary variable names.
+These environment variables should match the ones used in <code>builde.gradle</code> and, in the following Closure, we simply call the standard Gradle wrapper command <code>./gradlew &lt;target&gt;</code>.
+Compared with Maven solution in the last section, there is no intermediate step to generate <code>settings.xml</code> based on the provided secrets.</p>
+
+<h3>More Tips</h3>
+
+<p>If Maven/Gradle build is used in multiple repositories across organization, it is recommended to move the above Groovy code into shared Jenkins library, as shown in <a href="http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries/">last post</a>.
+For example, the Gradle builds can be simplified by defining <code>useNexus</code> step (see <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/#defining-steps">here</a>) and adding it into the shared library <em>workflow-lib</em>.</p>
+
+<figure class='code'><figcaption><span>vars/useNexus.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">call</span><span class="o">(</span><span class="n">Closure</span> <span class="n">body</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">body</span><span class="o">()</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After that, all the Gradle builds with Nexus authentication in Jenkinsfile will now be reduced to simply this:</p>
+
+<figure class='code'><figcaption><span>Simplified Nexus authentication for Gradle in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">useNexus</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">sh</span> <span class="s1">&#39;./gradlew jenkinsBuild&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As shown above, it will reduce lots of redundant codes for Gradle builds, repeated again and again in Jenkinsfiles across multiple repositories in an organizaiton.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">Secrets in Jenkins build jobs</a></li>
+<li><a href="https://docs.gradle.org/current/userguide/build_environment.html">Gradle build environment</a></li>
+<li><a href="https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe">Stackoverflow dicussion</a>: for older versions of Gradle.</li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Kubernetes: Kube-router]]></title>
@@ -32,6 +533,530 @@ This <code>kube-router</code> project is one of them although I&rsquo;ve not get
 <li>Another related work is <a href="https://github.com/kubernetes/kubernetes/issues/44063">IPVS-based in-cluster service load balancing</a>.
 Huawei presented this work at Kubecon 2016.
 IIRC, it is implemented as a flag to kube-proxy and considerable performance improvement was reported.</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Groovy Script in Jenkins Pipeline]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/18/groovy-code-in-jenkins-pipeline/"/>
+    <updated>2017-04-18T17:07:44-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/18/groovy-code-in-jenkins-pipeline</id>
+    <content type="html"><![CDATA[<p>In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.</p>
+
+<h3>Basic example of Loading Groovy scripts</h3>
+
+<figure class='code'><figcaption><span>script example.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>def example1() {
+</span><span class='line'>  println 'Hello from example1'
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>def example2() {
+</span><span class='line'>  println 'Hello from example2'
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>return this</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>example.groovy</code> script defines <code>example1</code> and <code>example2</code> functions before ending with <code>return this</code>.
+Note that <code>return this</code> is definitely required and one common mistake is to forget ending the Groovy script with it.</p>
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;example.groovy&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span><span class="o">.</span><span class="na">example1</span><span class="o">()</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">code</span><span class="o">.</span><span class="na">example2</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In Jenkinsfile, simply use <a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a> to load the Groovy script.
+After the Groovy script is loaded, the functions insides can be used where it can be referenced, as shown above.</p>
+
+<h3>Demo: Processing Github JSON from Groovy</h3>
+
+<p>In this demo, we first show how to process JSON response from Github API in Groovy.</p>
+
+<figure class='code'><figcaption><span>Processing JSON from Github</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">username</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="n">String</span> <span class="n">password</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
+</span><span class='line'><span class="n">String</span> <span class="n">repo</span> <span class="o">=</span> <span class="s1">&#39;groovy&#39;</span>
+</span><span class='line'><span class="n">String</span> <span class="n">PR_ID</span> <span class="o">=</span> <span class="s1">&#39;2&#39;</span> <span class="c1">// Pull request ID</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${username}/${repo}/pulls/${PR_ID}&quot;</span>
+</span><span class='line'><span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${password}&quot;</span><span class="o">])</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Check if Pull Request body has certain text</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span> <span class="n">bodyText</span><span class="o">.</span><span class="na">find</span><span class="o">(</span><span class="s1">&#39;Safari&#39;</span><span class="o">)</span> <span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;Found Safari user&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The equivalent bash command for retrieving JSON response from Github API is as follows:</p>
+
+<figure class='code'><figcaption><span>Equivalent bash command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>// Groovy formatted string
+</span><span class='line'>String cmd = "curl -s -H \"Authorization: token ${password}\" ${url}"
+</span><span class='line'>
+</span><span class='line'>// Example
+</span><span class='line'>String example = 'curl -s -H "Authorization: token XXX" https://api.github.com/repos/tdongsi/groovy/pulls/2'</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Processing Github JSON from Jenkinsfile</h3>
+
+<p>Continuing the demo from the last section, we now put the Groovy code into a callable function in a script called &ldquo;github.groovy&rdquo;.
+Then, in our Jenkinsfile, we proceed to load the script and use the function to process JSON response from Github API.</p>
+
+<figure class='code'><figcaption><span>github.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
+</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="k">this</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;github.groovy&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>      <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;githubCredentials&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span>
+</span><span class='line'>                                    <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span><span class='line'>      <span class="n">println</span> <span class="n">bodyText</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Troubleshooting tips</h3>
+
+<p>When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
+In those cases, usually it can be resolved by manually approving some method signatures in <strong>Jenkins > Manage Jenkins > In-process Script Approval</strong> page.
+Adminstrators privilege is required for doing so.</p>
+
+<p>Named parameters in Groovy apparently is not supported in Jenkinsfile:</p>
+
+<figure class='code'><figcaption><span>Named parameters</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// This does NOT work</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="nl">githubUsername:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="nl">githubToken:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="nl">repo:</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="nl">id:</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// This works</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, error, fileExists, findFiles
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file">JenkinsCI example</a></li>
+<li><a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Pipeline Shared Libraries]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries/"/>
+    <updated>2017-03-17T15:38:14-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries</id>
+    <content type="html"><![CDATA[<p>When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles <a href="https://en.wikipedia.org/wiki/Don't_repeat_yourself">DRY</a>.
+A very common use case is that you have many projects that are built in the similar way, such as Nexus authentication step in Gradle build.
+One way is to use <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin">Workflow plugin</a>.
+Comprehensive user documentation can be found in <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">this section</a> of Jenkins handbook.</p>
+
+<p>In the following sections, we review a couple <strong>older</strong>, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.</p>
+
+<h3>Simple copying</h3>
+
+<p>A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its <code>$JENKINS_HOME</code>.
+All such Groovy files are stored in <em>$JENKINS_HOME/workflow-libs</em> folder, following this directory structure:</p>
+
+<figure class='code'><figcaption><span>Directory structure of a Shared Library repository</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(root)
+</span><span class='line'>+- src                     # Groovy source files
+</span><span class='line'>|   +- org
+</span><span class='line'>|       +- foo
+</span><span class='line'>|           +- Bar.groovy  # for org.foo.Bar class
+</span><span class='line'>+- vars
+</span><span class='line'>|   +- foo.groovy          # for global 'foo' variable
+</span><span class='line'>|   +- foo.txt             # help for 'foo' variable
+</span><span class='line'>+- resources               # resource files (external libraries only)
+</span><span class='line'>|   +- org
+</span><span class='line'>|       +- foo
+</span><span class='line'>|           +- bar.json    # static helper data for org.foo.Bar</span></code></pre></td></tr></table></div></figure>
+
+
+<p>By manually modifying the Groovy files (e.g., <em>vars/foo.groovy</em>) and restarting Jenkins, you can update their behaviors accordingly.
+This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.</p>
+
+<h3>Git-based update</h3>
+
+<p>A more scalable alternative for updating Groovy codes is to use <code>git push</code>, exposed by Jenkins.</p>
+
+<p>As a side note, this method is no longer mentioned in documentation, as of March 2017.
+In fact, you have to look into a <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d">very old commit</a>
+or <a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">outdated, unofficial fork</a> to find this method briefly mentioned at all.
+It is also occasionally mentioned in support articles such as <a href="https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs">this</a>.</p>
+
+<p>In this method, the directory <em>$JENKINS_HOME/workflow-libs</em> is exposed by Jenkins as a Git repository.
+You can deploy new changes to this directory through <code>git push</code> and any such event will trigger Jenkins to recompile Groovy files.
+There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
+The Git repository is exposed in two endpoints:</p>
+
+<ul>
+<li><a href="http://server/jenkins/workflowLibs.git">http://server/jenkins/workflowLibs.git</a> (when your Jenkins is <code>http://server/jenkins/</code>).</li>
+<li>ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH">an SSH server</a>)</li>
+</ul>
+
+
+<p>This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., &ldquo;shared-lib&rdquo; on Github) and only <code>git push</code> to the <code>workflowLibs.git</code> repository in the event of deployment.
+Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.</p>
+
+<h4>Jenkinsfile to update global library</h4>
+
+<p>In this Git-based update approach, all Groovy files should be in some Git repository (e.g., &ldquo;shared-lib&rdquo;) with certain directory structure (shown in the last section).
+Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
+The Jenkinsfile for such workflow-libs should be as follows:</p>
+
+<figure class='code'><figcaption><span>Jenkinsfile for deployment</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>  stage 'Checkout'
+</span><span class='line'>  checkout scm
+</span><span class='line'>
+</span><span class='line'>  if (env.BRANCH_NAME == 'master') {
+</span><span class='line'>    stage 'Update'
+</span><span class='line'>    println "Updating Jenkins workflow-libs"
+</span><span class='line'>    sshagent(['jenkins_ssh_key']) {
+</span><span class='line'>      sh """
+</span><span class='line'>         git branch master
+</span><span class='line'>         git checkout master
+</span><span class='line'>         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
+</span><span class='line'>         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
+</span><span class='line'>         git push --force jenkins master
+</span><span class='line'>      """
+</span><span class='line'>    }
+</span><span class='line'>  }</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some comments on this Jenkinsfile:</p>
+
+<ul>
+<li><code>sshagent(['jenkins_ssh_key'])</code> indicates that the current node/slave is known as <a href="https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin">an SSH agent</a> to Jenkins master, using Jenkins credentials with ID <code>jenkins_ssh_key</code>.</li>
+<li><code>git remote add</code> uses the currently checked out Git repo and branch as a remote branch (named &ldquo;jenkins&rdquo;) to the <code>workflowLibs</code> repository.</li>
+<li>The <code>workflowLibs</code> repository is managed by Jenkins, exposed at that location <em>ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git</em>.</li>
+<li>Then we force push any new changes to the Git repository on Jenkins.</li>
+</ul>
+
+
+<p>After the push, the Git repository <code>workflowLibs</code> on Jenkins should have latest change, same as the current &ldquo;shared-lib&rdquo; repository.
+Upon a <code>git push</code> event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
+Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.</p>
+
+<figure class='code'><figcaption><span>Key pair generation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
+</span><span class='line'>Generating public/private rsa key pair.
+</span><span class='line'>Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
+</span><span class='line'>Enter passphrase (empty for no passphrase):
+</span><span class='line'>Enter same passphrase again:</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The generated public key should be added to the user via <em>jenkinsurl.com/user/tdongsi/configure</em> URL and private key should be added to the credentials ID <code>jenkins_ssh_key</code>.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Copy File Into a Container]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/"/>
+    <updated>2017-02-09T15:17:19-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container</id>
+    <content type="html"><![CDATA[<p>In the following scenario, we have a running Docker container or a running pod in Kubernetes cluster.
+We want to add some files into the running containers to fix some issue, verify, and commit the changes.</p>
+
+<h3>Best-case scenario: <code>docker cp</code></h3>
+
+<p>The most obvious way is to create a Dockerfile and rebuild the Docker image.
+The Dockerfile will look like this:</p>
+
+<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>FROM olderImage
+</span><span class='line'>ADD myfile /path/myfile
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, in this approach, we need to stop the Docker containers, update, and re-run with the new Docker images.
+It does not work if we want to work with <strong><em>running</em></strong> containers.
+For running containers, the better way to add files into containers is to copy files into containers.
+For the more updated versions of Docker (1.8+), the recommended way for copying is to use <a href="https://docs.docker.com/engine/reference/commandline/cp/"><code>docker cp</code> command</a>.</p>
+
+<h3>Copy file directly</h3>
+
+<p><code>docker cp</code> does not always work, especially in older versions of Docker.
+In older versions of Docker, the <code>docker cp</code> command only allowed copying files from a <strong>container</strong> to the <strong>host</strong>.
+Only since Docker 1.8, copying files from the host to a container is added.
+You will get some error with unhelpful messages like this in older versions of Docker:</p>
+
+<figure class='code'><figcaption><span>Unsupported "docker cp"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ ls maven_3.3.9-3_all.deb
+</span><span class='line'>maven_3.3.9-3_all.deb
+</span><span class='line'>
+</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
+</span><span class='line'>FATA[0000] Error: Path not specified
+</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
+</span><span class='line'>FATA[0000] Error: Path not specified
+</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/
+</span><span class='line'>FATA[0000] Error: Path not specified
+</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/maven_3.3.9-3_all.deb
+</span><span class='line'>FATA[0000] Error: Path not specified</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you find yourself stuck with older versions of Docker, the alternative is to manually copy the files from hosts filesystem to containers filesystem location.
+First, you need to determine where the containers filesystem (volume) is mounted on the host:</p>
+
+<figure class='code'><figcaption><span>Using inspect to find Volume location</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo docker ps
+</span><span class='line'>CONTAINER ID      IMAGE    COMMAND ...
+</span><span class='line'>9a8d782156ca
+</span><span class='line'>
+</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Id} } 9a8d782156ca
+</span><span class='line'>9a8d782156ca9a3bd59545a18943de408ca58f42c4389c12e9bb43f4ad239d52
+</span><span class='line'>
+</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Volumes} } 9a8d782156ca
+</span><span class='line'>map[/home/jenkins:/var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438]
+</span><span class='line'>[centos@comp ~]$ sudo ls /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
+</span><span class='line'>test.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<p>NOTE: In the shell commands above, there is no space between <code>{</code> (space is added for Jekyll blog engine).
+After the mounting path is determined, you can manipulate the container'ss filesystem directly, including copying files into it.</p>
+
+<figure class='code'><figcaption><span>Directly copy file into containers filesystem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo cp maven_3.3.9-3_all.deb /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can verify such manipulation by <code>docker exec</code>-ing into the container and verify the files:</p>
+
+<figure class='code'><figcaption><span>Before and After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@9a8d782156ca:~$ ls
+</span><span class='line'>test.txt
+</span><span class='line'>
+</span><span class='line'>jenkins@9a8d782156ca:~$ ls
+</span><span class='line'>maven_3.3.9-3_all.deb  test.txt</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/commandline/cp/">docker cp</a></li>
+<li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
 </ul>
 
 ]]></content>
@@ -2726,595 +3751,6 @@ The modified Rabin-Miller for finding factor of composite numbers is shown below
 <p>The final solution to the problem, using the modified Rabin-Miller test above, can be found in this <a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">file</a> (search for CoinJam class).
 Note that the <a href="https://code.google.com/codejam/contest/6254486/dashboard#s=a&amp;a=2">suggested solution</a> to this problem is even nicer by using a mathematical trick and the fact that J is pretty small (relative to 10<sup>N</sup>).
 If J is much larger and close to the number of all jamcoins with length N available (e.g., more than 90%), then using modified Rabin-Miller test is probably required.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Best Friend Forever]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/04/18/best-friend-forever/"/>
-    <updated>2016-04-18T15:44:57-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/04/18/best-friend-forever</id>
-    <content type="html"><![CDATA[<p>BFF is the name of the <a href="https://code.google.com/codejam/contest/4304486/dashboard#s=p2">problem C</a> in Google Code Jam 2016, Round 1A.
-The summarized problem statement is as follows:</p>
-
-<blockquote><p>Every kid in your class has a single best friend forever (BFF).<br/>You want to form the largest possible circle of kids such that each kid in the circle is sitting directly next to their BFF, either to the left or to the right.<br/>Give a line that contains N integers F1, F2, ..., FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.</p></blockquote>
-
-
-<p>I&rsquo;m never a strong <a href="https://en.wikipedia.org/wiki/Competitive_programming">sport programmer</a>.
-I&rsquo;d like to approach to the problem more methodically.
-While the first three example test cases provided in the problem statement is pretty straight forward, the last example <code>7 8 10 10 9 2 9 6 3 3</code> is not so.
-Such number chains look like graphs or linked-lists and I would first try to plot them out:</p>
-
-<p><img class="center" src="http://tdongsi.github.io/images/python/bff.png" title="BFF example" ></p>
-
-<p>I initially thought that problem C is some dynamic programming problem (base case N=2) and tried to think in that direction.
-After looking at the graph plot for the last example (shown above), it is apparent to me that is not the case and I actually need some graph algorithm.
-The above plot also gives me some key observations to solve the problem:</p>
-
-<ol>
-<li>Each cycle in the directed graph is a candidate for the solution circle.</li>
-<li>If the kids form a cycle with length >= 3, then there is no way to insert another kid into that cycle to form a circle that satisfies the requirements.
-
-<ul>
-<li>In the example above, for the cycle 2->8->6->2, if there is a kid that is BFF to (i.e., a node pointing to) any one of them, we cannot create a larger circle to include that kid.</li>
-<li>The cycle is a candidate for solution itself. Some cycles can get really large.</li>
-</ul>
-</li>
-<li>If the kids form a cycle with length == 2 (called &ldquo;mutual BFFs&rdquo; in my code), then you can keep chaining kids who are friends of friends to those kids to form a &ldquo;path&rdquo;. You can create a circle from <strong>one or more</strong> &ldquo;paths&rdquo;.
-
-<ul>
-<li>In the example above, for the cycle 3-10, we can chain friends of friends 1->7->9->3 and 10&lt;-4 to form a longer chain 1-7-9-3-10-4. This path is another solution candidate.</li>
-<li>After comparing length with the other candidate (cycle 2->8->6->2), the &ldquo;path&rdquo; is the solution circle for this particular example.</li>
-</ul>
-</li>
-</ol>
-
-
-<p>Based on those observations, the solution is pretty &ldquo;simple&rdquo;:</p>
-
-<ol>
-<li>From the list of BFFs, construct a directed graph.</li>
-<li>Find all the simple cycles in the directed graph. <em>&lt;- I lied, this is not simple.</em></li>
-<li>Initialize max_length = -1. For each simple cycle:
-
-<ol>
-<li>If cycle length is greater than 2, it is a candidate. Compare its length and update max_length if needed.</li>
-<li>If cycle length is equal to 2.
-
-<ol>
-<li>Find the longest friends of friends chain that is connected to either kid in this cycle.</li>
-<li>Find the path length, add to path_sum, and update max_length if needed.</li>
-</ol>
-</li>
-</ol>
-</li>
-</ol>
-
-
-<p>Constructing the directed graph and finding cycles in step 2 is not trivial but can be made easy using <a href="http://networkx.readthedocs.org/en/stable/"><code>networkx</code></a> module, as shown below (together with plotting using <code>matlplotlib</code>).</p>
-
-<figure class='code'><figcaption><span>Construct and plot directed graph with networkx</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">networkx</span> <span class="kn">as</span> <span class="nn">nx</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">class</span> <span class="nc">Bff</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    https://code.google.com/codejam/contest/4304486/dashboard#s=p2</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Initialize with the given filename.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :param filename: input file path</span>
-</span><span class='line'><span class="sd">        :return:</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">_filename</span> <span class="o">=</span> <span class="n">filename</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Draw the string that represents the bff network.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        The input string contains N integers F1, F2, ..., FN, </span>
-</span><span class='line'><span class="sd">        where Fi is the student ID number of the BFF</span>
-</span><span class='line'><span class="sd">        of the kid with student ID i.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :param input: the string that represents the bff network.</span>
-</span><span class='line'><span class="sd">        :return:</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="c"># Construct the directed graph</span>
-</span><span class='line'>        <span class="n">bffs</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">input</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)]</span>
-</span><span class='line'>        <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bffs</span><span class="p">))]</span>
-</span><span class='line'>        <span class="n">gr</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
-</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_nodes_from</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">gr</span><span class="o">.</span><span class="n">add_edges_from</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">bffs</span><span class="p">)])</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c"># nx.simple_cycles(gr)</span>
-</span><span class='line'>        <span class="n">nx</span><span class="o">.</span><span class="n">draw_networkx</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span>
-</span><span class='line'>        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filename</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-</span><span class='line'>    <span class="n">plot</span> <span class="o">=</span> <span class="n">Bff</span><span class="p">(</span><span class="s">&quot;bff.png&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="c"># plot.draw(&quot;2 1 6 3 8 4 6 5&quot;)</span>
-</span><span class='line'>    <span class="n">plot</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s">&quot;6 1 6 5 4 1 5 10 3 7&quot;</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">pass</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Disclaimer: I know my solution is probably not accepted in Code Jam for using external library, and that is fine :D.
-It is not like I can implement <a href="https://en.wikipedia.org/wiki/Johnson%27s_algorithm">Johnson&rsquo;s algorithm</a> for finding cycles within two hours.
-<a href="https://github.com/tdongsi/python/blob/master/CodeJam/codejam/y2016/codejam.py">My solution</a> is to check if my thinking is correct.</p>
-
-<p>Note that one mistake we might make is to treat each &ldquo;path&rdquo; (found from cycles of length 2) as a solution candidate instead of combining them into a candidate (Note <strong>&ldquo;one or more&rdquo;</strong> in observation 3).
-The reason is that all the &ldquo;paths&rdquo; can be chained together to form a larger cycle (see graph below).
-My first solution was rejected for Small Input dataset due to this mistake.
-Again, by plotting test cases in the Small dataset, the following test case would came up and makes me realize my mistake:</p>
-
-<p><img class="center" src="http://tdongsi.github.io/images/python/bff2.png" title="All paths" ></p>
-
-<p>Some morals of the story:</p>
-
-<ul>
-<li>Plotting helps. Without looking at the graphs, I would wander into the wrong direction, looking for a DP solution.</li>
-<li>In real-world problem solving, you don&rsquo;t need to solve the problem in two hours. Even better, you don&rsquo;t need to re-invent the wheel. Therefore, it is better to take steps methodically to arrive at a scalable solution (i.e., plotting, using libraries, testing if needed).</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Bash Trap]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/03/02/bash-trap/"/>
-    <updated>2016-03-02T00:07:48-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/03/02/bash-trap</id>
-    <content type="html"><![CDATA[<h3>Code snippet</h3>
-
-<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
-In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
-
-<figure class='code'><figcaption><span>DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup trap to cleanup before exiting script</span>
-</span><span class='line'><span class="k">function</span> cleanup <span class="o">{</span>
-</span><span class='line'>    <span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>        rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'>    <span class="k">fi</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'><span class="nb">trap </span>cleanup EXIT
-</span><span class='line'>
-</span><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
-Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
-
-<figure class='code'><figcaption><span>DON'T DO THIS</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Setup</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># Thousand lines of code here</span>
-</span><span class='line'>
-</span><span class='line'><span class="c"># This might not run when there is error</span>
-</span><span class='line'><span class="nb">echo</span> <span class="s2">&quot;Removing temp files...&quot;</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$CMD_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$CMD_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span><span class='line'><span class="k">if</span> <span class="o">[[</span> -f <span class="nv">$LOG_TMPFILE</span> <span class="o">]]</span> <span class="p">;</span> <span class="k">then</span>
-</span><span class='line'>    rm <span class="nv">$LOG_TMPFILE</span>
-</span><span class='line'><span class="k">fi</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
-at the end of a deployment script, regardless of any error encountered during script execution.
-It is a good candidate for using <code>trap</code> statement.
-Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
-
-<h3>Trap multiple signals</h3>
-
-<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
-I believe once <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
-<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
-It is easy to confirm that with the following short bash script:</p>
-
-<figure class='code'><figcaption><span>Trap tests in Mac OSX</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 6613
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Interrupt: 2            ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 6624
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Terminated: 15          ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
-Having said that, I understand that my tests can only verify bash on Mac OSX.
-There are probably different shell variants on different operating systems which do not always work that way.</p>
-
-<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
-Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
-Not all cleanup steps could be and should be executed twice.
-For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
-
-<figure class='code'><figcaption><span>Problem of trapping multiple signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
-</span><span class='line'>#!/bin/bash
-</span><span class='line'>trap 'echo SIGNAL CAPTURED' INT TERM EXIT
-</span><span class='line'>sleep 3
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -INT %1
-</span><span class='line'>[1] 7258
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 130                ./test_trap.sh
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh & sleep 1; kill -TERM %1
-</span><span class='line'>[1] 7278
-</span><span class='line'>Terminated: 15
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>SIGNAL CAPTURED
-</span><span class='line'>[1]+  Exit 143                ./test_trap.sh</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
-
-<h3>Other usage notes</h3>
-
-<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
-
-<figure class='code'><figcaption><span>List of signals</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ kill -l
-</span><span class='line'> 1) SIGHUP     2) SIGINT   3) SIGQUIT  4) SIGILL
-</span><span class='line'> 5) SIGTRAP    6) SIGABRT  7) SIGEMT   8) SIGFPE
-</span><span class='line'> 9) SIGKILL   10) SIGBUS  11) SIGSEGV 12) SIGSYS
-</span><span class='line'>13) SIGPIPE   14) SIGALRM 15) SIGTERM 16) SIGURG
-</span><span class='line'>17) SIGSTOP   18) SIGTSTP 19) SIGCONT 20) SIGCHLD
-</span><span class='line'>21) SIGTTIN   22) SIGTTOU 23) SIGIO   24) SIGXCPU
-</span><span class='line'>25) SIGXFSZ   26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
-</span><span class='line'>29) SIGINFO   30) SIGUSR1 31) SIGUSR2
-</span><span class='line'>
-</span><span class='line'>OR 
-</span><span class='line'>
-</span><span class='line'>MTVL1288aeea2-82:octopress tdongsi$ man signal</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
-This is useful for debugging purpose.
-The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
-
-<figure class='code'><figcaption><span>Tracing when a variable is used</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nb">declare</span> -t <span class="nv">VARIABLE</span><span class="o">=</span>value
-</span><span class='line'><span class="nb">trap</span> <span class="s2">&quot;echo VARIABLE is being used here.&quot;</span> DEBUG
-</span><span class='line'>
-</span><span class='line'><span class="c"># rest of the script</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>References</h3>
-
-<ol>
-<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
-<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
-<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
-    <updated>2016-02-29T00:54:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
-    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
-
-<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
-The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
-The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
-
-<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>=&gt; select * from epochs;
-</span><span class='line'>
-</span><span class='line'>epoch_close_time            epoch_number
-</span><span class='line'>2016-03-04 21:44:24.192495    610131</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
-The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
-You cannot run any historical queries prior to the AHM.
-By default, Vertica advances the AHM at an interval of 5 minutes.</p>
-
-<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/">projection</a>.
-To find about the unrefreshed projection, use the following command:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>SELECT * FROM projections where is_up_to_date = 'f';</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
-However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
-AHM could lag behind at the create epoch of some unrefreshed projection.
-Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
-
-<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>select START_REFRESH();</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Use JMockit ONLY]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework/"/>
-    <updated>2016-02-21T12:20:46-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework</id>
-    <content type="html"><![CDATA[<p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
-Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
-
-<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
-Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
-It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
-This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
-For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
-
-<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Symlinks in Git]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git/"/>
-    <updated>2016-02-20T11:28:11-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/20/symlinks-in-git</id>
-    <content type="html"><![CDATA[<h3>Context</h3>
-
-<p>I had folders with many symbolic links in them, linking to other files in the same Git repository.</p>
-
-<figure class='code'><figcaption><span>Before</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>ls -l link
-</span><span class='line'>... link -&gt; /path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Unfortunately after committing into Git, they&rsquo;ve turned into plain text files.
-Note that even after committing and pushing into Git, the symlinks still work fine.
-However, after some branch switches and code merges, the symlinks become actual text files with the link target as the contents.</p>
-
-<figure class='code'><figcaption><span>After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">$ </span>cat link
-</span><span class='line'>/path/to/target
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-</span><span class='line'>vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h3>Restoring the symlinks</h3>
-
-<p>Before going into lengthy discussion on how Git handles symlinks and hard links, the quick solution for the above problem is the following Bash script:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="nv">folder</span><span class="o">=</span>/Users/tdongsi/Github/my_repo/scripts/sql
-</span><span class='line'>ls -d1 <span class="nv">$folder</span>/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>where <code>ls -d1 $folder/*</code> should be replaced with some command that will list exactly the files you want, preferably in full path.
-Note that <code>-f</code> option of <code>ln</code> command is required to replace the file with the symlink. For examples:</p>
-
-<figure class='code'><figcaption><span>Examples</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls -d1 vertica/*.sql <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span><span class='line'>
-</span><span class='line'>ls -d1 bash/* <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  ln -sf <span class="s2">&quot;$(cat $f)&quot;</span> <span class="s2">&quot;$f&quot;</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Best practice note</strong>: I think that the following template is preferred to the more commonly seen <code>for f in $(ls *);</code> <code>do...done</code>:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'>ls * <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>f<span class="p">;</span> <span class="k">do</span>
-</span><span class='line'>  <span class="c"># command executed for each file</span>
-</span><span class='line'><span class="k">done</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>I think it is the better way to handle all file names, especially with spaces, since <code>"$f"</code> will still work.
-In addition, <code>$(cmd)</code> is the same as <code>'cmd'</code> (backticks) but it can be nested, unlike using backticks.
-It fact, it&rsquo;s the main reason why the backticks have been <a href="http://wiki.bash-hackers.org/scripting/obsolete">deprecated</a> from Bash scripting.</p>
-
-<h3>How Git deals with symlinks</h3>
-
-<p>How Git deals with symlinks is defined in the <a href="https://git-scm.com/docs/git-config">git config</a> <code>core.symlinks</code>.
-If false, symbolic links are checked out as small plain files that contain the link text.
-<a href="http://stackoverflow.com/questions/954560/how-does-git-handle-symbolic-links">Otherwise</a>, Git just stores the contents of the link (i.e., the path of the file system) in a &lsquo;blob&rsquo; just like it would for a normal file.
-It also stores the name, mode and type (e.g., symlink) in the tree object that represents its containing directory.
-When you checkout a tree containing the link, it restores the object as a symlink.</p>
-
-<p>After the symlinks are checked out as plain text files, I believe it is pretty much no way for Git to restore symlinks again (i.e., follow symlinks inside text files).
-It would be an insecure, undefined behavior: what if the symlink as text file is modified? What if the target is changed when moving between versions of that text file?</p>
-
-<h3>Use hard links?</h3>
-
-<p>You can use hard links instead of symlinks (a.k.a., soft links).
-Git will handle a hard link like a copy of the file, except that the contents of the linked files change at the same time.
-Git may see changes in both files if both the original file and the hard link are in the same repository.</p>
-
-<p>One of the disadvantages is that the file will be created as a normal file during <code>git checkout</code>, because there is no way Git understand it as a link.
-Moreover, hard link itself has many limitations, compared to symlinks, such as files have to reside on the same file-system or partition.
-In Mac OSX, hard links to directories are not supported. There is a <a href="https://github.com/selkhateeb/hardlink">tool</a> to do that, but use it with caution.</p>
-
-<p>Finally, it is important to note that hard links to files can be lost when moving between different versions/branches in Git, even if they are in the same repository.
-When you switch branches back and forth, Git remove the old files and create new ones.
-You still have the copies of the previous files, but they might have totally different inodes, while others (if not in the same Git repo) still refers to the old inodes.
-Eventually, the file and its hard links may be out of sync, and appear like totally unrelated files to Git.
-Therefore, using hard links, at best, is just a temporary solution.</p>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="http://superuser.com/questions/638998/easiest-way-to-restore-symbolic-links-turned-into-text-files">Alternative ways to restore symlinks</a></li>
-<li><a href="http://stackoverflow.com/questions/246215/how-can-i-list-files-with-their-absolute-path-in-linux">Alternative ways to list files</a></li>
-<li><a href="https://git.wiki.kernel.org/index.php/Git">Git design overview</a></li>
-</ol>
-
 ]]></content>
   </entry>
   

@@ -9,8 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Kubernetes is one of the most active open-source project right now.
-I&rsquo;m trying to keep up with interesting updates from the Kubernetes &hellip;">
+  <meta name="description" content="In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system. Sending emails in standard &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -105,6 +104,547 @@ I&rsquo;m trying to keep up with interesting updates from the Kubernetes &hellip
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-05-25T13:42:45-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>1:42 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+
+<h3>Sending emails in standard Jenkins setup</h3>
+
+<p>We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">setting up Postfix</a>.
+Its typical settings is defined in <em>/etc/postfix/main.cf</em> file like this:</p>
+
+<figure class='code'><figcaption><span>/etc/postfix/main.cf example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can test the setup by sending a test email with the following command:</p>
+
+<figure class='code'><figcaption><span>Send a test email</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]# echo "Test localhost" | mailx -s Test tdongsi@example.com
+</span><span class='line'>send-mail: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+</span><span class='line'>postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After the <code>postfix</code> service is up, Jenkins can be configured to send email with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Mailer">Mailer plugin</a>.
+Mail server can be configured in <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+Please visit <a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">this post</a> for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same <strong>E-mail Notification</strong> section.</p>
+
+<h3>Sending email from container</h3>
+
+<p>Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>).
+For email notifications in such CI systems, one option is to reuse <code>postfix</code> service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.</p>
+
+<p>There are two changes need to be made on Postfix to expose it to Docker containers on one host.</p>
+
+<ol>
+<li>Exposing Postfix to the docker network, that is, Postfix must be configured to bind to localhost as well as the docker network.</li>
+<li>Accepting all incoming connections which come from any Docker containers.</li>
+</ol>
+
+
+<p>Docker bridge (<code>docker0</code>) acts a a bridge between your ethernet port and docker containers so that data can go back and forth.
+We achieve the first requirement by adding the IP of <code>docker0</code> to <code>inet_iterfaces</code>.</p>
+
+<figure class='code'><figcaption><span>ifconfig example output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@dev-worker-1 ~]$ ifconfig
+</span><span class='line'>docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.1  netmask 255.255.255.0  broadcast 0.0.0.0
+</span><span class='line'>        ether 02:42:88:5f:24:28  txqueuelen 0  (Ethernet)
+</span><span class='line'>        RX packets 8624183  bytes 18891507332 (17.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15891332  bytes 16911210191 (15.7 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</span><span class='line'>
+</span><span class='line'>flannel0: flags=4305&lt;UP,POINTOPOINT,RUNNING,NOARP,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.0  netmask 255.255.0.0  destination 172.22.91.0
+</span><span class='line'>        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+</span><span class='line'>        RX packets 10508237  bytes 7051646109 (6.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15511583  bytes 18744591891 (17.4 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the second requirement, the whole docker network as well as localhost should be added to <code>mynetworks</code>.
+In our kubernetes setup, the docker network should be <code>flannel0</code> and its subnet&rsquo;s CIDR notation is added to the <code>mynetworks</code> line:</p>
+
+<figure class='code'><figcaption><span>Modified "/etc/postfix/main.cf"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.22.0.0/16
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost, 172.22.91.1
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note the differences in <code>inet_interfaces</code> and <code>mynetworks</code> from the last section.
+One can simply enter the Docker container/Kubernetes pod to verify such setup.
+Note that application <code>mailx</code> maybe not available in a container since we tend to keep the containers light-weight.
+Instead, prepare a <code>sendmail.txt</code> file (based on <a href="http://docs.blowb.org/setup-host/postfix.html">this</a>) with the following SMTP commands and use <code>nc</code> to send out the email as shown below.</p>
+
+<figure class='code'><figcaption><span>Send test email from container</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:k8s tdongsi$ kubectl --kubeconfig kubeconfig --namespace jenkins exec -it jenkins-8hgsn -- bash -il
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ cat sendmail.txt
+</span><span class='line'>HELO x
+</span><span class='line'>MAIL FROM: test@example.com
+</span><span class='line'>RCPT TO: tdongsi@example.com
+</span><span class='line'>DATA
+</span><span class='line'>From: test@example.com
+</span><span class='line'>To: $YOUR_EMAIL
+</span><span class='line'>Subject: This is a test
+</span><span class='line'>
+</span><span class='line'>The test is successful
+</span><span class='line'>
+</span><span class='line'>.
+</span><span class='line'>quit
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ nc 172.22.91.1 25 &lt;sendmail.txt
+</span><span class='line'>220 dev-worker-1.eng.sfdc.net ESMTP Postfix
+</span><span class='line'>250 dev-worker-1.eng.sfdc.net
+</span><span class='line'>250 2.1.0 Ok
+</span><span class='line'>250 2.1.5 Ok
+</span><span class='line'>354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
+</span><span class='line'>250 2.0.0 Ok: queued as 1EF9E60C34
+</span><span class='line'>221 2.0.0 Bye</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>For containerized Jenkins system, mail server can also be configured in same <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+The only difference is the IP/hostname provided to <strong>SMTP server</strong> option.
+Instead of providing the known SMTP server&rsquo;s IP and host, one should use the IP of <code>docker0</code>, as explained above.
+In the case of many nodes in Kubernetes cluster with different <code>docker0</code> IP, the Docker container of Jenkins master should reside only on one host and <code>docker0</code>&rsquo;s IP on that host should be used.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">Standard email setup in Jenkins</a></li>
+<li><a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">Setup Postfix</a></li>
+<li><a href="http://docs.blowb.org/setup-host/postfix.html">Configure Postfix for Docker Containers</a></li>
+<li><a href="http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/">More on Postfix for Docker Containers</a></li>
+</ul>
+
+
+<figure class='code'><figcaption><span>postfix version used in this post</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+</span><span class='line'>mail_version = 2.10.1</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/">Maven and Gradle Builds in Jenkinsfile</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-05-20T23:27:08-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:27 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In this post, we will look into Nexus authentication for Maven and Gradle builds in Jenkins pipelines.</p>
+
+<h3>Maven</h3>
+
+<p>Maven builds in corporates usually use private repositories on Nexus, instead of public ones in Maven Central Repository.
+To do that, we usually configure Maven to check Nexus instead of the default, built-in connection to Maven Central.
+These configurations is stored in <em>~/.m2/settings.xml</em> file.</p>
+
+<p>For authentication with Nexus and for deployment, we must <a href="https://books.sonatype.com/nexus-book/reference/_adding_credentials_to_your_maven_settings.html">provide credentials accordingly</a>.
+We usually add the credentials into our Maven Settings in <em>settings.xml</em> file.</p>
+
+<figure class='code'><figcaption><span>Example Credentials in settings.xml</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;settings&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;servers&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;server&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;id&gt;</span>nexus<span class="nt">&lt;/id&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;username&gt;</span>deployment<span class="nt">&lt;/username&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;password&gt;</span>deployment123<span class="nt">&lt;/password&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;/server&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/servers&gt;</span>
+</span><span class='line'><span class="nt">&lt;/settings&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, for automated build and deployment in Jenkins pipelines, it is not safe to store credentials in plain text files.
+Instead, one should store Nexus credentials as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Credentials+Plugin">secrets in Jenkins</a> and pass them into Jenkinsfile using their IDs (<code>credentialsId</code>).
+See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">this article</a> for the full picture of related plugins used for storing and passing secrets in Jenkins.</p>
+
+<figure class='code'><figcaption><span>Nexus authentication for Maven in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">mvnSettingsFile</span><span class="o">(</span><span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">},</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">})</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="err">`</span><span class="n">mvn</span> <span class="o">-</span><span class="n">s</span> <span class="n">settings</span><span class="o">.</span><span class="na">xml</span> <span class="n">clean</span> <span class="n">build</span><span class="err">`</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <a href="https://jenkins.io/doc/pipeline/steps/credentials-binding/">step <code>withCredentials</code></a> will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
+<code>mvnSettingsFile</code> is my Groovy function that generates the <code>settings.xml</code> based on the pre-defined format and provided Nexus credentials.</p>
+
+<h3>Gradle</h3>
+
+<p>In Gradle, Nexus authentication can be specified in both <code>build.gradle</code> and <code>gradle.properties</code> file, where <code>build.gradle</code> should be checked into VCS (e.g., git) while <code>gradle.properties</code> contains sensitive credentials information.</p>
+
+<figure class='code'><figcaption><span>Example build.gradle</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">repositories</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">maven</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">credentials</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">username</span> <span class="n">nexusUsername</span>
+</span><span class='line'>            <span class="n">password</span> <span class="n">nexusPassword</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="n">url</span> <span class="o">{</span> <span class="n">nexusPublic</span> <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Example gradle.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">nexusUsername</span><span class="o">=</span><span class="s">myUsername</span>
+</span><span class='line'><span class="na">nexusPassword</span><span class="o">=</span><span class="s">password123</span>
+</span><span class='line'><span class="na">nexusPublic</span><span class="o">=</span><span class="s">https://nexus.example.com/nexus/content/groups/public/</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The default location of the <code>gradle.properties</code> file is <code>~/.gradle</code>.
+This is due to the environment variable <code>GRADLE_USER_HOME</code> usually set to <code>~/.gradle</code>.
+For custom location of <code>gradle.properties</code> (i.e., other than <code>~/.gradle</code>), ensure that the variable <code>GRADLE_USER_HOME</code> is set accordingly.</p>
+
+<p>However, similar to Maven, for Jenkins pipeline automation, it is not safe to store credentials in plain text file <code>gradle.properties</code>, no matter how &ldquo;hidden&rdquo; its location is.
+For that purpose, you should use the following Groovy code:</p>
+
+<figure class='code'><figcaption><span>Nexus authentication for Gradle in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;./gradlew jenkinsBuild&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that, in Gradle, the solution is much simpler because Gradle respects properies set through environment variales.
+Based on <a href="https://docs.gradle.org/current/userguide/build_environment.html">its doc</a>, if the environment variable name looks like <strong><em>ORG_GRADLE_PROJECT_prop=somevalue</em></strong>, then Gradle will set a <code>prop</code> property on your project object, with the value of <code>somevalue</code>.
+Therefore, in <code>withCredentials</code> step, we specifically bind the secrets <code>nexusUsername</code> and <code>nexusPassword</code> to the environment variables <em>ORG_GRADLE_PROJECT_nexusUsername</em> and <em>ORG_GRADLE_PROJECT_nexusPassword</em> and not some arbitrary variable names.
+These environment variables should match the ones used in <code>builde.gradle</code> and, in the following Closure, we simply call the standard Gradle wrapper command <code>./gradlew &lt;target&gt;</code>.
+Compared with Maven solution in the last section, there is no intermediate step to generate <code>settings.xml</code> based on the provided secrets.</p>
+
+<h3>More Tips</h3>
+
+<p>If Maven/Gradle build is used in multiple repositories across organization, it is recommended to move the above Groovy code into shared Jenkins library, as shown in <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">last post</a>.
+For example, the Gradle builds can be simplified by defining <code>useNexus</code> step (see <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/#defining-steps">here</a>) and adding it into the shared library <em>workflow-lib</em>.</p>
+
+<figure class='code'><figcaption><span>vars/useNexus.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">call</span><span class="o">(</span><span class="n">Closure</span> <span class="n">body</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusReleases=https://nexus.example.com/nexus/content/repositories/releases&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="s1">&#39;ORG_GRADLE_PROJECT_nexusSnapshots=https://nexus.example.com/nexus/content/repositories/snapshots&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">body</span><span class="o">()</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After that, all the Gradle builds with Nexus authentication in Jenkinsfile will now be reduced to simply this:</p>
+
+<figure class='code'><figcaption><span>Simplified Nexus authentication for Gradle in Jenkinsfile.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">useNexus</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">sh</span> <span class="s1">&#39;./gradlew jenkinsBuild&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As shown above, it will reduce lots of redundant codes for Gradle builds, repeated again and again in Jenkinsfiles across multiple repositories in an organizaiton.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">Secrets in Jenkins build jobs</a></li>
+<li><a href="https://docs.gradle.org/current/userguide/build_environment.html">Gradle build environment</a></li>
+<li><a href="https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe">Stackoverflow dicussion</a>: for older versions of Gradle.</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2017/05/15/kubernetes-kube-router/">Kubernetes: Kube-router</a></h1>
     
     
@@ -149,7 +689,7 @@ IIRC, it is implemented as a flag to kube-proxy and considerable performance imp
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a></h1>
+      <h1 class="entry-title"><a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a></h1>
     
     
       <p class="meta">
@@ -158,17 +698,176 @@ IIRC, it is implemented as a flag to kube-proxy and considerable performance imp
 
 
 
-<time class='entry-date' datetime='2017-02-08T16:08:02-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>8</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>4:08 pm</span></time>
+<time class='entry-date' datetime='2017-04-18T17:07:44-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>5:07 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
-Simply running such docker image will give the following error:</p>
+  <div class="entry-content"><p>In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<h3>Basic example of Loading Groovy scripts</h3>
+
+<figure class='code'><figcaption><span>script example.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>def example1() {
+</span><span class='line'>  println 'Hello from example1'
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>def example2() {
+</span><span class='line'>  println 'Hello from example2'
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>return this</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>example.groovy</code> script defines <code>example1</code> and <code>example2</code> functions before ending with <code>return this</code>.
+Note that <code>return this</code> is definitely required and one common mistake is to forget ending the Groovy script with it.</p>
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;example.groovy&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span><span class="o">.</span><span class="na">example1</span><span class="o">()</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">code</span><span class="o">.</span><span class="na">example2</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In Jenkinsfile, simply use <a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a> to load the Groovy script.
+After the Groovy script is loaded, the functions insides can be used where it can be referenced, as shown above.</p>
+
+<h3>Demo: Processing Github JSON from Groovy</h3>
+
+<p>In this demo, we first show how to process JSON response from Github API in Groovy.</p>
+
+<figure class='code'><figcaption><span>Processing JSON from Github</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">username</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="n">String</span> <span class="n">password</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
+</span><span class='line'><span class="n">String</span> <span class="n">repo</span> <span class="o">=</span> <span class="s1">&#39;groovy&#39;</span>
+</span><span class='line'><span class="n">String</span> <span class="n">PR_ID</span> <span class="o">=</span> <span class="s1">&#39;2&#39;</span> <span class="c1">// Pull request ID</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${username}/${repo}/pulls/${PR_ID}&quot;</span>
+</span><span class='line'><span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${password}&quot;</span><span class="o">])</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Check if Pull Request body has certain text</span>
+</span><span class='line'><span class="k">if</span> <span class="o">(</span> <span class="n">bodyText</span><span class="o">.</span><span class="na">find</span><span class="o">(</span><span class="s1">&#39;Safari&#39;</span><span class="o">)</span> <span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;Found Safari user&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The equivalent bash command for retrieving JSON response from Github API is as follows:</p>
+
+<figure class='code'><figcaption><span>Equivalent bash command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>// Groovy formatted string
+</span><span class='line'>String cmd = "curl -s -H \"Authorization: token ${password}\" ${url}"
+</span><span class='line'>
+</span><span class='line'>// Example
+</span><span class='line'>String example = 'curl -s -H "Authorization: token XXX" https://api.github.com/repos/tdongsi/groovy/pulls/2'</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Processing Github JSON from Jenkinsfile</h3>
+
+<p>Continuing the demo from the last section, we now put the Groovy code into a callable function in a script called &ldquo;github.groovy&rdquo;.
+Then, in our Jenkinsfile, we proceed to load the script and use the function to process JSON response from Github API.</p>
+
+<figure class='code'><figcaption><span>github.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
+</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="k">this</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -192,94 +891,69 @@ Simply running such docker image will give the following error:</p>
 <span class='line-number'>22</span>
 <span class='line-number'>23</span>
 <span class='line-number'>24</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
-</span><span class='line'>two arguments required, but got []
-</span><span class='line'>java -jar slave.jar [options...] &lt;secret key&gt; &lt;slave name&gt;
-</span><span class='line'> -cert VAL                       : Specify additional X.509 encoded PEM
-</span><span class='line'>                                   certificates to trust when connecting to
-</span><span class='line'>                                   Jenkins root URLs. If starting with @ then
-</span><span class='line'>                                   the remainder is assumed to be the name of
-</span><span class='line'>                                   the certificate file to read.
-</span><span class='line'> -credentials USER:PASSWORD      : HTTP BASIC AUTH header to pass in for making
-</span><span class='line'>                                   HTTP requests.
-</span><span class='line'> -headless                       : Run in headless mode, without GUI
-</span><span class='line'> -jar-cache DIR                  : Cache directory that stores jar files sent
-</span><span class='line'>                                   from the master
-</span><span class='line'> -noreconnect                    : If the connection ends, don't retry and just
-</span><span class='line'>                                   exit.
-</span><span class='line'> -proxyCredentials USER:PASSWORD : HTTP BASIC AUTH header to pass in for making
-</span><span class='line'>                                   HTTP authenticated proxy requests.
-</span><span class='line'> -tunnel HOST:PORT               : Connect to the specified host and port,
-</span><span class='line'>                                   instead of connecting directly to Jenkins.
-</span><span class='line'>                                   Useful when connection to Hudson needs to be
-</span><span class='line'>                                   tunneled. Can be also HOST: or :PORT, in
-</span><span class='line'>                                   which case the missing portion will be
-</span><span class='line'>                                   auto-configured like the default behavior
-</span><span class='line'> -url URL                        : Specify the Jenkins root URLs to connect to.</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;github.groovy&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>      <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;githubCredentials&#39;</span><span class="o">,</span>
+</span><span class='line'>      <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span>
+</span><span class='line'>                                    <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span><span class='line'>      <span class="n">println</span> <span class="n">bodyText</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>Most of the error messages above is from Jenkins binary <code>slave.jar</code> and has nothing to do with Docker.
-To make the container run on Docker, we must override its <code>ENTRYPOINT</code> at runtime to provide the arguments required.
-However, one common mistake while trying to override is as follows:</p>
+<h3>Troubleshooting tips</h3>
 
-<figure class='code'><figcaption><span>Standard mistake</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
-</span><span class='line'>--entrypoint java -jar /usr/share/jenkins/slave.jar
-</span><span class='line'>"--entrypoint" is not a valid option</span></code></pre></td></tr></table></div></figure>
+<p>When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
+In those cases, usually it can be resolved by manually approving some method signatures in <strong>Jenkins > Manage Jenkins > In-process Script Approval</strong> page.
+Adminstrators privilege is required for doing so.</p>
 
+<p>Named parameters in Groovy apparently is not supported in Jenkinsfile:</p>
 
-<p>Except for passing argument to the <code>ENTRYPOINT</code>, the Docker image is usually the last parameter.
-Another attempt to make it &ldquo;right&rdquo; is as follows:</p>
-
-<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Named parameters</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always \
-</span><span class='line'>--entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// This does NOT work</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="nl">githubUsername:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="nl">githubToken:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="nl">repo:</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="nl">id:</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
 </span><span class='line'>
-</span><span class='line'>container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
-</span><span class='line'>stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
-</span><span class='line'>docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
-</span><span class='line'>caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
-</span><span class='line'> file or directory".
-</span><span class='line'>ERRO[0001] error getting events from daemon: net/http: request canceled</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'><span class="c1">// This works</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>This attempt try to put the entire overridden command as the parameter for &ldquo;&ndash;entrypoint&rdquo; flag.
-However, this does NOT work because, as stated in documentation, the entrypoint should specify the <strong>executable</strong>, not the command.
-The correct way to do it is as follows:</p>
 
-<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+
+<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
-</span><span class='line'>gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
-</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-</span><span class='line'>
-</span><span class='line'>Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
-</span><span class='line'>java.net.ConnectException: Connection refused
-</span><span class='line'>  at java.net.PlainSocketImpl.socketConnect(Native Method)</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, error, fileExists, findFiles
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
 
 
-<p>As seeen above, the executable is passed into &ldquo;&ndash;entrypoint&rdquo; flag, while its arguments are being passed <strong>after</strong> the image name.</p>
+<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.</p>
 
 <h3>Reference</h3>
 
 <ul>
-<li><a href="https://docs.docker.com/engine/reference/run/">Guide of Docker Run</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/run/">Docker Run CLI options</a></li>
+<li><a href="https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file">JenkinsCI example</a></li>
+<li><a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a></li>
 </ul>
 
 </div>
@@ -294,7 +968,7 @@ The correct way to do it is as follows:</p>
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a></h1>
+      <h1 class="entry-title"><a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a></h1>
     
     
       <p class="meta">
@@ -303,16 +977,26 @@ The correct way to do it is as follows:</p>
 
 
 
-<time class='entry-date' datetime='2017-01-25T18:22:51-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>6:22 pm</span></time>
+<time class='entry-date' datetime='2017-03-17T15:38:14-07:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:38 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
+  <div class="entry-content"><p>When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles <a href="https://en.wikipedia.org/wiki/Don't_repeat_yourself">DRY</a>.
+A very common use case is that you have many projects that are built in the similar way, such as Nexus authentication step in Gradle build.
+One way is to use <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin">Workflow plugin</a>.
+Comprehensive user documentation can be found in <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">this section</a> of Jenkins handbook.</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<p>In the following sections, we review a couple <strong>older</strong>, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.</p>
+
+<h3>Simple copying</h3>
+
+<p>A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its <code>$JENKINS_HOME</code>.
+All such Groovy files are stored in <em>$JENKINS_HOME/workflow-libs</em> folder, following this directory structure:</p>
+
+<figure class='code'><figcaption><span>Directory structure of a Shared Library repository</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -324,366 +1008,53 @@ The correct way to do it is as follows:</p>
 <span class='line-number'>10</span>
 <span class='line-number'>11</span>
 <span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
-</span><span class='line'>Name:             jenkins
-</span><span class='line'>Namespace:            default
-</span><span class='line'>Image(s):         docker.registry.company.net/tdongsi/jenkins:2.23
-</span><span class='line'>Node:             kube-worker-1/10.252.158.72
-</span><span class='line'>Start Time:           Tue, 24 Jan 2017 16:57:47 -0800
-</span><span class='line'>Labels:               name=jenkins
-</span><span class='line'>Status:               Running
-</span><span class='line'>Reason:
-</span><span class='line'>Message:
-</span><span class='line'>IP:               172.17.27.3
-</span><span class='line'>Replication Controllers:  &lt;none&gt;
-</span><span class='line'>Containers:
-</span><span class='line'>  jenkins:
-</span><span class='line'>    Container ID: docker://943d6e55038804c8
-</span><span class='line'>    Image:        docker.registry.company.net/tdongsi/jenkins:2.23
-</span><span class='line'>    Image ID:     docker://242c1836544e5ca31616
-</span><span class='line'>    State:        Running
-</span><span class='line'>      Started:        Tue, 24 Jan 2017 16:57:48 -0800
-</span><span class='line'>    Ready:        True
-</span><span class='line'>    Restart Count:    0
-</span><span class='line'>    Environment Variables:
-</span><span class='line'>Conditions:
-</span><span class='line'>  Type        Status
-</span><span class='line'>  Ready   True
-</span><span class='line'>Volumes:
-</span><span class='line'>  jenkins-data:
-</span><span class='line'>    Type: HostPath (bare host directory volume)
-</span><span class='line'>    Path: /jdata
-</span><span class='line'>No events. </span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(root)
+</span><span class='line'>+- src                     # Groovy source files
+</span><span class='line'>|   +- org
+</span><span class='line'>|       +- foo
+</span><span class='line'>|           +- Bar.groovy  # for org.foo.Bar class
+</span><span class='line'>+- vars
+</span><span class='line'>|   +- foo.groovy          # for global 'foo' variable
+</span><span class='line'>|   +- foo.txt             # help for 'foo' variable
+</span><span class='line'>+- resources               # resource files (external libraries only)
+</span><span class='line'>|   +- org
+</span><span class='line'>|       +- foo
+</span><span class='line'>|           +- bar.json    # static helper data for org.foo.Bar</span></code></pre></td></tr></table></div></figure>
 
 
-<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
-Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
+<p>By manually modifying the Groovy files (e.g., <em>vars/foo.groovy</em>) and restarting Jenkins, you can update their behaviors accordingly.
+This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@jenkins:~$ sudo ls /etc/hosts
-</span><span class='line'>[sudo] password for jenkins:
-</span><span class='line'>Sorry, try again.</span></code></pre></td></tr></table></div></figure>
+<h3>Git-based update</h3>
 
+<p>A more scalable alternative for updating Groovy codes is to use <code>git push</code>, exposed by Jenkins.</p>
 
-<p>Modifying the Docker image to set root password (e.g., by editing <code>Dockerfile</code> and rebuild) is sometimes not an option,
-such as when the Docker image is downloaded from another source and read-only.
-Moreover, if the container is running in production, we don&rsquo;t want to stop the container while troubleshooting some temporary issues.</p>
+<p>As a side note, this method is no longer mentioned in documentation, as of March 2017.
+In fact, you have to look into a <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d">very old commit</a>
+or <a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">outdated, unofficial fork</a> to find this method briefly mentioned at all.
+It is also occasionally mentioned in support articles such as <a href="https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs">this</a>.</p>
 
-<h3><code>nsenter</code> approach</h3>
-
-<p>I found one way to enter a &ldquo;live&rdquo; container as root by using <code>nsenter</code>.
-In summary, we find the process ID of the target container and provide it to <code>nsenter</code> as an argument.
-In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following <code>docker</code> commands.</p>
-
-<figure class='code'><figcaption><span>Finding running container ID and name</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker ps
-</span><span class='line'>CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
-</span><span class='line'>943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_...
-</span><span class='line'>fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Use <code>docker inspect</code> to find the process ID based on the container ID.
-The Go template <code>{ {.State.Pid} }</code> (NOTE: without space) is used to simplify the output to a single numerical Pid.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker inspect --format { {.State.Pid} } 943d6e5a3bb8
-</span><span class='line'>9176
-</span><span class='line'>
-</span><span class='line'>[centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
-</span><span class='line'>root@jenkins:/# cd ~
-</span><span class='line'>root@jenkins:~# vi /etc/hosts
-</span><span class='line'>root@jenkins:~# exit</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For later versions of Docker, the more direct way is to use <code>docker exec</code> with the container name shown in <code>docker ps</code> output (see next section).
-However, note that <code>docker exec</code> might not work for earlier versions of Docker (tested with Docker 1.6) and <code>nsenter</code> must be used instead.</p>
-
-<p>After entering the container as <code>root</code>, you might want to add the user into sudo group and save the modified Docker image.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
-</span><span class='line'>root@node-v4:~# cd /home/jenkins
-</span><span class='line'>root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
-</span><span class='line'>root@node-v4:/home/jenkins# passwd jenkins
-</span><span class='line'>Enter new UNIX password:
-</span><span class='line'>Retype new UNIX password:
-</span><span class='line'>passwd: password updated successfully
-</span><span class='line'>root@node-v4:/home/jenkins# exit
-</span><span class='line'>logout
-</span><span class='line'>
-</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" \
-</span><span class='line'>280e5237cc6a docker.registry.company.net/tdongsi/jenkins-agent:2.80
-</span><span class='line'>b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
-</span><span class='line'>
-</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/jenkins-agent:2.80
-</span><span class='line'>The push refers to a repository [docker.registry.company.net/tdongsi/jenkins-agent] (len: 1)
-</span><span class='line'>b1fe6c66195e: Image already exists
-</span><span class='line'>151c68e860a5: Image successfully pushed
-</span><span class='line'>670d6fd894d6: Image successfully pushed
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>After that, you can verify <code>sudo</code>ing in the new Docker image.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/jenkins-agent:2.80
-</span><span class='line'>2.80: Pulling from tdongsi/jenkins-agent
-</span><span class='line'>bf5d46315322: Already exists
-</span><span class='line'>9f13e0ac480c: Already exists
-</span><span class='line'>ebe26e644840: Pull complete
-</span><span class='line'>40af181810e7: Pull complete
-</span><span class='line'>...
-</span><span class='line'>
-</span><span class='line'>tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" \
-</span><span class='line'>docker.registry.company.net/tdongsi/jenkins-agent:2.80 -jar /usr/share/jenkins/slave.jar \
-</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-</span><span class='line'>dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
-</span><span class='line'>
-</span><span class='line'>tdongsi-mac:~ tdongsi$ docker ps
-</span><span class='line'>CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-</span><span class='line'>dd9c207e2ef1        docker.registry.company.net/tdongsi/jenkins-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
-</span><span class='line'>tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
-</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
-</span><span class='line'>[sudo] password for jenkins:
-</span><span class='line'>/etc/hosts
-</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
-</span><span class='line'>127.0.0.1 localhost
-</span><span class='line'>::1   localhost ip6-localhost ip6-loopback
-</span><span class='line'>fe00::0   ip6-localnet
-</span><span class='line'>ff00::0   ip6-mcastprefix
-</span><span class='line'>ff02::1   ip6-allnodes
-</span><span class='line'>ff02::2   ip6-allrouters
-</span><span class='line'>172.17.0.2    dd9c207e2ef1
-</span><span class='line'>jenkins@dd9c207e2ef1:~$ exit
-</span><span class='line'>exit</span></code></pre></td></tr></table></div></figure>
-
-
-<h3><code>docker exec</code> approach</h3>
-
-<p>Later versions of <code>docker</code> adds <code>--user</code> flag that allows us to specify which user that we should enter the container as.
-First, we figure out which Kubernetes node is running a particular pod by using the command <code>kubectl describe pod</code>.
-After <code>ssh</code>-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command <code>docker ps -a</code>.
-The following examples demonstrate entering a <code>jenkins-slave</code> container as <code>root</code> and <code>jenkins</code> user.</p>
-
-<figure class='code'><figcaption><span>Entering container </span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[root@dev-worker-2 ~]# docker ps -a
-</span><span class='line'>CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
-</span><span class='line'>10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_...
-</span><span class='line'>767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_...
-</span><span class='line'>
-</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
-</span><span class='line'>#
-</span><span class='line'># ls
-</span><span class='line'>support  workspace
-</span><span class='line'># id
-</span><span class='line'>uid=0(root) gid=0(root) groups=0(root)
-</span><span class='line'># exit
-</span><span class='line'>
-</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
-</span><span class='line'>$ ls
-</span><span class='line'>support  workspace
-</span><span class='line'>$ id
-</span><span class='line'>uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
-</span><span class='line'>$ exit</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As mentioned, older versions of <code>docker</code> does not support <code>--user</code> flag and does not allow entering container as root.
-In that case, use <code>nsenter</code> method presented in the previous section.</p>
-
-<figure class='code'><figcaption><span>Unsupported operation on Docker 1.6</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
-</span><span class='line'>flag provided but not defined: --user
-</span><span class='line'>See 'docker exec --help'.
-</span><span class='line'>[root@kube-worker-1 ~]# docker version
-</span><span class='line'>Client version: 1.6.2.el7
-</span><span class='line'>Client API version: 1.18
-</span><span class='line'>Go version (client): go1.4.2
-</span><span class='line'>Git commit (client): c3ca5bb/1.6.2
-</span><span class='line'>OS/Arch (client): linux/amd64
-</span><span class='line'>Server version: 1.6.2.el7
-</span><span class='line'>Server API version: 1.18
-</span><span class='line'>Go version (server): go1.4.2
-</span><span class='line'>Git commit (server): c3ca5bb/1.6.2
-</span><span class='line'>OS/Arch (server): linux/amd64</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>References</h3>
+<p>In this method, the directory <em>$JENKINS_HOME/workflow-libs</em> is exposed by Jenkins as a Git repository.
+You can deploy new changes to this directory through <code>git push</code> and any such event will trigger Jenkins to recompile Groovy files.
+There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
+The Git repository is exposed in two endpoints:</p>
 
 <ul>
-<li><a href="https://github.com/jpetazzo/nsenter">nsenter tool</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/exec/">docker exec</a> manual</li>
-<li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
+<li><a href="http://server/jenkins/workflowLibs.git">http://server/jenkins/workflowLibs.git</a> (when your Jenkins is <code>http://server/jenkins/</code>).</li>
+<li>ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH">an SSH server</a>)</li>
 </ul>
 
-</div>
-  
-  
 
+<p>This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., &ldquo;shared-lib&rdquo; on Github) and only <code>git push</code> to the <code>workflowLibs.git</code> repository in the event of deployment.
+Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.</p>
 
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a></h1>
-    
-    
-      <p class="meta">
-        
+<h4>Jenkinsfile to update global library</h4>
 
+<p>In this Git-based update approach, all Groovy files should be in some Git repository (e.g., &ldquo;shared-lib&rdquo;) with certain directory structure (shown in the last section).
+Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
+The Jenkinsfile for such workflow-libs should be as follows:</p>
 
-
-
-<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
-This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
-
-<h3>Problem symptoms</h3>
-
-<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
-</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-</span><span class='line'>^C
-</span><span class='line'>--- 10.252.158.72 ping statistics ---
-</span><span class='line'>16 packets transmitted, 0 received, 100% packet loss, time 14999ms
-</span><span class='line'>
-</span><span class='line'>jenkins@jenkins:~$ exit</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
-
-<h3>Troubleshooting with <code>busybox</code></h3>
-
-<p>Try to run a test pod <code>busybox</code>.
-<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Jenkinsfile for deployment</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -699,314 +1070,60 @@ This newbie mistake is rare but very perplexing and this post shows how to troub
 <span class='line-number'>14</span>
 <span class='line-number'>15</span>
 <span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
-</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</pre></td><td class='code'><pre><code class=''><span class='line'>  stage 'Checkout'
+</span><span class='line'>  checkout scm
 </span><span class='line'>
-</span><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-</span><span class='line'>jenkins@jenkins:~$ ping 10.252.61.7
-</span><span class='line'>PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
-</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
-</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
-</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
-</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
-</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
-</span><span class='line'>^C
-</span><span class='line'>--- 10.252.61.7 ping statistics ---
-</span><span class='line'>5 packets transmitted, 5 received, 0% packet loss, time 4000ms
-</span><span class='line'>rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
-</span><span class='line'>
-</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
-</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-</span><span class='line'>^C
-</span><span class='line'>--- 10.252.158.72 ping statistics ---
-</span><span class='line'>14 packets transmitted, 0 received, 100% packet loss, time 13000ms</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>  if (env.BRANCH_NAME == 'master') {
+</span><span class='line'>    stage 'Update'
+</span><span class='line'>    println "Updating Jenkins workflow-libs"
+</span><span class='line'>    sshagent(['jenkins_ssh_key']) {
+</span><span class='line'>      sh """
+</span><span class='line'>         git branch master
+</span><span class='line'>         git checkout master
+</span><span class='line'>         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
+</span><span class='line'>         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
+</span><span class='line'>         git push --force jenkins master
+</span><span class='line'>      """
+</span><span class='line'>    }
+</span><span class='line'>  }</span></code></pre></td></tr></table></div></figure>
 
 
-<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
-<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
+<p>Some comments on this Jenkinsfile:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<ul>
+<li><code>sshagent(['jenkins_ssh_key'])</code> indicates that the current node/slave is known as <a href="https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin">an SSH agent</a> to Jenkins master, using Jenkins credentials with ID <code>jenkins_ssh_key</code>.</li>
+<li><code>git remote add</code> uses the currently checked out Git repo and branch as a remote branch (named &ldquo;jenkins&rdquo;) to the <code>workflowLibs</code> repository.</li>
+<li>The <code>workflowLibs</code> repository is managed by Jenkins, exposed at that location <em>ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git</em>.</li>
+<li>Then we force push any new changes to the Git repository on Jenkins.</li>
+</ul>
+
+
+<p>After the push, the Git repository <code>workflowLibs</code> on Jenkins should have latest change, same as the current &ldquo;shared-lib&rdquo; repository.
+Upon a <code>git push</code> event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
+Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.</p>
+
+<figure class='code'><figcaption><span>Key pair generation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
-</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
 </span><span class='line'>
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
-</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
-</span><span class='line'>
-</span><span class='line'>/ # traceroute 10.252.158.72
-</span><span class='line'>traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
-</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
-</span><span class='line'> 2  *  *  *
-</span><span class='line'> 3  *  *  *
-</span><span class='line'> 4  *  *  *
-</span><span class='line'> 5  *  *  *
-</span><span class='line'>/ #
-</span><span class='line'>/ # traceroute 10.252.100.5
-</span><span class='line'>traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
-</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
-</span><span class='line'> 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
-</span><span class='line'> 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
-</span><span class='line'>/ # exit</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
+</span><span class='line'>Generating public/private rsa key pair.
+</span><span class='line'>Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
+</span><span class='line'>Enter passphrase (empty for no passphrase):
+</span><span class='line'>Enter same passphrase again:</span></code></pre></td></tr></table></div></figure>
 
 
-<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
-</span><span class='line'>Name:         jenkins
-</span><span class='line'>Namespace:        default
-</span><span class='line'>Labels:           &lt;none&gt;
-</span><span class='line'>Selector:     name=jenkins
-</span><span class='line'>Type:         NodePort
-</span><span class='line'>IP:           10.252.77.85
-</span><span class='line'>Port:         http    80/TCP
-</span><span class='line'>NodePort:     http    30080/TCP
-</span><span class='line'>Endpoints:        10.252.100.5:8080
-</span><span class='line'>Session Affinity: None
-</span><span class='line'>No events.</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>What went wrong?</h3>
-
-<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
-When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
-I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
-As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
-This leads to pod-to-VM communication loss as described above.
-The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
-
-<figure class='code'><figcaption><span>Update etcd</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
-</span><span class='line'>"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
-</span><span class='line'>
-</span><span class='line'>[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
-</span><span class='line'>[centos@kube-master ~]$ etcdctl ls /kube-centos/network
-</span><span class='line'>/kube-centos/network/config</span></code></pre></td></tr></table></div></figure>
-
-
-<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2017-01-16T11:48:05-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:48 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
-
-<h3>Problem description</h3>
-
-<p>In this problem, Kubernetes cluster are all installed and configured.
-We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
-</span><span class='line'>NAME            LABELS                                 STATUS    AGE
-</span><span class='line'>kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
-</span><span class='line'>kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
-</span><span class='line'>kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
-</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
-</span><span class='line'>pod "nginx" created</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, one can see the following error messages:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
-</span><span class='line'>NAME      READY     STATUS                                                                                       RESTARTS   AGE
-</span><span class='line'>nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
-</span><span class='line'>
-</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
-</span><span class='line'>FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
-</span><span class='line'>40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
-</span><span class='line'>40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
-</span><span class='line'>40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
-</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The full error message for the third event above is quoted below:</p>
-
-<blockquote><p>Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote>
-
-
-<h3>What is <code>pause</code> container?</h3>
-
-<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
-What is that <code>pause</code> container&rsquo;s purpose?
-The <code>pause</code> container essentially holds the network namespace for the pod.
-It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
-However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
-Normally, if the last process in a network namespace dies, the namespace will be destroyed.
-Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
-With <code>pause</code>, you will always have that one last thing in the namespace.</p>
-
-<h3><code>pause</code> container and private Docker registry</h3>
-
-<p>What trouble does such <code>pause</code> container can give us?
-As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
-If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
-And that is what error message quoted above indicates.
-However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
-One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
-Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
-</span><span class='line'>0.8.0: Pulling from google_containers/pause
-</span><span class='line'>a3ed95caeb02: Pull complete
-</span><span class='line'>bccc832946aa: Pull complete
-</span><span class='line'>Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
-</span><span class='line'>Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
-</span><span class='line'>
-</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
-</span><span class='line'>
-</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
-</span><span class='line'>The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
-</span><span class='line'>5f70bf18a086: Mounted from tdongsi/nginx
-</span><span class='line'>152b0ca1d7a4: Pushed
-</span><span class='line'>0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
-In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
-
-<figure class='code'><figcaption><span>Custom kubelet option</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'># Add your own! 
-</span><span class='line'>KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
-In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
-Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
-
-<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
-We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
-
-<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>docker load -i /path/to/pause-amd64.tar</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<!--
-### Pulling fails even with pull image secret
-
-**WARNING**: 
-This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
-Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
-However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
-
-Validate
-
-<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
-</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
--->
-
+<p>The generated public key should be added to the user via <em>jenkinsurl.com/user/tdongsi/configure</em> URL and private key should be added to the credentials ID <code>jenkins_ssh_key</code>.</p>
 
 <h3>References</h3>
 
 <ul>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
+<li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
 </ul>
 
 </div>
@@ -1034,23 +1151,23 @@ Validate
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/">Maven and Gradle Builds in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2017/05/15/kubernetes-kube-router/">Kubernetes: Kube-router</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/02/08/docker-override-entrypoint/">Docker: Override ENTRYPOINT</a>
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a>
+        <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a>
       </li>
     
   </ul>
@@ -1087,7 +1204,7 @@ Validate
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (5)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (3)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (4)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (3)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (5)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

@@ -1,0 +1,569 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Sending Emails From Docker Containers - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system. Sending emails in standard &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Sending Emails From Docker Containers</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-05-25T13:42:45-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>1:42 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+
+<h3>Sending emails in standard Jenkins setup</h3>
+
+<p>We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">setting up Postfix</a>.
+Its typical settings is defined in <em>/etc/postfix/main.cf</em> file like this:</p>
+
+<figure class='code'><figcaption><span>/etc/postfix/main.cf example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can test the setup by sending a test email with the following command:</p>
+
+<figure class='code'><figcaption><span>Send a test email</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]# echo "Test localhost" | mailx -s Test tdongsi@example.com
+</span><span class='line'>send-mail: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+</span><span class='line'>postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After the <code>postfix</code> service is up, Jenkins can be configured to send email with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Mailer">Mailer plugin</a>.
+Mail server can be configured in <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+Please visit <a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">this post</a> for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same <strong>E-mail Notification</strong> section.</p>
+
+<h3>Sending email from container</h3>
+
+<p>Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>).
+For email notifications in such CI systems, one option is to reuse <code>postfix</code> service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.</p>
+
+<p>There are two changes need to be made on Postfix to expose it to Docker containers on one host.</p>
+
+<ol>
+<li>Exposing Postfix to the docker network, that is, Postfix must be configured to bind to localhost as well as the docker network.</li>
+<li>Accepting all incoming connections which come from any Docker containers.</li>
+</ol>
+
+
+<p>Docker bridge (<code>docker0</code>) acts a a bridge between your ethernet port and docker containers so that data can go back and forth.
+We achieve the first requirement by adding the IP of <code>docker0</code> to <code>inet_iterfaces</code>.</p>
+
+<figure class='code'><figcaption><span>ifconfig example output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@dev-worker-1 ~]$ ifconfig
+</span><span class='line'>docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.1  netmask 255.255.255.0  broadcast 0.0.0.0
+</span><span class='line'>        ether 02:42:88:5f:24:28  txqueuelen 0  (Ethernet)
+</span><span class='line'>        RX packets 8624183  bytes 18891507332 (17.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15891332  bytes 16911210191 (15.7 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</span><span class='line'>
+</span><span class='line'>flannel0: flags=4305&lt;UP,POINTOPOINT,RUNNING,NOARP,MULTICAST&gt;  mtu 1472
+</span><span class='line'>        inet 172.22.91.0  netmask 255.255.0.0  destination 172.22.91.0
+</span><span class='line'>        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+</span><span class='line'>        RX packets 10508237  bytes 7051646109 (6.5 GiB)
+</span><span class='line'>        RX errors 0  dropped 0  overruns 0  frame 0
+</span><span class='line'>        TX packets 15511583  bytes 18744591891 (17.4 GiB)
+</span><span class='line'>        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the second requirement, the whole docker network as well as localhost should be added to <code>mynetworks</code>.
+In our kubernetes setup, the docker network should be <code>flannel0</code> and its subnet&rsquo;s CIDR notation is added to the <code>mynetworks</code> line:</p>
+
+<figure class='code'><figcaption><span>Modified "/etc/postfix/main.cf"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+</span><span class='line'>
+</span><span class='line'>myhostname = dev-worker-1.example.com
+</span><span class='line'>smtpd_banner = $myhostname ESMTP $mail_name
+</span><span class='line'>biff = no
+</span><span class='line'>
+</span><span class='line'># appending .domain is the MUA's job.
+</span><span class='line'>append_dot_mydomain = no
+</span><span class='line'>
+</span><span class='line'># Uncomment the next line to generate "delayed mail" warnings
+</span><span class='line'>#delay_warning_time = 4h
+</span><span class='line'>
+</span><span class='line'>readme_directory = no
+</span><span class='line'>
+</span><span class='line'># TLS parameters
+</span><span class='line'>smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+</span><span class='line'>smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+</span><span class='line'>smtpd_use_tls=yes
+</span><span class='line'>
+</span><span class='line'># See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+</span><span class='line'># information on enabling SSL in the smtp client.
+</span><span class='line'>
+</span><span class='line'>alias_maps = hash:/etc/aliases
+</span><span class='line'>alias_database = hash:/etc/aliases
+</span><span class='line'>myorigin = dev-worker-1.example.com
+</span><span class='line'>mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+</span><span class='line'>relayhost = smtprelay-prd.example.com
+</span><span class='line'>mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.22.0.0/16
+</span><span class='line'>mailbox_size_limit = 0
+</span><span class='line'>recipient_delimiter = +
+</span><span class='line'>inet_interfaces = localhost, 172.22.91.1
+</span><span class='line'>inet_protocols = all</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note the differences in <code>inet_interfaces</code> and <code>mynetworks</code> from the last section.
+One can simply enter the Docker container/Kubernetes pod to verify such setup.
+Note that application <code>mailx</code> maybe not available in a container since we tend to keep the containers light-weight.
+Instead, prepare a <code>sendmail.txt</code> file (based on <a href="http://docs.blowb.org/setup-host/postfix.html">this</a>) with the following SMTP commands and use <code>nc</code> to send out the email as shown below.</p>
+
+<figure class='code'><figcaption><span>Send test email from container</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:k8s tdongsi$ kubectl --kubeconfig kubeconfig --namespace jenkins exec -it jenkins-8hgsn -- bash -il
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ cat sendmail.txt
+</span><span class='line'>HELO x
+</span><span class='line'>MAIL FROM: test@example.com
+</span><span class='line'>RCPT TO: tdongsi@example.com
+</span><span class='line'>DATA
+</span><span class='line'>From: test@example.com
+</span><span class='line'>To: $YOUR_EMAIL
+</span><span class='line'>Subject: This is a test
+</span><span class='line'>
+</span><span class='line'>The test is successful
+</span><span class='line'>
+</span><span class='line'>.
+</span><span class='line'>quit
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins-8hgsn:~/test$ nc 172.22.91.1 25 &lt;sendmail.txt
+</span><span class='line'>220 dev-worker-1.eng.sfdc.net ESMTP Postfix
+</span><span class='line'>250 dev-worker-1.eng.sfdc.net
+</span><span class='line'>250 2.1.0 Ok
+</span><span class='line'>250 2.1.5 Ok
+</span><span class='line'>354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
+</span><span class='line'>250 2.0.0 Ok: queued as 1EF9E60C34
+</span><span class='line'>221 2.0.0 Bye</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>For containerized Jenkins system, mail server can also be configured in same <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+The only difference is the IP/hostname provided to <strong>SMTP server</strong> option.
+Instead of providing the known SMTP server&rsquo;s IP and host, one should use the IP of <code>docker0</code>, as explained above.
+In the case of many nodes in Kubernetes cluster with different <code>docker0</code> IP, the Docker container of Jenkins master should reside only on one host and <code>docker0</code>&rsquo;s IP on that host should be used.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">Standard email setup in Jenkins</a></li>
+<li><a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">Setup Postfix</a></li>
+<li><a href="http://docs.blowb.org/setup-host/postfix.html">Configure Postfix for Docker Containers</a></li>
+<li><a href="http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/">More on Postfix for Docker Containers</a></li>
+</ul>
+
+
+<figure class='code'><figcaption><span>postfix version used in this post</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+</span><span class='line'>mail_version = 2.10.1</span></code></pre></td></tr></table></div></figure>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-05-25T13:42:45-07:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>1:42 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/docker/'>docker</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>, <a class='category' href='/blog/categories/kubernetes/'>kubernetes</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/" title="Previous Post: Maven and Gradle builds in Jenkinsfile">&laquo; Maven and Gradle builds in Jenkinsfile</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/">Maven and Gradle Builds in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/15/kubernetes-kube-router/">Kubernetes: Kube-router</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (5)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

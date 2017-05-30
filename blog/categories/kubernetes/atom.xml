@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-18T00:24:17-07:00</updated>
+  <updated>2017-05-30T00:49:12-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,190 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Sending Emails From Docker Containers]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/"/>
+    <updated>2017-05-25T13:42:45-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers</id>
+    <content type="html"><![CDATA[<p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+
+<h3>Sending emails in standard Jenkins setup</h3>
+
+<p>We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
+For corporate network, you may have to use an SMTP relay server instead.
+For those cases, you can configure SMTP communication by <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">setting up Postfix</a>.
+Its typical settings is defined in <em>/etc/postfix/main.cf</em> file like this:</p>
+
+<pre><code class="plain /etc/postfix/main.cf example"># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+
+myhostname = dev-worker-1.example.com
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+
+readme_directory = no
+
+# TLS parameters
+smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+smtpd_use_tls=yes
+
+# See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+# information on enabling SSL in the smtp client.
+
+
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = dev-worker-1.example.com
+mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+relayhost = smtprelay-prd.example.com
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = localhost
+inet_protocols = all
+</code></pre>
+
+<p>We can test the setup by sending a test email with the following command:</p>
+
+<pre><code class="plain Send a test email">[tdongsi@dev-worker-1 ~]# echo "Test localhost" | mailx -s Test tdongsi@example.com
+send-mail: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address family not supported by protocol
+</code></pre>
+
+<p>After the <code>postfix</code> service is up, Jenkins can be configured to send email with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Mailer">Mailer plugin</a>.
+Mail server can be configured in <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+Please visit <a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">this post</a> for more detailed instructions and screenshots.
+We can also test the configuration by sending test e-mail in the same <strong>E-mail Notification</strong> section.</p>
+
+<h3>Sending email from container</h3>
+
+<p>Many Jenkins-based CI systems have been containerized and deployed on Kubernetes cluster (in conjunction with <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>).
+For email notifications in such CI systems, one option is to reuse <code>postfix</code> service, which is usually configured and ready on the Kubernetes nodes, and expose it to the Docker containers.</p>
+
+<p>There are two changes need to be made on Postfix to expose it to Docker containers on one host.</p>
+
+<ol>
+<li>Exposing Postfix to the docker network, that is, Postfix must be configured to bind to localhost as well as the docker network.</li>
+<li>Accepting all incoming connections which come from any Docker containers.</li>
+</ol>
+
+
+<p>Docker bridge (<code>docker0</code>) acts a a bridge between your ethernet port and docker containers so that data can go back and forth.
+We achieve the first requirement by adding the IP of <code>docker0</code> to <code>inet_iterfaces</code>.</p>
+
+<pre><code class="plain ifconfig example output">[centos@dev-worker-1 ~]$ ifconfig
+docker0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1472
+        inet 172.22.91.1  netmask 255.255.255.0  broadcast 0.0.0.0
+        ether 02:42:88:5f:24:28  txqueuelen 0  (Ethernet)
+        RX packets 8624183  bytes 18891507332 (17.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 15891332  bytes 16911210191 (15.7 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+flannel0: flags=4305&lt;UP,POINTOPOINT,RUNNING,NOARP,MULTICAST&gt;  mtu 1472
+        inet 172.22.91.0  netmask 255.255.0.0  destination 172.22.91.0
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+        RX packets 10508237  bytes 7051646109 (6.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 15511583  bytes 18744591891 (17.4 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</code></pre>
+
+<p>For the second requirement, the whole docker network as well as localhost should be added to <code>mynetworks</code>.
+In our kubernetes setup, the docker network should be <code>flannel0</code> and its subnet&rsquo;s CIDR notation is added to the <code>mynetworks</code> line:</p>
+
+<pre><code class="plain Modified "/etc/postfix/main.cf""># See /usr/share/postfix/main.cf.bak for a commented, more complete version
+
+myhostname = dev-worker-1.example.com
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+
+readme_directory = no
+
+# TLS parameters
+smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+smtpd_use_tls=yes
+
+# See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
+# information on enabling SSL in the smtp client.
+
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+myorigin = dev-worker-1.example.com
+mydestination = dev-worker-1.example.com, localhost.example.com, localhost
+relayhost = smtprelay-prd.example.com
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.22.0.0/16
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = localhost, 172.22.91.1
+inet_protocols = all
+</code></pre>
+
+<p>Note the differences in <code>inet_interfaces</code> and <code>mynetworks</code> from the last section.
+One can simply enter the Docker container/Kubernetes pod to verify such setup.
+Note that application <code>mailx</code> maybe not available in a container since we tend to keep the containers light-weight.
+Instead, prepare a <code>sendmail.txt</code> file (based on <a href="http://docs.blowb.org/setup-host/postfix.html">this</a>) with the following SMTP commands and use <code>nc</code> to send out the email as shown below.</p>
+
+<pre><code class="plain Send test email from container">mymac:k8s tdongsi$ kubectl --kubeconfig kubeconfig --namespace jenkins exec -it jenkins-8hgsn -- bash -il
+
+jenkins@jenkins-8hgsn:~/test$ cat sendmail.txt
+HELO x
+MAIL FROM: test@example.com
+RCPT TO: tdongsi@example.com
+DATA
+From: test@example.com
+To: $YOUR_EMAIL
+Subject: This is a test
+
+The test is successful
+
+.
+quit
+
+jenkins@jenkins-8hgsn:~/test$ nc 172.22.91.1 25 &lt;sendmail.txt
+220 dev-worker-1.eng.sfdc.net ESMTP Postfix
+250 dev-worker-1.eng.sfdc.net
+250 2.1.0 Ok
+250 2.1.5 Ok
+354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
+250 2.0.0 Ok: queued as 1EF9E60C34
+221 2.0.0 Bye
+</code></pre>
+
+<p>For containerized Jenkins system, mail server can also be configured in same <strong>Manage Jenkins</strong> page, <strong>E-mail Notification</strong> section.
+The only difference is the IP/hostname provided to <strong>SMTP server</strong> option.
+Instead of providing the known SMTP server&rsquo;s IP and host, one should use the IP of <code>docker0</code>, as explained above.
+In the case of many nodes in Kubernetes cluster with different <code>docker0</code> IP, the Docker container of Jenkins master should reside only on one host and <code>docker0</code>&rsquo;s IP on that host should be used.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email">Standard email setup in Jenkins</a></li>
+<li><a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04">Setup Postfix</a></li>
+<li><a href="http://docs.blowb.org/setup-host/postfix.html">Configure Postfix for Docker Containers</a></li>
+<li><a href="http://satishgandham.com/2016/12/sending-email-from-docker-through-postfix-installed-on-the-host/">More on Postfix for Docker Containers</a></li>
+</ul>
+
+
+<pre><code class="plain postfix version used in this post">[tdongsi@dev-worker-1 ~]$ postconf -v | grep mail_version
+mail_version = 2.10.1
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Kubernetes: Kube-router]]></title>
