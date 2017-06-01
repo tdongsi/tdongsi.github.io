@@ -3,7 +3,7 @@ layout: post
 title: "Troubleshooting Docker-out-of-Docker"
 date: 2017-04-26 16:24:24 -0700
 comments: true
-published: false
+published: true
 categories: 
 - Docker
 - Kubernetes
@@ -117,6 +117,7 @@ Group account information is stored in `/etc/group`.
 * [find files with group name or ID](https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/)
 
 TODO
+
 * https://github.com/docker/compose/issues/1214
 * http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container
 * https://github.com/jenkinsci/docker/issues/196

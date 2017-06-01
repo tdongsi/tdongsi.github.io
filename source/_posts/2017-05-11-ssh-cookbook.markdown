@@ -24,6 +24,13 @@ Recipe 2: [link](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pai
 openssl rsa -in ~/.ssh/id_rsa -pubout -outform DER | openssl md5 -c
 ```
 
+Recipe 3: [link](https://serverfault.com/questions/132970/can-i-automatically-add-a-new-host-to-known-hosts).
+
+``` plain Recipe 3: Add new hosts to known_hosts file
+ssh-keyscan -H [ip_address] >> ~/.ssh/known_hosts
+ssh-keyscan -H [hostname] >> ~/.ssh/known_hosts
+```
+
 ### `-R` and `-L` of `ssh`
 
 Those options stands for remote and local port forwarding.
