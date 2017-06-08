@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-30T00:49:12-07:00</updated>
+  <updated>2017-06-08T12:24:49-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -215,6 +215,136 @@ This <code>kube-router</code> project is one of them although I&rsquo;ve not get
 <li>Another related work is <a href="https://github.com/kubernetes/kubernetes/issues/44063">IPVS-based in-cluster service load balancing</a>.
 Huawei presented this work at Kubecon 2016.
 IIRC, it is implemented as a flag to kube-proxy and considerable performance improvement was reported.</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
+    <updated>2017-04-26T16:24:24-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker</id>
+    <content type="html"><![CDATA[<h3>Troubleshooting</h3>
+
+<p>Problem description: We are using &ldquo;Docker out of Docker&rdquo; approach to build Docker images in our containerized Jenkins slaves.
+However, we got hit by the following issues when reusing a Jenkins slave container image.</p>
+
+<pre><code class="plain Error message when running Docker">+ docker images
+Cannot connect to the Docker daemon. Is the docker daemon running on this host?
+</code></pre>
+
+<p>The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).</p>
+
+<p>TODO: <a href="https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925">https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925</a></p>
+
+<p>The current user (<code>jenkins</code> in the example) must have permissions to talk to <code>/var/run/docker.sock</code> on that system.
+By convention, that permission is given to <code>root</code> user or users in <code>docker</code> group.
+However, the following commands show that it is not the case.</p>
+
+<pre><code class="plain Show GID of docker group">+ ls -l /var/run/docker.sock
+
+srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
++ cat /etc/group
+...
+docker:x:999:jenkins
+</code></pre>
+
+<p>The expectation is:</p>
+
+<pre><code>+ ls -l /var/run/docker.sock
+srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
+</code></pre>
+
+<p>This is due to the container is built inside another k8s cluster.
+The group <code>docker</code> happens to have the group ID 999 on that k8s cluster.
+The user <code>jenkins</code>, under which Jenkins pipeline is executed, does not have the permission to access that socket <code>/var/run/docker.sock</code>.</p>
+
+<p>By default, a unix domain socket (or IPC socket) is created at <code>/var/run/docker.sock</code>, requiring either root permission, or docker group membership.</p>
+
+<p>For illustration, the installation steps in Ubuntu are expected to be like this:</p>
+
+<pre><code># Install from Web
+sudo curl -sSL https://get.docker.com/ | sh
+sudo usermod -aG docker jenkins
+
+# Install from apt
+sudo apt-get update
+sudo apt-get install -y docker-engine
+sudo usermod -aG docker jenkins
+</code></pre>
+
+<p>Example Dockerfile (from <a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">here</a>).
+<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>FROM jenkins&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;USER root
+</span><span class='line'>ENV DEBIAN_FRONTEND=noninteractive
+</span><span class='line'>ENV HOME /home/jenkins
+</span><span class='line'>ENV DOCKER_VERSION=1.9.1-0~trusty&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;RUN apt-get update \
+</span><span class='line'>  &amp;&amp; apt-get install -y docker-engine=$DOCKER_VERSION \
+</span><span class='line'>  &amp;&amp; rm -rf /var/lib/apt/lists/*&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;RUN usermod -a -G docker jenkins</span></code></pre></td></tr></table></div></figure></p>
+
+<p>The last step <code>usermod</code> comes from the script instruction itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
+
+<h3><code>groupadd</code> examples</h3>
+
+<p>The following example creates a new group called apache</p>
+
+<pre><code>$ groupadd apache
+</code></pre>
+
+<p>Make sure it is created successfully.</p>
+
+<pre><code># grep apache /etc/group
+apache:x:1004:
+</code></pre>
+
+<p>If you don’t specify a groupid, Linux will assign one automatically.
+If you want to create a group with a specific group id, do the following.</p>
+
+<pre><code>$ groupadd apache -g 9090
+
+$ grep 9090 /etc/group
+apache:x:9090:
+</code></pre>
+
+<p>Group account information is stored in <code>/etc/group</code>.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
+<li><a href="https://linux.die.net/man/8/groupadd">groupadd man pages</a></li>
+<li><a href="http://linux.101hacks.com/unix/groupadd/">groupadd examples</a></li>
+<li><a href="http://www.thegeekstuff.com/2012/06/chown-examples/">chown examples</a></li>
+<li><a href="https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/">find files with group name or ID</a></li>
+</ul>
+
+
+<p>TODO</p>
+
+<ul>
+<li><a href="https://github.com/docker/compose/issues/1214">https://github.com/docker/compose/issues/1214</a></li>
+<li><a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container</a></li>
+<li><a href="https://github.com/jenkinsci/docker/issues/196">https://github.com/jenkinsci/docker/issues/196</a></li>
+<li><a href="https://github.com/jhipster/generator-jhipster/issues/4804">https://github.com/jhipster/generator-jhipster/issues/4804</a></li>
+<li><a href="https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group">https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group</a></li>
 </ul>
 
 ]]></content>
@@ -529,126 +659,6 @@ The solution is simply reset flanneld with another subnet after resetting config
 </code></pre>
 
 <p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Kubernetes: Pause Container and Private Docker Registry]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/"/>
-    <updated>2017-01-16T11:48:05-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/16/kubernetes-pulling-from-private-image-repository</id>
-    <content type="html"><![CDATA[<p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
-
-<h3>Problem description</h3>
-
-<p>In this problem, Kubernetes cluster are all installed and configured.
-We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
-NAME            LABELS                                 STATUS    AGE
-kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
-kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
-kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
-tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
-pod "nginx" created
-</code></pre>
-
-<p>However, one can see the following error messages:</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
-NAME      READY     STATUS                                                                                       RESTARTS   AGE
-nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
-
-tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
-FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
-40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
-40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
-40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
-)
-</code></pre>
-
-<p>The full error message for the third event above is quoted below:</p>
-
-<p><blockquote><p>Failed to pull image &ldquo;gcr.io/google_containers/pause:0.8.0&rdquo;: image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get <a href="https://gcr.io/v1/_ping:">https://gcr.io/v1/_ping:</a> dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add <code>--insecure-registry gcr.io</code> to the daemon&rsquo;s arguments. In the case of HTTPS, if you have access to the registry&rsquo;s CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote></p>
-
-<h3>What is <code>pause</code> container?</h3>
-
-<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
-What is that <code>pause</code> container&rsquo;s purpose?
-The <code>pause</code> container essentially holds the network namespace for the pod.
-It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
-However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
-Normally, if the last process in a network namespace dies, the namespace will be destroyed.
-Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
-With <code>pause</code>, you will always have that one last thing in the namespace.</p>
-
-<h3><code>pause</code> container and private Docker registry</h3>
-
-<p>What trouble does such <code>pause</code> container can give us?
-As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
-If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
-And that is what error message quoted above indicates.
-However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
-One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
-Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
-
-<pre><code>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
-0.8.0: Pulling from google_containers/pause
-a3ed95caeb02: Pull complete
-bccc832946aa: Pull complete
-Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
-Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
-
-tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
-
-tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
-The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
-5f70bf18a086: Mounted from tdongsi/nginx
-152b0ca1d7a4: Pushed
-0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505
-</code></pre>
-
-<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
-In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
-
-<pre><code class="plain Custom kubelet option"># Add your own! 
-KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"
-</code></pre>
-
-<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
-In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
-Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
-
-<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
-We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
-
-<pre><code class="plain docker load">docker load -i /path/to/pause-amd64.tar
-</code></pre>
-
-<!--
-### Pulling fails even with pull image secret
-
-**WARNING**: 
-This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
-Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
-However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
-
-Validate
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
-</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
--->
-
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
-<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
-</ul>
-
 ]]></content>
   </entry>
   

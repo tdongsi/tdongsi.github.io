@@ -9,7 +9,15 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Following up on Hive CLI, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore. Runtime Modes There are &hellip;">
+  <meta name="description" content="Continued from the previous post. Creating Tables Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples: 1
+2
+3
+4
+5
+6
+7
+8
+9 &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +106,779 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/05/programming-hive-ddl-table/">Learning Hive (Pt. 6): HiveQL Data Definition</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-05T20:15:56-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>5</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>8:15 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
+
+<h3>Creating Tables</h3>
+
+<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* NOTE: the LOCATION clause uses the default location */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">.</span><span class="n">student</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student name&#39;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">sid</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student ID&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;Description of the table&#39;</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;me&#39;</span> <span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/user/hive/warehouse/college.db/student&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * copy the schema of an existing table</span>
+</span><span class='line'><span class="cm"> * you can specify optional LOCATION but no other can be defined</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">mydb</span><span class="p">.</span><span class="n">clone</span> <span class="k">LIKE</span> <span class="n">mydb</span><span class="p">.</span><span class="n">employees</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Create external table</span>
+</span><span class='line'><span class="cm">* Read all data files with comma-delimited format</span>
+</span><span class='line'><span class="cm">* from /data/stocks</span>
+</span><span class='line'><span class="cm">* LOCATION is required for external table</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">stocks</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">exchange</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">symbol</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">volume</span>          <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">price_adj_close</span> <span class="nb">FLOAT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;,&#39;</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/data/stocks&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Copy external table schema.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">ext_clone</span>
+</span><span class='line'><span class="k">LIKE</span> <span class="n">stocks</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/path/to/data&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Drop table</span>
+</span><span class='line'><span class="cm">* For managed tables, the table metadata and data are deleted.</span>
+</span><span class='line'><span class="cm">* For external tables, the metadata is deleted but the data is not.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
+
+<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; use college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.048 seconds
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in current database */
+</span><span class='line'>hive&gt; show tables<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.031 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in the specified database */
+</span><span class='line'>hive&gt; show tables in college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.034 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* use regex to search tables in current database */
+</span><span class='line'>hive&gt; show tables <span class="s1">&#39;.*e.*&#39;</span><span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.025 seconds, Fetched: <span class="m">2</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show table properties */
+</span><span class='line'>hive&gt; show tblproperties student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>COLUMN_STATS_ACCURATE <span class="nb">true</span>
+</span><span class='line'>comment   List of students
+</span><span class='line'>numFiles  1
+</span><span class='line'>numRows   0
+</span><span class='line'>rawDataSize   0
+</span><span class='line'>totalSize 213
+</span><span class='line'>transient_lastDdlTime 1421796179
+</span><span class='line'>Time taken: 0.28 seconds, Fetched: <span class="m">7</span> row<span class="o">(</span>s<span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can use <code>DESCRIBE</code> command to display table information as shown below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; describe extended student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'>Detailed Table Information    Table<span class="o">(</span>tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor<span class="o">(</span>cols:<span class="o">[</span>FieldSchema<span class="o">(</span>name:sid, <span class="nb">type</span>:int, comment:Student ID<span class="o">)</span>, FieldSchema<span class="o">(</span>name:sname, <span class="nb">type</span>:string, comment:Student name<span class="o">)</span>, ...
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: <span class="m">6</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* more readable and verbose */
+</span><span class='line'>hive&gt; describe formatted student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'><span class="c"># col_name                data_type               comment             </span>
+</span><span class='line'>      
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Detailed Table Information       </span>
+</span><span class='line'>Database:             college                 
+</span><span class='line'>Owner:                cloudera                
+</span><span class='line'>CreateTime:           Tue Jan <span class="m">20</span> 15:22:58 PST 2015 
+</span><span class='line'>LastAccessTime:       UNKNOWN                 
+</span><span class='line'>Protect Mode:         None                    
+</span><span class='line'>Retention:            <span class="m">0</span>                    
+</span><span class='line'>Location:             hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE           
+</span><span class='line'>Table Parameters:     
+</span><span class='line'>  COLUMN_STATS_ACCURATE   <span class="nb">true                </span>
+</span><span class='line'><span class="nb"> </span>comment              List of students
+</span><span class='line'>  numFiles                <span class="m">1</span>
+</span><span class='line'>  numRows                 <span class="m">0</span>
+</span><span class='line'>  rawDataSize             <span class="m">0</span>
+</span><span class='line'>  totalSize               <span class="m">213</span>
+</span><span class='line'>  transient_lastDdlTime   <span class="m">1421796179</span>
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Storage Information      </span>
+</span><span class='line'>SerDe Library:        org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe  
+</span><span class='line'>InputFormat:          org.apache.hadoop.mapred.TextInputFormat    
+</span><span class='line'>OutputFormat:         org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat  
+</span><span class='line'>Compressed:           No                      
+</span><span class='line'>Num Buckets:          -1                      
+</span><span class='line'>Bucket Columns:       <span class="o">[]</span>                   
+</span><span class='line'>Sort Columns:         <span class="o">[]</span>                   
+</span><span class='line'>Storage Desc Params:      
+</span><span class='line'>  field.delim             <span class="p">;</span>
+</span><span class='line'>  serialization.format    <span class="p">;</span>
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: <span class="m">36</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* see schema <span class="k">for</span> a column */
+</span><span class='line'>hive&gt; describe student.sid<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     from deserializer
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Managed tables vs. External tables</h3>
+
+<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>.
+It is internal/managed because the life cycle of their data is managed by Hive.
+By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands).
+When we drop a managed table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>hive&gt; dfs -ls /user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 /user/hive/warehouse/college.db/student
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
+
+<p>Managed tables are not convenient for sharing data with other tools.
+Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data.
+In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location.
+The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located.
+Dropping an external table does not delete the data since Hive does not <em>own</em> the data.
+However, the <em>metadata</em> for that table will be deleted.</p>
+
+<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Location:            hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
+
+<h3>Altering Tables</h3>
+
+<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
+
+<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Renaming table */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">college</span> <span class="k">RENAME</span> <span class="k">TO</span> <span class="n">university</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Change columns: rename, change its position, type, or comment.</span>
+</span><span class='line'><span class="cm"> * The keyword COLUMN is optional, as well as COMMENT clause.</span>
+</span><span class='line'><span class="cm"> * This command changes metadata only. </span>
+</span><span class='line'><span class="cm"> * The data has to be moved to match the new columns if needed.</span>
+</span><span class='line'><span class="cm"> * Use FIRST, instead of AFTER, if the column is moved to first.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">CHANGE</span> <span class="k">COLUMN</span> <span class="n">hms</span> <span class="n">hours_minutes_seconds</span> <span class="nb">INT</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;New comment&#39;</span>
+</span><span class='line'><span class="k">AFTER</span> <span class="n">severity</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Add columns, to the end of existing columns.</span>
+</span><span class='line'><span class="cm"> * Use CHANGE COLUMN to rearrange if needed.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">ADD</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Remove all the existing columns and replaces with new </span>
+</span><span class='line'><span class="cm"> * specified columns.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">REPLACE</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * You can add table properties or set current properties,</span>
+</span><span class='line'><span class="cm"> * but not remove them </span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span>
+</span><span class='line'><span class="s1">&#39;some_key&#39;</span> <span class="o">=</span> <span class="s1">&#39;some_value&#39;</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Learning Hive (Pt. 5): HiveQL Data Definition</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-02T18:32:21-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>6:32 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
+
+<h3>Databases</h3>
+
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span><span class="p">;</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="s1">&#39;h.*&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/my/preferred/directory&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add comments to table */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="s1">&#39;A college admission database&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* show comments */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add properties */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;CD&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="o">=</span> <span class="s1">&#39;today&#39;</span> <span class="p">);</span>
+</span><span class='line'><span class="cm">/* show properties */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">EXTENDED</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* set working database */</span>
+</span><span class='line'><span class="n">USE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* this will show tables in this database */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">TABLES</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* Drop tables if there is any table in the database */</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span> <span class="k">CASCADE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* You can set additional key-value pairs in properties.</span>
+</span><span class='line'><span class="cm"> * No other metadata about the database can be changed. No way to delete a DB PROPERTY.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="s1">&#39;editor&#39;</span> <span class="o">=</span> <span class="s1">&#39;DC&#39;</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; describe database default<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>default   Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+</span><span class='line'>Time taken: 0.01 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>hive&gt; describe database college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college       hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+</span><span class='line'>Time taken: 0.011 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive        <span class="m">213</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive         <span class="m">66</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
+
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.cli.print.current.db<span class="o">=</span><span class="nb">true</span><span class="p">;</span>
+</span><span class='line'>hive <span class="o">(</span>default<span class="o">)</span>&gt; USE college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.278 seconds
+</span><span class='line'>hive <span class="o">(</span>college<span class="o">)</span>&gt;
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/11/26/programming-hive-data-types/">Learning Hive (Pt. 4): Data Types</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-11-26T18:01:37-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:01 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post covers different data types and file formats supported by Hive.</p>
+
+<h3>Data Types</h3>
+
+<p>The following primitive data types are supported:</p>
+
+<ul>
+<li>TINYINT: 1 byte signed integer</li>
+<li>SMALLINT: 2 bytes</li>
+<li>INT: 4 bytes</li>
+<li>BIGINT: 8 bytes</li>
+<li>BOOLEAN</li>
+<li>FLOAT</li>
+<li>DOUBLE</li>
+<li>STRING: Single or double quotes can be used for literals.</li>
+<li>TIMESTAMP: Integer, float, or string.
+
+<ul>
+<li>Integer: For seconds from Unix epoch.</li>
+<li>Float: Seconds from Unix epoch and nanoseconds.</li>
+<li>String: JDBC-compliant java.sql.Timestamp format convention, i.e. YYYY-MM-DD hh:mm:ss.fffffffff</li>
+</ul>
+</li>
+<li>BINARY: array of bytes. Used to include arbitrary bytes and prevent Hive from attempting to parse them.</li>
+</ul>
+
+
+<p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
+
+<p>NOTE: Not mentioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0.
+In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+
+<p>Besides primitive data types, Hive supports the following collection data types:</p>
+
+<ul>
+<li>STRUCT: Analogous to a C <code>struct</code> or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
+
+<ul>
+<li>Example: Declaration -> <code>struct&lt;name:string,id:int&gt;</code>. Literal -> <code>struct('John',1)</code>.</li>
+</ul>
+</li>
+<li>MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons[&lsquo;John&rsquo;].
+
+<ul>
+<li>Example: Declaration -> <code>map&lt;string,int&gt;</code>. Literal -> <code>map('John',1)</code>.</li>
+</ul>
+</li>
+<li>ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
+
+<ul>
+<li>Example: Declaration -> <code>array&lt;string&gt;</code>. Literal -> <code>array('John','Peter')</code>.</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Relational databases don&rsquo;t usually support such collection types because they tend to break <strong>normal form</strong>.
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).</p>
+
+<h3>Text File Formats</h3>
+
+<p>Hive can use comma-separated values (CSV) or tab-separated values (TSV) text file format. A Hive table declaration with all row format specified (with default values, however) looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span>
+</span><span class='line'><span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\001&#39;</span>
+</span><span class='line'><span class="n">COLLECTION</span> <span class="n">ITEMS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\002&#39;</span>
+</span><span class='line'><span class="k">MAP</span> <span class="n">KEYS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\003&#39;</span>
+</span><span class='line'><span class="n">LINES</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\n&#39;</span>
+</span><span class='line'><span class="n">STORED</span> <span class="k">AS</span> <span class="n">TEXTFILE</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Schema on Read</h3>
+
+<p>Different from databases, Hive has no control over the underlying storage: for example, you can modify files on HDFS that Hive will query. Hive tries its best to read the data and match the schema. If the file content does not match the schema such as non-numeric strings found when numbers expected, you may get null values.</p>
+
+<h3>Additional References</h3>
+
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
+
+<ol>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/Tutorial">https://cwiki.apache.org/confluence/display/Hive/Tutorial</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -537,412 +1318,6 @@ On Cloudera Quickstart VM, the <code>war</code> file property block should look 
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/22/programming-hive-chapter-1/">Learning Hive (Pt. 1): Introduction</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-22T17:22:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>5:22 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><!---
-"Chapter 1: Introduction" of the "Programming Hive" book.
--->
-
-
-<p>This post is the first of many Hive review posts.
-Most of these posts are based on the <strong>Programming Hive</strong> book, with some observations from my own experience with <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">Cloudera Quickstart VM</a>.</p>
-
-<p><img class="center" src="/images/hive/cat.gif" title="Cover" ></p>
-
-<h3>Introduction</h3>
-
-<p>Hive provides a SQL dialect, called Hive Query Language (HiveQL or HQL) for querying data stored in a Hadoop cluster. SQL knowledge is widespread for a reason; it&rsquo;s an effective, reasonably intuitive model for organizing and using data. Therefore, Hive helps lower the barrier, making transition to Hadoop from traditional relational databases easier for database users such as business analysts.</p>
-
-<p>Note that Hive is more suited for data warehouse applications, where data is relatively static and fast response time is not required. For example, a simple query such as <code>select count(*) from my_table</code> can take several seconds for a very small table (mostly due to startup overhead for MapReduce jobs). Hive is a heavily batch-oriented system: in addition to large startup overheads, it neither provides record-level update, insert, or delete nor transactions. In short, Hive is not a full database (hint: check HBase).</p>
-
-<p>HiveQL does not conform to the ANSI SQL standard (not many do), but it is quite close to MySQL dialect.</p>
-
-<h3>Hive within the Hadoop Ecosystem</h3>
-
-<p>A basic understanding of Hadoop and MapReduce can help you to understand and appreciate how Hive works. Simple examples such as WordCount in my <a href="/blog/2015/11/21/explaining-wordcount-example/">last post</a> can be very involving when using the Hadoop Java API. The API requires Java developers to manage many low-level details, repetitive wiring to/from Mappers and Reducers. The WordCount example&rsquo;s Java implementation can be found <a href="https://wiki.apache.org/hadoop/WordCount">here</a>.</p>
-
-<p>Hive not only eliminates advanced, sometimes repetitive Java coding but also provides a familiar interface to those who know SQL. Hive lets you complete a lot of work with relatively little effort. For example, the same WordCount example in HiveQL can be as simple as:</p>
-
-<figure class='code'><figcaption><span>WordCount example in HiveQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">docs</span> <span class="p">(</span><span class="n">line</span> <span class="n">STRING</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* Load text files into TABLE docs: each line as a row */</span>
-</span><span class='line'><span class="k">LOAD</span> <span class="k">DATA</span> <span class="n">INPATH</span> <span class="s1">&#39;wordcount.txt&#39;</span> <span class="n">OVERWRITE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="n">docs</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">word_counts</span> <span class="k">AS</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="n">word</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="k">count</span>
-</span><span class='line'><span class="k">FROM</span>
-</span><span class='line'>   <span class="c1">-- explode will return rows of tokens</span>
-</span><span class='line'>  <span class="p">(</span><span class="k">SELECT</span> <span class="n">explode</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="s1">&#39;\s&#39;</span><span class="p">))</span> <span class="k">AS</span> <span class="n">word</span>
-</span><span class='line'>   <span class="k">FROM</span> <span class="n">docs</span><span class="p">)</span> <span class="n">w</span>
-</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">word</span>
-</span><span class='line'><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">word</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<!--
-In the remaining sections of Chapter 1, the authors also discuss various related Hadoop projects such as Pig, Hue, HBase, Spark, Storm, Kafka, etc.
--->
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/21/explaining-wordcount-example/">Overview of MapReduce: Explaining WordCount Example</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-21T02:37:20-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>2:37 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>MapReduce is a programming framework that decomposes large data processing jobs into individual tasks that can be executed in parallel across a cluster of servers. The name MapReduce comes from the fact that there are two fundamental data transformation operations: <em>map</em> and <em>reduce</em>. These MapReduce operations would be more clear if we walk through a simple example, such as WordCount in my last <a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">post</a>. The process flow of WordCount example is shown below:</p>
-
-<!---
-(from [here](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/ch01.html)):
-
-![Process Flow of WordCount Example](https://www.safaribooksonline.com/library/view/programming-hive/9781449326944/httpatomoreillycomsourceoreillyimages1321235.png)
--->
-
-
-<p><img class="center" src="/images/hive/wordcount.png" title="Process Flow of WordCount Example" ></p>
-
-<p>The fundamental data structure for input and output in MapReduce is the key-value pair. When starting the WordCount example, the Mapper processes the input documents line by line, with the key being the character offset into the document and the value being the line of text.</p>
-
-<p>A <strong>map</strong> operation converts input key-values pairs from one form to another. In WordCount, the key (character offset) is discarded but it may not be always the case. The value (the line of text) is normalized (e.g., converted to lower case) and tokenized into words, using some technique such as splitting on whitespace. In this way, “HADOOP” and “Hadoop” will be counted as the same word. For each word in the line, the Mapper outputs a key-value pair, with the word as the key and the number 1 as the value.</p>
-
-<p>Next is the <strong>shuffling</strong> phase. Hadoop sorts the key-value pairs by key and it “shuffles” all pairs with the same key to the same Reducer. In the WordCount example, each Reducer may get some range of keys, i.e. a group of words/tokens.</p>
-
-<p>A <strong>reduce</strong> operation converts the collection for each key in input key-value pairs to another smaller collection (or a value when the collection has a single element). In WordCount, the input key is one of the words found and the value will be a collection of all the counts for that word. The Reducers add all the counts in the value collection and the final output are key-value pairs consisting of each word and the count for that word.</p>
-
-<p>The three phases of processing in WordCount example with their input and output key-value pairs are summarized in the table below. Note that the input and output key-value pairs can be very different for each phase, not only in value but also in type.</p>
-
-<table>
-<thead>
-<tr>
-<th> </th>
-<th> Mapper </th>
-<th> Shuffling </th>
-<th> Reducer </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Input</strong> </td>
-<td> <code>(offset, text_line)</code> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> <code>(token,[1,1,1,...])</code> </td>
-</tr>
-<tr>
-<td> <strong>Processing</strong> </td>
-<td> Discard the key <code>offset</code>. <br> Normalize and tokenize <code>text_line</code>.</td>
-<td> Move <code>(token,1)</code>with same <code>token</code> to same Reducer </td>
-<td> Sum all elements in collection </td>
-</tr>
-<tr>
-<td> <strong>Output</strong> </td>
-<td> Multiple <code>(token,1)</code> </td>
-<td> Sorted <code>(token,[1,1,1,...])</code> </td>
-<td> <code>(token, count)</code> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br></p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/">WordCount Example in Cloudera Quickstart VM</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2015-11-20T11:47:51-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>20</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:47 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p><a href="https://wiki.apache.org/hadoop/WordCount">WordCount</a> is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some &ldquo;Hello World&rdquo; example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic &ldquo;Hello World&rdquo; examples.</p>
-
-<p>Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as <a href="https://developer.yahoo.com/hadoop/tutorial/">this</a>). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.</p>
-
-<p>The purpose of this post is to help new users dive into Hadoop more easily. After reading this, you should be able to:</p>
-
-<ol>
-<li>Get started with a simple, local Hadoop sandbox for hands-on experiments.</li>
-<li>Perform some simple tasks in HDFS.</li>
-<li>Run the most basic example program WordCount, using your own input data.</li>
-</ol>
-
-
-<h3>Get your Hadoop sandbox</h3>
-
-<p>Nowadays, many companies provide Hadoop sandboxes for learning purpose, such as Cloudera, <a href="http://hortonworks.com/products/hortonworks-sandbox/">Hortonworks</a>. In this post, I used <a href="http://www.cloudera.com/content/www/en-us/documentation/enterprise/5-2-x/topics/cloudera_quickstart_vm.html">Cloudera Quickstart VM</a>. Download the VM and start it up in VirtualBox or VMWare Fusion.</p>
-
-<h3>Working with HDFS</h3>
-
-<p>Before running WordCount example, we need to create some input text file, then move it to HDFS. First, create an input test file in your local file system.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ echo “This is a hadoop tutorial test" &gt; wordcount.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Next, we need to move this file into HDFS. The following commands are the most basic HDFS commands to manage files in HDFS. In order of appearance below, we create a folder, copy the input file from local filesystem to HDFS, and list the content on HDFS.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -mkdir /user/cloudera/input
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -put /home/cloudera/temp/wordcount.txt /user/cloudera/input
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/input
-</span><span class='line'>Found 1 items
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera         31 2015-01-15 18:04 /user/cloudera/input/wordcount.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It should be noted that for a fresh Cloudera VM, there is a &ldquo;/user&rdquo; folder in HDFS but not in the local filesystem. This example illustrates that local file system and HDFS are separate, and the Linux&rsquo;s &ldquo;ls&rdquo; and HDFS&rsquo;s &ldquo;ls&rdquo; interact with those independently.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls /user
-</span><span class='line'>
-</span><span class='line'>ls: cannot access /user: No such file or directory
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user
-</span><span class='line'>Found 5 items
-</span><span class='line'>drwxr-xr-x   - cloudera cloudera          0 2014-12-18 07:08 /user/cloudera
-</span><span class='line'>drwxr-xr-x   - mapred   hadoop            0 2014-12-18 07:08 /user/history
-</span><span class='line'>drwxrwxrwx   - hive     hive              0 2014-12-18 07:08 /user/hive
-</span><span class='line'>drwxrwxrwx   - oozie    oozie             0 2014-12-18 07:09 /user/oozie
-</span><span class='line'>drwxr-xr-x   - spark    spark             0 2014-12-18 07:09 /user/spark</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To see the content of a file on HDFS, use cat subcommand:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/input/wordcount.txt
-</span><span class='line'>this is a hadoop tutorial test</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For large files, if you want to view just the first or last parts, there is no -more or -tail subcommand. Instead, pipe the output of the -cat subcommand through your local shell’s more, or tail. For example: <code>hdfs dfs -cat wc-out/* | more</code>.</p>
-
-<p>For more HDFS commands, check out links in References section below.</p>
-
-<h3>Running the WordCount example</h3>
-
-<p>Next, we want to run some MapReduce example, such as WordCount. The WordCount example is commonly used to illustrate how MapReduce works. The example returns a list of all the words that appear in a text file and the count of how many times each word appears. The output should show each word found and its count, line by line.</p>
-
-<p>We need to locate the example programs on the sandbox VM. On Cloudera Quickstart VM, they are packaged in this jar file &ldquo;hadoop-mapreduce-examples.jar&rdquo;. Running that jar file without any argument will give you a list of available examples.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ ls -ltr /usr/lib/hadoop-mapreduce/
-</span><span class='line'>lrwxrwxrwx 1 root root      44 Dec 18 07:01 hadoop-mapreduce-examples.jar -&gt; hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar
-</span><span class='line'>
-</span><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
-</span><span class='line'>Valid program names are:
-</span><span class='line'>  aggregatewordcount: An Aggregate based map/reduce program that counts the words in the input files.
-</span><span class='line'>  aggregatewordhist: An Aggregate based map/reduce program that computes the histogram of the words in the input files.
-</span><span class='line'>  bbp: A map/reduce program that uses Bailey-Borwein-Plouffe to compute exact digits of Pi.
-</span><span class='line'>  dbcount: An example job that count the pageview counts from a database.
-</span><span class='line'>  distbbp: A map/reduce program that uses a BBP-type formula to compute exact bits of Pi.
-</span><span class='line'>  grep: A map/reduce program that counts the matches of a regex in the input.
-</span><span class='line'>  join: A job that effects a join over sorted, equally partitioned datasets
-</span><span class='line'>  multifilewc: A job that counts words from several files.
-</span><span class='line'>  pentomino: A map/reduce tile laying program to find solutions to pentomino problems.
-</span><span class='line'>  pi: A map/reduce program that estimates Pi using a quasi-Monte Carlo method.
-</span><span class='line'>  randomtextwriter: A map/reduce program that writes 10GB of random textual data per node.
-</span><span class='line'>  randomwriter: A map/reduce program that writes 10GB of random data per node.
-</span><span class='line'>  secondarysort: An example defining a secondary sort to the reduce.
-</span><span class='line'>  sort: A map/reduce program that sorts the data written by the random writer.
-</span><span class='line'>  sudoku: A sudoku solver.
-</span><span class='line'>  teragen: Generate data for the terasort
-</span><span class='line'>  terasort: Run the terasort
-</span><span class='line'>  teravalidate: Checking results of terasort
-</span><span class='line'>  wordcount: A map/reduce program that counts the words in the input files.
-</span><span class='line'>  wordmean: A map/reduce program that counts the average length of the words in the input files.
-</span><span class='line'>  wordmedian: A map/reduce program that counts the median length of the words in the input files.
-</span><span class='line'>  wordstandarddeviation: A map/reduce program that counts the standard deviation of the length of the words in the input files.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>To run the WordCount example using the input file that we just moved to HDFS, use the following command:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hadoop jar /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar wordcount 
-</span><span class='line'>/user/cloudera/input/wordcount.txt /user/cloudera/output
-</span><span class='line'>
-</span><span class='line'>15/11/15 18:14:45 INFO client.RMProxy: Connecting to ResourceManager at /0.0.0.0:8032
-</span><span class='line'>15/11/15 18:14:46 INFO input.FileInputFormat: Total input paths to process : 1
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: number of splits:1
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.JobSubmitter: Submitting tokens for job: job_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:46 INFO impl.YarnClientImpl: Submitted application application_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: The url to track the job: http://quickstart.cloudera:8088/proxy/application_1421372394109_0001/
-</span><span class='line'>15/11/15 18:14:46 INFO mapreduce.Job: Running job: job_1421372394109_0001
-</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job: Job job_1421372394109_0001 running in uber mode : false
-</span><span class='line'>15/11/15 18:14:55 INFO mapreduce.Job:  map 0% reduce 0%
-</span><span class='line'>15/11/15 18:15:01 INFO mapreduce.Job:  map 100% reduce 0%
-</span><span class='line'>15/11/15 18:15:07 INFO mapreduce.Job:  map 100% reduce 100%
-</span><span class='line'>15/11/15 18:15:08 INFO mapreduce.Job: Job job_1421372394109_0001 completed successfully</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The output folder is specified as &ldquo;/user/cloudera/output&rdquo; in the above command. Finally, check the output of WordCount example in the output folder.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -ls /user/cloudera/output
-</span><span class='line'>
-</span><span class='line'>Found 2 items
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera          0 2015-11-15 18:15 /user/cloudera/output/_SUCCESS
-</span><span class='line'>-rw-r--r--   1 cloudera cloudera         43 2015-11-15 18:15 /user/cloudera/output/part-r-00000
-</span><span class='line'>[cloudera@quickstart temp]$ hdfs dfs -cat /user/cloudera/output/part-r-00000
-</span><span class='line'>a     1
-</span><span class='line'>hadoop     1
-</span><span class='line'>is     1
-</span><span class='line'>test     1
-</span><span class='line'>this     1
-</span><span class='line'>tutorial     1</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Congratulations!! You just finished the first step of the journey into Hadoop.</p>
-
-<h3>Additional links</h3>
-
-<ol>
-<li><a href="http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/">http://hortonworks.com/hadoop-tutorial/using-commandline-manage-files-hdfs/</a></li>
-<li><a href="http://wiki.apache.org/hadoop/WordCount">http://wiki.apache.org/hadoop/WordCount</a></li>
-<li><a href="https://developer.yahoo.com/hadoop/tutorial/">https://developer.yahoo.com/hadoop/tutorial/</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/11">&larr; Older</a>
@@ -975,11 +1350,11 @@ In the remaining sections of Chapter 1, the authors also discuss various related
       </li>
     
       <li class="post">
-        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+        <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a>
+        <a href="/blog/2017/04/26/docker-user-and-group-add-parameters/">Docker: --user and --group-add Parameters</a>
       </li>
     
   </ul>
@@ -1016,7 +1391,7 @@ In the remaining sections of Chapter 1, the authors also discuss various related
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (5)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (6)</a></li><li><a href='/blog/categories/linux/'>linux (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

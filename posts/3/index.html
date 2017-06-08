@@ -9,8 +9,34 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Problem I have been commuting to San Francisco using BART.
-For BART commutes, before having the Monthly Parking Permit, you usually have no choice &hellip;">
+  <meta name="description" content="In the following scenario, we have some pod running in Kubernetes cluster. 1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28 &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -99,6 +125,733 @@ For BART commutes, before having the Monthly Parking Permit, you usually have no
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-25T18:22:51-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>6:22 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
+</span><span class='line'>Name:             jenkins
+</span><span class='line'>Namespace:            default
+</span><span class='line'>Image(s):         docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>Node:             kube-worker-1/10.252.158.72
+</span><span class='line'>Start Time:           Tue, 24 Jan 2017 16:57:47 -0800
+</span><span class='line'>Labels:               name=jenkins
+</span><span class='line'>Status:               Running
+</span><span class='line'>Reason:
+</span><span class='line'>Message:
+</span><span class='line'>IP:               172.17.27.3
+</span><span class='line'>Replication Controllers:  &lt;none&gt;
+</span><span class='line'>Containers:
+</span><span class='line'>  jenkins:
+</span><span class='line'>    Container ID: docker://943d6e55038804c8
+</span><span class='line'>    Image:        docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>    Image ID:     docker://242c1836544e5ca31616
+</span><span class='line'>    State:        Running
+</span><span class='line'>      Started:        Tue, 24 Jan 2017 16:57:48 -0800
+</span><span class='line'>    Ready:        True
+</span><span class='line'>    Restart Count:    0
+</span><span class='line'>    Environment Variables:
+</span><span class='line'>Conditions:
+</span><span class='line'>  Type        Status
+</span><span class='line'>  Ready   True
+</span><span class='line'>Volumes:
+</span><span class='line'>  jenkins-data:
+</span><span class='line'>    Type: HostPath (bare host directory volume)
+</span><span class='line'>    Path: /jdata
+</span><span class='line'>No events. </span></code></pre></td></tr></table></div></figure>
+
+
+<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
+Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@jenkins:~$ sudo ls /etc/hosts
+</span><span class='line'>[sudo] password for jenkins:
+</span><span class='line'>Sorry, try again.</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Modifying the Docker image to set root password (e.g., by editing <code>Dockerfile</code> and rebuild) is sometimes not an option,
+such as when the Docker image is downloaded from another source and read-only.
+Moreover, if the container is running in production, we don&rsquo;t want to stop the container while troubleshooting some temporary issues.</p>
+
+<h3><code>nsenter</code> approach</h3>
+
+<p>I found one way to enter a &ldquo;live&rdquo; container as root by using <code>nsenter</code>.
+In summary, we find the process ID of the target container and provide it to <code>nsenter</code> as an argument.
+In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following <code>docker</code> commands.</p>
+
+<figure class='code'><figcaption><span>Finding running container ID and name</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker ps
+</span><span class='line'>CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_...
+</span><span class='line'>fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Use <code>docker inspect</code> to find the process ID based on the container ID.
+The Go template <code>{ {.State.Pid} }</code> (NOTE: without space) is used to simplify the output to a single numerical Pid.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-1 ~]$ sudo docker inspect --format { {.State.Pid} } 943d6e5a3bb8
+</span><span class='line'>9176
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
+</span><span class='line'>root@jenkins:/# cd ~
+</span><span class='line'>root@jenkins:~# vi /etc/hosts
+</span><span class='line'>root@jenkins:~# exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For later versions of Docker, the more direct way is to use <code>docker exec</code> with the container name shown in <code>docker ps</code> output (see next section).
+However, note that <code>docker exec</code> might not work for earlier versions of Docker (tested with Docker 1.6) and <code>nsenter</code> must be used instead.</p>
+
+<p>After entering the container as <code>root</code>, you might want to add the user into sudo group and save the modified Docker image.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
+</span><span class='line'>root@node-v4:~# cd /home/jenkins
+</span><span class='line'>root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
+</span><span class='line'>root@node-v4:/home/jenkins# passwd jenkins
+</span><span class='line'>Enter new UNIX password:
+</span><span class='line'>Retype new UNIX password:
+</span><span class='line'>passwd: password updated successfully
+</span><span class='line'>root@node-v4:/home/jenkins# exit
+</span><span class='line'>logout
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" \
+</span><span class='line'>280e5237cc6a docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
+</span><span class='line'>
+</span><span class='line'>[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>The push refers to a repository [docker.registry.company.net/tdongsi/jenkins-agent] (len: 1)
+</span><span class='line'>b1fe6c66195e: Image already exists
+</span><span class='line'>151c68e860a5: Image successfully pushed
+</span><span class='line'>670d6fd894d6: Image successfully pushed
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After that, you can verify <code>sudo</code>ing in the new Docker image.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/jenkins-agent:2.80
+</span><span class='line'>2.80: Pulling from tdongsi/jenkins-agent
+</span><span class='line'>bf5d46315322: Already exists
+</span><span class='line'>9f13e0ac480c: Already exists
+</span><span class='line'>ebe26e644840: Pull complete
+</span><span class='line'>40af181810e7: Pull complete
+</span><span class='line'>...
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" \
+</span><span class='line'>docker.registry.company.net/tdongsi/jenkins-agent:2.80 -jar /usr/share/jenkins/slave.jar \
+</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
+</span><span class='line'>dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker ps
+</span><span class='line'>CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>dd9c207e2ef1        docker.registry.company.net/tdongsi/jenkins-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
+</span><span class='line'>tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
+</span><span class='line'>[sudo] password for jenkins:
+</span><span class='line'>/etc/hosts
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
+</span><span class='line'>127.0.0.1 localhost
+</span><span class='line'>::1   localhost ip6-localhost ip6-loopback
+</span><span class='line'>fe00::0   ip6-localnet
+</span><span class='line'>ff00::0   ip6-mcastprefix
+</span><span class='line'>ff02::1   ip6-allnodes
+</span><span class='line'>ff02::2   ip6-allrouters
+</span><span class='line'>172.17.0.2    dd9c207e2ef1
+</span><span class='line'>jenkins@dd9c207e2ef1:~$ exit
+</span><span class='line'>exit</span></code></pre></td></tr></table></div></figure>
+
+
+<h3><code>docker exec</code> approach</h3>
+
+<p>Later versions of <code>docker</code> adds <code>--user</code> flag that allows us to specify which user that we should enter the container as.
+First, we figure out which Kubernetes node is running a particular pod by using the command <code>kubectl describe pod</code>.
+After <code>ssh</code>-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command <code>docker ps -a</code>.
+The following examples demonstrate entering a <code>jenkins-slave</code> container as <code>root</code> and <code>jenkins</code> user.</p>
+
+<figure class='code'><figcaption><span>Entering container </span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@dev-worker-2 ~]# docker ps -a
+</span><span class='line'>CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
+</span><span class='line'>10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_...
+</span><span class='line'>767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_...
+</span><span class='line'>
+</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
+</span><span class='line'>#
+</span><span class='line'># ls
+</span><span class='line'>support  workspace
+</span><span class='line'># id
+</span><span class='line'>uid=0(root) gid=0(root) groups=0(root)
+</span><span class='line'># exit
+</span><span class='line'>
+</span><span class='line'>[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
+</span><span class='line'>$ ls
+</span><span class='line'>support  workspace
+</span><span class='line'>$ id
+</span><span class='line'>uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
+</span><span class='line'>$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As mentioned, older versions of <code>docker</code> does not support <code>--user</code> flag and does not allow entering container as root.
+In that case, use <code>nsenter</code> method presented in the previous section.</p>
+
+<figure class='code'><figcaption><span>Unsupported operation on Docker 1.6</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
+</span><span class='line'>flag provided but not defined: --user
+</span><span class='line'>See 'docker exec --help'.
+</span><span class='line'>[root@kube-worker-1 ~]# docker version
+</span><span class='line'>Client version: 1.6.2.el7
+</span><span class='line'>Client API version: 1.18
+</span><span class='line'>Go version (client): go1.4.2
+</span><span class='line'>Git commit (client): c3ca5bb/1.6.2
+</span><span class='line'>OS/Arch (client): linux/amd64
+</span><span class='line'>Server version: 1.6.2.el7
+</span><span class='line'>Server API version: 1.18
+</span><span class='line'>Go version (server): go1.4.2
+</span><span class='line'>Git commit (server): c3ca5bb/1.6.2
+</span><span class='line'>OS/Arch (server): linux/amd64</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jpetazzo/nsenter">nsenter tool</a></li>
+<li><a href="https://docs.docker.com/engine/reference/commandline/exec/">docker exec</a> manual</li>
+<li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
+This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
+
+<h3>Problem symptoms</h3>
+
+<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>16 packets transmitted, 0 received, 100% packet loss, time 14999ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
+
+<h3>Troubleshooting with <code>busybox</code></h3>
+
+<p>Try to run a test pod <code>busybox</code>.
+<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.61.7
+</span><span class='line'>PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.61.7 ping statistics ---
+</span><span class='line'>5 packets transmitted, 5 received, 0% packet loss, time 4000ms
+</span><span class='line'>rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>14 packets transmitted, 0 received, 100% packet loss, time 13000ms</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
+<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>/ # traceroute 10.252.158.72
+</span><span class='line'>traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
+</span><span class='line'> 2  *  *  *
+</span><span class='line'> 3  *  *  *
+</span><span class='line'> 4  *  *  *
+</span><span class='line'> 5  *  *  *
+</span><span class='line'>/ #
+</span><span class='line'>/ # traceroute 10.252.100.5
+</span><span class='line'>traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
+</span><span class='line'> 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
+</span><span class='line'> 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
+</span><span class='line'>/ # exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
+</span><span class='line'>Name:         jenkins
+</span><span class='line'>Namespace:        default
+</span><span class='line'>Labels:           &lt;none&gt;
+</span><span class='line'>Selector:     name=jenkins
+</span><span class='line'>Type:         NodePort
+</span><span class='line'>IP:           10.252.77.85
+</span><span class='line'>Port:         http    80/TCP
+</span><span class='line'>NodePort:     http    30080/TCP
+</span><span class='line'>Endpoints:        10.252.100.5:8080
+</span><span class='line'>Session Affinity: None
+</span><span class='line'>No events.</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>What went wrong?</h3>
+
+<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
+When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
+I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
+As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
+This leads to pod-to-VM communication loss as described above.
+The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
+
+<figure class='code'><figcaption><span>Update etcd</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
+</span><span class='line'>"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+</span><span class='line'>
+</span><span class='line'>[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
+</span><span class='line'>[centos@kube-master ~]$ etcdctl ls /kube-centos/network
+</span><span class='line'>/kube-centos/network/config</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-16T11:48:05-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:48 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
+
+<h3>Problem description</h3>
+
+<p>In this problem, Kubernetes cluster are all installed and configured.
+We are trying to create some &ldquo;Hello World&rdquo; pod, using the example described <a href="https://kubernetes.io/docs/user-guide/walkthrough/#pod-definition">here</a>.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get nodes
+</span><span class='line'>NAME            LABELS                                 STATUS    AGE
+</span><span class='line'>kube-worker-1   kubernetes.io/hostname=kube-worker-1   Ready     1d
+</span><span class='line'>kube-worker-3   kubernetes.io/hostname=kube-worker-3   Ready     1d
+</span><span class='line'>kube-worker-4   kubernetes.io/hostname=kube-worker-4   Ready     1d
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig create -f pod-nginx.yaml
+</span><span class='line'>pod "nginx" created</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, one can see the following error messages:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get pods
+</span><span class='line'>NAME      READY     STATUS                                                                                       RESTARTS   AGE
+</span><span class='line'>nginx     0/1       Image: artifactrepo1.corp.net/tdongsi/nginx:1.7.9 is not ready on the node                   0          4m
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get events
+</span><span class='line'>FIRSTSEEN   LASTSEEN   COUNT     NAME      KIND      SUBOBJECT                           REASON      SOURCE                    MESSAGE
+</span><span class='line'>40m         40m        1         nginx     Pod                                           scheduled   {scheduler }              Successfully assigned nginx to kube-worker-3
+</span><span class='line'>40m         40m        3         nginx     Pod       implicitly required container POD   pulling     {kubelet kube-worker-3}   Pulling image "gcr.io/google_containers/pause:0.8.0"
+</span><span class='line'>40m         39m        3         nginx     Pod       implicitly required container POD   failed      {kubelet kube-worker-3}   Failed to pull image "gcr.io/google_containers/pause:0.8.0":...
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The full error message for the third event above is quoted below:</p>
+
+<blockquote><p>Failed to pull image "gcr.io/google_containers/pause:0.8.0": image pull failed for gcr.io/google_containers/pause:0.8.0, this may be because there are no credentials on this request.  details: (API error (500):  v1 ping attempt failed with error: Get https://gcr.io/v1/_ping: dial tcp 173.194.175.82:443: i/o timeout. If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add `--insecure-registry gcr.io` to the daemon's arguments. In the case of HTTPS, if you have access to the registry's CA certificate, no need for the flag; simply place the CA certificate at /etc/docker/certs.d/gcr.io/ca.crt</p></blockquote>
+
+
+<h3>What is <code>pause</code> container?</h3>
+
+<p>Whenever we create a pod, a <code>pause</code> container image such as <em>gcr.io/google_containers/pause:0.8.0</em> is implicitly required.
+What is that <code>pause</code> container&rsquo;s purpose?
+The <code>pause</code> container essentially holds the network namespace for the pod.
+It does nothing useful and its container image (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">its Dockerfile</a>) basically contains a simple binary that goes to sleep and never wakes up (see <a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">its code</a>).
+However, when the top container such as <code>nginx</code> container dies and gets restarted by kubernetes, all the network setup will still be there.
+Normally, if the last process in a network namespace dies, the namespace will be destroyed.
+Restarting <code>nginx</code> container without <code>pause</code> would require creating all new network setup.
+With <code>pause</code>, you will always have that one last thing in the namespace.</p>
+
+<h3><code>pause</code> container and private Docker registry</h3>
+
+<p>What trouble does such <code>pause</code> container can give us?
+As the full container image path indicates, the <code>pause</code> container image is downloaded from Google Container Registry (&ldquo;gcr.io&rdquo;) by default.
+If a kubernetes node is inside a corporate network with restricted access to Internet, one cannot simply pull that Docker image from Google Container Registry or Docker Hub.
+And that is what error message quoted above indicates.
+However, each corporate may have its own internal Docker registry with vetted Docker images that you can push to and pull from.
+One work-around is to push that <code>pause</code> image to the internal Docker registry, downloaded to each Kubernetes slave, and retagged it (from internal tag <code>artifactrepo1.corp.net</code> to <code>gcr.io</code> tag).
+Essentially, I pre-loaded each Kubenetes slave with a <code>pause:0.8.0</code> Docker image.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker pull gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>0.8.0: Pulling from google_containers/pause
+</span><span class='line'>a3ed95caeb02: Pull complete
+</span><span class='line'>bccc832946aa: Pull complete
+</span><span class='line'>Digest: sha256:bbeaef1d40778579b7b86543fe03e1ec041428a50d21f7a7b25630e357ec9247
+</span><span class='line'>Status: Downloaded newer image for gcr.io/google_containers/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker tag gcr.io/google_containers/pause:0.8.0 artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>
+</span><span class='line'>tdongsi-mac:private_cloud tdongsi$ docker push artifactrepo1.corp.net/tdongsi/pause:0.8.0
+</span><span class='line'>The push refers to a repository [artifactrepo1.corp.net/tdongsi/pause]
+</span><span class='line'>5f70bf18a086: Mounted from tdongsi/nginx
+</span><span class='line'>152b0ca1d7a4: Pushed
+</span><span class='line'>0.8.0: digest: sha256:a252a0fc9c760e531dbc9d41730e398fc690938ccb10739ef2eda61565762ae5 size: 2505</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The more scalable way, such as for Puppet automation, is to use <code>kubelet</code> option &ldquo;&ndash;pod-infra-container-image&rdquo;.
+In the config file &ldquo;/etc/kubernetes/kubelet&rdquo; of <code>kubelet</code> service, modify the following lines:</p>
+
+<figure class='code'><figcaption><span>Custom kubelet option</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Add your own! 
+</span><span class='line'>KUBELET_ARGS="--pod-infra-container-image=artifactrepo1.corp.net/tdongsi/pause:0.8.0"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that if the private Docker registry &ldquo;artifactrepo1.corp.net&rdquo; requires authentication, specifying the container image in the above <code>kubelet</code> option might NOT work.
+In some older versions of Docker/Kubernetes, image pull secrets, even though created for authenticating to such Docker registry, are not properly used to load <code>pause</code> container image.
+Therefore, loading <code>pause</code> container image happens first and fails to authenticate with such private Docker registry, before the actual required container image can be loaded.</p>
+
+<p>In that case, the alternative way for scalable automation is to prepare a binary <code>tar</code> file for <code>pause</code> container image (with <code>docker save</code>) and pre-load the image on each kubernetes node with <code>docker load</code> command.
+We can upload the binary <code>tar</code> file onto new kubernetes nodes whenever each of those is created and added to the kubernetes cluster.</p>
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>docker load -i /path/to/pause-amd64.tar</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--
+### Pulling fails even with pull image secret
+
+**WARNING**: 
+This section is for older versions of Kubernetes (< 1.2) with internal corporate constraints. 
+Using such old Kubernetes version is not recommended to begin with because of various stability and performance issues.
+However, some companies may dive into Kubernetes early, contribute lots of code to make it work and the problem described below may persist, especially for new hires.
+
+Validate
+
+<figure class='code'><figcaption><span>docker load</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig get secret corpregistry -o yaml | grep dockerconfigjson: | cut -f 2 -d : | base64 -D
+</span><span class='line'>{ "artifactrepo1.corp.net": { "auth": "XXXXX", "email": "tdongsi@salesforce.com" } }</span></code></pre></td></tr></table></div></figure>
+-->
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile">pause Dockerfile</a></li>
+<li><a href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">pause source code</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -371,652 +1124,6 @@ To verify if memory is properly allocated as desired, run <code>free</code> comm
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/08/17/analytic-functions-in-mysql/">Analytic Functions in MySQL</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-08-17T23:12:54-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:12 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>MySQL has traditionally lagged behind in support for the SQL standard.
-Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
-If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
-
-<h3>WITH clause</h3>
-
-<p>As discussed in this <a href="/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
-In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
-This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
-Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
-There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
-
-<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
-This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
-
-<h3>Analytic functions</h3>
-
-<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
-Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
-The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
-
-<figure class='code'><figcaption><span>Example of ROW_NUMBER, RANK, and DENSE_RANK functions</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">dense_rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">customer_dimension</span>
-</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_name</span>
-</span><span class='line'><span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
-
-<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
-<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
-<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
-<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
-<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
-<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
-<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
-<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
-<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
-<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
-<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
-<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
-</table>
-
-
-<p><br/></p>
-
-<p>Sadly, these useful analytic functions are not supported in MySQL.
-Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
-
-<figure class='code'><figcaption><span>ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- In Vertica</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">table_1</span> <span class="n">t</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">-- In MySQL</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_1</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_1</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_2</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_3</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_3</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">table_1</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span><span class="p">,</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'>     <span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_1</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
-In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
-Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
-You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
-
-<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
-In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
-
-<figure class='code'><figcaption><span>Input table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+----+-------+
-</span><span class='line'>| Id | Score |
-</span><span class='line'>+----+-------+
-</span><span class='line'>| 1  | 3.50  |
-</span><span class='line'>| 2  | 3.65  |
-</span><span class='line'>| 3  | 4.00  |
-</span><span class='line'>| 4  | 3.85  |
-</span><span class='line'>| 5  | 4.00  |
-</span><span class='line'>| 6  | 3.65  |
-</span><span class='line'>+----+-------+</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+-------+------+
-</span><span class='line'>| Score | Rank |
-</span><span class='line'>+-------+------+
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 3.85  | 2    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.50  | 4    |
-</span><span class='line'>+-------+------+</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The solution in Vertica SQL would be straight-forward as follows:</p>
-
-<figure class='code'><figcaption><span>Solution in Vertica SQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">Scores</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
-
-<figure class='code'><figcaption><span>Solution in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">Score</span><span class="p">,</span> <span class="n">Rank</span> <span class="k">FROM</span>
-</span><span class='line'><span class="p">(</span> <span class="k">SELECT</span> <span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">Score</span> <span class="k">FROM</span> <span class="n">Scores</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'><span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span> <span class="p">)</span> <span class="n">x</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
-<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-07-14T17:59:14-07:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:59 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
-
-<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
-It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
-Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
-Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
-
-<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
-Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
-That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
-
-<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
-
-<figure class='code'><figcaption><span>Improved priority-queue recipe</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">heapq</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">itertools</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">class</span> <span class="nc">PriorityQueue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">_REMOVED</span> <span class="o">=</span> <span class="s">&quot;&lt;REMOVED&gt;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot;Add a new task or update the priority of an existing task&quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">:</span>
-</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="n">count</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
-</span><span class='line'>        <span class="c"># weight = -priority since heap is a min-heap</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">priority</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
-</span><span class='line'>        <span class="n">heapq</span><span class="o">.</span><span class="n">heappush</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Mark the given task as REMOVED.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        Do this to avoid breaking heap-invariance of the internal heap.</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="n">entry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Get task with highest priority.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s">&quot;The priority queue is empty&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check task with highest priority, without removing.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">None</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;[</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="s">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
-
-<ul>
-<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
-<li>Methods and supporting data structures are encapsulated into a class.</li>
-<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
-<li>Method <code>peek</code> is added.</li>
-<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
-<li>Override <code>__str__</code> method for pretty printing.</li>
-</ul>
-
-
-<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
-The Skyline problem states that:</p>
-
-<blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote>
-
-
-<p><img class="center" src="/images/python/skyline.png" width="800" height="260" title="Example" alt="An image of example input and output"></p>
-
-<p>One possible approach is to use a priority queue to keep track of the current highest building
-while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
-Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
-
-<figure class='code'><figcaption><span>Solution to Skyline problem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">solve_skyline</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Solve the Skyline problem.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :param mlist: list of buildings in format (start, end, height).</span>
-</span><span class='line'><span class="sd">    :return: List of end points</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">skyline</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>    <span class="n">cur_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>    <span class="n">pq</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">events</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">START</span> <span class="o">=</span> <span class="s">&quot;start&quot;</span>
-</span><span class='line'>    <span class="n">END</span> <span class="o">=</span> <span class="s">&quot;end&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">building</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">building</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">start</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">START</span><span class="p">))</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">END</span><span class="p">))</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># k_events is the ordered list of x-coordinates where buildings start or end (events)</span>
-</span><span class='line'>    <span class="n">k_events</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Add and remove buildings into a priority-queue for each event.</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">k_events</span><span class="p">:</span>
-</span><span class='line'>        <span class="c"># print skyline</span>
-</span><span class='line'>        <span class="n">buildings</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">buildings</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">e</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="n">START</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">mlist</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
-</span><span class='line'>            <span class="k">elif</span> <span class="n">label</span> <span class="o">==</span> <span class="n">END</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c"># after processing all buildings for a x-coordinate &quot;key&quot;, check the current highest building</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="n">pq</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
-</span><span class='line'>        <span class="n">new_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">temp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">new_height</span> <span class="o">=</span> <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">new_height</span> <span class="o">!=</span> <span class="n">cur_height</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">skyline</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">new_height</span><span class="p">))</span>
-</span><span class='line'>            <span class="n">cur_height</span> <span class="o">=</span> <span class="n">new_height</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">skyline</span>
-</span></code></pre></td></tr></table></div></figure>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/07/05/git-allow-empty-when-squashing/">Git: Allow-empty When Squashing</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-07-05T00:15:57-07:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>5</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:15 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
-The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
-After that, we move on with the other way and check in commits for that.
-Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to &ldquo;squash&rdquo; the commits to erase the mistake and avoid confusing others such as reviewers.</p>
-
-<p>In the example shown below, my commit <code>daefc6e</code> was a mistake, and I reverted it with <code>f3886c2</code> commit, and then I checked in my correct solution in <code>b4cb02d</code> commit.
-I wanted to squash those commits in an interactive rebase session, as seen in the following:</p>
-
-<figure class='code'><figcaption><span>Rebase commands shown in text editor</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>pick daefc6e KSAFE REMOVAL.
-</span><span class='line'>squash f3886c2 Revert "KSAFE REMOVAL."
-</span><span class='line'>squash b4cb02d Update constants.
-</span><span class='line'>
-</span><span class='line'># Rebase 41ab184..b4cb02d onto 41ab184
-</span><span class='line'>#
-</span><span class='line'># Commands:
-</span><span class='line'>#  p, pick = use commit
-</span><span class='line'>#  r, reword = use commit, but edit the commit message
-</span><span class='line'>#  e, edit = use commit, but stop for amending
-</span><span class='line'>#  s, squash = use commit, but meld into previous commit
-</span><span class='line'>#  f, fixup = like "squash", but discard this commit's log message
-</span><span class='line'>#  x, exec = run command (the rest of the line) using shell
-</span><span class='line'>#
-</span><span class='line'># These lines can be re-ordered; they are executed from top to bottom.
-</span><span class='line'>#
-</span><span class='line'># If you remove a line here THAT COMMIT WILL BE LOST.
-</span><span class='line'>#
-</span><span class='line'># However, if you remove everything, the rebase will be aborted.
-</span><span class='line'>#
-</span><span class='line'># Note that empty commits are commented out</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, <code>git rebase</code> always fail in such situations with the following &ldquo;error&rdquo; message:</p>
-
-<figure class='code'><figcaption><span>git rebase fails</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ git rebase -i origin/feature/foobar
-</span><span class='line'>You asked to amend the most recent commit, but doing so would make
-</span><span class='line'>it empty. You can repeat your command with --allow-empty, or you can
-</span><span class='line'>remove the commit entirely with "git reset HEAD^".
-</span><span class='line'>rebase in progress; onto 41ab184
-</span><span class='line'>You are currently rebasing branch 'feature/foobar' on '41ab184'.
-</span><span class='line'>
-</span><span class='line'>No changes
-</span><span class='line'>
-</span><span class='line'>Could not apply f3886c23589e0964a4483f6454c6edeba7d63fb7... KSAFE REMOVAL.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The error message is very confusing.
-When <code>daefc6e</code> and <code>f3886c2</code> commits are squashed, the net effect is nothing, which is the &ldquo;empty commit&rdquo; mentioned in that error message.
-However, retrying the <code>git rebase</code> command with <code>--allow-empty</code> as said does not work.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ git rebase --interactive --allow-empty 
-</span><span class='line'>error: unknown option `allow-empty' </span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using <code>git rebase --continue</code> does not work as expected: it does not squash three commits into one.</p>
-
-<p>After some Google searching, it turns out that the above error message comes from <code>git commit --amend</code>, which is delegated by <code>git rebase</code> to handle the squash.
-When the message says &ldquo;repeat your command&rdquo;, it means repeating the <code>git commit --amend</code> command, something would never occurs to us.
-Therefore, the right thing to do here is repeat <code>commit</code> and continue with the interactive rebase session:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ git commit --amend --allow-empty
-</span><span class='line'>[detached HEAD 706f662] Revert "KSAFE REMOVAL."
-</span><span class='line'>
-</span><span class='line'>$ git rebase --continue
-</span><span class='line'>[detached HEAD 923477f] Revert "KSAFE REMOVAL."
-</span><span class='line'> 1 file changed, 3 insertions(+), 3 deletions(-)
-</span><span class='line'>Successfully rebased and updated refs/heads/feature/foobar.</span></code></pre></td></tr></table></div></figure>
-
-
-<p>By doing that, we will now have all three commits squashed into one and help cleaning up the commit log.</p>
-
-<!--
-http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-becomes-empty-td7612948.html
--->
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -1049,11 +1156,11 @@ http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-be
       </li>
     
       <li class="post">
-        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+        <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
       </li>
     
       <li class="post">
-        <a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a>
+        <a href="/blog/2017/04/26/docker-user-and-group-add-parameters/">Docker: --user and --group-add Parameters</a>
       </li>
     
   </ul>
@@ -1090,7 +1197,7 @@ http://git.661346.n2.nabble.com/Confusing-error-message-in-rebase-when-commit-be
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (7)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (5)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (6)</a></li><li><a href='/blog/categories/linux/'>linux (1)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

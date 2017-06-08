@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Docker | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/docker/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-05-30T00:49:12-07:00</updated>
+  <updated>2017-06-08T12:24:49-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -198,6 +198,205 @@ mail_version = 2.10.1
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
+    <updated>2017-04-26T16:24:24-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker</id>
+    <content type="html"><![CDATA[<h3>Troubleshooting</h3>
+
+<p>Problem description: We are using &ldquo;Docker out of Docker&rdquo; approach to build Docker images in our containerized Jenkins slaves.
+However, we got hit by the following issues when reusing a Jenkins slave container image.</p>
+
+<pre><code class="plain Error message when running Docker">+ docker images
+Cannot connect to the Docker daemon. Is the docker daemon running on this host?
+</code></pre>
+
+<p>The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).</p>
+
+<p>TODO: <a href="https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925">https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925</a></p>
+
+<p>The current user (<code>jenkins</code> in the example) must have permissions to talk to <code>/var/run/docker.sock</code> on that system.
+By convention, that permission is given to <code>root</code> user or users in <code>docker</code> group.
+However, the following commands show that it is not the case.</p>
+
+<pre><code class="plain Show GID of docker group">+ ls -l /var/run/docker.sock
+
+srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
++ cat /etc/group
+...
+docker:x:999:jenkins
+</code></pre>
+
+<p>The expectation is:</p>
+
+<pre><code>+ ls -l /var/run/docker.sock
+srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
+</code></pre>
+
+<p>This is due to the container is built inside another k8s cluster.
+The group <code>docker</code> happens to have the group ID 999 on that k8s cluster.
+The user <code>jenkins</code>, under which Jenkins pipeline is executed, does not have the permission to access that socket <code>/var/run/docker.sock</code>.</p>
+
+<p>By default, a unix domain socket (or IPC socket) is created at <code>/var/run/docker.sock</code>, requiring either root permission, or docker group membership.</p>
+
+<p>For illustration, the installation steps in Ubuntu are expected to be like this:</p>
+
+<pre><code># Install from Web
+sudo curl -sSL https://get.docker.com/ | sh
+sudo usermod -aG docker jenkins
+
+# Install from apt
+sudo apt-get update
+sudo apt-get install -y docker-engine
+sudo usermod -aG docker jenkins
+</code></pre>
+
+<p>Example Dockerfile (from <a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">here</a>).
+<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>FROM jenkins&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;USER root
+</span><span class='line'>ENV DEBIAN_FRONTEND=noninteractive
+</span><span class='line'>ENV HOME /home/jenkins
+</span><span class='line'>ENV DOCKER_VERSION=1.9.1-0~trusty&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;RUN apt-get update \
+</span><span class='line'>  &amp;&amp; apt-get install -y docker-engine=$DOCKER_VERSION \
+</span><span class='line'>  &amp;&amp; rm -rf /var/lib/apt/lists/*&lt;/p&gt;
+</span><span class='line'>
+</span><span class='line'>&lt;p&gt;RUN usermod -a -G docker jenkins</span></code></pre></td></tr></table></div></figure></p>
+
+<p>The last step <code>usermod</code> comes from the script instruction itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
+
+<h3><code>groupadd</code> examples</h3>
+
+<p>The following example creates a new group called apache</p>
+
+<pre><code>$ groupadd apache
+</code></pre>
+
+<p>Make sure it is created successfully.</p>
+
+<pre><code># grep apache /etc/group
+apache:x:1004:
+</code></pre>
+
+<p>If you don’t specify a groupid, Linux will assign one automatically.
+If you want to create a group with a specific group id, do the following.</p>
+
+<pre><code>$ groupadd apache -g 9090
+
+$ grep 9090 /etc/group
+apache:x:9090:
+</code></pre>
+
+<p>Group account information is stored in <code>/etc/group</code>.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
+<li><a href="https://linux.die.net/man/8/groupadd">groupadd man pages</a></li>
+<li><a href="http://linux.101hacks.com/unix/groupadd/">groupadd examples</a></li>
+<li><a href="http://www.thegeekstuff.com/2012/06/chown-examples/">chown examples</a></li>
+<li><a href="https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/">find files with group name or ID</a></li>
+</ul>
+
+
+<p>TODO</p>
+
+<ul>
+<li><a href="https://github.com/docker/compose/issues/1214">https://github.com/docker/compose/issues/1214</a></li>
+<li><a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container</a></li>
+<li><a href="https://github.com/jenkinsci/docker/issues/196">https://github.com/jenkinsci/docker/issues/196</a></li>
+<li><a href="https://github.com/jhipster/generator-jhipster/issues/4804">https://github.com/jhipster/generator-jhipster/issues/4804</a></li>
+<li><a href="https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group">https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: --user and --group-add Parameters]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/26/docker-user-and-group-add-parameters/"/>
+    <updated>2017-04-26T10:57:51-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/26/docker-user-and-group-add-parameters</id>
+    <content type="html"><![CDATA[<h3>Reference</h3>
+
+<ul>
+<li><a href="http://stackoverflow.com/questions/41100333/difference-between-docker-run-user-and-group-add-parameters">http://stackoverflow.com/questions/41100333/difference-between-docker-run-user-and-group-add-parameters</a></li>
+<li><a href="https://github.com/jhipster/jhipster.github.io/pull/368/files">https://github.com/jhipster/jhipster.github.io/pull/368/files</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Files Not Found in Docker Container]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/"/>
+    <updated>2017-02-21T15:14:43-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container</id>
+    <content type="html"><![CDATA[<p>I have the following Dockerfile:</p>
+
+<pre><code>FROM docker.registry.company.net/base
+MAINTAINER myemail@company.net
+
+RUN ssh-keyscan -H github.company.net &gt;&gt; /home/jenkins/.ssh/known_hosts
+
+RUN mkdir -p /home/jenkins/.m2 /home/jenkins/store
+COPY settings.xml /home/jenkins/.m2/settings.xml
+
+RUN openssl s_client -connect nexus.company.net:443 &lt; /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' &gt; /home/jenkins/public.crt \
+    &amp;&amp; /opt/jdk-latest/jre/bin/keytool -import -noprompt -storepass change_this -alias nexus.company.net -keystore /home/jenkins/cacerts -file /home/jenkins/public.crt
+</code></pre>
+
+<p>When I build the image with <code>docker build</code>, the commands in Dockerfile should produce several files that get dropped into the home <code>/home/jenkins</code> folder.
+In fact, it can be verified in the build log that the files are created when adding additional commands.
+However, when I create a container from this image using <code>docker run</code>, the files in <code>/home/jenkins</code> simply doesn&rsquo;t exist.</p>
+
+<p>Struggling with different options of rebuilding (<code>docker build</code>) and re-running (<code>docker run</code>) gives no different outcomes.
+It eventually turns out that <code>/home/jenkins</code> is mounted as a volume in the <code>base</code> image or one of its base images.</p>
+
+<pre><code>tdongsi-ltm4:W_3703511 tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
+map[/home/jenkins:{}]
+</code></pre>
+
+<p>I can find the following lines in one of the base Dockerfiles:</p>
+
+<pre><code>...
+VOLUME /home/jenkins
+WORKDIR /home/jenkins
+...
+</code></pre>
+
+<p>This problem is already seen and reported in <a href="https://github.com/docker/docker/issues/3639">this issue</a>.
+It happens often when we try to extend an offical image.
+There is simply no way to add additional content into <code>VOLUME</code> directory in a trivial way.
+There have been suggestions that <code>VOLUME</code> directive in Dockerfile is a mistake.
+It should be an option/directive when running (<code>docker run</code>) not building image.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/docker/docker/issues/3639">Reported issue</a></li>
+<li><a href="http://l33t.peopleperhour.com/2015/02/18/docker-extending-official-images/">Work around</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Docker: Copy File Into a Container]]></title>
     <link href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/"/>
     <updated>2017-02-09T15:17:19-08:00</updated>
@@ -278,400 +477,6 @@ maven_3.3.9-3_all.deb  test.txt
 <li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Override ENTRYPOINT]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint/"/>
-    <updated>2017-02-08T16:08:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint</id>
-    <content type="html"><![CDATA[<p>The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
-Simply running such docker image will give the following error:</p>
-
-<pre><code>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
-two arguments required, but got []
-java -jar slave.jar [options...] &lt;secret key&gt; &lt;slave name&gt;
- -cert VAL                       : Specify additional X.509 encoded PEM
-                                   certificates to trust when connecting to
-                                   Jenkins root URLs. If starting with @ then
-                                   the remainder is assumed to be the name of
-                                   the certificate file to read.
- -credentials USER:PASSWORD      : HTTP BASIC AUTH header to pass in for making
-                                   HTTP requests.
- -headless                       : Run in headless mode, without GUI
- -jar-cache DIR                  : Cache directory that stores jar files sent
-                                   from the master
- -noreconnect                    : If the connection ends, don't retry and just
-                                   exit.
- -proxyCredentials USER:PASSWORD : HTTP BASIC AUTH header to pass in for making
-                                   HTTP authenticated proxy requests.
- -tunnel HOST:PORT               : Connect to the specified host and port,
-                                   instead of connecting directly to Jenkins.
-                                   Useful when connection to Hudson needs to be
-                                   tunneled. Can be also HOST: or :PORT, in
-                                   which case the missing portion will be
-                                   auto-configured like the default behavior
- -url URL                        : Specify the Jenkins root URLs to connect to.
-</code></pre>
-
-<p>Most of the error messages above is from Jenkins binary <code>slave.jar</code> and has nothing to do with Docker.
-To make the container run on Docker, we must override its <code>ENTRYPOINT</code> at runtime to provide the arguments required.
-However, one common mistake while trying to override is as follows:</p>
-
-<pre><code class="plain Standard mistake">mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
---entrypoint java -jar /usr/share/jenkins/slave.jar
-"--entrypoint" is not a valid option
-</code></pre>
-
-<p>Except for passing argument to the <code>ENTRYPOINT</code>, the Docker image is usually the last parameter.
-Another attempt to make it &ldquo;right&rdquo; is as follows:</p>
-
-<pre><code class="plain Another attempt, still not working">mymac:jenkins tdongsi$ docker run --restart=always \
---entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
-
-container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
-stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
-docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
-caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
- file or directory".
-ERRO[0001] error getting events from daemon: net/http: request canceled
-</code></pre>
-
-<p>This attempt try to put the entire overridden command as the parameter for &ldquo;&ndash;entrypoint&rdquo; flag.
-However, this does NOT work because, as stated in documentation, the entrypoint should specify the <strong>executable</strong>, not the command.
-The correct way to do it is as follows:</p>
-
-<pre><code>mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
-gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
--jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-
-Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
-java.net.ConnectException: Connection refused
-    at java.net.PlainSocketImpl.socketConnect(Native Method)
-</code></pre>
-
-<p>As seeen above, the executable is passed into &ldquo;&ndash;entrypoint&rdquo; flag, while its arguments are being passed <strong>after</strong> the image name.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/run/">Guide of Docker Run</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/run/">Docker Run CLI options</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Root User in a Pod]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod/"/>
-    <updated>2017-01-25T18:22:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod</id>
-    <content type="html"><![CDATA[<p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
-
-<pre><code>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
-Name:               jenkins
-Namespace:          default
-Image(s):           docker.registry.company.net/tdongsi/jenkins:2.23
-Node:               kube-worker-1/10.252.158.72
-Start Time:         Tue, 24 Jan 2017 16:57:47 -0800
-Labels:             name=jenkins
-Status:             Running
-Reason:
-Message:
-IP:             172.17.27.3
-Replication Controllers:    &lt;none&gt;
-Containers:
-  jenkins:
-    Container ID:   docker://943d6e55038804c8
-    Image:      docker.registry.company.net/tdongsi/jenkins:2.23
-    Image ID:       docker://242c1836544e5ca31616
-    State:      Running
-      Started:      Tue, 24 Jan 2017 16:57:48 -0800
-    Ready:      True
-    Restart Count:  0
-    Environment Variables:
-Conditions:
-  Type      Status
-  Ready     True
-Volumes:
-  jenkins-data:
-    Type:   HostPath (bare host directory volume)
-    Path:   /jdata
-No events. 
-</code></pre>
-
-<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
-Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
-
-<pre><code>jenkins@jenkins:~$ sudo ls /etc/hosts
-[sudo] password for jenkins:
-Sorry, try again.
-</code></pre>
-
-<p>Modifying the Docker image to set root password (e.g., by editing <code>Dockerfile</code> and rebuild) is sometimes not an option,
-such as when the Docker image is downloaded from another source and read-only.
-Moreover, if the container is running in production, we don&rsquo;t want to stop the container while troubleshooting some temporary issues.</p>
-
-<h3><code>nsenter</code> approach</h3>
-
-<p>I found one way to enter a &ldquo;live&rdquo; container as root by using <code>nsenter</code>.
-In summary, we find the process ID of the target container and provide it to <code>nsenter</code> as an argument.
-In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following <code>docker</code> commands.</p>
-
-<pre><code class="plain Finding running container ID and name">[centos@kube-worker-1 ~]$ sudo docker ps
-CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
-943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_...
-fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_...
-</code></pre>
-
-<p>Use <code>docker inspect</code> to find the process ID based on the container ID.
-The Go template <code>{ {.State.Pid} }</code> (NOTE: without space) is used to simplify the output to a single numerical Pid.</p>
-
-<pre><code class="plain">[centos@kube-worker-1 ~]$ sudo docker inspect --format { {.State.Pid} } 943d6e5a3bb8
-9176
-
-[centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
-root@jenkins:/# cd ~
-root@jenkins:~# vi /etc/hosts
-root@jenkins:~# exit
-</code></pre>
-
-<p>For later versions of Docker, the more direct way is to use <code>docker exec</code> with the container name shown in <code>docker ps</code> output (see next section).
-However, note that <code>docker exec</code> might not work for earlier versions of Docker (tested with Docker 1.6) and <code>nsenter</code> must be used instead.</p>
-
-<p>After entering the container as <code>root</code>, you might want to add the user into sudo group and save the modified Docker image.</p>
-
-<pre><code>[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
-root@node-v4:~# cd /home/jenkins
-root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
-root@node-v4:/home/jenkins# passwd jenkins
-Enter new UNIX password:
-Retype new UNIX password:
-passwd: password updated successfully
-root@node-v4:/home/jenkins# exit
-logout
-
-[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" \
-280e5237cc6a docker.registry.company.net/tdongsi/jenkins-agent:2.80
-b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
-
-[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/jenkins-agent:2.80
-The push refers to a repository [docker.registry.company.net/tdongsi/jenkins-agent] (len: 1)
-b1fe6c66195e: Image already exists
-151c68e860a5: Image successfully pushed
-670d6fd894d6: Image successfully pushed
-...
-</code></pre>
-
-<p>After that, you can verify <code>sudo</code>ing in the new Docker image.</p>
-
-<pre><code>tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/jenkins-agent:2.80
-2.80: Pulling from tdongsi/jenkins-agent
-bf5d46315322: Already exists
-9f13e0ac480c: Already exists
-ebe26e644840: Pull complete
-40af181810e7: Pull complete
-...
-
-tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" \
-docker.registry.company.net/tdongsi/jenkins-agent:2.80 -jar /usr/share/jenkins/slave.jar \
--jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
-
-tdongsi-mac:~ tdongsi$ docker ps
-CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-dd9c207e2ef1        docker.registry.company.net/tdongsi/jenkins-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
-tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
-jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
-[sudo] password for jenkins:
-/etc/hosts
-jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
-127.0.0.1   localhost
-::1 localhost ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-172.17.0.2  dd9c207e2ef1
-jenkins@dd9c207e2ef1:~$ exit
-exit
-</code></pre>
-
-<h3><code>docker exec</code> approach</h3>
-
-<p>Later versions of <code>docker</code> adds <code>--user</code> flag that allows us to specify which user that we should enter the container as.
-First, we figure out which Kubernetes node is running a particular pod by using the command <code>kubectl describe pod</code>.
-After <code>ssh</code>-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command <code>docker ps -a</code>.
-The following examples demonstrate entering a <code>jenkins-slave</code> container as <code>root</code> and <code>jenkins</code> user.</p>
-
-<pre><code class="plain Entering container ">[root@dev-worker-2 ~]# docker ps -a
-CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
-10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_...
-767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_...
-
-[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
-#
-# ls
-support  workspace
-# id
-uid=0(root) gid=0(root) groups=0(root)
-# exit
-
-[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
-$ ls
-support  workspace
-$ id
-uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
-$ exit
-</code></pre>
-
-<p>As mentioned, older versions of <code>docker</code> does not support <code>--user</code> flag and does not allow entering container as root.
-In that case, use <code>nsenter</code> method presented in the previous section.</p>
-
-<pre><code class="plain Unsupported operation on Docker 1.6">[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
-flag provided but not defined: --user
-See 'docker exec --help'.
-[root@kube-worker-1 ~]# docker version
-Client version: 1.6.2.el7
-Client API version: 1.18
-Go version (client): go1.4.2
-Git commit (client): c3ca5bb/1.6.2
-OS/Arch (client): linux/amd64
-Server version: 1.6.2.el7
-Server API version: 1.18
-Go version (server): go1.4.2
-Git commit (server): c3ca5bb/1.6.2
-OS/Arch (server): linux/amd64
-</code></pre>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/jpetazzo/nsenter">nsenter tool</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/exec/">docker exec</a> manual</li>
-<li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Kubernetes: Pod-to-Node Communication Loss]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/"/>
-    <updated>2017-01-24T15:05:15-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss</id>
-    <content type="html"><![CDATA[<p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
-This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
-
-<h3>Problem symptoms</h3>
-
-<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
-
-<pre><code class="plain">mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-jenkins@jenkins:~$ ping 10.252.158.72
-PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-^C
---- 10.252.158.72 ping statistics ---
-16 packets transmitted, 0 received, 100% packet loss, time 14999ms
-
-jenkins@jenkins:~$ exit
-</code></pre>
-
-<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
-
-<h3>Troubleshooting with <code>busybox</code></h3>
-
-<p>Try to run a test pod <code>busybox</code>.
-<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
-
-<pre><code>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
---image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
-Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-
-mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-jenkins@jenkins:~$ ping 10.252.61.7
-PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
-64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
-64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
-64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
-64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
-64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
-^C
---- 10.252.61.7 ping statistics ---
-5 packets transmitted, 5 received, 0% packet loss, time 4000ms
-rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
-
-jenkins@jenkins:~$ ping 10.252.158.72
-PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-^C
---- 10.252.158.72 ping statistics ---
-14 packets transmitted, 0 received, 100% packet loss, time 13000ms
-</code></pre>
-
-<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
-<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
-
-<pre><code>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
---image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
-
-Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-
-/ # traceroute 10.252.158.72
-traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
- 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
- 2  *  *  *
- 3  *  *  *
- 4  *  *  *
- 5  *  *  *
-/ #
-/ # traceroute 10.252.100.5
-traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
- 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
- 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
- 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
-/ # exit
-</code></pre>
-
-<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
-
-<pre><code>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
-Name:           jenkins
-Namespace:      default
-Labels:         &lt;none&gt;
-Selector:       name=jenkins
-Type:           NodePort
-IP:         10.252.77.85
-Port:           http    80/TCP
-NodePort:       http    30080/TCP
-Endpoints:      10.252.100.5:8080
-Session Affinity:   None
-No events.
-</code></pre>
-
-<h3>What went wrong?</h3>
-
-<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
-When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
-I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
-As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
-This leads to pod-to-VM communication loss as described above.
-The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
-
-<pre><code class="plain Update etcd">[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
-"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
-
-[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
-[centos@kube-master ~]$ etcdctl ls /kube-centos/network
-/kube-centos/network/config
-</code></pre>
-
-<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
 ]]></content>
   </entry>
   
