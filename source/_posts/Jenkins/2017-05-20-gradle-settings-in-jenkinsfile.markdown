@@ -107,7 +107,7 @@ Compared with Maven solution in the last section, there is no intermediate step 
 ### More Tips
 
 If Maven/Gradle build is used in multiple repositories across organization, it is recommended to move the above Groovy code into shared Jenkins library, as shown in [last post](/blog/2017/03/17/jenkins-pipeline-shared-libraries/).
-For example, the Gradle builds can be simplified by defining `useNexus` step (see [here](https://jenkins.io/doc/book/pipeline/shared-libraries/#defining-steps)) and adding it into the shared library *workflow-lib*.
+For example, the Gradle builds can be simplified by defining `useNexus` step (see [here](https://jenkins.io/doc/book/pipeline/shared-libraries/#defining-steps)) and adding it into the [shared library *workflow-lib*](/blog/2017/03/17/jenkins-pipeline-shared-libraries/).
 
 ``` groovy vars/useNexus.groovy
 def call(Closure body) {
