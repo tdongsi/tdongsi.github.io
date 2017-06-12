@@ -181,6 +181,57 @@ See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting
 <p>The <a href="https://jenkins.io/doc/pipeline/steps/credentials-binding/">step <code>withCredentials</code></a> will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
 <code>mvnSettingsFile</code> is my Groovy function that generates the <code>settings.xml</code> based on the pre-defined format and provided Nexus credentials.</p>
 
+<h4>Maven 3.0</h4>
+
+<p>Since <strong>Maven 3.0</strong>, the above problem is made much easier since environment variables can be referred inside <code>settings.xml</code> file based on special expression <code>${env.VAR_NAME}</code>, based on <a href="https://maven.apache.org/settings.html">its doc</a>.
+Nexus authentication for Maven 3.0 in Jenkins pipeline can be done as follows:</p>
+
+<figure class='code'><figcaption><span>settings.xml in Maven 3.0</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;settings&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;servers&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;server&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;id&gt;</span>nexus<span class="nt">&lt;/id&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;username&gt;</span>${env.MVN_SETTINGS_nexusUsername}<span class="nt">&lt;/username&gt;</span>
+</span><span class='line'>      <span class="nt">&lt;password&gt;</span>${env.MVN_SETTINGS_nexusPassword}<span class="nt">&lt;/password&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;/server&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/servers&gt;</span>
+</span><span class='line'><span class="nt">&lt;/settings&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Passing Nexus credentials for Maven 3.0 in Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;MVN_SETTINGS_nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;MVN_SETTINGS_nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>  <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
+</span><span class='line'>      <span class="s1">&#39;nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="err">`</span><span class="n">mvn</span> <span class="o">-</span><span class="n">s</span> <span class="n">settings</span><span class="o">.</span><span class="na">xml</span> <span class="n">clean</span> <span class="n">build</span><span class="err">`</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
 <h3>Gradle</h3>
 
 <p>In Gradle, Nexus authentication can be specified in both <code>build.gradle</code> and <code>gradle.properties</code> file, where <code>build.gradle</code> should be checked into VCS (e.g., git) while <code>gradle.properties</code> contains sensitive credentials information.</p>
