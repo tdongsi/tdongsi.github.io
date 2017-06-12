@@ -46,13 +46,43 @@ See [this article](https://support.cloudbees.com/hc/en-us/articles/203802500-Inj
       'nexusPublic=https://nexus.example.com/nexus/content/groups/public/'
     ]) {
       mvnSettingsFile(${env.nexusUsername}, ${env.nexusPassword})
-      sh `mvn -s settings.xml clean build`
+      sh 'mvn -s settings.xml clean build'
     }
   }
 ```
 
 The [step `withCredentials`](https://jenkins.io/doc/pipeline/steps/credentials-binding/) will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
 `mvnSettingsFile` is my Groovy function that generates the `settings.xml` based on the pre-defined format and provided Nexus credentials.
+
+#### Maven 3.0
+
+Since **Maven 3.0**, the above problem is made much easier since environment variables can be referred inside `settings.xml` file by using special expression `${env.VAR_NAME}`, based on [this doc](https://maven.apache.org/settings.html).
+Nexus authentication for Maven 3.0 in Jenkins pipeline can be done as follows:
+
+``` xml settings.xml in Maven 3.0
+<settings>
+  <servers>
+    <server>
+      <id>nexus</id>
+      <username>${env.MVN_SETTINGS_nexusUsername}</username>
+      <password>${env.MVN_SETTINGS_nexusPassword}</password>
+    </server>
+  </servers>
+</settings>
+```
+
+``` groovy Passing Nexus credentials for Maven 3.0 in Jenkinsfile
+  withCredentials([
+    [$class: 'StringBinding', credentialsId: 'nexusUsername', variable: 'MVN_SETTINGS_nexusUsername'],
+    [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'MVN_SETTINGS_nexusPassword']
+  ]) {
+    withEnv([
+      'nexusPublic=https://nexus.example.com/nexus/content/groups/public/'
+    ]) {
+      sh 'mvn -s settings.xml clean build'
+    }
+  }
+```
 
 ### Gradle
 
