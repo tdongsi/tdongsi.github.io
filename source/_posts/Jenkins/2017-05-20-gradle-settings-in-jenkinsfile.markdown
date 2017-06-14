@@ -84,6 +84,12 @@ Nexus authentication for Maven 3.0 in Jenkins pipeline can be done as follows:
   }
 ```
 
+However, note that it is still tricky even in Maven 3.0 since this is not always applicable, as noted in [the same doc](https://maven.apache.org/settings.html).
+
+{% blockquote %}
+Note that properties defined in profiles within the settings.xml cannot be used for interpolation.
+{% endblockquote %}}
+
 ### Gradle
 
 In Gradle, Nexus authentication can be specified in both `build.gradle` and `gradle.properties` file, where `build.gradle` should be checked into VCS (e.g., git) while `gradle.properties` contains sensitive credentials information.
