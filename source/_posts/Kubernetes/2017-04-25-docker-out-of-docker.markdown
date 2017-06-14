@@ -10,12 +10,12 @@ categories:
 - Jenkins
 ---
 
-In this post, we look into different approaches to the problem of building Docker images from containerized Jenkins system.
+In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system.
 
 ### Docker-in-Docker & Docker-out-of-Docker
 
 Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production. 
-An example setup is to run Jenkins Docker image in a Kubernetes cluster with Jenkins slaves are created on demand as containers, using [Kubernetes plugin](https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin).
+An example setup is to run Jenkins on top of a Kubernetes cluster with Jenkins slaves are created on demand as containers, using [Kubernetes plugin](https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin).
 The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.
 
 "Docker-in-Docker" refers to the approach of running another Docker engine inside Docker containers. 
@@ -32,7 +32,7 @@ The approach of bind-mounting the Docker socket is later referred as "Docker-out
 As spelled out clearly by "Docker-in-Docker" creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
 Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).
 
-Instead of trying to run Docker engine inside containers, just expose the Docker socket to those containers. 
+Instead of trying to run Docker engine inside containers, it is advised to just expose the Docker socket to those containers. 
 This can be done by bind-mounting with the `-v` flag:
 
 ``` plain Docker out of Docker
@@ -40,19 +40,19 @@ docker run -v /var/run/docker.sock:/var/run/docker.sock ...
 ``` 
 
 By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
-The containers that are started inside the Docker container above are effectively "sibling" containers instead of "child" containers since the containers are running on the same host machine.
+The containers that are started inside the Docker container above are effectively "sibling" containers instead of "child" containers since the outer and inner containers are all running on the same host machine.
 However, it is important to note that this feels like "Docker-in-Docker" but without any tricky problems associated with this.
-And for the purpose of building/running/pushing Docker images in containerized Docker systems, this "Docker-out-of-Docker" is exactly what we need.
+And for the purpose of building/running/pushing Docker images in containerized Docker systems, this "Docker-out-of-Docker" is exactly all we need.
 
 ### Further discussion
 
 The potential issues of "Docker-in-Docker" is extensively discussed by Jerome Petazzoni in his blog post.
-However, what's missing is any potential problems of "Docker-out-of-Docker" approaches.
+However, what's missing is any potential problems of "Docker-out-of-Docker" approache.
 
 One potential issue is one can access the outer Docker container from inside through "/var/run/docker.sock".
 In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
 The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
-
+This means that a containerized Jenkins system can be easily compromised if there is no limit on what's running in Jenkins slaves.
 
 ### References
 
