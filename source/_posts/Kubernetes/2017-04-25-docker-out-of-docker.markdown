@@ -49,10 +49,18 @@ And for the purpose of building/running/pushing Docker images in containerized J
 The potential issues of "Docker-in-Docker" is extensively discussed by Jerome Petazzoni in his blog post.
 However, what's not mentioned is any potential problem of "Docker-out-of-Docker" approach.
 
-In my opinion, one potential issue is one can access the outer Docker container from the inner container through "/var/run/docker.sock".
+In my opinion, one potential issue of "Docker-out-of-Docker" approach is one can access the outer Docker container from the inner container through "/var/run/docker.sock".
 In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
 The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
 This means that a containerized Jenkins system can be easily compromised if there is no limit on what's running in Jenkins slaves.
+
+It should be noted that, despite of problems listed by Jerome, "Docker-in-Docker" approach is still a possible choice **IF** you know what you are doing. 
+Conflict of security profiles can be resolved with the right, careful setup. 
+There are work-arounds for incompatible file systems between the containers. 
+With the right setup, "Docker-in-Docker" can provide essentially free build isolation and security, which is a must for many, especially in corporates.
+However, the ever-present disadvantage of this apporach is long build time for large Docker images since Docker image cache has to be re-populated every run.
+As noted by Jerome, this cache is designed for exclusive access by one single Docker daemon at once. 
+Trying to link this cache in each container to some common, pre-populated Docker image cache will lead to corrupt image data.
 
 ### References
 
