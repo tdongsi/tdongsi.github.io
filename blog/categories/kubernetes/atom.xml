@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-13T23:19:36-07:00</updated>
+  <updated>2017-06-14T00:19:24-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -351,6 +351,64 @@ apache:x:9090:
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Docker-in-Docker vs Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/"/>
+    <updated>2017-04-23T10:42:04-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker</id>
+    <content type="html"><![CDATA[<p>In this post, we look into different approaches to the problem of building Docker images from containerized Jenkins system.</p>
+
+<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
+
+<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
+An example setup is to run Jenkins Docker image in a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
+The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of running another Docker engine inside Docker containers.
+Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
+As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
+However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
+He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
+The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
+
+<h3>Which one should we use?</h3>
+
+<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
+Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
+
+<p>Instead of trying to run Docker engine inside containers, just expose the Docker socket to those containers.
+This can be done by bind-mounting with the <code>-v</code> flag:</p>
+
+<pre><code class="plain Docker out of Docker">docker run -v /var/run/docker.sock:/var/run/docker.sock ...
+</code></pre>
+
+<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
+The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the containers are running on the same host machine.
+However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
+And for the purpose of building/running/pushing Docker images in containerized Docker systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly what we need.</p>
+
+<h3>Further discussion</h3>
+
+<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
+However, what&rsquo;s missing is any potential problems of &ldquo;Docker-out-of-Docker&rdquo; approaches.</p>
+
+<p>One potential issue is one can access the outer Docker container from inside through &ldquo;/var/run/docker.sock&rdquo;.
+In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
+The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
+<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
+<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Docker: Root User in a Pod]]></title>
     <link href="http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod/"/>
     <updated>2017-01-25T18:22:51-08:00</updated>
@@ -541,124 +599,6 @@ OS/Arch (server): linux/amd64
 <li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Kubernetes: Pod-to-Node Communication Loss]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/"/>
-    <updated>2017-01-24T15:05:15-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/24/kubernetes-pod-to-node-communication-loss</id>
-    <content type="html"><![CDATA[<p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
-This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
-
-<h3>Problem symptoms</h3>
-
-<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
-
-<pre><code class="plain">mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-jenkins@jenkins:~$ ping 10.252.158.72
-PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-^C
---- 10.252.158.72 ping statistics ---
-16 packets transmitted, 0 received, 100% packet loss, time 14999ms
-
-jenkins@jenkins:~$ exit
-</code></pre>
-
-<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
-
-<h3>Troubleshooting with <code>busybox</code></h3>
-
-<p>Try to run a test pod <code>busybox</code>.
-<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
-
-<pre><code>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
---image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
-Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-
-mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
-jenkins@jenkins:~$ ping 10.252.61.7
-PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
-64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
-64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
-64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
-64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
-64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
-^C
---- 10.252.61.7 ping statistics ---
-5 packets transmitted, 5 received, 0% packet loss, time 4000ms
-rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
-
-jenkins@jenkins:~$ ping 10.252.158.72
-PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
-^C
---- 10.252.158.72 ping statistics ---
-14 packets transmitted, 0 received, 100% packet loss, time 13000ms
-</code></pre>
-
-<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
-<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
-
-<pre><code>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
---image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
-
-Waiting for pod default/busybox to be running, status is Pending, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-Waiting for pod default/busybox to be running, status is Running, pod ready: false
-
-/ # traceroute 10.252.158.72
-traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
- 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
- 2  *  *  *
- 3  *  *  *
- 4  *  *  *
- 5  *  *  *
-/ #
-/ # traceroute 10.252.100.5
-traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
- 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
- 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
- 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
-/ # exit
-</code></pre>
-
-<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
-
-<pre><code>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
-Name:           jenkins
-Namespace:      default
-Labels:         &lt;none&gt;
-Selector:       name=jenkins
-Type:           NodePort
-IP:         10.252.77.85
-Port:           http    80/TCP
-NodePort:       http    30080/TCP
-Endpoints:      10.252.100.5:8080
-Session Affinity:   None
-No events.
-</code></pre>
-
-<h3>What went wrong?</h3>
-
-<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
-When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
-I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
-As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
-This leads to pod-to-VM communication loss as described above.
-The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
-
-<pre><code class="plain Update etcd">[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
-"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
-
-[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
-[centos@kube-master ~]$ etcdctl ls /kube-centos/network
-/kube-centos/network/config
-</code></pre>
-
-<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
 ]]></content>
   </entry>
   

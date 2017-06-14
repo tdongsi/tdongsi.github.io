@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-13T23:19:36-07:00</updated>
+  <updated>2017-06-14T00:19:24-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -365,6 +365,64 @@ For example, the Gradle builds can be simplified by defining <code>useNexus</cod
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Docker-in-Docker vs Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/"/>
+    <updated>2017-04-23T10:42:04-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker</id>
+    <content type="html"><![CDATA[<p>In this post, we look into different approaches to the problem of building Docker images from containerized Jenkins system.</p>
+
+<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
+
+<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
+An example setup is to run Jenkins Docker image in a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
+The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of running another Docker engine inside Docker containers.
+Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
+As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
+However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
+He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
+The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
+
+<h3>Which one should we use?</h3>
+
+<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
+Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
+
+<p>Instead of trying to run Docker engine inside containers, just expose the Docker socket to those containers.
+This can be done by bind-mounting with the <code>-v</code> flag:</p>
+
+<pre><code class="plain Docker out of Docker">docker run -v /var/run/docker.sock:/var/run/docker.sock ...
+</code></pre>
+
+<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
+The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the containers are running on the same host machine.
+However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
+And for the purpose of building/running/pushing Docker images in containerized Docker systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly what we need.</p>
+
+<h3>Further discussion</h3>
+
+<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
+However, what&rsquo;s missing is any potential problems of &ldquo;Docker-out-of-Docker&rdquo; approaches.</p>
+
+<p>One potential issue is one can access the outer Docker container from inside through &ldquo;/var/run/docker.sock&rdquo;.
+In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
+The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
+<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
+<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Groovy Script in Jenkins Pipeline]]></title>
     <link href="http://tdongsi.github.io/blog/2017/04/18/groovy-code-in-jenkins-pipeline/"/>
     <updated>2017-04-18T17:07:44-07:00</updated>
@@ -630,88 +688,6 @@ Enter same passphrase again:
 
 <ul>
 <li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Override ENTRYPOINT]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint/"/>
-    <updated>2017-02-08T16:08:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/02/08/docker-override-entrypoint</id>
-    <content type="html"><![CDATA[<p>The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
-Simply running such docker image will give the following error:</p>
-
-<pre><code>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
-two arguments required, but got []
-java -jar slave.jar [options...] &lt;secret key&gt; &lt;slave name&gt;
- -cert VAL                       : Specify additional X.509 encoded PEM
-                                   certificates to trust when connecting to
-                                   Jenkins root URLs. If starting with @ then
-                                   the remainder is assumed to be the name of
-                                   the certificate file to read.
- -credentials USER:PASSWORD      : HTTP BASIC AUTH header to pass in for making
-                                   HTTP requests.
- -headless                       : Run in headless mode, without GUI
- -jar-cache DIR                  : Cache directory that stores jar files sent
-                                   from the master
- -noreconnect                    : If the connection ends, don't retry and just
-                                   exit.
- -proxyCredentials USER:PASSWORD : HTTP BASIC AUTH header to pass in for making
-                                   HTTP authenticated proxy requests.
- -tunnel HOST:PORT               : Connect to the specified host and port,
-                                   instead of connecting directly to Jenkins.
-                                   Useful when connection to Hudson needs to be
-                                   tunneled. Can be also HOST: or :PORT, in
-                                   which case the missing portion will be
-                                   auto-configured like the default behavior
- -url URL                        : Specify the Jenkins root URLs to connect to.
-</code></pre>
-
-<p>Most of the error messages above is from Jenkins binary <code>slave.jar</code> and has nothing to do with Docker.
-To make the container run on Docker, we must override its <code>ENTRYPOINT</code> at runtime to provide the arguments required.
-However, one common mistake while trying to override is as follows:</p>
-
-<pre><code class="plain Standard mistake">mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
---entrypoint java -jar /usr/share/jenkins/slave.jar
-"--entrypoint" is not a valid option
-</code></pre>
-
-<p>Except for passing argument to the <code>ENTRYPOINT</code>, the Docker image is usually the last parameter.
-Another attempt to make it &ldquo;right&rdquo; is as follows:</p>
-
-<pre><code class="plain Another attempt, still not working">mymac:jenkins tdongsi$ docker run --restart=always \
---entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
-
-container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
-stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
-docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
-caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
- file or directory".
-ERRO[0001] error getting events from daemon: net/http: request canceled
-</code></pre>
-
-<p>This attempt try to put the entire overridden command as the parameter for &ldquo;&ndash;entrypoint&rdquo; flag.
-However, this does NOT work because, as stated in documentation, the entrypoint should specify the <strong>executable</strong>, not the command.
-The correct way to do it is as follows:</p>
-
-<pre><code>mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
-gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
--jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-
-Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
-java.net.ConnectException: Connection refused
-    at java.net.PlainSocketImpl.socketConnect(Native Method)
-</code></pre>
-
-<p>As seeen above, the executable is passed into &ldquo;&ndash;entrypoint&rdquo; flag, while its arguments are being passed <strong>after</strong> the image name.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/run/">Guide of Docker Run</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/run/">Docker Run CLI options</a></li>
 </ul>
 
 ]]></content>

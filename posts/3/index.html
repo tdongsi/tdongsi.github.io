@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="This post documents dealing with implicit container pause in a corporate context, where Internet access is restricted and private Docker registry &hellip;">
+  <meta name="description" content="This post goes over what happens if we misconfigure etcd and flannel to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +98,215 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
+This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
+
+<h3>Problem symptoms</h3>
+
+<p>From a pod (e.g., <code>jenkins</code>) on one node (e.g., <code>10.252.158.71</code>), we cannot communicate with another node (e.g., <code>10.252.158.72</code>) even though two nodes can communicate with each other normally.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>16 packets transmitted, 0 received, 100% packet loss, time 14999ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Even more perplexing, the pod-to-pod communication is fine (as described right below), even though the second pod is on the same node (e.g., <code>10.252.158.72</code>) that the first pod cannot communciate to.</p>
+
+<h3>Troubleshooting with <code>busybox</code></h3>
+
+<p>Try to run a test pod <code>busybox</code>.
+<code>jenkins</code> pod can ping the <code>busybox</code> pod, but not the node that <code>busybox</code> pod is running on.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig exec -it jenkins -- bash -il
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.61.7
+</span><span class='line'>PING 10.252.61.7 (10.252.61.7) 56(84) bytes of data.
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=1 ttl=62 time=0.540 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=2 ttl=62 time=0.186 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=3 ttl=62 time=0.177 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=4 ttl=62 time=0.161 ms
+</span><span class='line'>64 bytes from 10.252.61.7: icmp_seq=5 ttl=62 time=0.187 ms
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.61.7 ping statistics ---
+</span><span class='line'>5 packets transmitted, 5 received, 0% packet loss, time 4000ms
+</span><span class='line'>rtt min/avg/max/mdev = 0.161/0.250/0.540/0.145 ms
+</span><span class='line'>
+</span><span class='line'>jenkins@jenkins:~$ ping 10.252.158.72
+</span><span class='line'>PING 10.252.158.72 (10.252.158.72) 56(84) bytes of data.
+</span><span class='line'>^C
+</span><span class='line'>--- 10.252.158.72 ping statistics ---
+</span><span class='line'>14 packets transmitted, 0 received, 100% packet loss, time 13000ms</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In this case, we would use <code>traceroute</code> from the <code>busybox</code> container to determine when the packets are dropped.
+<code>10.252.158.72</code> is IP of the VM. <code>10.252.100.5</code> is the IP of the <code>jenkins</code> pod.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig run busybox \
+</span><span class='line'>--image=docker.registry.company.net/tdongsi/busybox --restart=Never --tty -i --generator=run-pod/v1
+</span><span class='line'>
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Pending, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>Waiting for pod default/busybox to be running, status is Running, pod ready: false
+</span><span class='line'>
+</span><span class='line'>/ # traceroute 10.252.158.72
+</span><span class='line'>traceroute to 10.252.158.72 (10.252.158.72), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.012 ms  0.001 ms
+</span><span class='line'> 2  *  *  *
+</span><span class='line'> 3  *  *  *
+</span><span class='line'> 4  *  *  *
+</span><span class='line'> 5  *  *  *
+</span><span class='line'>/ #
+</span><span class='line'>/ # traceroute 10.252.100.5
+</span><span class='line'>traceroute to 10.252.100.5 (10.252.100.5), 30 hops max, 46 byte packets
+</span><span class='line'> 1  10.252.61.1 (10.252.61.1)  0.005 ms  0.004 ms  0.002 ms
+</span><span class='line'> 2  *  10.252.100.0 (10.252.100.0)  0.487 ms  0.241 ms
+</span><span class='line'> 3  10.252.100.5 (10.252.100.5)  0.141 ms  0.563 ms  0.132 ms
+</span><span class='line'>/ # exit</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the context, <code>10.252.100.5</code> is the IP of the service, as shown in the command below.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:private_cloud tdongsi$ kubectl --kubeconfig kubeconfig describe services
+</span><span class='line'>Name:         jenkins
+</span><span class='line'>Namespace:        default
+</span><span class='line'>Labels:           &lt;none&gt;
+</span><span class='line'>Selector:     name=jenkins
+</span><span class='line'>Type:         NodePort
+</span><span class='line'>IP:           10.252.77.85
+</span><span class='line'>Port:         http    80/TCP
+</span><span class='line'>NodePort:     http    30080/TCP
+</span><span class='line'>Endpoints:        10.252.100.5:8080
+</span><span class='line'>Session Affinity: None
+</span><span class='line'>No events.</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>What went wrong?</h3>
+
+<p>It&rsquo;s a newbie mistake when configuring Kubernetes.
+When setting up <code>etcd</code> and configuring it to hold <code>flannel</code> configuration, it is important to pick an unused network.
+I made a mistake for using <code>10.252.61.0/16</code> for flannel when some of my kubernetes nodes has IPs as &ldquo;10.252.xxx.xxx&rdquo;.
+As a result, kube-proxy services intercept the traffic from the container and thinks its a virtual traffic since my node IP happens to be in the same subnet with <code>flanneld</code>.
+This leads to pod-to-VM communication loss as described above.
+The solution is simply reset flanneld with another subnet after resetting configruation value in <code>etcd</code> to &ldquo;172.17.0.0/16&rdquo;.</p>
+
+<figure class='code'><figcaption><span>Update etcd</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@kube-master ~]$ etcdctl update /kube-centos/network/config \
+</span><span class='line'>"{ \"Network\": \"172.17.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+</span><span class='line'>
+</span><span class='line'>[centos@kube-master ~]$ etcdctl rm --recursive /kube-centos/network/subnets
+</span><span class='line'>[centos@kube-master ~]$ etcdctl ls /kube-centos/network
+</span><span class='line'>/kube-centos/network/config</span></code></pre></td></tr></table></div></figure>
+
+
+<p>After this, we can reset and restart <code>flannel</code> services on all nodes to use the new network overlay configuration.</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -769,288 +978,6 @@ In summary, the question asks for <code>DENSE_RANK</code> functionality to be ap
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue Recipe in Python</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-07-14T17:59:14-07:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:59 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
-
-<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
-It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
-Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
-Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
-
-<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
-Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
-That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
-
-<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
-
-<figure class='code'><figcaption><span>Improved priority-queue recipe</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">heapq</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">itertools</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">class</span> <span class="nc">PriorityQueue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">_REMOVED</span> <span class="o">=</span> <span class="s">&quot;&lt;REMOVED&gt;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot;Add a new task or update the priority of an existing task&quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">:</span>
-</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="n">count</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
-</span><span class='line'>        <span class="c"># weight = -priority since heap is a min-heap</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">priority</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
-</span><span class='line'>        <span class="n">heapq</span><span class="o">.</span><span class="n">heappush</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Mark the given task as REMOVED.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        Do this to avoid breaking heap-invariance of the internal heap.</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="n">entry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Get task with highest priority.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s">&quot;The priority queue is empty&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check task with highest priority, without removing.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">None</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;[</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="s">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
-
-<ul>
-<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
-<li>Methods and supporting data structures are encapsulated into a class.</li>
-<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
-<li>Method <code>peek</code> is added.</li>
-<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
-<li>Override <code>__str__</code> method for pretty printing.</li>
-</ul>
-
-
-<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
-The Skyline problem states that:</p>
-
-<blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote>
-
-
-<p><img class="center" src="/images/python/skyline.png" width="800" height="260" title="Example" alt="An image of example input and output"></p>
-
-<p>One possible approach is to use a priority queue to keep track of the current highest building
-while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
-Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
-
-<figure class='code'><figcaption><span>Solution to Skyline problem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">solve_skyline</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Solve the Skyline problem.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :param mlist: list of buildings in format (start, end, height).</span>
-</span><span class='line'><span class="sd">    :return: List of end points</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">skyline</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>    <span class="n">cur_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>    <span class="n">pq</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">events</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">START</span> <span class="o">=</span> <span class="s">&quot;start&quot;</span>
-</span><span class='line'>    <span class="n">END</span> <span class="o">=</span> <span class="s">&quot;end&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">building</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">building</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">start</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">START</span><span class="p">))</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">END</span><span class="p">))</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># k_events is the ordered list of x-coordinates where buildings start or end (events)</span>
-</span><span class='line'>    <span class="n">k_events</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Add and remove buildings into a priority-queue for each event.</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">k_events</span><span class="p">:</span>
-</span><span class='line'>        <span class="c"># print skyline</span>
-</span><span class='line'>        <span class="n">buildings</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">buildings</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">e</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="n">START</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">mlist</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
-</span><span class='line'>            <span class="k">elif</span> <span class="n">label</span> <span class="o">==</span> <span class="n">END</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c"># after processing all buildings for a x-coordinate &quot;key&quot;, check the current highest building</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="n">pq</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
-</span><span class='line'>        <span class="n">new_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">temp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">new_height</span> <span class="o">=</span> <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">new_height</span> <span class="o">!=</span> <span class="n">cur_height</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">skyline</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">new_height</span><span class="p">))</span>
-</span><span class='line'>            <span class="n">cur_height</span> <span class="o">=</span> <span class="n">new_height</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">skyline</span>
-</span></code></pre></td></tr></table></div></figure>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/4">&larr; Older</a>
@@ -1087,7 +1014,7 @@ Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksfo
       </li>
     
       <li class="post">
-        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
       </li>
     
   </ul>
@@ -1124,7 +1051,7 @@ Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksfo
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (8)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (6)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (8)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

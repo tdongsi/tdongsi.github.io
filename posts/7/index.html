@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS: &hellip;">
+  <meta name="description" content="Calendar types There are surprisingly many types of calendar.
+Some of them are: regular calendar, lunar calendar, fiscal calendar, retail calendar. &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +99,123 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/01/27/python-1-mock-datetime-freezegun/">Mocking Current Date and Time in Python</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-01-27T17:36:53-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>27</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:36 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Calendar types</h3>
+
+<p>There are surprisingly many types of calendar.
+Some of them are: regular calendar, lunar calendar, fiscal calendar, retail calendar.
+See <a href="https://github.com/tdongsi/calendars">here</a> for more information of each calendar type.
+Out of the above calendar types, retail calendar seems to have more complex rules.
+However, this calendar type is frequently used in industries like retail and manufacturing for ease of planning around it.</p>
+
+<h3>Mocking current time in Python</h3>
+
+<p>Due to retail calendar&rsquo;s desirable characteristics, we may have code that work with retail calendars in commercial applications eventually.
+I ended up working with a utility Python module for retail calendar with functions which return values based on current time/date.
+For example, a utility function to check if a given date is in the current 544 year works like this:</p>
+
+<figure class='code'><figcaption><span>Original version</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
+</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some utility functions in that module are even more complicated than this example function.
+For those, I think calling <code>today</code> or <code>now</code> inside those functions is a bad design.
+They are essentially another <em>variable</em> in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter.
+In addition, being able to specify what &ldquo;today&rdquo; or &ldquo;now&rdquo; value is will make automated unit testing easier.
+For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.
+A probably better, more testable function would be something like this.</p>
+
+<figure class='code'><figcaption><span>More desirable</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">run_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">):</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
+</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
+</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>However, in reality, you sometimes have to live with the original utility Python module.
+Then, the workaround for unit testing is to &ldquo;mock&rdquo; current date and time, i.e., overriding those returned by <code>today</code> and <code>now</code> methods with some specific values.
+In Python, it can be done by using some mocking framework, such as illustrated <a href="http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking">here</a>.
+Fortunately, my life was made even easier with <a href="https://github.com/spulec/freezegun"><code>freezegun</code> library</a>.
+To install <code>freezegun</code> on Mac OSX, simply run</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>pip install freezegun</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Using this <code>freezegun</code> library, I can easily specify my &ldquo;current date&rdquo; as &ldquo;July 29, 2006&rdquo; by adding the following decorator with some string &ldquo;2006-07-29&rdquo; for that date.</p>
+
+<figure class='code'><figcaption><span>Unit test with mocking</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="nd">@freeze_time</span><span class="p">(</span><span class="s">&quot;2006-07-29&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">test_year544_end</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="sd">    Mock today() at 2006-07-29</span>
+</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
+</span><span class='line'>    <span class="bp">self</span><span class="o">.</span><span class="n">_verify_544_methods</span><span class="p">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For full usage of <code>freezegun</code>, refer to its <a href="https://github.com/spulec/freezegun">quickstart guide</a>.
+It should be noted that <code>freezegun</code> can mock <code>datetime</code> calls from other modules and it works great for testing with <code>datetime</code> calls.
+However, you might encounter some occasional failures in your unit tests when working with <code>time</code> module.
+From my personal experience, in those cases, note that time zones must be accounted for when mocking with <code>time</code> module by specifying <code>tz_offset</code> in the decorator <code>freeze_time</code>.</p>
+
+<h3>External Links</h3>
+
+<ul>
+<li><a href="https://github.com/spulec/freezegun">freeze_gun</a></li>
+<li><a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">Retail Calendar</a></li>
+<li><a href="http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm">ISO Calendar</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -601,464 +719,6 @@ This is a higher level abstraction compared to a client class like AmazonS3Clien
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/14/aws-overview-of-services/">AWS: Overview of Services</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-14T18:36:45-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:36 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Amazon Web Services (AWS) is a collection of web services that deliver computing resources (hardware and software) to end-users over the Internet.
-Not all AWS are equal but for AWS beginners, we usually don&rsquo;t know which are more important and which are secondary, supporting services.
-Personally, I am initially overwhelmed by the number of services offered as well as large amount of documentation associated with each service.</p>
-
-<p>This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:</p>
-
-<ul>
-<li>AWS Infrastructure: Physical data centers and physical network connections.</li>
-<li>Infrastructure Services (IaaS).</li>
-<li>Platform Services (PaaS).</li>
-</ul>
-
-
-<h3>AWS Global Infrastructure</h3>
-
-<p>AWS are available in many locations world-wide. These locations are divided into <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">regions and Availability Zones</a>.
-As of January 2016, there are 11 regions, each <strong>region</strong> contains two or more Availability Zones.
-Your resources, such as EC2 instances, reside in the region of your choice.
-AWS regions are isolated from each other and you usually cannot access resources in another region.
-Furthermore, some newer services may be available in some regions while not in others.</p>
-
-<p>Each <strong>Availability Zone</strong> (AZ) is basically a separate physical data center, and provides low latency connectivity to all other AZs in the same region.
-Although you cannot access resources in another region, but you can seamlessly manage resources in different AZs within the same region.
-It is recommended that you provision your resources across multiple AZs to achieve redundancy. When a single AZ has a problem, your resources will be still available in other AZs.
-For example, S3 stores your data in multiple AZs within your region of choice.</p>
-
-<p><strong>Edge locations</strong> serve requests for CloudFront and Route 53 services. CloudFront is a content delivery network
-(CDN), while Route 53 is a DNS service.
-Requests going to either one of these services will be automatically routed to the nearest edge location (out of 53 available edge locations, as of Jan 2016). This allows for low latency no matter where the end user is located.</p>
-
-<h3>Infrastructure Services</h3>
-
-<p>AWS offerings are divided into two large groups: Infrastructure and Platform, which are further divided into different categories.
-In addition to plain explanation to each service, I added its typical non-cloud, closest equivalent applications or technologies in &ldquo;Use it like&rdquo; column next to &ldquo;AWS name&rdquo; column.
-Note that they are just analogies, purely for illustration purposes.
-The official service names are in bold (e.g., EC2 and S3), while their respective full names (e.g., Elastic Compute Cloud and Simple Storage Service, respectively) are in parentheses.</p>
-
-<p>The grouping of Amazon Web Services as below is purely for review purpose (and remembering their numerous acronyms and names) since these services rarely work alone or are limited to a small group of services.
-For example, EC2 instances are usually deployed in some Auto Scaling Groups, all of these groups are in some VPC, accepting traffic from some ELBs.
-In a more sophisticated example, you can have some web application running on EC2 instances which store application data in Amazon DynamoDB which, in turn, store its index in some Amazon S3 buckets.
-This Amazon DynamoDB have some database &ldquo;triggers&rdquo; implemented with AWS Lambda. These services can be monitored for performance using CloudWatch and access-controlled by IAM.
-These examples show that how these AWS offerings can be inter-dependent and inter-connected in practice.</p>
-
-<h4>Compute</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Amazon EC2</strong> <br/>(Elastic Compute Cloud) </td>
-<td> Application server </td>
-<td> Remote, virtual server instances. <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html">What is EC2</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html">Instance types</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">Tags</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html">Key Pairs</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html">EC2 and VPC</a> <br/><a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instances-and-amis.html">AMI</a></td>
-</tr>
-<tr>
-<td> <strong>Amazon ELB</strong> <br/>(Elastic Load Balancing) </td>
-<td>  </td>
-<td> Incoming traffic load balancing. <br/><a href="http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html">ELB</a> <br/><a href="http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/how-elb-works.html">ELB Terms and Concepts</a></td>
-</tr>
-<tr>
-<td> <strong>AWS Lambda</strong> </td>
-<td>  </td>
-<td> Like a cluster of one node.</td>
-</tr>
-<tr>
-<td> <strong>Amazon EC2 <br/>Container Service</strong> </td>
-<td> </td>
-<td> Deployment Service </td>
-</tr>
-<tr>
-<td> <strong>Auto Scaling</strong> </td>
-<td> </td>
-<td> Scaling <br/><a href="http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/how-as-works.html">Auto Scaling Group</a></td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Networking</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/vpc/"><strong>VPC</strong></a> <br>(Virtual Private Cloud) </td>
-<td> VLAN </td>
-<td> Virtual networking environment. <br/>Interaction with EC2 instances as if you are in the same existing network. </td>
-</tr>
-<tr>
-<td> <strong>Amazon Route 53</strong> </td>
-<td> DNS server </td>
-<td> DNS service. <br/>Use Route 53 for <em>cross-region</em> failover configuration. </td>
-</tr>
-<tr>
-<td> <strong>AWS Direct Connect</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>Amazon CloudFront</strong> </td>
-<td> CDN </td>
-<td> Content delivery service. <br/>Working like a cache for frequently accessed web pages or images to reduce latency. </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Storage</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/s3/"><strong>Amazon S3</strong></a> <br/>(Simple Storage Service) </td>
-<td> FTP server. </td>
-<td> Object store. Not a file system like EBS. <br/> More on <a href="http://stackoverflow.com/questions/2288402/should-i-persist-images-on-ebs-or-s3">S3 vs. EBS</a>.</td>
-</tr>
-<tr>
-<td> <strong>Amazon EBS</strong> <br/>(Elastic Block Storage) </td>
-<td> Hard drive to EC2. </td>
-<td> Block storage. You can choose file system to format. <br/>You need a EC2 instance attach to it. </td>
-</tr>
-<tr>
-<td> <a href="http://aws.amazon.com/glacier/"><strong>Glacier</strong></a> </td>
-<td> <a href="https://en.wikipedia.org/wiki/Memory_hierarchy">Tape backup</a>. </td>
-<td> Cold storage for archives, i.e., infrequently accessed files. <br/>It takes much longer to access Glacier files than S3.</td>
-</tr>
-<tr>
-<td> <strong>Elastic File System</strong> </td>
-<td> File system. </td>
-<td> Currently in Preview. <br/>EBS cannot be connected to multiple EC2 instances. <br/>One Elastic File System instance can be connected to multiple EC2 instances. <br/> More on <a href="http://stackoverflow.com/questions/29575877/aws-efs-vs-ebs-vs-s3-differences-when-to-use">EFS vs. EBS vs. S3</a>.</td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<!-- 
-EBS means you need to manage a volume + machines to attach it to. You need to add space as it's filling up and perform backups (not saying you shouldn't back up your S3 data, just that it's not as critical).
-
-It also makes it harder to scale: when you want to add additional machines, you either need to pull off the images to a separate machine or clone the images across all. This also means you're adding a bottleneck: you'll have to manage your own upload process that will either upload to all machines or have a single machine managing it.
-
-S3 is mostly recommended for static files: like a FTP service. You might want to use EBS if you have a private application that requires private read/write access to some storage.
--->
-
-
-<h4>Administration &amp; Security</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="http://aws.amazon.com/iam/"><strong>AWS IAM</strong></a></td>
-<td> </td>
-<td> Manage users, keys, and certificates. <br/>You can set up additional users and new AWS keys, modify policies. <br/>Follow <a href="http://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html">Best Practices</a></td>
-</tr>
-<tr>
-<td> <strong>CloudWatch</strong> </td>
-<td> </td>
-<td> Monitoring metrics and performance. </td>
-</tr>
-<tr>
-<td> <strong>CloudTrail</strong> </td>
-<td> </td>
-<td> Logging calls to services. </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Applications</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>WorkSpaces</strong> </td>
-<td> VirtualBox <br/>Remote Desktop </td>
-<td> Desktop as a Service. <br/> Cloud-based desktop service with installed common applications. </td>
-</tr>
-<tr>
-<td> <strong>WorkDocs</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h3>Platform Services</h3>
-
-<h4>Databases</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="https://aws.amazon.com/rds/"><strong>RDS</strong></a> <br/>(Relational Database Service) </td>
-<td> MySQL, PostgreSQL, etc. <br/>Relational databases. </td>
-<td> Managed relational databases in the cloud. <br/>Amazon Aurora, Oracle, Microsoft SQL Server, PostgreSQL, MySQL and MariaDB.</td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/rds/aurora/"><strong>Aurora</strong></a> </td>
-<td> Managed MySQL. </td>
-<td> MySQL users can import their data. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/elasticache/"><strong>ElastiCache</strong></a></td>
-<td> Memcached. Redis. </td>
-<td> For information retrieval from memory-based cache nodes instead of slower disk-based databases. <br/>It supports Memcached and Redis caching engine. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/dynamodb/"><strong>DynamoDB</strong></a> </td>
-<td> MongoDB </td>
-<td> Managed NoSQL database service. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/redshift/"><strong>Redshift</strong></a> </td>
-<td> OLAP system </td>
-<td> Data warehouse service. </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Analytics</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <a href="https://aws.amazon.com/kinesis/"><strong>Kinesis</strong></a> </td>
-<td> Apache Kafka, Storm. </td>
-<td> Event stream processing platform. </td>
-</tr>
-<tr>
-<td> <a href="https://aws.amazon.com/elasticmapreduce/"><strong>EMR</strong></a> <br/>(Elastic MapReduce) </td>
-<td> MapReduce. HBase. </td>
-<td> Big Data processing. <br/>Spark is also available.</td>
-</tr>
-<tr>
-<td> <strong>Data Pipeline</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>App Services</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Cloud Search</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>SES</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>SWF</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-<tr>
-<td> <strong>Elastic Transcoder</strong> </td>
-<td> </td>
-<td> </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Deployment &amp; Management</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>Code Commit</strong> </td>
-<td> Git </td>
-<td> Source control service.</td>
-</tr>
-<tr>
-<td> <strong>Code Deploy</strong> </td>
-<td> </td>
-<td> Code deployment service. </td>
-</tr>
-<tr>
-<td> <strong>CloudFormation</strong> </td>
-<td> Chef (in JSON) </td>
-<td> Infrastructure as Code. <br/>Provisioning using source-controlled codes.</td>
-</tr>
-<tr>
-<td> <strong>Elastic Beanstalk</strong> </td>
-<td> CloudFormation simplified for WebApps. </td>
-<td> Higher-level of CloudFormation for web applications. <br/>Example usage: Blue-Green deployment (easier than CloudFormation).  </td>
-</tr>
-<tr>
-<td> <strong>OpsWork</strong> </td>
-<td> Chef </td>
-<td> Higher-level of CloudFormation. <br/>Configuration Management.  </td>
-</tr>
-</tbody>
-</table>
-
-
-<p><br/></p>
-
-<h4>Mobile Services</h4>
-
-<table>
-<thead>
-<tr>
-<th> AWS name </th>
-<th> Use it like </th>
-<th> Notes </th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td> <strong>SNS</strong> </td>
-<td> </td>
-<td> Notifications. </td>
-</tr>
-<tr>
-<td> <strong>Cognito</strong> </td>
-<td> </td>
-<td> Mobile authentication and data syncing. </td>
-</tr>
-<tr>
-<td> <strong>Mobile Analytics</strong> </td>
-<td> </td>
-<td> Measure and analyze mobile application usage data. </td>
-</tr>
-</tbody>
-</table>
-
-
-<h3>Other information</h3>
-
-<p>Globally accessible services:</p>
-
-<ul>
-<li>IAM</li>
-<li>Route 53</li>
-<li>Cloud Front</li>
-<li>Web App Firewall</li>
-</ul>
-
-
-<p>Regionally accessible services:</p>
-
-<ul>
-<li>S3</li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/8">&larr; Older</a>
@@ -1095,7 +755,7 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
       </li>
     
       <li class="post">
-        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
       </li>
     
   </ul>
@@ -1132,7 +792,7 @@ S3 is mostly recommended for static files: like a FTP service. You might want to
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (8)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (7)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (6)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (8)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
