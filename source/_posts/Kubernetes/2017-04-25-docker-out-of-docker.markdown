@@ -54,7 +54,7 @@ In the context of containerized Jenkins system, the outer Docker container is us
 The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
 This means that a containerized Jenkins system can be easily compromised if there is no limit on what's running in Jenkins slaves.
 
-It should be noted that, despite of problems listed by Jerome, "Docker-in-Docker" approach is still a possible choice **IF** you know what you are doing. 
+It should be noted that, despite of problems listed by Jerome, "Docker-in-Docker" approach is still a possible choice \*IF\* you know what you are doing. 
 Conflict of security profiles can be resolved with the right, careful setup. 
 There are work-arounds for incompatible file systems between the containers. 
 With the right setup, "Docker-in-Docker" can provide essentially free build isolation and security, which is a must for many, especially in corporates.

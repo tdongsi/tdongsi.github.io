@@ -88,7 +88,7 @@ However, note that it is still tricky even in Maven 3.0 since this is not always
 
 {% blockquote %}
 Note that properties defined in profiles within the settings.xml cannot be used for interpolation.
-{% endblockquote %}}
+{% endblockquote %}
 
 ### Gradle
 
