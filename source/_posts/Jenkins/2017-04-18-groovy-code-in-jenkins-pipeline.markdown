@@ -141,22 +141,7 @@ When loading and running Groovy scripts, you might find yourself running to Reje
 In those cases, usually it can be resolved by manually approving some method signatures in **Jenkins > Manage Jenkins > In-process Script Approval** page. 
 Adminstrators privilege is required for doing so.
 
-Named parameters in Groovy apparently is not supported in Jenkinsfile:
-
-``` groovy Named parameters
-// This does NOT work
-def bodyText = code.getPrBody(githubUsername: env.GITHUB_USERNAME, githubToken: env.GITHUB_PASSWORD, repo: 'Groovy4Jenkins', id: env.CHANGE_ID)
-
-// This works
-def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'Groovy4Jenkins', env.CHANGE_ID)
-```
-
-``` plain Error message
-java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, error, fileExists, findFiles
-...
-```
-
-There is also some known [issue about JsonSlurper](https://issues.jenkins-ci.org/browse/JENKINS-35140).
+More troubleshooting information is listed in this [blog post](/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/).
 
 ### Reference
 
