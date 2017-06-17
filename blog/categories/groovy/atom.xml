@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Groovy | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/groovy/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-15T10:17:23-07:00</updated>
+  <updated>2017-06-17T14:52:00-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,191 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Troubleshooting Groovy Code in Jenkinsfile]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/"/>
+    <updated>2017-06-16T23:52:44-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile</id>
+    <content type="html"><![CDATA[<p>In this post, we look into some troubleshooting tips when <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">using independent Groovy scripts in Jenkins pipeline</a>.</p>
+
+<h3>Named parameters not supported</h3>
+
+<p><strong>Problem</strong>: Named parameters in Groovy is apparently not supported in Jenkinsfile:</p>
+
+<pre><code class="groovy Named parameters">// This does NOT work
+def bodyText = code.getPrBody(githubUsername: env.GITHUB_USERNAME, githubToken: env.GITHUB_PASSWORD, repo: 'Groovy4Jenkins', id: env.CHANGE_ID)
+
+// This works
+def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'Groovy4Jenkins', env.CHANGE_ID)
+</code></pre>
+
+<p>We get the following error message when using named parameters:</p>
+
+<pre><code class="plain Error message">java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps 
+[archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, ...
+</code></pre>
+
+<p><strong>Workaround</strong>: Avoid using named parameters in calling methods.</p>
+
+<h3>Cannot load a Groovy script in Declarative Pipeline</h3>
+
+<p><strong>Problem</strong>: Loading Groovy methods from a file with <code>load</code> step does not work inside Declarative Pipeline step, as reported in <a href="https://issues.jenkins-ci.org/browse/JENKINS-43455">this issue</a>.</p>
+
+<p><strong>Workaround</strong>: There are a few work-arounds. The most straight-forward one is to use <code>script</code> step.</p>
+
+<pre><code class="groovy Loading Groovy script">    steps {
+        checkout scm
+        withCredentials([
+            [$class: 'StringBinding', credentialsId: 'nexusUserName', variable: 'nexusUserName'],
+            [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
+        ]) {
+            script {
+                myScript = load 'jenkins/xml.groovy'
+                String myPath = myScript.transformXml(settingsFile, env.nexusUserName, env.nexusPassword)
+                sh "mvn -B -s ${myPath} clean compile"
+
+                sh "rm ${myPath}"
+            }
+        }
+    }
+</code></pre>
+
+<p> You can also define Groovy methods from inside the Jenkinsfile.</p>
+
+<pre><code class="groovy Example Jenkinsfile">import groovy.xml.StreamingMarkupBuilder
+import groovy.xml.XmlUtil
+
+@NonCPS
+def xmlTransform(txt, username, password) {
+
+    def xmlRoot = new XmlSlurper(false, false).parseText(txt)
+    echo 'Start tranforming XML'
+    xmlRoot.servers.server.each { node -&gt;
+       node.username = username
+       node.password = password
+    }
+
+    // TRICKY: FileWriter does NOT work
+    def outWriter = new StringWriter()
+    XmlUtil.serialize( xmlRoot, outWriter )
+    return outWriter.toString()
+}
+
+...
+
+   steps {
+        checkout scm
+        withCredentials([
+            [$class: 'StringBinding', credentialsId: 'nexusUserName', variable: 'nexusUserName'],
+            [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
+        ]) {
+            script {
+                myScript = load 'jenkins/xml.groovy'
+                String myPath = xmlTransform(settingsFile, env.nexusUserName, env.nexusPassword)
+                sh "mvn -B -s ${myPath} clean compile"
+
+                sh "rm ${myPath}"
+            }
+        }
+    }
+</code></pre>
+
+<p>For Declarative Pipeline, to reuse the code from a Groovy script, you must use Shared Libraries.
+Shared Libraries are not specific to Declarative; they were released some time ago and were seen in Scripted Pipeline.
+<a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">This blog post</a> discusses an older mechanism for Shared Library.
+For the newer mechanism of importing library, please check out <a href="https://jenkins.io/blog/2017/02/15/declarative-notifications/">this blog post</a>.
+Due to Declarative Pipeline’s lack of support for defining methods, Shared Libraries definitely take on a vital role for code-reuse in Jenkinsfile.</p>
+
+<h3><code>File</code> reading and writing not supported</h3>
+
+<p>Java/Grooy reading and writing using &ldquo;java.io.File&rdquo; class is not supported.</p>
+
+<pre><code class="groovy Using File class does NOT work">def myFile = new File('/home/data/myfile.xml')
+</code></pre>
+
+<p>In fact, using that class in Jenkinsfile must go through &ldquo;In-Process Script Approval&rdquo; with this warning.</p>
+
+<p><blockquote><p>new java.io.File java.lang.String Approving this signature may introduce a security vulnerability! You are advised to deny it.</p></blockquote></p>
+
+<p>Even then, it will report the following error even though the file is present in filesystem (<a href="https://stackoverflow.com/questions/41739468/groovy-reports-that-a-file-doesnt-exists-when-it-really-is-present-in-the-syste">relevant Stackoverflow</a>):</p>
+
+<pre><code class="plain">java.io.FileNotFoundException: /home/data/myfile.xml (No such file or directory)
+    at java.io.FileInputStream.open0(Native Method)
+</code></pre>
+
+<p>That also means related class such as FileWriter will NOT work as expected.
+It reports no error during execution but you will find no file, even though testing locally proves that files are created.</p>
+
+<p><strong>Workaround</strong>:</p>
+
+<ul>
+<li>For file reading, use <a href="https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#readfile-read-file-from-workspace"><code>readFile</code> step</a>.</li>
+<li>For file writing, export the file content as String and use the following code snippet:</li>
+</ul>
+
+
+<pre><code class="groovy Shell command">    String xmlFile = ...
+
+    // TRICKY: FileWriter does NOT work in xmlTransform
+    def mCommand = "cat &gt;${settingsFile} &lt;&lt;EOF"
+    mCommand += "\n${xmlFile}\nEOF"
+    sh mCommand
+</code></pre>
+
+<p>In the code snippet above, we construct a <a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells"><em>here document</em>-formatted</a> command for writing multi-line string in <code>mCommand</code> before passing to <code>sh</code> step for executing.</p>
+
+<pre><code class="plain Explaining mCommand">$ cat &gt;output.txt &lt;&lt;EOF
+SELECT foo, bar FROM db
+WHERE foo='baz'
+More line from xmlFile
+EOF
+
+$ cat output.txt
+SELECT foo, bar FROM db
+WHERE foo='baz'
+More line from xmlFile
+</code></pre>
+
+<h3>Serialzation errors</h3>
+
+<p>You often encounter this type of errors when using non-serialiable classes from Groovy/Java libraries.</p>
+
+<pre><code class="plain Error in Jenkins log">java.io.NotSerializableException: org.codehaus.groovy.control.ErrorCollector
+    at org.jboss.marshalling.river.RiverMarshaller.doWriteObject(RiverMarshaller.java:860)
+</code></pre>
+
+<pre><code class="plain Related error in Jenkins log">java.lang.UnsupportedOperationException: Calling public static java.lang.Iterable 
+org.codehaus.groovy.runtime.DefaultGroovyMethods.each(java.lang.Iterable,groovy.lang.Closure) on a
+CPS-transformed closure is not yet supported (JENKINS-26481); 
+encapsulate in a @NonCPS method, or use Java-style loops
+    at org.jenkinsci.plugins.workflow.cps.GroovyClassLoaderWhitelist.checkJenkins26481
+    (GroovyClassLoaderWhitelist.java:90)
+</code></pre>
+
+<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.</p>
+
+<p><strong>Workaround</strong>:
+<a href="https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException">NonCPS</a> methods.</p>
+
+<p>Quoted from <a href="https://github.com/jenkinsci/workflow-cps-plugin/blob/master/README.md">here</a>: <code>@NonCPS</code> methods may safely use non-<code>Serializable</code> objects as local variables, though they should NOT accept nonserializable parameters or return or store nonserializable values.
+You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a <code>@NonCPS</code> method, so they are best used for performing some calculations before passing a summary back to the main script.</p>
+
+<h3>References</h3>
+
+<ul>
+<li>Here document
+
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells">Theory</a></li>
+<li><a href="https://stackoverflow.com/questions/2500436/how-does-cat-eof-work-in-bash">Common usage from Stackoverflow</a></li>
+<li><a href="http://www.guguncube.com/2140/unix-set-a-multi-line-text-to-a-string-variable-or-file-in-bash">Heredoc with and without variable expansion</a></li>
+</ul>
+</li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Maven and Gradle Builds in Jenkinsfile]]></title>
@@ -311,20 +496,7 @@ node('java-agent') {
 In those cases, usually it can be resolved by manually approving some method signatures in <strong>Jenkins > Manage Jenkins > In-process Script Approval</strong> page.
 Adminstrators privilege is required for doing so.</p>
 
-<p>Named parameters in Groovy apparently is not supported in Jenkinsfile:</p>
-
-<pre><code class="groovy Named parameters">// This does NOT work
-def bodyText = code.getPrBody(githubUsername: env.GITHUB_USERNAME, githubToken: env.GITHUB_PASSWORD, repo: 'Groovy4Jenkins', id: env.CHANGE_ID)
-
-// This works
-def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'Groovy4Jenkins', env.CHANGE_ID)
-</code></pre>
-
-<pre><code class="plain Error message">java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps [archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, error, fileExists, findFiles
-...
-</code></pre>
-
-<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.</p>
+<p>More troubleshooting information is listed in this <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">blog post</a>.</p>
 
 <h3>Reference</h3>
 

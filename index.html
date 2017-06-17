@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system. Sending emails in standard &hellip;">
+  <meta name="description" content="In this post, we look into some troubleshooting tips when using independent Groovy scripts in Jenkins pipeline. Named parameters not supported &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -98,6 +98,304 @@
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">Troubleshooting Groovy Code in Jenkinsfile</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-06-16T23:52:44-07:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:52 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In this post, we look into some troubleshooting tips when <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">using independent Groovy scripts in Jenkins pipeline</a>.</p>
+
+<h3>Named parameters not supported</h3>
+
+<p><strong>Problem</strong>: Named parameters in Groovy is apparently not supported in Jenkinsfile:</p>
+
+<figure class='code'><figcaption><span>Named parameters</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// This does NOT work</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="nl">githubUsername:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="nl">githubToken:</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="nl">repo:</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="nl">id:</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// This works</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We get the following error message when using named parameters:</p>
+
+<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps 
+</span><span class='line'>[archive, bat, build, catchError, checkout, deleteDir, dir, echo, emailext, emailextrecipients, ...</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Workaround</strong>: Avoid using named parameters in calling methods.</p>
+
+<h3>Cannot load a Groovy script in Declarative Pipeline</h3>
+
+<p><strong>Problem</strong>: Loading Groovy methods from a file with <code>load</code> step does not work inside Declarative Pipeline step, as reported in <a href="https://issues.jenkins-ci.org/browse/JENKINS-43455">this issue</a>.</p>
+
+<p><strong>Workaround</strong>: There are a few work-arounds. The most straight-forward one is to use <code>script</code> step.</p>
+
+<figure class='code'><figcaption><span>Loading Groovy script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>    <span class="nf">withCredentials</span><span class="o">([</span>
+</span><span class='line'>        <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUserName&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUserName&#39;</span><span class="o">],</span>
+</span><span class='line'>        <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">script</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">myScript</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;jenkins/xml.groovy&#39;</span>
+</span><span class='line'>            <span class="n">String</span> <span class="n">myPath</span> <span class="o">=</span> <span class="n">myScript</span><span class="o">.</span><span class="na">transformXml</span><span class="o">(</span><span class="n">settingsFile</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUserName</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="s2">&quot;mvn -B -s ${myPath} clean compile&quot;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">sh</span> <span class="s2">&quot;rm ${myPath}&quot;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p> You can also define Groovy methods from inside the Jenkinsfile.</p>
+
+<figure class='code'><figcaption><span>Example Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.StreamingMarkupBuilder</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.XmlUtil</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@NonCPS</span>
+</span><span class='line'><span class="kt">def</span> <span class="nf">xmlTransform</span><span class="o">(</span><span class="n">txt</span><span class="o">,</span> <span class="n">username</span><span class="o">,</span> <span class="n">password</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">xmlRoot</span> <span class="o">=</span> <span class="k">new</span> <span class="n">XmlSlurper</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="kc">false</span><span class="o">).</span><span class="na">parseText</span><span class="o">(</span><span class="n">txt</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">echo</span> <span class="s1">&#39;Start tranforming XML&#39;</span>
+</span><span class='line'>    <span class="n">xmlRoot</span><span class="o">.</span><span class="na">servers</span><span class="o">.</span><span class="na">server</span><span class="o">.</span><span class="na">each</span> <span class="o">{</span> <span class="n">node</span> <span class="o">-&gt;</span>
+</span><span class='line'>       <span class="n">node</span><span class="o">.</span><span class="na">username</span> <span class="o">=</span> <span class="n">username</span>
+</span><span class='line'>       <span class="n">node</span><span class="o">.</span><span class="na">password</span> <span class="o">=</span> <span class="n">password</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// TRICKY: FileWriter does NOT work</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">outWriter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">StringWriter</span><span class="o">()</span>
+</span><span class='line'>    <span class="n">XmlUtil</span><span class="o">.</span><span class="na">serialize</span><span class="o">(</span> <span class="n">xmlRoot</span><span class="o">,</span> <span class="n">outWriter</span> <span class="o">)</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">outWriter</span><span class="o">.</span><span class="na">toString</span><span class="o">()</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'>   <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>        <span class="nf">withCredentials</span><span class="o">([</span>
+</span><span class='line'>            <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUserName&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUserName&#39;</span><span class="o">],</span>
+</span><span class='line'>            <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>        <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">script</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">myScript</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;jenkins/xml.groovy&#39;</span>
+</span><span class='line'>                <span class="n">String</span> <span class="n">myPath</span> <span class="o">=</span> <span class="n">xmlTransform</span><span class="o">(</span><span class="n">settingsFile</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUserName</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>                <span class="n">sh</span> <span class="s2">&quot;mvn -B -s ${myPath} clean compile&quot;</span>
+</span><span class='line'>
+</span><span class='line'>                <span class="n">sh</span> <span class="s2">&quot;rm ${myPath}&quot;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For Declarative Pipeline, to reuse the code from a Groovy script, you must use Shared Libraries.
+Shared Libraries are not specific to Declarative; they were released some time ago and were seen in Scripted Pipeline.
+<a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">This blog post</a> discusses an older mechanism for Shared Library.
+For the newer mechanism of importing library, please check out <a href="https://jenkins.io/blog/2017/02/15/declarative-notifications/">this blog post</a>.
+Due to Declarative Pipeline’s lack of support for defining methods, Shared Libraries definitely take on a vital role for code-reuse in Jenkinsfile.</p>
+
+<h3><code>File</code> reading and writing not supported</h3>
+
+<p>Java/Grooy reading and writing using &ldquo;java.io.File&rdquo; class is not supported.</p>
+
+<figure class='code'><figcaption><span>Using File class does NOT work</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">myFile</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="s1">&#39;/home/data/myfile.xml&#39;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In fact, using that class in Jenkinsfile must go through &ldquo;In-Process Script Approval&rdquo; with this warning.</p>
+
+<blockquote><p>new java.io.File java.lang.String Approving this signature may introduce a security vulnerability! You are advised to deny it.</p></blockquote>
+
+
+<p>Even then, it will report the following error even though the file is present in filesystem (<a href="https://stackoverflow.com/questions/41739468/groovy-reports-that-a-file-doesnt-exists-when-it-really-is-present-in-the-syste">relevant Stackoverflow</a>):</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.io.FileNotFoundException: /home/data/myfile.xml (No such file or directory)
+</span><span class='line'>  at java.io.FileInputStream.open0(Native Method)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That also means related class such as FileWriter will NOT work as expected.
+It reports no error during execution but you will find no file, even though testing locally proves that files are created.</p>
+
+<p><strong>Workaround</strong>:</p>
+
+<ul>
+<li>For file reading, use <a href="https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#readfile-read-file-from-workspace"><code>readFile</code> step</a>.</li>
+<li>For file writing, export the file content as String and use the following code snippet:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span>Shell command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">xmlFile</span> <span class="o">=</span> <span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// TRICKY: FileWriter does NOT work in xmlTransform</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">mCommand</span> <span class="o">=</span> <span class="s2">&quot;cat &gt;${settingsFile} &lt;&lt;EOF&quot;</span>
+</span><span class='line'><span class="n">mCommand</span> <span class="o">+=</span> <span class="s2">&quot;\n${xmlFile}\nEOF&quot;</span>
+</span><span class='line'><span class="n">sh</span> <span class="n">mCommand</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the code snippet above, we construct a <a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells"><em>here document</em>-formatted</a> command for writing multi-line string in <code>mCommand</code> before passing to <code>sh</code> step for executing.</p>
+
+<figure class='code'><figcaption><span>Explaining mCommand</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ cat &gt;output.txt &lt;&lt;EOF
+</span><span class='line'>SELECT foo, bar FROM db
+</span><span class='line'>WHERE foo='baz'
+</span><span class='line'>More line from xmlFile
+</span><span class='line'>EOF
+</span><span class='line'>
+</span><span class='line'>$ cat output.txt
+</span><span class='line'>SELECT foo, bar FROM db
+</span><span class='line'>WHERE foo='baz'
+</span><span class='line'>More line from xmlFile</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Serialzation errors</h3>
+
+<p>You often encounter this type of errors when using non-serialiable classes from Groovy/Java libraries.</p>
+
+<figure class='code'><figcaption><span>Error in Jenkins log</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.io.NotSerializableException: org.codehaus.groovy.control.ErrorCollector
+</span><span class='line'>  at org.jboss.marshalling.river.RiverMarshaller.doWriteObject(RiverMarshaller.java:860)</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Related error in Jenkins log</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>java.lang.UnsupportedOperationException: Calling public static java.lang.Iterable 
+</span><span class='line'>org.codehaus.groovy.runtime.DefaultGroovyMethods.each(java.lang.Iterable,groovy.lang.Closure) on a
+</span><span class='line'>CPS-transformed closure is not yet supported (JENKINS-26481); 
+</span><span class='line'>encapsulate in a @NonCPS method, or use Java-style loops
+</span><span class='line'>  at org.jenkinsci.plugins.workflow.cps.GroovyClassLoaderWhitelist.checkJenkins26481
+</span><span class='line'>    (GroovyClassLoaderWhitelist.java:90)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.</p>
+
+<p><strong>Workaround</strong>:
+<a href="https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException">NonCPS</a> methods.</p>
+
+<p>Quoted from <a href="https://github.com/jenkinsci/workflow-cps-plugin/blob/master/README.md">here</a>: <code>@NonCPS</code> methods may safely use non-<code>Serializable</code> objects as local variables, though they should NOT accept nonserializable parameters or return or store nonserializable values.
+You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a <code>@NonCPS</code> method, so they are best used for performing some calculations before passing a summary back to the main script.</p>
+
+<h3>References</h3>
+
+<ul>
+<li>Here document
+
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells">Theory</a></li>
+<li><a href="https://stackoverflow.com/questions/2500436/how-does-cat-eof-work-in-bash">Common usage from Stackoverflow</a></li>
+<li><a href="http://www.guguncube.com/2140/unix-set-a-multi-line-text-to-a-string-variable-or-file-in-bash">Heredoc with and without variable expansion</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -917,96 +1215,6 @@ If you want to create a group with a specific group id, do the following.</p>
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2017-04-23T10:42:04-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>23</span><span class='date-suffix'>rd</span>, <span class='date-year'>2017</span></span> <span class='time'>10:42 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system.</p>
-
-<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
-
-<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
-An example setup is to run Jenkins on top of a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
-The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of installing and running another Docker engine (daemon) inside Docker containers.
-Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
-As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
-However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
-He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
-The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<h3>Which one should we use?</h3>
-
-<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
-Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
-
-<p>Instead of trying to run Docker engine inside containers, it is advised to just expose the Docker socket to those containers.
-This can be done by bind-mounting with the <code>-v</code> flag:</p>
-
-<figure class='code'><figcaption><span>Docker out of Docker</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>docker run -v /var/run/docker.sock:/var/run/docker.sock ...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
-The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the outer and inner containers are all running on the same host machine.
-However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
-And for the purpose of building/running/pushing Docker images in containerized Jenkins systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly all we need.</p>
-
-<h3>Further discussion</h3>
-
-<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
-However, what&rsquo;s not mentioned is any potential problem of &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<p>In my opinion, one potential issue of &ldquo;Docker-out-of-Docker&rdquo; approach is one can access the outer Docker container from the inner container through &ldquo;/var/run/docker.sock&rdquo;.
-In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
-The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
-This means that a containerized Jenkins system can be easily compromised if there is no limit on what&rsquo;s running in Jenkins slaves.</p>
-
-<p>It should be noted that, despite of problems listed by Jerome, &ldquo;Docker-in-Docker&rdquo; approach is still a possible choice *IF* you know what you are doing.
-Conflict of security profiles can be resolved with the right, careful setup.
-There are work-arounds for incompatible file systems between the containers.
-With the right setup, &ldquo;Docker-in-Docker&rdquo; can provide essentially free build isolation and security, which is a must for many, especially in corporates.
-However, the ever-present disadvantage of this apporach is long build time for large Docker images since Docker image cache has to be re-populated every run.
-As noted by Jerome, this cache is designed for exclusive access by one single Docker daemon at once.
-Trying to link this cache in each container to some common, pre-populated Docker image cache will lead to corrupt image data.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
-<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
-<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/2">&larr; Older</a>
@@ -1025,6 +1233,10 @@ Trying to link this cache in each container to some common, pre-populated Docker
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">Troubleshooting Groovy Code in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a>
       </li>
     
@@ -1038,10 +1250,6 @@ Trying to link this cache in each container to some common, pre-populated Docker
     
       <li class="post">
         <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
       </li>
     
   </ul>
@@ -1078,7 +1286,7 @@ Trying to link this cache in each container to some common, pre-populated Docker
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (3)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (8)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (9)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
