@@ -35,7 +35,7 @@ java.lang.NoSuchMethodError: No such DSL method 'getPrBody' found among steps
 
 **Problem**: Loading Groovy methods from a file with `load` step does not work inside Declarative Pipeline step, as reported in [this issue](https://issues.jenkins-ci.org/browse/JENKINS-43455).
 
-**Workaround**: There are a few work-arounds. The most straight-forward one is to use `script` step.
+**Workaround**: There are a few work-arounds. The most straight-forward one is to use [`script` step](https://jenkins.io/doc/book/pipeline/syntax/#declarative-pipeline).
 
 ``` groovy Loading Groovy script
     steps {
@@ -142,7 +142,7 @@ It reports no error during execution but you will find no file, even though test
 
 In the code snippet above, we construct a [*here document*-formatted](https://en.wikipedia.org/wiki/Here_document#Unix_shells) command for writing multi-line string in `mCommand` before passing to `sh` step for executing.
 
-``` plain Explaining mCommand
+``` plain heredoc example to explain mCommand
 $ cat >output.txt <<EOF
 SELECT foo, bar FROM db
 WHERE foo='baz'
@@ -176,13 +176,15 @@ encapsulate in a @NonCPS method, or use Java-style loops
 There is also some known [issue about JsonSlurper](https://issues.jenkins-ci.org/browse/JENKINS-35140).
 
 **Workaround**: 
-[NonCPS](https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException) methods.
+Use [NonCPS](https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException) methods.
 
 Quoted from [here](https://github.com/jenkinsci/workflow-cps-plugin/blob/master/README.md): `@NonCPS` methods may safely use non-`Serializable` objects as local variables, though they should NOT accept nonserializable parameters or return or store nonserializable values.
 You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a `@NonCPS` method, so they are best used for performing some calculations before passing a summary back to the main script.
 
 ### References
 
+* [Declarative syntax](https://jenkins.io/doc/book/pipeline/syntax/#declarative-pipeline)
+* [Shared Libraries for Declarative Pipeline](https://jenkins.io/blog/2017/02/15/declarative-notifications/)
 * Here document
   * [Theory](https://en.wikipedia.org/wiki/Here_document#Unix_shells)
   * [Common usage from Stackoverflow](https://stackoverflow.com/questions/2500436/how-does-cat-eof-work-in-bash)
