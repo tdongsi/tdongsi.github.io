@@ -104,7 +104,7 @@ Due to Declarative Pipeline’s lack of support for defining methods, Shared Lib
 
 ### `File` reading and writing not supported
 
-Java/Grooy reading and writing using "java.io.File" class is not supported.
+Java/Grooy reading and writing using "java.io.File" class is not directly supported.
 
 ``` groovy Using File class does NOT work
 def myFile = new File('/home/data/myfile.xml')
@@ -116,7 +116,8 @@ In fact, using that class in Jenkinsfile must go through "In-Process Script Appr
 new java.io.File java.lang.String Approving this signature may introduce a security vulnerability! You are advised to deny it.
 {% endblockquote %}
 
-Even then, it will report the following error even though the file is present in filesystem ([relevant Stackoverflow](https://stackoverflow.com/questions/41739468/groovy-reports-that-a-file-doesnt-exists-when-it-really-is-present-in-the-syste)):
+Even then, "java.io.File" will refer to **files on the master** (where Jenkins is running), not the current workspace on Jenkins slave (or slave container).
+As a result, it will report the following error even though the file is present in filesystem ([relevant Stackoverflow](https://stackoverflow.com/questions/41739468/groovy-reports-that-a-file-doesnt-exists-when-it-really-is-present-in-the-syste)) on slave:
 
 ``` plain
 java.io.FileNotFoundException: /home/data/myfile.xml (No such file or directory)
@@ -129,7 +130,7 @@ It reports no error during execution but you will find no file, even though test
 **Workaround**: 
 
 * For file reading, use [`readFile` step](https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#readfile-read-file-from-workspace).
-* For file writing, export the file content as String and use the following code snippet:
+* For file writing, use `writeFile` step. However, Pipeline steps (such as `writeFile`) are NOT allowed in `@NonCPS` methods. For more complex file writing, you might want to export the file content as String and use the following code snippet:
 
 ``` groovy Shell command
     String xmlFile = ...
@@ -174,9 +175,12 @@ encapsulate in a @NonCPS method, or use Java-style loops
 ```
 
 There is also some known [issue about JsonSlurper](https://issues.jenkins-ci.org/browse/JENKINS-35140).
+These problems come from the fact that variables in Jenkins pipelines must be serializable.
+Since pipeline must survive a Jenkins restart, the state of the running program is periodically saved to disk for possible resume later.
+Any "live" objects such as a network connection is not serializble.
 
 **Workaround**: 
-Use [NonCPS](https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException) methods.
+Explicitly discard non-serializable objects or use [@NonCPS](https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException) methods.
 
 Quoted from [here](https://github.com/jenkinsci/workflow-cps-plugin/blob/master/README.md): `@NonCPS` methods may safely use non-`Serializable` objects as local variables, though they should NOT accept nonserializable parameters or return or store nonserializable values.
 You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a `@NonCPS` method, so they are best used for performing some calculations before passing a summary back to the main script.
