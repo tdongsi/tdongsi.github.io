@@ -125,7 +125,7 @@ java.io.FileNotFoundException: /home/data/myfile.xml (No such file or directory)
 ```
 
 That also means related class such as FileWriter will NOT work as expected. 
-It reports no error during execution but you will find no file, even though testing locally proves that files are created.
+It reports no error during execution but you will find no file since those files are created on Jenkins master.
 
 **Workaround**: 
 
@@ -156,7 +156,7 @@ WHERE foo='baz'
 More line from xmlFile
 ```
 
-### Serialzation errors
+### Serialization errors
 
 You often encounter this type of errors when using non-serialiable classes from Groovy/Java libraries.
 
