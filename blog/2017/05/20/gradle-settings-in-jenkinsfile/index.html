@@ -164,6 +164,11 @@ See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
 <span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
 </pre></td><td class='code'><pre><code class='groovy'><span class='line'>  <span class="n">withCredentials</span><span class="o">([</span>
 </span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
 </span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
@@ -171,15 +176,20 @@ See <a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting
 </span><span class='line'>    <span class="n">withEnv</span><span class="o">([</span>
 </span><span class='line'>      <span class="s1">&#39;nexusPublic=https://nexus.example.com/nexus/content/groups/public/&#39;</span>
 </span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
-</span><span class='line'>      <span class="n">mvnSettingsFile</span><span class="o">(</span><span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">},</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">})</span>
-</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;mvn -s settings.xml clean build&#39;</span>
+</span><span class='line'>      <span class="kt">def</span> <span class="n">xmlTemplate</span> <span class="o">=</span> <span class="n">readFile</span> <span class="n">templateFile</span>
+</span><span class='line'>      <span class="n">String</span> <span class="n">xmlFile</span> <span class="o">=</span> <span class="n">transformXml</span><span class="o">(</span><span class="n">xmlTemplate</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="n">String</span> <span class="n">tempFile</span> <span class="o">=</span> <span class="s1">&#39;temp.xml&#39;</span>
+</span><span class='line'>      <span class="n">writeFile</span> <span class="nl">file:</span> <span class="n">tempFile</span><span class="o">,</span> <span class="nl">text:</span> <span class="n">xmlFile</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="n">sh</span> <span class="s2">&quot;mvn -B clean build -s ${tempFile}&quot;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>  <span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
 <p>The <a href="https://jenkins.io/doc/pipeline/steps/credentials-binding/">step <code>withCredentials</code></a> will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
-<code>mvnSettingsFile</code> is my Groovy function that generates the <code>settings.xml</code> based on the pre-defined format and provided Nexus credentials.</p>
+<code>transformXml</code> is my Groovy function that generates the <code>settings.xml</code> from the redacted Maven settings.xml template (no credentials) and the provided Nexus credentials.</p>
 
 <h4>Maven 3.0</h4>
 
