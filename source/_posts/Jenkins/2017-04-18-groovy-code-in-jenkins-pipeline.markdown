@@ -135,25 +135,6 @@ node('java-agent') {
 }
 ```
 
-### More discussion
-
-TODO: For DSL
-
-``` groovy Boiler plate code for DSL
-def call(Closure body) {
-  def config = [:]
-
-  if (body != null) {
-    body.resolveStrategy = Closure.DELEGATE_FIRST
-    body.delegate = config
-    body()
-  }
-
-  ...
-
-}
-```
-
 ### Troubleshooting tips
 
 When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
