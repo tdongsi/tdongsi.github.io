@@ -45,14 +45,19 @@ See [this article](https://support.cloudbees.com/hc/en-us/articles/203802500-Inj
     withEnv([
       'nexusPublic=https://nexus.example.com/nexus/content/groups/public/'
     ]) {
-      mvnSettingsFile(${env.nexusUsername}, ${env.nexusPassword})
-      sh 'mvn -s settings.xml clean build'
+      def xmlTemplate = readFile templateFile
+      String xmlFile = transformXml(xmlTemplate, env.nexusUsername, env.nexusPassword)
+
+      String tempFile = 'temp.xml'
+      writeFile file: tempFile, text: xmlFile
+
+      sh "mvn -B clean build -s ${tempFile}"
     }
   }
 ```
 
 The [step `withCredentials`](https://jenkins.io/doc/pipeline/steps/credentials-binding/) will not only provide a secure way of injecting secrets (e.g., Nexus credentials) into Jenkins pipeline, but also scrub away such sensitive information if we happen to print them out in log files.
-`mvnSettingsFile` is my Groovy function that generates the `settings.xml` based on the pre-defined format and provided Nexus credentials.
+`transformXml` is my Groovy function that generates the `settings.xml` from the redacted Maven settings.xml template (no credentials) and the provided Nexus credentials.
 
 #### Maven 3.0
 
