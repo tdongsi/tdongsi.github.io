@@ -8,7 +8,9 @@ categories:
 - Jenkins
 ---
 
-In this post, we look into some troubleshooting tips when [using independent Groovy scripts in Jenkins pipeline](/blog/2017/04/18/groovy-code-in-jenkins-pipeline/).
+In this post, we look into some troubleshooting tips when [using independent Groovy scripts in Jenkins pipeline](/blog/2017/04/18/groovy-code-in-jenkins-pipeline/) and how to work around those.
+
+<!--more-->
 
 ### Cannot load a Groovy script in Declarative Pipeline
 

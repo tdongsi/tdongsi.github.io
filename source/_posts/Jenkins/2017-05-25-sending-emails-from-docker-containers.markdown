@@ -11,6 +11,8 @@ categories:
 
 In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.
 
+<!--more-->
+
 ### Sending emails in standard Jenkins setup
 
 We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
