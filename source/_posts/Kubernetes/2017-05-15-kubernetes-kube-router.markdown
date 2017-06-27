@@ -18,6 +18,8 @@ Kube-router is a distributed load balancer, firewall and router for Kubernetes. 
 * a BGP router to advertise and learn the routes to the pod IP's for cross-node pod-to-pod connectivity
 {% endblockquote %}
 
+<!--more-->
+
 A few notes on related works in Kubernetes community:
 
 * The most obvious one is `kube-proxy` service, which is included in the standard Kubernetes installations. This `kube-router` can be a replacement for `kube-proxy` in the future.

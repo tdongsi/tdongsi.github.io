@@ -10,7 +10,11 @@ categories:
 - Groovy
 ---
 
-In this post, we will look into Nexus authentication for Maven and Gradle builds in Jenkins pipelines.
+In this post, we will look into how to securely authenticate with Nexus for Maven and Gradle builds in Jenkins pipelines.
+Nexus username and password should NOT be stored in plain text on Jenkins slaves or Docker images.
+Instead, those credentials should be passed into Jenkins pipeline using `withCredentials` step.
+
+<!--more-->
 
 ### Maven
 

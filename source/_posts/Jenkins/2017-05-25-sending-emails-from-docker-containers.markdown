@@ -9,7 +9,9 @@ categories:
 - Kubernetes
 ---
 
-In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.
+In this post, we looks into how to set up notification emails at the end of CI pipelines in a containerized Jenkins system. 
+First, we look into conventional Jenkins system (directly hosted) that has direct communication to the SMTP server.
+After that, we will look into adjustments required for a containerized Jenkins system to run in the same environment.
 
 <!--more-->
 
