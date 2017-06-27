@@ -10,6 +10,9 @@ categories:
 ---
 
 In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.
+An example with Scripted Pipeline is provided although it is also applicable to newer Declarative Pipeline with minor modifications.
+
+<!--more-->
 
 ### Basic example of Loading Groovy scripts
 

@@ -10,7 +10,10 @@ categories:
 - Jenkins
 ---
 
-In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system.
+In this post, we look into two different approaches to solving the problem of building/pushing Docker images from a containerized Jenkins system.
+From that understanding, we will discuss the pros and cons of each approach in production Continuous Integration (CI) systems and how one should be used in practice.
+
+<!--more-->
 
 ### Docker-in-Docker & Docker-out-of-Docker
 
