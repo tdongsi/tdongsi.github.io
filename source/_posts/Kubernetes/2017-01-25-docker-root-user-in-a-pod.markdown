@@ -47,6 +47,8 @@ No events.
 For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
 Sometimes, we simply cannot `sudo` or have the root password.
 
+<!--more-->
+
 ```
 jenkins@jenkins:~$ sudo ls /etc/hosts
 [sudo] password for jenkins:

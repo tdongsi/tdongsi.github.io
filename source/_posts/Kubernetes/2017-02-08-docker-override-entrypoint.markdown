@@ -9,6 +9,12 @@ categories:
 - Jenkins
 ---
 
+In this entry, we go over common mistakes when we try to override `ENTRYPOINT` in a Docker image and how to do it properly.
+
+<!--more-->
+
+### Problem description
+
 The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
 Simply running such docker image will give the following error:
 
