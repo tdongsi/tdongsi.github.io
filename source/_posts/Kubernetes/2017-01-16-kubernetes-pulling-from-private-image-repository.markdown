@@ -11,6 +11,8 @@ categories:
 
 This post documents dealing with implicit container `pause` in a corporate context, where Internet access is restricted and private Docker registry must be used.
 
+<!--more-->
+
 ### Problem description
 
 In this problem, Kubernetes cluster are all installed and configured. 

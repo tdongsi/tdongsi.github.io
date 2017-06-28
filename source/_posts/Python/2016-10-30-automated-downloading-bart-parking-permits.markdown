@@ -20,6 +20,8 @@ The [BART reservation website](https://www.select-a-spot.com/bart/) offers no ea
 Personally, the BART commute itself is not that bad, especially when I usually find a seat. 
 But it is really painful to download every ... single ... PDF ... permit manually before printing them.
 
+<!--more-->
+
 ### Solution
 
 I wrote [some Python scripts](https://github.com/tdongsi/bart-parking) to automate the process of downloading every single permits.
