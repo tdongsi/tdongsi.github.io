@@ -17,6 +17,8 @@ Comprehensive user documentation can be found in [this section](https://jenkins.
 
 In the following sections, we review a couple **older**, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.
 
+<!--more-->
+
 ### Simple copying
 
 A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its `$JENKINS_HOME`. 

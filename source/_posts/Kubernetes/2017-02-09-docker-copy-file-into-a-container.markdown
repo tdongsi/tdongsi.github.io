@@ -8,8 +8,10 @@ categories:
 - Docker
 ---
 
-In the following scenario, we have a running Docker container or a running pod in Kubernetes cluster.
+In this blog post, we have a running Docker container or a running pod in Kubernetes cluster.
 We want to add some files into the running containers to fix some issue, verify, and commit the changes.
+
+<!--more-->
 
 ### Best-case scenario: `docker cp`
 
