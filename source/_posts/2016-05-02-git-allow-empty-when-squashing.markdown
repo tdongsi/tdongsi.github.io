@@ -10,7 +10,9 @@ categories:
 Many times in Git, we commit some work only to realize that is a mistake, and we should do another way.
 The easy way to fix that is to revert the previous commit, a process in which Git creates another commit that undoes exactly everything in the last commit.
 After that, we move on with the other way and check in commits for that.
-Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to "squash" the commits to erase the mistake and avoid confusing others such as reviewers.
+Before pushing everything to the remote branch, as responsible software engineers :), we sometimes want to "squash" the commits to erase the mistake to keep the commit log clean.
+
+<!--more-->
 
 In the example shown below, my commit `daefc6e` was a mistake, and I reverted it with `f3886c2` commit, and then I checked in my correct solution in `b4cb02d` commit.
 I wanted to squash those commits in an interactive rebase session, as seen in the following:

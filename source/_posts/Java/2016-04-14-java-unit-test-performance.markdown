@@ -19,6 +19,8 @@ It is not productive for us developers to wait 30+ minutes to run unit tests loc
 In addition, the runtime will get compounded as we add more unit tests.
 Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.
 
+<!--more-->
+
 1) Do NOT add loggings/printing to your tests. 
 Use TestNG assertions instead of checking screen output.
 Remove from the test classes all the `System.out.println` statements (that we might add when we start writing unit tests).

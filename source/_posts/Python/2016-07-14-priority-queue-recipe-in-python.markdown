@@ -10,6 +10,8 @@ categories:
 
 A priority queue is a commonly used abstract data type, but it is not adequately provided in Python's standard library.
 
+<!--more-->
+
 The [module `Queue`](https://docs.python.org/2/library/queue.html) provides a `PriorityQueue` class but that implementation leaves a lot to be desired.
 It does not provide standard `peek` or `remove` methods in its public interface, which is sometimes critical.
 Additionally, the entry must be in the tuple form `(priority_number, data)` where lower number must be used for higher priority task to be returned first.
