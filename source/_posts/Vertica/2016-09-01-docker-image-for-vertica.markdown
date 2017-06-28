@@ -10,8 +10,9 @@ categories:
 
 Docker is Awesome!!!
 
-I wish I knew Docker earlier, before going through the hassle of creating VMs ([one-node](/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/)
- or [three-node](/blog/2016/03/12/set-up-three-node-vertica-sandbox-vms-on-mac/) cluster) for local ETL development and testing. 
+<!--more-->
+
+I wish I knew Docker earlier, before going through the hassle of creating VMs for local ETL development and testing. 
 Docker can make the whole setup even easier.
 It can be done in just a few commands, using [a Vertica Dockerfile](https://github.com/tdongsi/vertica/tree/master/docker), created based on [this](https://github.com/wmarinho/docker-hp-vertica).
 In addition to easy virtualization, Docker also enables the entire setup can be automated in a script, allowing it to be version-controlled (i.e., [Infrastructure as Code](https://en.wikipedia.org/wiki/Infrastructure_as_Code)). 

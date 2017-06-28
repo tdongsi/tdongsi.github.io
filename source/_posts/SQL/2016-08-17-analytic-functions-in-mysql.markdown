@@ -13,6 +13,8 @@ MySQL has traditionally lagged behind in support for the SQL standard.
 Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
 If you are used to work with [Vertica SQL](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm), writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.
 
+<!--more-->
+
 ### WITH clause
 
 As discussed in this [blog post](/blog/2016/02/03/vertica-6-with-clause/), `WITH` clause syntax, also known as *Common Table Expressions* (CTE), is thankfully supported in Vertica.
