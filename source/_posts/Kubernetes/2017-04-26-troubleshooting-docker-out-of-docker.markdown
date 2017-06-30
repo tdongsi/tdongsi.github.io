@@ -7,25 +7,32 @@ published: true
 categories: 
 - Docker
 - Kubernetes
+- Jenkins
 ---
 
-### Troubleshooting
+In this blog post, we are using ["Docker out of Docker" approach](/blog/2017/04/23/docker-out-of-docker/) to build Docker images in our containerized Jenkins slaves.
+We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.
 
-Problem description: We are using "Docker out of Docker" approach to build Docker images in our containerized Jenkins slaves.
-However, we got hit by the following issues when reusing a Jenkins slave container image.
+### Problem description
+
+We got the following error when running Docker inside a Jenkins slave container.
 
 ``` plain Error message when running Docker
 + docker images
 Cannot connect to the Docker daemon. Is the docker daemon running on this host?
 ```
 
-The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).
+### Discussion
 
-TODO: https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925
+In summary, for ["Docker out of Docker" approach](/blog/2017/04/23/docker-out-of-docker/), the basic requirements to enable building Docker images in a containerized Jenkins slave is:
 
-The current user (`jenkins` in the example) must have permissions to talk to `/var/run/docker.sock` on that system.
-By convention, that permission is given to `root` user or users in `docker` group. 
-However, the following commands show that it is not the case.
+1. You'll need to mount "/var/run/docker.sock" as a volume at "/var/run/docker.sock".
+1. Having `docker` CLI installed in the containerized Jenkins slave.
+1. Make sure "/var/run/docker.sock" has the right permission inside the Jenkins slave container: readable for the current user (e.g., user `jenkins`) or in "docker" group.
+
+The direct cause of the above error message "Cannot connect to the Docker daemon" is that the socket "/var/run/docker.sock" to `docker` daemon on that Jenkins slave does not have the right permission for the current user (`jenkins` in the example).
+By convention, the read permission to that Unix domain socket "/var/run/docker.sock" is given to `root` user or users in `docker` group. 
+The following commands verify that it is not:
 
 ``` plain Show GID of docker group
 + ls -l /var/run/docker.sock
@@ -36,34 +43,23 @@ srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
 docker:x:999:jenkins
 ```
 
-The expectation is:
+The expected output of the above `ls` command is as follows:
 
-```
+``` plain Expected output
 + ls -l /var/run/docker.sock
 srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
 ```
 
-This is due to the container is built inside another k8s cluster. 
-The group `docker` happens to have the group ID 999 on that k8s cluster.
-The user `jenkins`, under which Jenkins pipeline is executed, does not have the permission to access that socket `/var/run/docker.sock`.
+### Resolving problem
 
-By default, a unix domain socket (or IPC socket) is created at `/var/run/docker.sock`, requiring either root permission, or docker group membership.
+To resolve the problem, simply entering the Docker image, update its `/etc/group` file with the correct GID for `docker` group.
+In the example above, the line "docker:x:999:jenkins" should be updated to "docker:x:992:jenkins" to make it work.
+It's recommended to run `docker commit` to save the modified container as a new Docker image and push it to Docker registry (similar process in [this post](http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/)).
 
-For illustration, the installation steps in Ubuntu are expected to be like this:
+The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below). 
+The group `docker` happens to have the group ID 999 on that Kubernetes cluster.
 
-```
-# Install from Web
-sudo curl -sSL https://get.docker.com/ | sh
-sudo usermod -aG docker jenkins
-
-# Install from apt
-sudo apt-get update
-sudo apt-get install -y docker-engine
-sudo usermod -aG docker jenkins
-```
-
-Example Dockerfile (from [here](http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container)).
-``` plain Dockerfile
+``` plain Dockerfile for installing Docker CLI in Jenkins slave http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container
 FROM jenkins
 
 USER root
@@ -78,7 +74,20 @@ RUN apt-get update \
 RUN usermod -a -G docker jenkins
 ```
 
-The last step `usermod` comes from the script instruction itself: "If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker" group".
+For illustration, the Docker installation steps in Ubuntu are similar:
+
+``` plain Installing Docker CLI https://docs.docker.com/engine/installation/linux/linux-postinstall/
+# Install from Web
+sudo curl -sSL https://get.docker.com/ | sh
+sudo usermod -aG docker jenkins
+
+# Install from apt
+sudo apt-get update
+sudo apt-get install -y docker-engine
+sudo usermod -aG docker jenkins
+```
+
+The last step `usermod` comes from Docker documentation itself: "If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker" group".
 
 
 ### `groupadd` examples
