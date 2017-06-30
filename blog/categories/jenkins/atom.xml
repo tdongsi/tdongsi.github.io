@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-21T18:57:31-07:00</updated>
+  <updated>2017-06-29T19:32:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -18,7 +18,10 @@
     <link href="http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/"/>
     <updated>2017-06-16T23:52:44-07:00</updated>
     <id>http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile</id>
-    <content type="html"><![CDATA[<p>In this post, we look into some troubleshooting tips when <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">using independent Groovy scripts in Jenkins pipeline</a>.</p>
+    <content type="html"><![CDATA[<p>In this post, we look into some troubleshooting tips when <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">using independent Groovy scripts in Jenkins pipeline</a> and how to work around those.</p>
+
+<!--more-->
+
 
 <h3>Cannot load a Groovy script in Declarative Pipeline</h3>
 
@@ -190,7 +193,12 @@ You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a <c
     <link href="http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers/"/>
     <updated>2017-05-25T13:42:45-07:00</updated>
     <id>http://tdongsi.github.io/blog/2017/05/25/sending-emails-from-docker-containers</id>
-    <content type="html"><![CDATA[<p>In this post, we looks into sending notification emails at the end of CI pipelines in a containerized Jenkins system.</p>
+    <content type="html"><![CDATA[<p>In this post, we looks into how to set up notification emails at the end of CI pipelines in a containerized Jenkins system.
+First, we look into conventional Jenkins system (directly hosted) that has direct communication to the SMTP server.
+After that, we will look into adjustments required for a containerized Jenkins system to run in the same environment.</p>
+
+<!--more-->
+
 
 <h3>Sending emails in standard Jenkins setup</h3>
 
@@ -374,7 +382,12 @@ mail_version = 2.10.1
     <link href="http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile/"/>
     <updated>2017-05-20T23:27:08-07:00</updated>
     <id>http://tdongsi.github.io/blog/2017/05/20/gradle-settings-in-jenkinsfile</id>
-    <content type="html"><![CDATA[<p>In this post, we will look into Nexus authentication for Maven and Gradle builds in Jenkins pipelines.</p>
+    <content type="html"><![CDATA[<p>In this post, we will look into how to securely authenticate with Nexus for Maven and Gradle builds in Jenkins pipelines.
+Nexus username and password should NOT be stored in plain text on Jenkins slaves or Docker images.
+Instead, those credentials should be passed into Jenkins pipeline using <code>withCredentials</code> step.</p>
+
+<!--more-->
+
 
 <h3>Maven</h3>
 
@@ -542,11 +555,109 @@ For example, the Gradle builds can be simplified by defining <code>useNexus</cod
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
+    <updated>2017-04-26T16:24:24-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker</id>
+    <content type="html"><![CDATA[<p>In this blog post, we are using <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a> to build Docker images in our containerized Jenkins slaves.
+We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.</p>
+
+<!--more-->
+
+
+<h3>Problem description</h3>
+
+<p>We got the following error when running Docker inside a Jenkins slave container.</p>
+
+<pre><code class="plain Error message when running Docker">+ docker images
+Cannot connect to the Docker daemon. Is the docker daemon running on this host?
+</code></pre>
+
+<h3>Discussion</h3>
+
+<p>In summary, for <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a>, the basic requirements to enable building Docker images in a containerized Jenkins slave is:</p>
+
+<ol>
+<li>You&rsquo;ll need to mount &ldquo;/var/run/docker.sock&rdquo; as a volume at &ldquo;/var/run/docker.sock&rdquo;.</li>
+<li>Having <code>docker</code> CLI installed in the containerized Jenkins slave.</li>
+<li>Make sure &ldquo;/var/run/docker.sock&rdquo; has the right permission inside the Jenkins slave container: readable for the current user (e.g., user <code>jenkins</code>) or in &ldquo;docker&rdquo; group.</li>
+</ol>
+
+
+<p>The direct cause of the above error message &ldquo;Cannot connect to the Docker daemon&rdquo; is that the socket &ldquo;/var/run/docker.sock&rdquo; to <code>docker</code> daemon on that Jenkins slave does not have the right permission for the current user (<code>jenkins</code> in the example).
+By convention, the read permission to that Unix domain socket &ldquo;/var/run/docker.sock&rdquo; is given to <code>root</code> user or users in <code>docker</code> group.
+The following commands verify that it is not:</p>
+
+<pre><code class="plain Show GID of docker group">+ ls -l /var/run/docker.sock
+
+srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
++ cat /etc/group
+...
+docker:x:999:jenkins
+</code></pre>
+
+<p>The expected output of the above <code>ls</code> command is as follows:</p>
+
+<pre><code class="plain Expected output">+ ls -l /var/run/docker.sock
+srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
+</code></pre>
+
+<h3>Resolving problem</h3>
+
+<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
+In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
+It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
+
+<p>The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below).
+The group <code>docker</code> happens to have the group ID 999 on that Kubernetes cluster.</p>
+
+<pre><code class="plain Dockerfile for installing Docker CLI in Jenkins slave http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">FROM jenkins
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME /home/jenkins
+ENV DOCKER_VERSION=1.9.1-0~trusty
+
+RUN apt-get update \
+  &amp;&amp; apt-get install -y docker-engine=$DOCKER_VERSION \
+  &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+RUN usermod -a -G docker jenkins
+</code></pre>
+
+<p>For illustration, the Docker installation steps in Ubuntu are similar:</p>
+
+<pre><code class="plain Installing Docker CLI https://docs.docker.com/engine/installation/linux/linux-postinstall/"># Install from Web
+sudo curl -sSL https://get.docker.com/ | sh
+sudo usermod -aG docker jenkins
+
+# Install from apt
+sudo apt-get update
+sudo apt-get install -y docker-engine
+sudo usermod -aG docker jenkins
+</code></pre>
+
+<p>The last step <code>usermod</code> comes from Docker documentation itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Docker-in-Docker vs Docker-out-of-Docker]]></title>
     <link href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/"/>
     <updated>2017-04-23T10:42:04-07:00</updated>
     <id>http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker</id>
-    <content type="html"><![CDATA[<p>In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system.</p>
+    <content type="html"><![CDATA[<p>In this post, we look into two different approaches to solving the problem of building/pushing Docker images from a containerized Jenkins system.
+From that understanding, we will discuss the pros and cons of each approach in production Continuous Integration (CI) systems and how one should be used in practice.</p>
+
+<!--more-->
+
 
 <h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
 
@@ -603,149 +714,6 @@ Trying to link this cache in each container to some common, pre-populated Docker
 <li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
 <li><a href="https://github.com/jpetazzo/dind">dind</a></li>
 <li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Groovy Script in Jenkins Pipeline]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/04/18/groovy-code-in-jenkins-pipeline/"/>
-    <updated>2017-04-18T17:07:44-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/04/18/groovy-code-in-jenkins-pipeline</id>
-    <content type="html"><![CDATA[<p>In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.</p>
-
-<h3>Basic example of Loading Groovy scripts</h3>
-
-<pre><code class="plain script example.groovy">def example1() {
-  println 'Hello from example1'
-}
-
-def example2() {
-  println 'Hello from example2'
-}
-
-return this
-</code></pre>
-
-<p>The <code>example.groovy</code> script defines <code>example1</code> and <code>example2</code> functions before ending with <code>return this</code>.
-Note that <code>return this</code> is definitely required and one common mistake is to forget ending the Groovy script with it.</p>
-
-<pre><code class="groovy Jenkinsfile">def code
-
-node('java-agent') {
-  stage('Checkout') {
-    checkout scm
-  }
-
-  stage('Load') {
-    code = load 'example.groovy'
-  }
-
-  stage('Execute') {
-    code.example1()
-  }
-}
-
-code.example2()
-</code></pre>
-
-<p>In Jenkinsfile, simply use <a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a> to load the Groovy script.
-After the Groovy script is loaded, the functions insides can be used where it can be referenced, as shown above.</p>
-
-<h3>Demo: Processing Github JSON from Groovy</h3>
-
-<p>In this demo, we first show how to process JSON response from Github API in Groovy.</p>
-
-<pre><code class="groovy Processing JSON from Github">String username = System.getenv('GITHUB_USERNAME')
-String password = System.getenv('GITHUB_PASSWORD')
-
-String GITHUB_API = 'https://api.github.com/repos'
-String repo = 'groovy'
-String PR_ID = '2' // Pull request ID
-
-String url = "${GITHUB_API}/${username}/${repo}/pulls/${PR_ID}"
-println "Querying ${url}"
-def text = url.toURL().getText(requestProperties: ['Authorization': "token ${password}"])
-def json = new JsonSlurper().parseText(text)
-def bodyText = json.body
-
-// Check if Pull Request body has certain text
-if ( bodyText.find('Safari') ) {
-    println 'Found Safari user'
-}
-</code></pre>
-
-<p>The equivalent bash command for retrieving JSON response from Github API is as follows:</p>
-
-<pre><code class="plain Equivalent bash command">// Groovy formatted string
-String cmd = "curl -s -H \"Authorization: token ${password}\" ${url}"
-
-// Example
-String example = 'curl -s -H "Authorization: token XXX" https://api.github.com/repos/tdongsi/groovy/pulls/2'
-</code></pre>
-
-<h3>Processing Github JSON from Jenkinsfile</h3>
-
-<p>Continuing the demo from the last section, we now put the Groovy code into a callable function in a script called &ldquo;github.groovy&rdquo;.
-Then, in our Jenkinsfile, we proceed to load the script and use the function to process JSON response from Github API.</p>
-
-<pre><code class="groovy github.groovy">import groovy.json.JsonSlurper
-
-def getPrBody(String githubUsername, String githubToken, String repo, String id) {
-  String GITHUB_API = 'https://api.github.com/repos'
-
-  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
-  println "Querying ${url}"
-  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
-  def json = new JsonSlurper().parseText(text)
-  def bodyText = json.body
-
-  return bodyText
-}
-
-return this
-</code></pre>
-
-<pre><code class="groovy Jenkinsfile">def code
-
-node('java-agent') {
-  stage('Checkout') {
-    checkout scm
-  }
-
-  stage('Load') {
-    code = load 'github.groovy'
-  }
-
-  stage('Execute') {
-    withCredentials([
-      [$class: 'UsernamePasswordMultiBinding', credentialsId: 'githubCredentials', 
-      passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
-    ]) {
-
-      def bodyText = code.getPrBody(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 
-                                    'Groovy4Jenkins', env.CHANGE_ID)
-      println bodyText
-
-    }
-  }
-}
-</code></pre>
-
-<h3>Troubleshooting tips</h3>
-
-<p>When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
-In those cases, usually it can be resolved by manually approving some method signatures in <strong>Jenkins > Manage Jenkins > In-process Script Approval</strong> page.
-Adminstrators privilege is required for doing so.</p>
-
-<p>More troubleshooting information is listed in this <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">blog post</a>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file">JenkinsCI example</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a></li>
 </ul>
 
 ]]></content>

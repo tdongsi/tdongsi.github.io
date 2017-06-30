@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system. Docker-in- &hellip;">
+  <meta name="description" content="When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles DRY.
+A very common use &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -104,352 +105,6 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2017-04-23T10:42:04-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>23</span><span class='date-suffix'>rd</span>, <span class='date-year'>2017</span></span> <span class='time'>10:42 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In this post, we look into different approaches to the problem of building/pushing Docker images from a containerized Jenkins system.</p>
-
-<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
-
-<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
-An example setup is to run Jenkins on top of a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
-The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of installing and running another Docker engine (daemon) inside Docker containers.
-Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
-As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
-However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
-He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
-The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<h3>Which one should we use?</h3>
-
-<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
-Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
-
-<p>Instead of trying to run Docker engine inside containers, it is advised to just expose the Docker socket to those containers.
-This can be done by bind-mounting with the <code>-v</code> flag:</p>
-
-<figure class='code'><figcaption><span>Docker out of Docker</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>docker run -v /var/run/docker.sock:/var/run/docker.sock ...</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
-The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the outer and inner containers are all running on the same host machine.
-However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
-And for the purpose of building/running/pushing Docker images in containerized Jenkins systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly all we need.</p>
-
-<h3>Further discussion</h3>
-
-<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
-However, what&rsquo;s not mentioned is any potential problem of &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<p>In my opinion, one potential issue of &ldquo;Docker-out-of-Docker&rdquo; approach is one can access the outer Docker container from the inner container through &ldquo;/var/run/docker.sock&rdquo;.
-In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
-The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
-This means that a containerized Jenkins system can be easily compromised if there is no limit on what&rsquo;s running in Jenkins slaves.</p>
-
-<p>It should be noted that, despite of problems listed by Jerome, &ldquo;Docker-in-Docker&rdquo; approach is still a possible choice *IF* you know what you are doing.
-Conflict of security profiles can be resolved with the right, careful setup.
-There are work-arounds for incompatible file systems between the containers.
-With the right setup, &ldquo;Docker-in-Docker&rdquo; can provide essentially free build isolation and security, which is a must for many, especially in corporates.
-However, the ever-present disadvantage of this apporach is long build time for large Docker images since Docker image cache has to be re-populated every run.
-As noted by Jerome, this cache is designed for exclusive access by one single Docker daemon at once.
-Trying to link this cache in each container to some common, pre-populated Docker image cache will lead to corrupt image data.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
-<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
-<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2017-04-18T17:07:44-07:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>5:07 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.</p>
-
-<h3>Basic example of Loading Groovy scripts</h3>
-
-<figure class='code'><figcaption><span>script example.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>def example1() {
-</span><span class='line'>  println 'Hello from example1'
-</span><span class='line'>}
-</span><span class='line'>
-</span><span class='line'>def example2() {
-</span><span class='line'>  println 'Hello from example2'
-</span><span class='line'>}
-</span><span class='line'>
-</span><span class='line'>return this</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The <code>example.groovy</code> script defines <code>example1</code> and <code>example2</code> functions before ending with <code>return this</code>.
-Note that <code>return this</code> is definitely required and one common mistake is to forget ending the Groovy script with it.</p>
-
-<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
-</span><span class='line'>
-</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;example.groovy&#39;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">code</span><span class="o">.</span><span class="na">example1</span><span class="o">()</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">code</span><span class="o">.</span><span class="na">example2</span><span class="o">()</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In Jenkinsfile, simply use <a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a> to load the Groovy script.
-After the Groovy script is loaded, the functions insides can be used where it can be referenced, as shown above.</p>
-
-<h3>Demo: Processing Github JSON from Groovy</h3>
-
-<p>In this demo, we first show how to process JSON response from Github API in Groovy.</p>
-
-<figure class='code'><figcaption><span>Processing JSON from Github</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">username</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">)</span>
-</span><span class='line'><span class="n">String</span> <span class="n">password</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">getenv</span><span class="o">(</span><span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
-</span><span class='line'><span class="n">String</span> <span class="n">repo</span> <span class="o">=</span> <span class="s1">&#39;groovy&#39;</span>
-</span><span class='line'><span class="n">String</span> <span class="n">PR_ID</span> <span class="o">=</span> <span class="s1">&#39;2&#39;</span> <span class="c1">// Pull request ID</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${username}/${repo}/pulls/${PR_ID}&quot;</span>
-</span><span class='line'><span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${password}&quot;</span><span class="o">])</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// Check if Pull Request body has certain text</span>
-</span><span class='line'><span class="k">if</span> <span class="o">(</span> <span class="n">bodyText</span><span class="o">.</span><span class="na">find</span><span class="o">(</span><span class="s1">&#39;Safari&#39;</span><span class="o">)</span> <span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;Found Safari user&#39;</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The equivalent bash command for retrieving JSON response from Github API is as follows:</p>
-
-<figure class='code'><figcaption><span>Equivalent bash command</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>// Groovy formatted string
-</span><span class='line'>String cmd = "curl -s -H \"Authorization: token ${password}\" ${url}"
-</span><span class='line'>
-</span><span class='line'>// Example
-</span><span class='line'>String example = 'curl -s -H "Authorization: token XXX" https://api.github.com/repos/tdongsi/groovy/pulls/2'</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Processing Github JSON from Jenkinsfile</h3>
-
-<p>Continuing the demo from the last section, we now put the Groovy code into a callable function in a script called &ldquo;github.groovy&rdquo;.
-Then, in our Jenkinsfile, we proceed to load the script and use the function to process JSON response from Github API.</p>
-
-<figure class='code'><figcaption><span>github.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
-</span><span class='line'>
-</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://api.github.com/repos&#39;</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
-</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">return</span> <span class="k">this</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">code</span>
-</span><span class='line'>
-</span><span class='line'><span class="nf">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Load&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">code</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;github.groovy&#39;</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Execute&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">withCredentials</span><span class="o">([</span>
-</span><span class='line'>      <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;githubCredentials&#39;</span><span class="o">,</span>
-</span><span class='line'>      <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
-</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
-</span><span class='line'>
-</span><span class='line'>      <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="na">getPrBody</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span>
-</span><span class='line'>                                    <span class="s1">&#39;Groovy4Jenkins&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">CHANGE_ID</span><span class="o">)</span>
-</span><span class='line'>      <span class="n">println</span> <span class="n">bodyText</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'>  <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Troubleshooting tips</h3>
-
-<p>When loading and running Groovy scripts, you might find yourself running to RejectedAccessException errors.
-In those cases, usually it can be resolved by manually approving some method signatures in <strong>Jenkins > Manage Jenkins > In-process Script Approval</strong> page.
-Adminstrators privilege is required for doing so.</p>
-
-<p>More troubleshooting information is listed in this <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">blog post</a>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file">JenkinsCI example</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a></li>
-</ul>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
       <h1 class="entry-title"><a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Jenkins Pipeline Shared Libraries</a></h1>
     
     
@@ -473,143 +128,12 @@ Comprehensive user documentation can be found in <a href="https://jenkins.io/doc
 
 <p>In the following sections, we review a couple <strong>older</strong>, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.</p>
 
-<h3>Simple copying</h3>
-
-<p>A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its <code>$JENKINS_HOME</code>.
-All such Groovy files are stored in <em>$JENKINS_HOME/workflow-libs</em> folder, following this directory structure:</p>
-
-<figure class='code'><figcaption><span>Directory structure of a Shared Library repository</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>(root)
-</span><span class='line'>+- src                     # Groovy source files
-</span><span class='line'>|   +- org
-</span><span class='line'>|       +- foo
-</span><span class='line'>|           +- Bar.groovy  # for org.foo.Bar class
-</span><span class='line'>+- vars
-</span><span class='line'>|   +- foo.groovy          # for global 'foo' variable
-</span><span class='line'>|   +- foo.txt             # help for 'foo' variable
-</span><span class='line'>+- resources               # resource files (external libraries only)
-</span><span class='line'>|   +- org
-</span><span class='line'>|       +- foo
-</span><span class='line'>|           +- bar.json    # static helper data for org.foo.Bar</span></code></pre></td></tr></table></div></figure>
-
-
-<p>By manually modifying the Groovy files (e.g., <em>vars/foo.groovy</em>) and restarting Jenkins, you can update their behaviors accordingly.
-This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.</p>
-
-<h3>Git-based update</h3>
-
-<p>A more scalable alternative for updating Groovy codes is to use <code>git push</code>, exposed by Jenkins.</p>
-
-<p>As a side note, this method is no longer mentioned in documentation, as of March 2017.
-In fact, you have to look into a <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d">very old commit</a>
-or <a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">outdated, unofficial fork</a> to find this method briefly mentioned at all.
-It is also occasionally mentioned in support articles such as <a href="https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs">this</a>.</p>
-
-<p>In this method, the directory <em>$JENKINS_HOME/workflow-libs</em> is exposed by Jenkins as a Git repository.
-You can deploy new changes to this directory through <code>git push</code> and any such event will trigger Jenkins to recompile Groovy files.
-There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
-The Git repository is exposed in two endpoints:</p>
-
-<ul>
-<li><a href="http://server/jenkins/workflowLibs.git">http://server/jenkins/workflowLibs.git</a> (when your Jenkins is <code>http://server/jenkins/</code>).</li>
-<li>ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH">an SSH server</a>)</li>
-</ul>
-
-
-<p>This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., &ldquo;shared-lib&rdquo; on Github) and only <code>git push</code> to the <code>workflowLibs.git</code> repository in the event of deployment.
-Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.</p>
-
-<h4>Jenkinsfile to update global library</h4>
-
-<p>In this Git-based update approach, all Groovy files should be in some Git repository (e.g., &ldquo;shared-lib&rdquo;) with certain directory structure (shown in the last section).
-Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
-The Jenkinsfile for such workflow-libs should be as follows:</p>
-
-<figure class='code'><figcaption><span>Jenkinsfile for deployment</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>  stage 'Checkout'
-</span><span class='line'>  checkout scm
-</span><span class='line'>
-</span><span class='line'>  if (env.BRANCH_NAME == 'master') {
-</span><span class='line'>    stage 'Update'
-</span><span class='line'>    println "Updating Jenkins workflow-libs"
-</span><span class='line'>    sshagent(['jenkins_ssh_key']) {
-</span><span class='line'>      sh """
-</span><span class='line'>         git branch master
-</span><span class='line'>         git checkout master
-</span><span class='line'>         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
-</span><span class='line'>         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
-</span><span class='line'>         git push --force jenkins master
-</span><span class='line'>      """
-</span><span class='line'>    }
-</span><span class='line'>  }</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Some comments on this Jenkinsfile:</p>
-
-<ul>
-<li><code>sshagent(['jenkins_ssh_key'])</code> indicates that the current node/slave is known as <a href="https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin">an SSH agent</a> to Jenkins master, using Jenkins credentials with ID <code>jenkins_ssh_key</code>.</li>
-<li><code>git remote add</code> uses the currently checked out Git repo and branch as a remote branch (named &ldquo;jenkins&rdquo;) to the <code>workflowLibs</code> repository.</li>
-<li>The <code>workflowLibs</code> repository is managed by Jenkins, exposed at that location <em>ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git</em>.</li>
-<li>Then we force push any new changes to the Git repository on Jenkins.</li>
-</ul>
-
-
-<p>After the push, the Git repository <code>workflowLibs</code> on Jenkins should have latest change, same as the current &ldquo;shared-lib&rdquo; repository.
-Upon a <code>git push</code> event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
-Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.</p>
-
-<figure class='code'><figcaption><span>Key pair generation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
-</span><span class='line'>
-</span><span class='line'>jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
-</span><span class='line'>Generating public/private rsa key pair.
-</span><span class='line'>Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
-</span><span class='line'>Enter passphrase (empty for no passphrase):
-</span><span class='line'>Enter same passphrase again:</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The generated public key should be added to the user via <em>jenkinsurl.com/user/tdongsi/configure</em> URL and private key should be added to the credentials ID <code>jenkins_ssh_key</code>.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
-</ul>
-
 </div>
   
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">Read on &rarr;</a>
+    </footer>
   
 
 
@@ -636,115 +160,15 @@ Note that for this SSH push to work, a public-private key pair must be generated
   </header>
 
 
-  <div class="entry-content"><p>In the following scenario, we have a running Docker container or a running pod in Kubernetes cluster.
+  <div class="entry-content"><p>In this blog post, we have a running Docker container or a running pod in Kubernetes cluster.
 We want to add some files into the running containers to fix some issue, verify, and commit the changes.</p>
-
-<h3>Best-case scenario: <code>docker cp</code></h3>
-
-<p>The most obvious way is to create a Dockerfile and rebuild the Docker image.
-The Dockerfile will look like this:</p>
-
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FROM olderImage
-</span><span class='line'>ADD myfile /path/myfile
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, in this approach, we need to stop the Docker containers, update, and re-run with the new Docker images.
-It does not work if we want to work with <strong><em>running</em></strong> containers.
-For running containers, the better way to add files into containers is to copy files into containers.
-For the more updated versions of Docker (1.8+), the recommended way for copying is to use <a href="https://docs.docker.com/engine/reference/commandline/cp/"><code>docker cp</code> command</a>.</p>
-
-<h3>Copy file directly</h3>
-
-<p><code>docker cp</code> does not always work, especially in older versions of Docker.
-In older versions of Docker, the <code>docker cp</code> command only allowed copying files from a <strong>container</strong> to the <strong>host</strong>.
-Only since Docker 1.8, copying files from the host to a container is added.
-You will get some error with unhelpful messages like this in older versions of Docker:</p>
-
-<figure class='code'><figcaption><span>Unsupported "docker cp"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ ls maven_3.3.9-3_all.deb
-</span><span class='line'>maven_3.3.9-3_all.deb
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/maven_3.3.9-3_all.deb
-</span><span class='line'>FATA[0000] Error: Path not specified</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you find yourself stuck with older versions of Docker, the alternative is to manually copy the files from hosts filesystem to containers filesystem location.
-First, you need to determine where the containers filesystem (volume) is mounted on the host:</p>
-
-<figure class='code'><figcaption><span>Using inspect to find Volume location</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo docker ps
-</span><span class='line'>CONTAINER ID      IMAGE    COMMAND ...
-</span><span class='line'>9a8d782156ca
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Id} } 9a8d782156ca
-</span><span class='line'>9a8d782156ca9a3bd59545a18943de408ca58f42c4389c12e9bb43f4ad239d52
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Volumes} } 9a8d782156ca
-</span><span class='line'>map[/home/jenkins:/var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438]
-</span><span class='line'>[centos@comp ~]$ sudo ls /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
-</span><span class='line'>test.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>NOTE: In the shell commands above, there is no space between <code>{</code> (space is added for Jekyll blog engine).
-After the mounting path is determined, you can manipulate the container'ss filesystem directly, including copying files into it.</p>
-
-<figure class='code'><figcaption><span>Directly copy file into containers filesystem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo cp maven_3.3.9-3_all.deb /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438</span></code></pre></td></tr></table></div></figure>
-
-
-<p>You can verify such manipulation by <code>docker exec</code>-ing into the container and verify the files:</p>
-
-<figure class='code'><figcaption><span>Before and After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@9a8d782156ca:~$ ls
-</span><span class='line'>test.txt
-</span><span class='line'>
-</span><span class='line'>jenkins@9a8d782156ca:~$ ls
-</span><span class='line'>maven_3.3.9-3_all.deb  test.txt</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/commandline/cp/">docker cp</a></li>
-<li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
-</ul>
 
 </div>
   
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/02/09/docker-copy-file-into-a-container/">Read on &rarr;</a>
+    </footer>
   
 
 
@@ -771,8 +195,41 @@ After the mounting path is determined, you can manipulate the container'ss files
   </header>
 
 
-  <div class="entry-content"><p>The docker image for JNLP-based Jenkins agent requires us to pass a few arguments.
-Simply running such docker image will give the following error:</p>
+  <div class="entry-content"><p>In this entry, we go over common mistakes when we try to override <code>ENTRYPOINT</code> in a Docker image and how to do it properly.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/02/08/docker-override-entrypoint/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/25/docker-root-user-in-a-pod/">Docker: Root User in a Pod</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-25T18:22:51-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>6:22 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
 
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -798,98 +255,166 @@ Simply running such docker image will give the following error:</p>
 <span class='line-number'>22</span>
 <span class='line-number'>23</span>
 <span class='line-number'>24</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60
-</span><span class='line'>two arguments required, but got []
-</span><span class='line'>java -jar slave.jar [options...] &lt;secret key&gt; &lt;slave name&gt;
-</span><span class='line'> -cert VAL                       : Specify additional X.509 encoded PEM
-</span><span class='line'>                                   certificates to trust when connecting to
-</span><span class='line'>                                   Jenkins root URLs. If starting with @ then
-</span><span class='line'>                                   the remainder is assumed to be the name of
-</span><span class='line'>                                   the certificate file to read.
-</span><span class='line'> -credentials USER:PASSWORD      : HTTP BASIC AUTH header to pass in for making
-</span><span class='line'>                                   HTTP requests.
-</span><span class='line'> -headless                       : Run in headless mode, without GUI
-</span><span class='line'> -jar-cache DIR                  : Cache directory that stores jar files sent
-</span><span class='line'>                                   from the master
-</span><span class='line'> -noreconnect                    : If the connection ends, don't retry and just
-</span><span class='line'>                                   exit.
-</span><span class='line'> -proxyCredentials USER:PASSWORD : HTTP BASIC AUTH header to pass in for making
-</span><span class='line'>                                   HTTP authenticated proxy requests.
-</span><span class='line'> -tunnel HOST:PORT               : Connect to the specified host and port,
-</span><span class='line'>                                   instead of connecting directly to Jenkins.
-</span><span class='line'>                                   Useful when connection to Hudson needs to be
-</span><span class='line'>                                   tunneled. Can be also HOST: or :PORT, in
-</span><span class='line'>                                   which case the missing portion will be
-</span><span class='line'>                                   auto-configured like the default behavior
-</span><span class='line'> -url URL                        : Specify the Jenkins root URLs to connect to.</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
+</span><span class='line'>Name:             jenkins
+</span><span class='line'>Namespace:            default
+</span><span class='line'>Image(s):         docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>Node:             kube-worker-1/10.252.158.72
+</span><span class='line'>Start Time:           Tue, 24 Jan 2017 16:57:47 -0800
+</span><span class='line'>Labels:               name=jenkins
+</span><span class='line'>Status:               Running
+</span><span class='line'>Reason:
+</span><span class='line'>Message:
+</span><span class='line'>IP:               172.17.27.3
+</span><span class='line'>Replication Controllers:  &lt;none&gt;
+</span><span class='line'>Containers:
+</span><span class='line'>  jenkins:
+</span><span class='line'>    Container ID: docker://943d6e55038804c8
+</span><span class='line'>    Image:        docker.registry.company.net/tdongsi/jenkins:2.23
+</span><span class='line'>    Image ID:     docker://242c1836544e5ca31616
+</span><span class='line'>    State:        Running
+</span><span class='line'>      Started:        Tue, 24 Jan 2017 16:57:48 -0800
+</span><span class='line'>    Ready:        True
+</span><span class='line'>    Restart Count:    0
+</span><span class='line'>    Environment Variables:
+</span><span class='line'>Conditions:
+</span><span class='line'>  Type        Status
+</span><span class='line'>  Ready   True
+</span><span class='line'>Volumes:
+</span><span class='line'>  jenkins-data:
+</span><span class='line'>    Type: HostPath (bare host directory volume)
+</span><span class='line'>    Path: /jdata
+</span><span class='line'>No events. </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Most of the error messages above is from Jenkins binary <code>slave.jar</code> and has nothing to do with Docker.
-To make the container run on Docker, we must override its <code>ENTRYPOINT</code> at runtime to provide the arguments required.
-However, one common mistake while trying to override is as follows:</p>
-
-<figure class='code'><figcaption><span>Standard mistake</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always gcr.io/jenkins-agent:2.60 \
-</span><span class='line'>--entrypoint java -jar /usr/share/jenkins/slave.jar
-</span><span class='line'>"--entrypoint" is not a valid option</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Except for passing argument to the <code>ENTRYPOINT</code>, the Docker image is usually the last parameter.
-Another attempt to make it &ldquo;right&rdquo; is as follows:</p>
-
-<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always \
-</span><span class='line'>--entrypoint="java -jar /usr/share/jenkins/slave.jar" gcr.io/jenkins-agent:2.60
-</span><span class='line'>
-</span><span class='line'>container_linux.go:247: starting container process caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": 
-</span><span class='line'>stat java -jar /usr/share/jenkins/slave.jar: no such file or directory"
-</span><span class='line'>docker: Error response from daemon: oci runtime error: container_linux.go:247: starting container process 
-</span><span class='line'>caused "exec: \"java -jar /usr/share/jenkins/slave.jar\": stat java -jar /usr/share/jenkins/slave.jar: no such
-</span><span class='line'> file or directory".
-</span><span class='line'>ERRO[0001] error getting events from daemon: net/http: request canceled</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This attempt try to put the entire overridden command as the parameter for &ldquo;&ndash;entrypoint&rdquo; flag.
-However, this does NOT work because, as stated in documentation, the entrypoint should specify the <strong>executable</strong>, not the command.
-The correct way to do it is as follows:</p>
-
-<figure class='code'><figcaption><span>Another attempt, still not working</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ docker run --restart=always --entrypoint="java" \
-</span><span class='line'>gcr.io/jenkins-agent:2.60 -jar /usr/share/jenkins/slave.jar \
-</span><span class='line'>-jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-</span><span class='line'>
-</span><span class='line'>Failing to obtain http://10.252.78.115/computer/slave/slave-agent.jnlp
-</span><span class='line'>java.net.ConnectException: Connection refused
-</span><span class='line'>  at java.net.PlainSocketImpl.socketConnect(Native Method)</span></code></pre></td></tr></table></div></figure>
-
-
-<p>As seeen above, the executable is passed into &ldquo;&ndash;entrypoint&rdquo; flag, while its arguments are being passed <strong>after</strong> the image name.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/run/">Guide of Docker Run</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/run/">Docker Run CLI options</a></li>
-</ul>
+<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
+Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
 
 </div>
   
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/01/25/docker-root-user-in-a-pod/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Kubernetes: Pod-to-Node Communication Loss</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-24T15:05:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:05 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post goes over what happens if we misconfigure <code>etcd</code> and <code>flannel</code> to use the same network (e.g., &ldquo;10.252.61.0/16&rdquo;) as the infrastructure (e.g., &ldquo;10.252.158.72&rdquo; node).
+This newbie mistake is rare but very perplexing and this post shows how to troubleshoot it with <code>busybox</code> container.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/01/24/kubernetes-pod-to-node-communication-loss/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Kubernetes: Pause Container and Private Docker Registry</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-01-16T11:48:05-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:48 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This post documents dealing with implicit container <code>pause</code> in a corporate context, where Internet access is restricted and private Docker registry must be used.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated Downloading BART Parking Permits</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-10-30T17:12:31-07:00'><span class='date'><span class='date-month'>Oct</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:12 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h3>Problem</h3>
+
+<p>I have been commuting to San Francisco using <a href="http://www.bart.gov/">BART</a>.
+For BART commutes, before having the Monthly Parking Permit, you usually have no choice but using Daily Parking Permits for car parking.
+You will often end up having to download multiple PDF files for the daily permits and print them to put on your vehicle&rsquo;s dashboard.
+The <a href="https://www.select-a-spot.com/bart/">BART reservation website</a> offers no easy way to download all of them in one click (see the screenshot).</p>
+
+<p><img src="https://github.com/tdongsi/bart-parking/blob/develop/BART.jpg?raw=true" title="Screenshot" alt="BART Screenshot" /></p>
+
+<p>Personally, the BART commute itself is not that bad, especially when I usually find a seat.
+But it is really painful to download every &hellip; single &hellip; PDF &hellip; permit manually before printing them.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Read on &rarr;</a>
+    </footer>
   
 
 
@@ -934,6 +459,14 @@ The correct way to do it is as follows:</p>
         <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
       </li>
     
+      <li class="post">
+        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+      </li>
+    
   </ul>
 </section>
 
@@ -968,7 +501,7 @@ The correct way to do it is as follows:</p>
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (9)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (10)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

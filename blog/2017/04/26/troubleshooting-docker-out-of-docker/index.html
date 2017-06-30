@@ -9,7 +9,8 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Troubleshooting Problem description: We are using &ldquo;Docker out of Docker&rdquo; approach to build Docker images in our containerized Jenkins &hellip;">
+  <meta name="description" content="In this blog post, we are using &ldquo;Docker out of Docker&rdquo; approach to build Docker images in our containerized Jenkins slaves.
+We look into &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -117,10 +118,15 @@
   </header>
 
 
-<div class="entry-content"><h3>Troubleshooting</h3>
+<div class="entry-content"><p>In this blog post, we are using <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a> to build Docker images in our containerized Jenkins slaves.
+We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.</p>
 
-<p>Problem description: We are using &ldquo;Docker out of Docker&rdquo; approach to build Docker images in our containerized Jenkins slaves.
-However, we got hit by the following issues when reusing a Jenkins slave container image.</p>
+<!--more-->
+
+
+<h3>Problem description</h3>
+
+<p>We got the following error when running Docker inside a Jenkins slave container.</p>
 
 <figure class='code'><figcaption><span>Error message when running Docker</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -128,13 +134,20 @@ However, we got hit by the following issues when reusing a Jenkins slave contain
 </span><span class='line'>Cannot connect to the Docker daemon. Is the docker daemon running on this host?</span></code></pre></td></tr></table></div></figure>
 
 
-<p>The direct cause of this error message is that the socket to docker daemon does not have the right permission (incorrect group ID).</p>
+<h3>Discussion</h3>
 
-<p>TODO: <a href="https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925">https://forums.docker.com/t/cannot-connect-to-the-docker-daemon-is-the-docker-daemon-running-on-this-host/8925</a></p>
+<p>In summary, for <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a>, the basic requirements to enable building Docker images in a containerized Jenkins slave is:</p>
 
-<p>The current user (<code>jenkins</code> in the example) must have permissions to talk to <code>/var/run/docker.sock</code> on that system.
-By convention, that permission is given to <code>root</code> user or users in <code>docker</code> group.
-However, the following commands show that it is not the case.</p>
+<ol>
+<li>You&rsquo;ll need to mount &ldquo;/var/run/docker.sock&rdquo; as a volume at &ldquo;/var/run/docker.sock&rdquo;.</li>
+<li>Having <code>docker</code> CLI installed in the containerized Jenkins slave.</li>
+<li>Make sure &ldquo;/var/run/docker.sock&rdquo; has the right permission inside the Jenkins slave container: readable for the current user (e.g., user <code>jenkins</code>) or in &ldquo;docker&rdquo; group.</li>
+</ol>
+
+
+<p>The direct cause of the above error message &ldquo;Cannot connect to the Docker daemon&rdquo; is that the socket &ldquo;/var/run/docker.sock&rdquo; to <code>docker</code> daemon on that Jenkins slave does not have the right permission for the current user (<code>jenkins</code> in the example).
+By convention, the read permission to that Unix domain socket &ldquo;/var/run/docker.sock&rdquo; is given to <code>root</code> user or users in <code>docker</code> group.
+The following commands verify that it is not:</p>
 
 <figure class='code'><figcaption><span>Show GID of docker group</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -150,43 +163,24 @@ However, the following commands show that it is not the case.</p>
 </span><span class='line'>docker:x:999:jenkins</span></code></pre></td></tr></table></div></figure>
 
 
-<p>The expectation is:</p>
+<p>The expected output of the above <code>ls</code> command is as follows:</p>
 
-<figure class='code'><figcaption><span>Show GID of docker group</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 </pre></td><td class='code'><pre><code class=''><span class='line'>+ ls -l /var/run/docker.sock
 </span><span class='line'>srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock</span></code></pre></td></tr></table></div></figure>
 
 
-<p>This is due to the container is built inside another k8s cluster.
-The group <code>docker</code> happens to have the group ID 999 on that k8s cluster.
-The user <code>jenkins</code>, under which Jenkins pipeline is executed, does not have the permission to access that socket <code>/var/run/docker.sock</code>.</p>
+<h3>Resolving problem</h3>
 
-<p>By default, a unix domain socket (or IPC socket) is created at <code>/var/run/docker.sock</code>, requiring either root permission, or docker group membership.</p>
+<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
+In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
+It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
 
-<p>For illustration, the installation steps in Ubuntu are expected to be like this:</p>
+<p>The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below).
+The group <code>docker</code> happens to have the group ID 999 on that Kubernetes cluster.</p>
 
-<figure class='code'><figcaption><span>Show GID of docker group</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'># Install from Web
-</span><span class='line'>sudo curl -sSL https://get.docker.com/ | sh
-</span><span class='line'>sudo usermod -aG docker jenkins
-</span><span class='line'>
-</span><span class='line'># Install from apt
-</span><span class='line'>sudo apt-get update
-</span><span class='line'>sudo apt-get install -y docker-engine
-</span><span class='line'>sudo usermod -aG docker jenkins</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Example Dockerfile (from <a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">here</a>).</p>
-
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Dockerfile for installing Docker CLI in Jenkins slave</span><a href='http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container'>link</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -212,58 +206,32 @@ The user <code>jenkins</code>, under which Jenkins pipeline is executed, does no
 </span><span class='line'>RUN usermod -a -G docker jenkins</span></code></pre></td></tr></table></div></figure>
 
 
-<p>The last step <code>usermod</code> comes from the script instruction itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
+<p>For illustration, the Docker installation steps in Ubuntu are similar:</p>
 
-<h3><code>groupadd</code> examples</h3>
-
-<p>The following example creates a new group called apache</p>
-
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ groupadd apache</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Make sure it is created successfully.</p>
-
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'># grep apache /etc/group
-</span><span class='line'>apache:x:1004:</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you don’t specify a groupid, Linux will assign one automatically.
-If you want to create a group with a specific group id, do the following.</p>
-
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Installing Docker CLI</span><a href='https://docs.docker.com/engine/installation/linux/linux-postinstall/'>link</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>$ groupadd apache -g 9090
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Install from Web
+</span><span class='line'>sudo curl -sSL https://get.docker.com/ | sh
+</span><span class='line'>sudo usermod -aG docker jenkins
 </span><span class='line'>
-</span><span class='line'>$ grep 9090 /etc/group
-</span><span class='line'>apache:x:9090:</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'># Install from apt
+</span><span class='line'>sudo apt-get update
+</span><span class='line'>sudo apt-get install -y docker-engine
+</span><span class='line'>sudo usermod -aG docker jenkins</span></code></pre></td></tr></table></div></figure>
 
 
-<p>Group account information is stored in <code>/etc/group</code>.</p>
+<p>The last step <code>usermod</code> comes from Docker documentation itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
 
 <h3>References</h3>
 
 <ul>
 <li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
-<li><a href="https://linux.die.net/man/8/groupadd">groupadd man pages</a></li>
-<li><a href="http://linux.101hacks.com/unix/groupadd/">groupadd examples</a></li>
-<li><a href="http://www.thegeekstuff.com/2012/06/chown-examples/">chown examples</a></li>
-<li><a href="https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/">find files with group name or ID</a></li>
-</ul>
-
-
-<p>TODO</p>
-
-<ul>
-<li><a href="https://github.com/docker/compose/issues/1214">https://github.com/docker/compose/issues/1214</a></li>
-<li><a href="http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container</a></li>
-<li><a href="https://github.com/jenkinsci/docker/issues/196">https://github.com/jenkinsci/docker/issues/196</a></li>
-<li><a href="https://github.com/jhipster/generator-jhipster/issues/4804">https://github.com/jhipster/generator-jhipster/issues/4804</a></li>
-<li><a href="https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group">https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group</a></li>
 </ul>
 
 </div>
@@ -286,7 +254,7 @@ If you want to create a group with a specific group id, do the following.</p>
 
 <span class="categories">
   
-    <a class='category' href='/blog/categories/docker/'>docker</a>, <a class='category' href='/blog/categories/kubernetes/'>kubernetes</a>
+    <a class='category' href='/blog/categories/docker/'>docker</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>, <a class='category' href='/blog/categories/kubernetes/'>kubernetes</a>
   
 </span>
 
@@ -346,6 +314,14 @@ If you want to create a group with a specific group id, do the following.</p>
         <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
       </li>
     
+      <li class="post">
+        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+      </li>
+    
   </ul>
 </section>
 
@@ -380,7 +356,7 @@ If you want to create a group with a specific group id, do the following.</p>
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (9)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (10)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

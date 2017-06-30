@@ -9,8 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="I am pleasantly surprised that Vertica SQL supports WITH clause, as documented here.
-WITH syntax as a standard is only defined in SQL-99, also called &hellip;">
+  <meta name="description" content="In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) tools. &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -105,7 +104,7 @@ WITH syntax as a standard is only defined in SQL-99, also called &hellip;">
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/12/09/netezza-cli/">Netezza CLI Tools</a></h1>
     
     
       <p class="meta">
@@ -114,69 +113,601 @@ WITH syntax as a standard is only defined in SQL-99, also called &hellip;">
 
 
 
-<time class='entry-date' datetime='2016-02-03T00:50:48-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>3</span><span class='date-suffix'>rd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
+<time class='entry-date' datetime='2015-12-09T18:34:12-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>9</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:34 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
-<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
-Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
-For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+  <div class="entry-content"><p>In addition to using third party GUI clients such as SQuirreLSQL, you can also interact with Netezza through its command line interface (CLI) tools.
+These are programs that let you do useful things like importing and exporting large volumes of data, invoking Netezza from bash scripts, controlling sessions and queries, etc.
+The following is a quick overview of just the <code>nzsql</code> and <code>nzload</code> commands.
+For a description of all the CLI tools, see the documentation <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en">here</a>.
+You can install the Netezza CLI tools directly onto your system by following the instructions <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html">here</a>.</p>
 
-<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
-This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
+<h3>nzsql command</h3>
 
-<p>For example, we can look into the following <code>SELECT</code> query:</p>
+<p>You can use <code>nzsql</code> in interactive terminal mode by executing the command:</p>
 
-<figure class='code'><figcaption><span>Hard to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
-</span><span class='line'>  <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span>
-</span><span class='line'>  <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>  <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span> <span class="n">sorted_by_modify_date</span> <span class="k">where</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span><span class="mi">1</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
-To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
-In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
-The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
-
-<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
-
-<figure class='code'><figcaption><span>Easy to read</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">sorted_by_modify_date</span> <span class="k">AS</span> <span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="o">*</span><span class="p">,</span> <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span>
-</span><span class='line'>                                  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">last_modify_date</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span>
-</span><span class='line'>    <span class="k">FROM</span> <span class="n">stg_customer</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">sorted_by_modify_date</span>
-</span><span class='line'><span class="k">WHERE</span> <span class="n">sorted_by_modify_date</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>nzsql -host &lt;hostname&gt; -u &lt;username&gt; -pw &lt;password&gt; -d &lt;database&gt;
+</span><span class='line'>  
+</span><span class='line'>Welcome to nzsql, the IBM Netezza SQL interactive terminal.
+</span><span class='line'>
+</span><span class='line'>Type:  \h for help with SQL commands
+</span><span class='line'>       \? for help on internal slash commands
+</span><span class='line'>       \g or terminate with semicolon to execute query
+</span><span class='line'>       \q to quit
+</span><span class='line'>
+</span><span class='line'>ws(user)=&gt;</span></code></pre></td></tr></table></div></figure>
+
+
+<p>which puts you in the nzsql command line interpreter.</p>
+
+<p>From there, you can execute SQL commands:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ws(user)=&gt; select count(*) from dwh..companies;
+</span><span class='line'>COUNT
+</span><span class='line'>---------
+</span><span class='line'>6286
+</span><span class='line'>(1 row)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>and you can also execute &ldquo;slash&rdquo; commands.  For example, to change the database to <code>dwh</code> and describe the table <code>companies</code>:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ws(user)=&gt; \c dwh
+</span><span class='line'>You are now connected to database dwh.
+</span><span class='line'>ws(user)=&gt; \d companies
+</span><span class='line'>                                 View "COMPANIES"
+</span><span class='line'>           Attribute           |          Type           | Modifier | Default Value 
+</span><span class='line'>-------------------------------+-------------------------+----------+---------------
+</span><span class='line'> COMPANY_ID                    | NUMERIC(38,0)           | NOT NULL | 
+</span><span class='line'> COMPANY_NAME                  | CHARACTER VARYING(100)  |          | 
+</span><span class='line'> COMPANY_STATUS                | NUMERIC(38,0)           |          | 
+</span><span class='line'> STATUS_MESSAGE                | CHARACTER VARYING(2000) |          | 
+</span><span class='line'> CREATE_DATE                   | DATE                    |          | 
+</span><span class='line'> CREATE_VERSION                | CHARACTER VARYING(20)   |          | 
+</span><span class='line'> ASSIGNED_DATE                 | DATE                    |          | 
+</span><span class='line'> ASSIGNED_VERSION              | CHARACTER VARYING(20)   |          | 
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To see all the available slash commands, type <code>\?</code> at the prompt:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ws(user)=&gt; \?
+</span><span class='line'> \a              toggle between unaligned and aligned mode
+</span><span class='line'> \act            show current active sessions
+</span><span class='line'> \c[onnect] [dbname [user] [password]]    connect to new database (currently 'UED_QBO_WS')
+</span><span class='line'> \C &lt;title&gt;      HTML table title
+</span><span class='line'> \copy ...       perform SQL COPY with data stream to the client machine
+</span><span class='line'> \d &lt;table&gt;      describe table (or view, index, sequence, synonym)
+</span><span class='line'> \d{t|v|i|s|e|x} list tables/views/indices/sequences/temp tables/external tables
+</span><span class='line'> \d{m|y}         list materialized views/synonyms
+</span><span class='line'> \dS{t|v|i|s}    list system tables/views/indexes/sequences
+</span><span class='line'> \dM{t|v|i|s}    list system management tables/views/indexes/sequences
+</span><span class='line'> \dp &lt;name&gt;      list user permissions
+</span><span class='line'> \dpu &lt;name&gt;     list permissions granted to a user
+</span><span class='line'> \dpg &lt;name&gt;     list permissions granted to a group
+</span><span class='line'> \dgp &lt;name&gt;     list grant permissions for a user
+</span><span class='line'> \dgpu &lt;name&gt;    list grant permissions granted to a user
+</span><span class='line'> \dgpg &lt;name&gt;    list grant permissions granted to a group
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To escape from the nzsql interactive terminal mode, type <code>\q</code> at the prompt.</p>
+
+<p>You can also use the <code>nzsql</code> command directly from the command line, by invoking it with various parameters.
+See the documentation <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html">here</a> for all the parameters that can be used with the <code>nzsql</code> command.
+As an example, to execute a single SQL statement and print the results to the terminal:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies'
+</span><span class='line'>COUNT  
+</span><span class='line'>---------
+</span><span class='line'>9032
+</span><span class='line'>(1 row)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Or, to direct the output to a specific file in the local file system:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select count(*) from companies' -o output.txt
+</span><span class='line'>-bash-4.1$ cat output.txt
+</span><span class='line'>COUNT  
+</span><span class='line'>---------
+</span><span class='line'>9032
+</span><span class='line'>(1 row)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And, to run a SQL script that is located in the local file system:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ cat my_script.sql
+</span><span class='line'>select count(*) from companies;
+</span><span class='line'>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -f my_script.sql
+</span><span class='line'>COUNT
+</span><span class='line'>---------
+</span><span class='line'>9032
+</span><span class='line'>(1 row)</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>nzload command</h3>
+
+<p>The <code>nzload</code> command is used to move large volumes of data in to and out of Netezza.
+This is a very broad subject, and you can find all the details <a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&amp;lang=en">here</a>.
+As a toy example, suppose you have the following data in the local filesystem:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ cat my_data.txt
+</span><span class='line'>Fred, 2
+</span><span class='line'>Betty, 7
+</span><span class='line'>Wilma, 10
+</span><span class='line'>Barney, 5</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can create a Netezza to hold this data, using the <code>nzsql</code> command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'create table my_table (name varchar(80), rocks int)'</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And then you can populate the table using the <code>nzload</code> command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>nzload -host myHost -u username -pw password -db ws -t my_table -df my_data.txt -delim ','
+</span><span class='line'>Load session of table 'MY_TABLE' completed successfully</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, you can confirm that the table was populated using the <code>nzsql</code> command:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-bash-4.1$ nzsql -host myHost -u username -pw password -d ws -c 'select * from my_table'
+</span><span class='line'>  NAME  | ROCKS 
+</span><span class='line'>--------+-------
+</span><span class='line'> Wilma  |    10
+</span><span class='line'> Betty  |     7
+</span><span class='line'> Barney |     5
+</span><span class='line'> Fred   |     2
+</span><span class='line'>(4 rows)</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>External Links</h3>
+
+<ol>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en">List of Netezza CLI tools</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html">Installing the Netezza CLI tools</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_nzsql_command.html">Nzsql CLI tool</a></li>
+<li><a href="http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.load.doc/c_load_overview.html?cp=SSULQD_7.2.0%2F5&amp;lang=en">Nzload CLI tool</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/07/some-netezzas-nzsql-tips/">Some NZSQL Tips for New Netezza Users</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-07T11:11:06-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>7</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>11:11 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><ul>
+<li>By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">name</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">address</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
+</span><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">NaMe</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">adDresS</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
-The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
-We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
-Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
-We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+<p>  are equivalent to:</p>
 
-<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">NAME</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="n">ADDRESS</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<figure class='code'><figcaption><span>Traffic classification of a Music website</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+
+<p>  The same is true for <code>SELECT</code> statements. These two SQL statements:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">name</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
+</span><span class='line'><span class="k">select</span> <span class="n">NaMe</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>  are equivalent to:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">NAME</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>The best practice is that you should never care or override the above default behavior: your identifiers should be case-insensitive. Unfortunately, if you have to override the above default behavior, then you must surround the identifier with double-quotes whenever you reference it. For example, if you create a table using this statement:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="ss">&quot;Name&quot;</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">),</span> <span class="ss">&quot;Address&quot;</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">80</span><span class="p">));</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>
+then you must reference the identifiers by surrounding them with double-quotes. For example:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="ss">&quot;Name&quot;</span> <span class="k">from</span> <span class="n">my_table</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>The most perplexing feature for new Netezza users when reading a NZSQL script is probably the &ldquo;dot dot&rdquo; notation of database object names, i.e., the two dots in <code>my_dwh..companies</code>. It is simply the short-hand notation for database object names, <code>database-name..object-name</code>. The fully qualified form of object names in Netezza has <strong>three-level</strong> as <code>database-name.schema.object-name</code>. One example of using such notation is shown below:</li>
+</ul>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">from</span> <span class="p">(</span><span class="k">select</span> <span class="n">company_name</span> <span class="k">from</span> <span class="n">my_dwh</span><span class="p">..</span><span class="n">companies</span> <span class="k">where</span> <span class="n">company_name</span> <span class="k">like</span> <span class="s1">&#39;%e%&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">x</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>External Links</h4>
+
+<ol>
+<li><a href="https://www-304.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.dbu.doc/c_dbuser_database_object_naming.html">Database Object Naming</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/06/programming-hive-partitioned-tables/">Learning Hive (Pt. 7): Partitioned Tables</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-06T21:09:51-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>9:09 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><!--
+Chapter 4
+-->
+
+
+<p>Continued from the <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">previous</a> <a href="/blog/2015/12/05/programming-hive-ddl-table/">posts</a>.</p>
+
+<h3>Partitioned Managed Tables</h3>
+
+<p>In general, partitioning data means distributing data load horizontally, moving data physically closer to its most frequent users. In Hive, partitioning tables changes how Hive structures its data storage for some performance gain.</p>
+
+<p>In &ldquo;Programming Hive&rdquo;, the authors present a hypothetical problem where one will regularly query some <code>employees</code> table by country and state, e.g., all employees in California, US or Alberta, Canada. Therefore, partitioning this table by country and state is a logical thing to do.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="n">country</span> <span class="n">STRING</span><span class="p">,</span> <span class="k">state</span> <span class="n">STRING</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Without <code>PARTITIONED BY</code> clause, Hive will store data for these tables in a subdirectory <code>employees</code> under the directory defined by <code>hive.metastore.warehouse.dir</code> (see <a href="/blog/2015/12/05/programming-hive-ddl-table/">Managed tables</a>). However, Hive will now create subdirectories inside <code>employees</code> directory for the above partitioning structure:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>AB
+</span><span class='line'>.../employees/country<span class="o">=</span>CA/state<span class="o">=</span>BC
+</span><span class='line'>...
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AL
+</span><span class='line'>.../employees/country<span class="o">=</span>US/state<span class="o">=</span>AK
+</span><span class='line'>...
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The actual directory names depends on values of <em>partition keys</em> (e.g., country and state). For very large data sets, partitioning can improve query performance, but only if the partitioning scheme reflects common range filtering (e.g., by countries or states). When we add predicates to WHERE clauses that filter on partition values, these predicates are called <em>partition filters</em> (e.g., <code>WHERE state = 'CA'</code>).</p>
+
+<p>You can view the partitions in a table with <code>SHOW PARTITIONS</code>, as shown in examples below:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* DESCRIBE EXTENDED also shows partition keys */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">PARTITIONS</span> <span class="n">employees</span> <span class="n">PARTITION</span><span class="p">(</span> <span class="n">country</span><span class="o">=</span><span class="err">‘</span><span class="n">US</span><span class="err">’</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Strict mode</h4>
+
+<p>Given a partitioned table, a query across all partitions can result in a enormous MapReduce job, especially for a huge data set. It is probably desirable to put in place a safety measure which prohibits queries without any filter on partitions. Hive has a &ldquo;strict&rdquo; mode for that.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode<span class="p">;</span>
+</span><span class='line'>hive.mapred.mode<span class="o">=</span>nonstrict
+</span><span class='line'>
+</span><span class='line'>hive&gt; <span class="nb">set </span>hive.mapred.mode <span class="o">=</span> strict<span class="p">;</span>
+</span><span class='line'>hive&gt; SELECT e.name FROM employees e<span class="p">;</span> /* does not work */
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Partitioned External Tables</h3>
+
+<p>You can use partitioning with external tables. The combination gives you a way to “share” data with other tools, while still optimizing query performance. While LOCATION clause is required for non-partitioned external table to specify data location, it is not required for external partitioned tables. Instead, <code>ALTER TABLE</code> statement is used to add data in each partition separately.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">log_messages</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">hms</span>             <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">severity</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">server</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">process_id</span>      <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">message</span>         <span class="n">STRING</span><span class="p">)</span>
+</span><span class='line'><span class="n">PARTITIONED</span> <span class="k">BY</span> <span class="p">(</span><span class="k">year</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">month</span> <span class="nb">INT</span><span class="p">,</span> <span class="k">day</span> <span class="nb">INT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\t&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;hdfs://master_server/data/log_messages/2012/01/02&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="n">EXTENDED</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span><span class="o">=</span><span class="mi">2012</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note that <code>ALTER TABLE … ADD PARTITION</code> is not limited to external tables. You can use it with managed tables, too. However, it is not recommended since you have to manually keep track of this partition and remember to delete data in case you want to completely drop the managed table.</p>
+
+<h4>Example use case of partitioned external tables</h4>
+
+<p>For example, each day we might use the following procedure to move data older than a month to S3:</p>
+
+<p>1) Copy the data for the partition being moved to S3. For example, you can use the hadoop distcp command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>2) Alter the table to point the partition to the S3 location:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'> <span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class='line'> <span class="k">SET</span> <span class="k">LOCATION</span> <span class="s1">&#39;s3n://ourbucket/logs/2011/01/02&#39;</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>3) Remove the HDFS copy of the partition using the hadoop fs -rmr command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'> hadoop fs -rmr /data/log_messages/2011/01/02
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Altering Partitioned Tables</h3>
+
+<p>Some basic <code>ALTER TABLE</code> statements for manipulating table partitions are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Add partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">ADD</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span>
+</span><span class='line'><span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Change partition location */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="k">LOCATION</span> <span class="err">‘</span><span class="o">/</span><span class="n">bucket</span><span class="o">/</span><span class="n">logs</span><span class="o">/</span><span class="mi">2011</span><span class="o">/</span><span class="mi">01</span><span class="err">’</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Drop partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="k">DROP</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">PARTITION</span> <span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2011</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Alter storage properties of partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">FILEFORMAT</span> <span class="n">SEQUENCEFILE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Archive partition */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span> <span class="n">ARCHIVE</span>
+</span><span class='line'><span class="n">PARTITION</span><span class="p">(</span><span class="k">year</span> <span class="o">=</span> <span class="mi">2012</span><span class="p">,</span> <span class="k">month</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="k">day</span> <span class="o">=</span> <span class="mi">1</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>ALTER TABLE ... ARCHIVE PARTITION</code> statement captures the partition files into a Hadoop archive (HAR) file. This only reduces the number of files in the filesystem, reducing the load on the NameNode, but doesn’t provide any space savings. To reverse the operation, substitute UNARCHIVE for ARCHIVE. This feature is only available for individual partitions of partitioned tables.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/05/programming-hive-ddl-table/">Learning Hive (Pt. 6): HiveQL Data Definition</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-05T20:15:56-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>5</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>8:15 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Continued from the previous <a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">post</a>.</p>
+
+<h3>Creating Tables</h3>
+
+<p>Some basic HiveQL&rsquo;s table DDL commands are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -201,159 +732,409 @@ We can define multiple queries for multiple steps, and each of them can refer to
 <span class='line-number'>23</span>
 <span class='line-number'>24</span>
 <span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">WITH</span> <span class="n">Total_Traffic</span> <span class="k">AS</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">SELECT</span> <span class="n">temp</span><span class="p">.</span><span class="o">*</span> <span class="k">from</span> <span class="n">temp</span> <span class="k">as</span> <span class="n">clickstream_data</span>
-</span><span class='line'>    <span class="k">where</span> <span class="p">....</span> <span class="c1">-- filtering</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* NOTE: the LOCATION clause uses the default location */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">.</span><span class="n">student</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student name&#39;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">sid</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;Student ID&#39;</span><span class="p">,</span>
 </span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Rock_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total_Traffic</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">evar28</span><span class="p">)</span> <span class="k">LIKE</span> <span class="s1">&#39;rock_mus%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Instrumental_Music</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Total</span>
-</span><span class='line'>    <span class="k">WHERE</span> <span class="n">evar28</span> <span class="k">LIKE</span> <span class="s1">&#39;%[ins_mus]%&#39;</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="p">,</span> <span class="n">Defined_Traffic</span> <span class="k">as</span>
-</span><span class='line'><span class="p">(</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Rock_Music</span>
-</span><span class='line'>    <span class="k">UNION</span>
-</span><span class='line'>    <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">Instrumental_Music</span>
-</span><span class='line'><span class="p">)</span>
-</span><span class='line'><span class="k">select</span> <span class="n">traffic_date_key</span>
-</span><span class='line'><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">distinct</span> <span class="n">visitor_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_visitor</span>
-</span><span class='line'><span class="k">from</span> <span class="n">Defined_Traffic</span>
-</span><span class='line'><span class="k">group</span> <span class="k">by</span> <span class="n">traffic_date_key</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;Description of the table&#39;</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;me&#39;</span> <span class="p">)</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/user/hive/warehouse/college.db/student&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * copy the schema of an existing table</span>
+</span><span class='line'><span class="cm"> * you can specify optional LOCATION but no other can be defined</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">mydb</span><span class="p">.</span><span class="n">clone</span> <span class="k">LIKE</span> <span class="n">mydb</span><span class="p">.</span><span class="n">employees</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Create external table</span>
+</span><span class='line'><span class="cm">* Read all data files with comma-delimited format</span>
+</span><span class='line'><span class="cm">* from /data/stocks</span>
+</span><span class='line'><span class="cm">* LOCATION is required for external table</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">stocks</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">exchange</span>        <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">symbol</span>          <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">volume</span>          <span class="nb">INT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">price_adj_close</span> <span class="nb">FLOAT</span><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span> <span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;,&#39;</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/data/stocks&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Copy external table schema.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">EXTERNAL</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">ext_clone</span>
+</span><span class='line'><span class="k">LIKE</span> <span class="n">stocks</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/path/to/data&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm">* Drop table</span>
+</span><span class='line'><span class="cm">* For managed tables, the table metadata and data are deleted.</span>
+</span><span class='line'><span class="cm">* For external tables, the metadata is deleted but the data is not.</span>
+</span><span class='line'><span class="cm">*/</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
-Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
-Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+<p>Note that in the first <code>CREATE TABLE</code> command, you can prefix a database name, e.g. <code>mydb</code>, even when it is not your current working database. As usual, the optional <code>IF NOT EXISTS</code> clause will ignore the statement if the table already exists, even when the schema does not match (no warning from Hive). The second <code>CREATE TABLE</code> command is useful to copy the schema of an existing table. The corresponding commands for <strong>external</strong> table are also shown above (note <code>EXTERNAL TABLE</code>). The concept of external table in Hive will be discussed shortly.</p>
 
-<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
-The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
-
-<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
-Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/27/python-1-mock-datetime-freezegun/">Mocking Current Date and Time in Python</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-27T17:36:53-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>27</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:36 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><h3>Calendar types</h3>
-
-<p>There are surprisingly many types of calendar.
-Some of them are: regular calendar, lunar calendar, fiscal calendar, retail calendar.
-See <a href="https://github.com/tdongsi/calendars">here</a> for more information of each calendar type.
-Out of the above calendar types, retail calendar seems to have more complex rules.
-However, this calendar type is frequently used in industries like retail and manufacturing for ease of planning around it.</p>
-
-<h3>Mocking current time in Python</h3>
-
-<p>Due to retail calendar&rsquo;s desirable characteristics, we may have code that work with retail calendars in commercial applications eventually.
-I ended up working with a utility Python module for retail calendar with functions which return values based on current time/date.
-For example, a utility function to check if a given date is in the current 544 year works like this:</p>
-
-<figure class='code'><figcaption><span>Original version</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">):</span>
-</span><span class='line'>    <span class="n">my_today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">my_today</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
-</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Some utility functions in that module are even more complicated than this example function.
-For those, I think calling <code>today</code> or <code>now</code> inside those functions is a bad design.
-They are essentially another <em>variable</em> in those functions (i.e., when do you run?), and it is better to expose that variable as an input parameter.
-In addition, being able to specify what &ldquo;today&rdquo; or &ldquo;now&rdquo; value is will make automated unit testing easier.
-For example, I want to know how my Python programs work if it runs on a particular date, such as end of retail year July 29, 2006.
-A probably better, more testable function would be something like this.</p>
-
-<figure class='code'><figcaption><span>More desirable</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">is_current_year_544</span><span class="p">(</span><span class="n">given_date</span><span class="p">,</span> <span class="n">run_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()):</span>
-</span><span class='line'>    <span class="k">if</span> <span class="n">year_start_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">given_date</span> <span class="o">&lt;=</span> <span class="n">year_end_544</span><span class="p">(</span><span class="n">run_date</span><span class="p">):</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;Y&quot;</span>
-</span><span class='line'>    <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;N&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>However, in reality, you sometimes have to live with the original utility Python module.
-Then, the workaround for unit testing is to &ldquo;mock&rdquo; current date and time, i.e., overriding those returned by <code>today</code> and <code>now</code> methods with some specific values.
-In Python, it can be done by using some mocking framework, such as illustrated <a href="http://www.voidspace.org.uk/python/mock/examples.html#partial-mocking">here</a>.
-Fortunately, my life was made even easier with <a href="https://github.com/spulec/freezegun"><code>freezegun</code> library</a>.
-To install <code>freezegun</code> on Mac OSX, simply run</p>
+<p>The <code>SHOW TABLES</code> command lists the tables. You use different variants of that command to find tables of interest as shown below:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>pip install freezegun</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Using this <code>freezegun</code> library, I can easily specify my &ldquo;current date&rdquo; as &ldquo;July 29, 2006&rdquo; by adding the following decorator with some string &ldquo;2006-07-29&rdquo; for that date.</p>
-
-<figure class='code'><figcaption><span>Unit test with mocking</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="nd">@freeze_time</span><span class="p">(</span><span class="s">&quot;2006-07-29&quot;</span><span class="p">)</span>
-</span><span class='line'><span class="k">def</span> <span class="nf">test_year544_end</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="sd">    Mock today() at 2006-07-29</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>    <span class="bp">self</span><span class="o">.</span><span class="n">_verify_544_methods</span><span class="p">()</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; use college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.048 seconds
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in current database */
+</span><span class='line'>hive&gt; show tables<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.031 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* Show list of tables in the specified database */
+</span><span class='line'>hive&gt; show tables in college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>apply
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.034 seconds, Fetched: <span class="m">3</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* use regex to search tables in current database */
+</span><span class='line'>hive&gt; show tables <span class="s1">&#39;.*e.*&#39;</span><span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college
+</span><span class='line'>student
+</span><span class='line'>Time taken: 0.025 seconds, Fetched: <span class="m">2</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* Show table properties */
+</span><span class='line'>hive&gt; show tblproperties student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>COLUMN_STATS_ACCURATE <span class="nb">true</span>
+</span><span class='line'>comment   List of students
+</span><span class='line'>numFiles  1
+</span><span class='line'>numRows   0
+</span><span class='line'>rawDataSize   0
+</span><span class='line'>totalSize 213
+</span><span class='line'>transient_lastDdlTime 1421796179
+</span><span class='line'>Time taken: 0.28 seconds, Fetched: <span class="m">7</span> row<span class="o">(</span>s<span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>For full usage of <code>freezegun</code>, refer to its <a href="https://github.com/spulec/freezegun">quickstart guide</a>.
-It should be noted that <code>freezegun</code> can mock <code>datetime</code> calls from other modules and it works great for testing with <code>datetime</code> calls.
-However, you might encounter some occasional failures in your unit tests when working with <code>time</code> module.
-From my personal experience, in those cases, note that time zones must be accounted for when mocking with <code>time</code> module by specifying <code>tz_offset</code> in the decorator <code>freeze_time</code>.</p>
+<p>You can use <code>DESCRIBE</code> command to display table information as shown below:</p>
 
-<h3>External Links</h3>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; describe extended student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'>Detailed Table Information    Table<span class="o">(</span>tableName:student, dbName:college, owner:cloudera, createTime:1421796178, lastAccessTime:0, retention:0,
+</span><span class='line'>sd:StorageDescriptor<span class="o">(</span>cols:<span class="o">[</span>FieldSchema<span class="o">(</span>name:sid, <span class="nb">type</span>:int, comment:Student ID<span class="o">)</span>, FieldSchema<span class="o">(</span>name:sname, <span class="nb">type</span>:string, comment:Student name<span class="o">)</span>, ...
+</span><span class='line'>Time taken: 0.119 seconds, Fetched: <span class="m">6</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>/* more readable and verbose */
+</span><span class='line'>hive&gt; describe formatted student<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'><span class="c"># col_name                data_type               comment             </span>
+</span><span class='line'>      
+</span><span class='line'>sid                   int                     Student ID
+</span><span class='line'>sname                 string                  Student name
+</span><span class='line'>gpa                   float                   Student GPA
+</span><span class='line'>sizehs                int                     Size of student highschool
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Detailed Table Information       </span>
+</span><span class='line'>Database:             college                 
+</span><span class='line'>Owner:                cloudera                
+</span><span class='line'>CreateTime:           Tue Jan <span class="m">20</span> 15:22:58 PST 2015 
+</span><span class='line'>LastAccessTime:       UNKNOWN                 
+</span><span class='line'>Protect Mode:         None                    
+</span><span class='line'>Retention:            <span class="m">0</span>                    
+</span><span class='line'>Location:             hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE           
+</span><span class='line'>Table Parameters:     
+</span><span class='line'>  COLUMN_STATS_ACCURATE   <span class="nb">true                </span>
+</span><span class='line'><span class="nb"> </span>comment              List of students
+</span><span class='line'>  numFiles                <span class="m">1</span>
+</span><span class='line'>  numRows                 <span class="m">0</span>
+</span><span class='line'>  rawDataSize             <span class="m">0</span>
+</span><span class='line'>  totalSize               <span class="m">213</span>
+</span><span class='line'>  transient_lastDdlTime   <span class="m">1421796179</span>
+</span><span class='line'>      
+</span><span class='line'><span class="c"># Storage Information      </span>
+</span><span class='line'>SerDe Library:        org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe  
+</span><span class='line'>InputFormat:          org.apache.hadoop.mapred.TextInputFormat    
+</span><span class='line'>OutputFormat:         org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat  
+</span><span class='line'>Compressed:           No                      
+</span><span class='line'>Num Buckets:          -1                      
+</span><span class='line'>Bucket Columns:       <span class="o">[]</span>                   
+</span><span class='line'>Sort Columns:         <span class="o">[]</span>                   
+</span><span class='line'>Storage Desc Params:      
+</span><span class='line'>  field.delim             <span class="p">;</span>
+</span><span class='line'>  serialization.format    <span class="p">;</span>
+</span><span class='line'>Time taken: 0.108 seconds, Fetched: <span class="m">36</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>/* see schema <span class="k">for</span> a column */
+</span><span class='line'>hive&gt; describe student.sid<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>sid                   int                     from deserializer
+</span><span class='line'>Time taken: 0.315 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<ul>
-<li><a href="https://github.com/spulec/freezegun">freeze_gun</a></li>
-<li><a href="https://en.wikipedia.org/wiki/4%E2%80%934%E2%80%935_calendar">Retail Calendar</a></li>
-<li><a href="http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm">ISO Calendar</a></li>
-</ul>
+
+<h3>Managed tables vs. External tables</h3>
+
+<p><code>CREATE TABLE</code> commands (without <code>EXTERNAL</code>) create <em>managed tables</em> or <em>internal tables</em>.
+It is internal/managed because the life cycle of their data is managed by Hive.
+By default, Hive stores data for these tables in a subdirectory under the directory defined by <code>hive.metastore.warehouse.dir</code>, as illustrated below (see <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a> for <code>SET</code> and <code>dfs</code> commands).
+When we drop a managed table with <code>DROP TABLE</code> command, the data in the table will be deleted.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>hive&gt; dfs -ls /user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 /user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-12-03 15:16 /user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 /user/hive/warehouse/college.db/student
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As mentioned in <a href="/blog/2015/11/26/programming-hive-data-types/">Schema on Read</a>, Hive does not have control over the underlying storage, even for <em>managed table</em>: for example, you can totally use another <code>dfs</code> command in the last example to modify files on HDFS.</p>
+
+<p>Managed tables are not convenient for sharing data with other tools.
+Instead, <em>external tables</em> can be defined to point to that data, but don&rsquo;t take ownership of data.
+In the <code>CREATE EXTERNAL TABLE</code> command example at the beginning of this post, the data files are in HDFS at <code>/data/stocks</code> and the external table will be created and populated by reading all comma-delimited data files in that location.
+The <code>LOCATION</code> clause is required for external table, to tell Hive where it is located.
+Dropping an external table does not delete the data since Hive does not <em>own</em> the data.
+However, the <em>metadata</em> for that table will be deleted.</p>
+
+<p>To tell whether if a table is managed or external, use the command <code>DESCRIBE FORMATTED</code>. In the example in the last section, we see that the table <code>college.student</code> is a managed table because of its output:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>Location:            hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student  
+</span><span class='line'>Table Type:           MANAGED_TABLE
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For external tables, the output will be like <code>Table Type: EXTERNAL_TABLE</code>.</p>
+
+<h3>Altering Tables</h3>
+
+<p>The <code>ALTER TABLE</code> statements <em>only</em> change <em>metadata</em> of the table, but not the data in the table. It&rsquo;s up to us to ensure that any schema modifications are consistent with the actual data.</p>
+
+<p>Some basic <code>ALTER TABLE</code> statements for renaming table and changing table columns are shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="cm">/* Renaming table */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">college</span> <span class="k">RENAME</span> <span class="k">TO</span> <span class="n">university</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Change columns: rename, change its position, type, or comment.</span>
+</span><span class='line'><span class="cm"> * The keyword COLUMN is optional, as well as COMMENT clause.</span>
+</span><span class='line'><span class="cm"> * This command changes metadata only. </span>
+</span><span class='line'><span class="cm"> * The data has to be moved to match the new columns if needed.</span>
+</span><span class='line'><span class="cm"> * Use FIRST, instead of AFTER, if the column is moved to first.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="n">CHANGE</span> <span class="k">COLUMN</span> <span class="n">hms</span> <span class="n">hours_minutes_seconds</span> <span class="nb">INT</span>
+</span><span class='line'><span class="k">COMMENT</span> <span class="s1">&#39;New comment&#39;</span>
+</span><span class='line'><span class="k">AFTER</span> <span class="n">severity</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Add columns, to the end of existing columns.</span>
+</span><span class='line'><span class="cm"> * Use CHANGE COLUMN to rearrange if needed.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">ADD</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/*</span>
+</span><span class='line'><span class="cm"> * Remove all the existing columns and replaces with new </span>
+</span><span class='line'><span class="cm"> * specified columns.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">REPLACE</span> <span class="n">COLUMNS</span> <span class="p">(</span>
+</span><span class='line'><span class="n">app_name</span> <span class="n">STRING</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 1&#39;</span><span class="p">,</span>
+</span><span class='line'><span class="n">session_id</span> <span class="nb">INT</span> <span class="k">COMMENT</span> <span class="s1">&#39;New column 2&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* </span>
+</span><span class='line'><span class="cm"> * You can add table properties or set current properties,</span>
+</span><span class='line'><span class="cm"> * but not remove them </span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">log_messages</span>
+</span><span class='line'><span class="k">SET</span> <span class="n">TBLPROPERTIES</span> <span class="p">(</span>
+</span><span class='line'><span class="s1">&#39;some_key&#39;</span> <span class="o">=</span> <span class="s1">&#39;some_value&#39;</span>
+</span><span class='line'><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
 
 </div>
   
@@ -367,7 +1148,7 @@ From my personal experience, in those cases, note that time zones must be accoun
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/01/22/aws-setup-MFA/">AWS: Setting Up Multi-Factor Authentication (MFA)</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/12/02/programming-hive-hiveql-ddl/">Learning Hive (Pt. 5): HiveQL Data Definition</a></h1>
     
     
       <p class="meta">
@@ -376,70 +1157,161 @@ From my personal experience, in those cases, note that time zones must be accoun
 
 
 
-<time class='entry-date' datetime='2016-01-22T18:37:23-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
+<time class='entry-date' datetime='2015-12-02T18:32:21-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>6:32 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS:</p>
+  <div class="entry-content"><p>This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.</p>
 
-<ul>
-<li>Launch the AWS Console with your AWS Account. From the AWS Console, select &ldquo;Identity &amp; Access Management&rdquo;.</li>
-</ul>
+<h3>Databases</h3>
+
+<p>In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the <code>default</code> database is used.</p>
+
+<p>Some basic HiveQL&rsquo;s database commands is shown in the following examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span><span class="p">;</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">DATABASES</span> <span class="k">LIKE</span> <span class="s1">&#39;h.*&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span>
+</span><span class='line'><span class="k">LOCATION</span> <span class="s1">&#39;/my/preferred/directory&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add comments to table */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">COMMENT</span> <span class="s1">&#39;A college admission database&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* show comments */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* add properties */</span>
+</span><span class='line'><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">WITH</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span> <span class="s1">&#39;creator&#39;</span> <span class="o">=</span> <span class="s1">&#39;CD&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="o">=</span> <span class="s1">&#39;today&#39;</span> <span class="p">);</span>
+</span><span class='line'><span class="cm">/* show properties */</span>
+</span><span class='line'><span class="k">DESCRIBE</span> <span class="k">DATABASE</span> <span class="n">EXTENDED</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* set working database */</span>
+</span><span class='line'><span class="n">USE</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* this will show tables in this database */</span>
+</span><span class='line'><span class="k">SHOW</span> <span class="n">TABLES</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span><span class="p">;</span>
+</span><span class='line'><span class="cm">/* Drop tables if there is any table in the database */</span>
+</span><span class='line'><span class="k">DROP</span> <span class="k">DATABASE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">college</span> <span class="k">CASCADE</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* You can set additional key-value pairs in properties.</span>
+</span><span class='line'><span class="cm"> * No other metadata about the database can be changed. No way to delete a DB PROPERTY.</span>
+</span><span class='line'><span class="cm"> */</span>
+</span><span class='line'><span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">college</span> <span class="k">SET</span> <span class="n">DBPROPERTIES</span> <span class="p">(</span><span class="s1">&#39;editor&#39;</span> <span class="o">=</span> <span class="s1">&#39;DC&#39;</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p><img class="center" src="/images/aws/mfa/step1_iam.png" width="350" height="200" title="Screenshot" ></p>
+<p>Note that Hive will create separate directory for each database. The exception is the <code>default</code> database, which doesn&rsquo;t have its own directory. Tables in each database will be stored in subdirectories of the database directory. The location of the database directory is specified by the property <code>hive.metastore.warehouse.dir</code>. To help us understand better, these are illustrated by the Hive CLI commands as follows:</p>
 
-<ul>
-<li>Select &ldquo;Users&rdquo; tab on the left side.</li>
-</ul>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="o">[</span>cloudera@quickstart temp<span class="o">]</span><span class="nv">$ </span>hive
+</span><span class='line'>
+</span><span class='line'>Logging initialized using configuration in file:/etc/hive/conf.dist/hive-log4j.properties
+</span><span class='line'>hive&gt; describe database default<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>default   Default Hive database   hdfs://quickstart.cloudera:8020/user/hive/warehouse public  ROLE    
+</span><span class='line'>Time taken: 0.01 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>hive&gt; describe database college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>college       hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db  cloudera    USER    
+</span><span class='line'>Time taken: 0.011 seconds, Fetched: <span class="m">1</span> row<span class="o">(</span>s<span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>hive&gt; SET hive.metastore.warehouse.dir<span class="p">;</span>
+</span><span class='line'>hive.metastore.warehouse.dir<span class="o">=</span>/user/hive/warehouse
+</span><span class='line'>
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db<span class="p">;</span>
+</span><span class='line'>Found <span class="m">3</span> items
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-21 11:29 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/apply
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college
+</span><span class='line'>drwxrwxrwx   - hive hive          <span class="m">0</span> 2015-01-28 15:26 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive        <span class="m">213</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/student/student.data
+</span><span class='line'>hive&gt; dfs -ls hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college<span class="p">;</span>
+</span><span class='line'>Found <span class="m">1</span> items
+</span><span class='line'>-rwxrwxrwx   <span class="m">1</span> cloudera hive         <span class="m">66</span> 2015-01-20 15:22 hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db/college/college.data
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p><img class="center" src="/images/aws/mfa/step2_users.png" width="447" height="460" title="Screenshot" ></p>
+<p>In the output of the <code>DESCRIBE DATABASE</code> commands above, the directory location of the database is shown, with <code>hdfs</code> as URI scheme. Note that <code>hdfs://quickstart.cloudera:8020/user/hive/warehouse/college.db</code> is equivalent to <code>hdfs://user/hive/warehouse/college.db</code>, where <code>quickstart.cloudera:8020</code> is simply the master node’s DNS name and port on Cloudera Quickstart VM. The name of the database directory is always <code>database_name.db</code>, with <code>.db</code> suffix added to database name. The three tables <code>college</code>, <code>student</code>, and <code>apply</code> in the <code>college</code> database are created as sub-directories in that <code>college.db</code> directory, as shown above. When a database is dropped, its directory is also deleted. By default, Hive will not allow you to drop a database that contains tables. The second <code>DROP DATABASE</code> command with <code>CASCADE</code> will force Hive to drop the database by dropping the tables in the database first.</p>
 
-<ul>
-<li>Click on your username from the list of users.</li>
-</ul>
+<p>There is no command to show the current working database. When in doubt, it is safe to use the command <code>USE database_name;</code> repeatedly since there is no nesting of databases in Hive. Otherwise, you can set a property to show the current working database in Hive CLI prompt as follows:</p>
 
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'>hive&gt; <span class="nb">set </span>hive.cli.print.current.db<span class="o">=</span><span class="nb">true</span><span class="p">;</span>
+</span><span class='line'>hive <span class="o">(</span>default<span class="o">)</span>&gt; USE college<span class="p">;</span>
+</span><span class='line'>OK
+</span><span class='line'>Time taken: 0.278 seconds
+</span><span class='line'>hive <span class="o">(</span>college<span class="o">)</span>&gt;
+</span></code></pre></td></tr></table></div></figure>
 
-<p><img class="center" src="/images/aws/mfa/step3_you.png" width="555" height="256" title="Screenshot" ></p>
-
-<ul>
-<li>Make sure that &ldquo;Security Credentials&rdquo; tab is selected. Scrolling down to the bottom, under &ldquo;Sign-in Credentials&rdquo; section, select &ldquo;Manage MFA Device&rdquo;.</li>
-</ul>
-
-
-<p><img class="center" src="/images/aws/mfa/step4_signin.png" width="603" height="314" title="Screenshot" ></p>
-
-<ul>
-<li>In the pop-up window, you are allowed to choose a virtual MFA device or a physical MFA device. The most convenient option is a virtual MFA device which only requires you to have a smartphone with some AWS MFA-compatible application. The list of AWS MFA-compatible applications are listed in <a href="http://aws.amazon.com/iam/details/mfa/">here</a>.</li>
-</ul>
-
-
-<p><img class="center" src="/images/aws/mfa/step5_device.png" title="Screenshot" ></p>
-
-<ul>
-<li>In my case, I use <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Google Authenticator</a>. After installing the app, simply add an account and select &ldquo;Scan a barcode&rdquo;.</li>
-</ul>
-
-
-<p><img class="center" src="/images/aws/mfa/step6_app.png" width="300" height="258" title="Screenshot" ></p>
-
-<ul>
-<li>Follow the prompts on AWS MFA webpages to arrive at the following page with QR code. You will then enter the first 6 digit PIN from Google Authenticator into Code 1 box. Wait for it to change and then add the second code into Code 2 box.</li>
-</ul>
-
-
-<p><img class="center" src="/images/aws/mfa/step7_setup.png" width="495" height="444" title="Screenshot" ></p>
-
-<ul>
-<li>You are now all set for MFA. All future accesss will require you to enter the MFA code from the Google Authenticator on your Android/iPhone during login.</li>
-</ul>
-
-
-<p><img class="center" src="/images/aws/mfa/step8_mfa.png" width="300" height="185" title="Screenshot" ></p>
 </div>
   
   
@@ -452,7 +1324,7 @@ From my personal experience, in those cases, note that time zones must be accoun
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/01/19/aws-connecting-applications-and-data/">AWS: Amazon Resource Name</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/11/26/programming-hive-data-types/">Learning Hive (Pt. 4): Data Types</a></h1>
     
     
       <p class="meta">
@@ -461,43 +1333,118 @@ From my personal experience, in those cases, note that time zones must be accoun
 
 
 
-<time class='entry-date' datetime='2016-01-19T18:37:02-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>19</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
+<time class='entry-date' datetime='2015-11-26T18:01:37-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:01 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>The <a href="http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html">Amazon Resource Name</a> (ARN) is used to uniquely identify an AWS resource. You will need to use ARNs to connect your services and data in AWS.</p>
+  <div class="entry-content"><p>This post covers different data types and file formats supported by Hive.</p>
 
-<p>Format:</p>
+<h3>Data Types</h3>
+
+<p>The following primitive data types are supported:</p>
 
 <ul>
-<li>arn:partition:service:region:account-id:resource</li>
-<li>arn:partition:service:region:account-id:resourcetype/resource</li>
-<li>arn:partition:service:region:account-id:resourcetype:resource</li>
+<li>TINYINT: 1 byte signed integer</li>
+<li>SMALLINT: 2 bytes</li>
+<li>INT: 4 bytes</li>
+<li>BIGINT: 8 bytes</li>
+<li>BOOLEAN</li>
+<li>FLOAT</li>
+<li>DOUBLE</li>
+<li>STRING: Single or double quotes can be used for literals.</li>
+<li>TIMESTAMP: Integer, float, or string.
+
+<ul>
+<li>Integer: For seconds from Unix epoch.</li>
+<li>Float: Seconds from Unix epoch and nanoseconds.</li>
+<li>String: JDBC-compliant java.sql.Timestamp format convention, i.e. YYYY-MM-DD hh:mm:ss.fffffffff</li>
+</ul>
+</li>
+<li>BINARY: array of bytes. Used to include arbitrary bytes and prevent Hive from attempting to parse them.</li>
 </ul>
 
 
-<p>Examples:</p>
+<p>As you can see, Hive supports most basic primitive data types conventionally found in relational databases. Moreover, it helps to remember that these data types are implemented in Java, so their behaviors will be similar to their Java counterparts.</p>
+
+<p>NOTE: Not mentioned in the <strong>Programming Hive</strong> book, but the types <code>DECIMAL</code> and <code>DATE</code> are introduced since Hive 0.13.0.
+In addition, the book claimed &ldquo;Hive does not support character arrays with maximum-allowed lengths, as is common in other SQL dialects&rdquo; but <code>VARCHAR</code> type, introduced in Hive 0.12.0, does exactly that.</p>
+
+<p>Besides primitive data types, Hive supports the following collection data types:</p>
 
 <ul>
-<li>Amazon DynamoDB table: <code>arn:aws:dynamodb:us-west-2:558892968354:table/accounts</code></li>
-<li>Amazon S3 bucket: <code>arn:aws:s3:::survey_bucket/*</code></li>
-<li>Amazon SNS topic: <code>arn:aws:sns:us-west-2:558892968354:EmailSNSTopic</code></li>
-<li>SNS topic subscription ID: <code>arn:aws:sns:us-west-2:558892968354:EmailSNSTopic:3c31c16b-3d53-48a6-ba54-385a06c29a45</code></li>
+<li>STRUCT: Analogous to a C <code>struct</code> or POJO (Plain Old Java Object). The elements can be accessed using the DOT (.) notation.
+
+<ul>
+<li>Example: Declaration -> <code>struct&lt;name:string,id:int&gt;</code>. Literal -> <code>struct('John',1)</code>.</li>
+</ul>
+</li>
+<li>MAP: A collection of key-value tuples. The elements can be accessed using array notation, e.g. persons[&lsquo;John&rsquo;].
+
+<ul>
+<li>Example: Declaration -> <code>map&lt;string,int&gt;</code>. Literal -> <code>map('John',1)</code>.</li>
+</ul>
+</li>
+<li>ARRAY: Ordered sequences of the same type. The elements can be accessed using array notation, e.g. person[2].
+
+<ul>
+<li>Example: Declaration -> <code>array&lt;string&gt;</code>. Literal -> <code>array('John','Peter')</code>.</li>
+</ul>
+</li>
 </ul>
 
 
-<p>The components of the ARN are:</p>
+<p>Relational databases don&rsquo;t usually support such collection types because they tend to break <strong>normal form</strong>.
+In Hive/Hadoop, sacrificing normal form is pretty common as it can give benefit of higher processing throughput, especially with large amount of data (tens of terabytes).</p>
 
-<ul>
-<li>Partition: The partition that the resource is in. For standard AWS regions, the partition is <code>aws</code>. If you have resources in other partitions, the partition is <code>aws-[partitionname]</code>. For example, the partition for resources in the China region is <code>aws-cn</code>.</li>
-<li>Service: The service namespace that identifies the AWS product (for example, <code>s3</code>, <code>sns</code>).</li>
-<li>Region: The region that the resource resides in (for example, <code>us-west-2</code>). Some services are global, such as S3. Those services do not require a region specified.</li>
-<li>Account: The ID of the AWS account that owns the resource, without the hyphens, for example, <code>558892968354</code>. Note that the ARNs for some resources don&rsquo;t require an account number.</li>
-<li><code>Resource</code>, <code>resourcetype:resource</code>, or <code>resourcetype/resource</code>: The content of this part of the ARN varies by service, as shown in examples above. Some services allows paths for resource names.</li>
-</ul>
+<h3>Text File Formats</h3>
+
+<p>Hive can use comma-separated values (CSV) or tab-separated values (TSV) text file format. A Hive table declaration with all row format specified (with default values, however) looks like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">employees</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">name</span>         <span class="n">STRING</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">salary</span>       <span class="nb">FLOAT</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">subordinates</span> <span class="nb">ARRAY</span><span class="o">&lt;</span><span class="n">STRING</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">deductions</span>   <span class="k">MAP</span><span class="o">&lt;</span><span class="n">STRING</span><span class="p">,</span> <span class="nb">FLOAT</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">address</span>      <span class="n">STRUCT</span><span class="o">&lt;</span><span class="n">street</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">city</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="k">state</span><span class="p">:</span><span class="n">STRING</span><span class="p">,</span> <span class="n">zip</span><span class="p">:</span><span class="nb">INT</span><span class="o">&gt;</span>
+</span><span class='line'><span class="p">)</span>
+</span><span class='line'><span class="k">ROW</span> <span class="n">FORMAT</span> <span class="n">DELIMITED</span>
+</span><span class='line'><span class="n">FIELDS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\001&#39;</span>
+</span><span class='line'><span class="n">COLLECTION</span> <span class="n">ITEMS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\002&#39;</span>
+</span><span class='line'><span class="k">MAP</span> <span class="n">KEYS</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\003&#39;</span>
+</span><span class='line'><span class="n">LINES</span> <span class="n">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\n&#39;</span>
+</span><span class='line'><span class="n">STORED</span> <span class="k">AS</span> <span class="n">TEXTFILE</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Schema on Read</h3>
+
+<p>Different from databases, Hive has no control over the underlying storage: for example, you can modify files on HDFS that Hive will query. Hive tries its best to read the data and match the schema. If the file content does not match the schema such as non-numeric strings found when numbers expected, you may get null values.</p>
+
+<h3>Additional References</h3>
+
+<p>As of November 2015, the <strong>Programming Hive (2nd edition)</strong> book uses slightly a outdated Hive version 0.9.0 (Chapter 2, Installing Hive). Information in the following links are used when writing this post:</p>
+
+<ol>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Types</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/Tutorial">https://cwiki.apache.org/confluence/display/Hive/Tutorial</a></li>
+<li><a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL</a></li>
+</ol>
 
 </div>
   
@@ -511,7 +1458,7 @@ From my personal experience, in those cases, note that time zones must be accoun
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/01/18/aws-developing-with-amazon-s3/">AWS: Developing With Amazon S3</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/11/24/programming-hive-getting-started/">Learning Hive (Pt. 3): Runtime Modes</a></h1>
     
     
       <p class="meta">
@@ -520,111 +1467,98 @@ From my personal experience, in those cases, note that time zones must be accoun
 
 
 
-<time class='entry-date' datetime='2016-01-18T17:13:28-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:13 pm</span></time>
+<time class='entry-date' datetime='2015-11-24T18:24:30-08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>24</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>6:24 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data.
-This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.</p>
+  <div class="entry-content"><p>Following up on <a href="/blog/2015/11/23/programming-hive-hive-cli/">Hive CLI</a>, this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.</p>
 
-<h3>S3 Buckets and Objects</h3>
+<h3>Runtime Modes</h3>
 
-<p>Files of any kind such as text, video, photo are stored as objects in S3 <em>buckets</em>.
-The bucket name must be globally unique across Amazon S3. It is your responsibility to ensure uniqueness of the bucket name.
-A bucket can be <em>versioning-enabled</em>, it will store every version of every object in the bucket.</p>
+<p>There are different runtime modes for Hadoop.
+Because Hive uses Hadoop jobs for most of its work, its behavior is dependent on Hadoop runtime mode that you are using.
+However, even in distributed mode, Hive can decide on a per-query basis if it can perform the query using just local mode to provide better turnaround.</p>
 
-<p>Each <em>object</em> in S3 is identified by a unique key. The object key is used for upload and retrieval. Alphanumeric characters and <code>!-_.*'/</code> are allowed in a key name.</p>
-
-<p>Bucket naming tips:</p>
-
-<ul>
-<li>To ensure uniqueness, you might prefix the bucket name with the name of your organization.</li>
-<li>Avoid using a period in the bucket name. Buckets that have a period in the bucket name can cause certificate exception when accessing with HTTPS-based URLs.</li>
-</ul>
-
-
-<p>Object key naming tips:</p>
-
-<ul>
-<li>Use prefixes and <code>/</code> (or other delimiters) to logically group your objects. For example, <code>prog/java/arrays.html</code>. There is no hierarchy of objects (e.g., folder) or nested buckets in S3.
-
-<ul>
-<li>However, the Amazon S3 console supports the <a href="http://docs.aws.amazon.com/AmazonS3/latest/UG/FolderOperations.html">folder concept</a> for convenience and usability. Amazon S3 does this by using key name prefixes for objects.</li>
-</ul>
-</li>
-<li>For performance and scalability, consider using hash as the outermost prefix, in addition to other logical grouping prefixes. See &ldquo;Programming Considerations&rdquo; section below.</li>
-</ul>
-
-
-<h3>Operations on Objects</h3>
-
-<p>Basic operations on S3 objects and buckets are:</p>
-
-<ul>
-<li>Put: upload or copy object, up to 5 GB. You can use multi-part upload API for larger objects up to 5 TB.</li>
-<li>Get: Retrieve a whole object or part of an object.</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html">List Keys</a>: List object keys by prefix and delimiter.</li>
-<li>Delete: Delete one or more objects.
-
-<ul>
-<li>If versioning is not enabled, an object is permanently deleted by specifying its key.</li>
-<li>If versioning is enabled, you delete an object by specifying a key and version ID. You must delete all versions of an object to remove it.</li>
-<li>If versioning is enabled and version is not specified, S3 adds a delete marker to current version of the object. Trying to retrieve an object with a delete marker will returns a &ldquo;404 Not Found&rdquo; error by S3.</li>
-</ul>
-</li>
-<li>Restore: Restore an object archived on Amazon Glacier.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th> Local Mode </th>
+<th> Distributed Mode </th>
+<th> Pseudodistributed Mode </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Filesystem references use local filesystem. </td>
+<td> Filesystem references use HDFS. </td>
+<td> Similar to distributed mode. </td>
+</tr>
+<tr>
+<td> MapReduce tasks in same process. </td>
+<td>  MapReduce tasks in separate <br>processes, managed by JobTracker service. </td>
+<td> Similar to distributed mode.</td>
+</tr>
+<tr>
+<td> Default mode. </td>
+<td> Usually configured for server clusters. </td>
+<td> Like a cluster of one node.</td>
+</tr>
+</tbody>
+</table>
 
 
-<h4>Other operations in S3</h4>
+<p><br></p>
 
-<p>Advanced operations that you should know when situations arise.</p>
+<p>Pseudodistributed mode is mainly for developers working on personal machines or VM&rsquo;s when testing their applications since local mode doesn’t fully reflect the behavior of a real cluster. Changes to configuration are done by editing the <code>hive-site.xml</code> file in <code>$HIVE_HOME/conf</code> folder (e.g., <code>/usr/lib/hive/conf</code> on Cloudera VM). Create one if it doesn’t already exist.</p>
 
-<p><strong>Scenario 1</strong>: You want to let users upload files to your buckets for some time duration.
-<strong>Solution 1</strong>: You should never share your AWS credentials to let users upload files to your buckets.
-Instead, generate a <strong>pre-signed URL</strong> with your security credentials, bucket name, object key, HTTP method (PUT or GET), and expiration date and time.
-You share this pre-signed URL to users who will use this to access your S3 buckets.</p>
+<h3>Metastore Using JDBC</h3>
 
-<p><strong>Scenario 2</strong>: Encryption and strict data security is required.
-<strong>Solution 2</strong>: You can enable:</p>
+<p>Hive requires only one extra component that Hadoop does not already have; the metastore component.
+The metastore stores metadata such as table schema and partition information that you specify when you run commands such as <code>create table x...</code>, or <code>alter table y...</code>, etc.
+Any JDBC-compliant database can be used for the metastore. In practice, most installations of Hive use MySQL.
+In <code>hive-site.xml</code> file, the metastore database configuration looks like this:</p>
 
-<ul>
-<li>Securing data in transit.
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionURL<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>jdbc:mysql://127.0.0.1/metastore?createDatabaseIfNotExist=true<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>JDBC connect string for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionDriverName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>com.mysql.jdbc.Driver<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;description&gt;</span>Driver class name for a JDBC metastore<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nt">&lt;property&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;name&gt;</span>javax.jdo.option.ConnectionUserName<span class="nt">&lt;/name&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;value&gt;</span>hive<span class="nt">&lt;/value&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/property&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<ul>
-<li>SSL-encrypted data transfer by using HTTPS</li>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html">Client-side encryption</a></li>
-</ul>
-</li>
-<li>Securing data at rest on AWS server.
 
-<ul>
-<li><a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html">Server-side encryption</a></li>
-</ul>
-</li>
-</ul>
-
-
-<p><strong>Scenario 3</strong>: You want your web applications that are loaded in one domain to interact with S3 resources in a different domain.
-<strong>Solution 3</strong>: Check out <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html">CORS</a>.</p>
-
-<h3>Programming considerations</h3>
-
-<ul>
-<li>According to <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">this guideline</a>, <strong>avoid</strong> using some sequential prefix (e.g., timestamp or alphabetical sequence) for your objects' key names. Instead, prefix the key name with its hash and, optionally, store the original key name in the object&rsquo;s metadata. See examples in the link for more information.</li>
-<li>If your application uses fixed buckets, avoid unnecessary requests by checking the existence of buckets. Instead, handle <a href="http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html">NoSuchBucket errors</a> when buckets do not exist.</li>
-<li>Set the object metadata before uploading an object. Otherwise, you will have extra requests to do copy operation to update metadata.</li>
-<li>Cache bucket and key names if possible.</li>
-<li>Set bucket region closest to latency-sensitive users.</li>
-<li>Compress objects to reduce the size of data transferred and storage used.</li>
-<li>Use an exponential back-off algorithm to retry after failed connection attempts. See <a href="http://docs.aws.amazon.com/general/latest/gr/api-retries.html">here</a>.</li>
-<li>Enable application logging. For example, <a href="http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-logging.html">in Java</a>.</li>
-<li>Enable <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ServerLogs.html">server access logging</a>.</li>
-</ul>
-
+<p>The information stored in metastore is typically much smaller than the data stored in Hive.
+Therefore, you typically don’t need a powerful dedicated database server for the metastore.
+However since it represents a Single Point of Failure (SPOF), it is strongly recommended that you replicate and back up this database using the best practices like any other database instances.</p>
 </div>
   
   
@@ -671,6 +1605,14 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
         <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
       </li>
     
+      <li class="post">
+        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
+      </li>
+    
   </ul>
 </section>
 
@@ -705,7 +1647,7 @@ You share this pre-signed URL to users who will use this to access your S3 bucke
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (9)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (7)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (9)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (10)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (3)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (11)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
