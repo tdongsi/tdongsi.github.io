@@ -9,7 +9,10 @@ categories:
 ---
 
 In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
-In summary, there is currently no way to add additional content into `VOLUME` directory in a trivial way.
+In summary, there is currently no way to add additional content into `VOLUME` directory in a trivial way. 
+If you unknowingly adds files into a folder that has been used as a `VOLUME` mount point in a Docker image or one of its base images, the files cannot be found for seemingly no reason.
+
+<!--more-->
 
 ### Problem description
 
@@ -44,7 +47,7 @@ WORKDIR /home/jenkins
 ...
 ```
 
-Otherwise, you can verify with the following `docker inspect` command when a container of that Docker image is running:
+Otherwise, you can verify with the following `docker inspect` command when the Docker container is still running:
 
 ``` plain Show Volumes
 mymac:docker tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
@@ -53,12 +56,12 @@ map[/home/jenkins:{}]
 
 This problem is already seen and reported in [this issue](https://github.com/docker/docker/issues/3639).
 There have been suggestions that `VOLUME` directive in Dockerfile is a mistake. 
-It should be an option/directive when running (`docker run`) not building image.
+It should be an option/directive when running `docker run`, not when building images.
 
 ### Resolving problem
 
-The above problem can be resolved by adding files into another folder.
-If that specific path (`/home/path` in the example) must be used, you can also use `docker copy` to add files into a running container.
+The above problem can be resolved by simply adding files into another path that has NOT been used as VOLUME.
+If the specific `VOLUME`ed path (`/home/path` in the example) must be used, you can also use `docker copy` to add files into a running container (see [last post](/blog/2017/02/09/docker-copy-file-into-a-container/)).
 
 ### References
 
