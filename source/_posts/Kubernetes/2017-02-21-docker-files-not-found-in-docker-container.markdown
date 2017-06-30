@@ -3,14 +3,19 @@ layout: post
 title: "Docker: Files not found in Docker container"
 date: 2017-02-21 15:14:43 -0800
 comments: true
-published: false
+published: true
 categories: 
 - Docker
 ---
 
-I have the following Dockerfile:
+In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
+In summary, there is currently no way to add additional content into `VOLUME` directory in a trivial way.
 
-```
+### Problem description
+
+Let's say we created the following Dockerfile for container, extending on top of a base Docker image:
+
+``` plain Dockerfile of the extended image
 FROM docker.registry.company.net/base
 MAINTAINER myemail@company.net
 
@@ -23,33 +28,37 @@ RUN openssl s_client -connect nexus.company.net:443 < /dev/null | sed -ne '/-BEG
     && /opt/jdk-latest/jre/bin/keytool -import -noprompt -storepass change_this -alias nexus.company.net -keystore /home/jenkins/cacerts -file /home/jenkins/public.crt
 ```
 
-When I build the image with `docker build`, the commands in Dockerfile should produce several files that get dropped into the home `/home/jenkins` folder.
-In fact, it can be verified in the build log that the files are created when adding additional commands.
-However, when I create a container from this image using `docker run`, the files in `/home/jenkins` simply doesn't exist.
+When we try to build the above image with `docker build`, we should expect several files dropped into the home `/home/jenkins` folder.
+In fact, we can add several `echo` commands into the above Dockerfile to verify in the build log that the files are actually created.
+However, when we start running a container from this new Docker image using `docker run`, the files simply don't exist in `/home/jenkins`.
 
+This was very perplexing at first.
 Struggling with different options of rebuilding (`docker build`) and re-running (`docker run`) gives no different outcomes.
 It eventually turns out that `/home/jenkins` is mounted as a volume in the `base` image or one of its base images.
+If you have access to the base images' Dockerfiles, you should expect to find the following lines in one of the base Dockerfiles:
 
-```
-tdongsi-ltm4:W_3703511 tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
-map[/home/jenkins:{}]
-```
-
-I can find the following lines in one of the base Dockerfiles:
-
-```
+``` plain Base Dockerfile
 ...
 VOLUME /home/jenkins
 WORKDIR /home/jenkins
 ...
 ```
 
+Otherwise, you can verify with the following `docker inspect` command when a container of that Docker image is running:
+
+``` plain Show Volumes
+mymac:docker tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
+map[/home/jenkins:{}]
+```
+
 This problem is already seen and reported in [this issue](https://github.com/docker/docker/issues/3639).
-It happens often when we try to extend an offical image.
-There is simply no way to add additional content into `VOLUME` directory in a trivial way.
 There have been suggestions that `VOLUME` directive in Dockerfile is a mistake. 
 It should be an option/directive when running (`docker run`) not building image.
 
+### Resolving problem
+
+The above problem can be resolved by adding files into another folder.
+If that specific path (`/home/path` in the example) must be used, you can also use `docker copy` to add files into a running container.
 
 ### References
 
