@@ -13,6 +13,8 @@ categories:
 In this blog post, we are using ["Docker out of Docker" approach](/blog/2017/04/23/docker-out-of-docker/) to build Docker images in our containerized Jenkins slaves.
 We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.
 
+<!--more-->
+
 ### Problem description
 
 We got the following error when running Docker inside a Jenkins slave container.
@@ -89,46 +91,6 @@ sudo usermod -aG docker jenkins
 
 The last step `usermod` comes from Docker documentation itself: "If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker" group".
 
-
-### `groupadd` examples
-
-The following example creates a new group called apache
-
-```
-$ groupadd apache
-```
-
-Make sure it is created successfully.
-
-```
-# grep apache /etc/group
-apache:x:1004:
-```
-
-If you don’t specify a groupid, Linux will assign one automatically.
-If you want to create a group with a specific group id, do the following.
-
-```
-$ groupadd apache -g 9090
-
-$ grep 9090 /etc/group
-apache:x:9090:
-```
-
-Group account information is stored in `/etc/group`.
-
 ### References
 
 * [dockerd](https://docs.docker.com/engine/reference/commandline/dockerd/)
-* [groupadd man pages](https://linux.die.net/man/8/groupadd)
-* [groupadd examples](http://linux.101hacks.com/unix/groupadd/)
-* [chown examples](http://www.thegeekstuff.com/2012/06/chown-examples/)
-* [find files with group name or ID](https://www.unixtutorial.org/2008/06/find-files-which-belong-to-a-user-or-unix-group/)
-
-TODO
-
-* https://github.com/docker/compose/issues/1214
-* http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container
-* https://github.com/jenkinsci/docker/issues/196
-* https://github.com/jhipster/generator-jhipster/issues/4804
-* https://unix.stackexchange.com/questions/33844/change-gid-of-a-specific-group
