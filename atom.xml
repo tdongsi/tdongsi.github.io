@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-29T19:32:29-07:00</updated>
+  <updated>2017-06-30T11:36:17-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -937,12 +937,6 @@ The following commands verify that it is not:</p>
 </span><span class='line'>srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock</span></code></pre></td></tr></table></div></figure>
 
 
-<h3>Resolving problem</h3>
-
-<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
-In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
-It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
-
 <p>The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below).
 The group <code>docker</code> happens to have the group ID 999 on that Kubernetes cluster.</p>
 
@@ -993,6 +987,12 @@ The group <code>docker</code> happens to have the group ID 999 on that Kubernete
 
 
 <p>The last step <code>usermod</code> comes from Docker documentation itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
+
+<h3>Resolving problem</h3>
+
+<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
+In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
+It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
 
 <h3>References</h3>
 
@@ -1465,6 +1465,90 @@ Note that for this SSH push to work, a public-private key pair must be generated
 
 <ul>
 <li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker: Files Not Found in Docker Container]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/"/>
+    <updated>2017-02-21T15:14:43-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container</id>
+    <content type="html"><![CDATA[<p>In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
+In summary, there is currently no way to add additional content into <code>VOLUME</code> directory in a trivial way.
+If you unknowingly adds files into a folder that has been used as a <code>VOLUME</code> mount point in a Docker image or one of its base images, the files cannot be found for seemingly no reason.</p>
+
+<!--more-->
+
+
+<h3>Problem description</h3>
+
+<p>Let&rsquo;s say we created the following Dockerfile for container, extending on top of a base Docker image:</p>
+
+<figure class='code'><figcaption><span>Dockerfile of the extended image</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>FROM docker.registry.company.net/base
+</span><span class='line'>MAINTAINER myemail@company.net
+</span><span class='line'>
+</span><span class='line'>RUN ssh-keyscan -H github.company.net &gt;&gt; /home/jenkins/.ssh/known_hosts
+</span><span class='line'>
+</span><span class='line'>RUN mkdir -p /home/jenkins/.m2 /home/jenkins/store
+</span><span class='line'>COPY settings.xml /home/jenkins/.m2/settings.xml
+</span><span class='line'>
+</span><span class='line'>RUN openssl s_client -connect nexus.company.net:443 &lt; /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' &gt; /home/jenkins/public.crt \
+</span><span class='line'>    && /opt/jdk-latest/jre/bin/keytool -import -noprompt -storepass change_this -alias nexus.company.net -keystore /home/jenkins/cacerts -file /home/jenkins/public.crt</span></code></pre></td></tr></table></div></figure>
+
+
+<p>When we try to build the above image with <code>docker build</code>, we should expect several files dropped into the home <code>/home/jenkins</code> folder.
+In fact, we can add several <code>echo</code> commands into the above Dockerfile to verify in the build log that the files are actually created.
+However, when we start running a container from this new Docker image using <code>docker run</code>, the files simply don&rsquo;t exist in <code>/home/jenkins</code>.</p>
+
+<p>This was very perplexing at first.
+Struggling with different options of rebuilding (<code>docker build</code>) and re-running (<code>docker run</code>) gives no different outcomes.
+It eventually turns out that <code>/home/jenkins</code> is mounted as a volume in the <code>base</code> image or one of its base images.
+If you have access to the base images' Dockerfiles, you should expect to find the following lines in one of the base Dockerfiles:</p>
+
+<figure class='code'><figcaption><span>Base Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>...
+</span><span class='line'>VOLUME /home/jenkins
+</span><span class='line'>WORKDIR /home/jenkins
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Otherwise, you can verify with the following <code>docker inspect</code> command when the Docker container is still running:</p>
+
+<figure class='code'><figcaption><span>Show Volumes</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:docker tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
+</span><span class='line'>map[/home/jenkins:{}]</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This problem is already seen and reported in <a href="https://github.com/docker/docker/issues/3639">this issue</a>.
+There have been suggestions that <code>VOLUME</code> directive in Dockerfile is a mistake.
+It should be an option/directive when running <code>docker run</code>, not when building images.</p>
+
+<h3>Resolving problem</h3>
+
+<p>The above problem can be resolved by simply adding files into another path that has NOT been used as VOLUME.
+If the specific <code>VOLUME</code>ed path (<code>/home/path</code> in the example) must be used, you can also use <code>docker copy</code> to add files into a running container (see <a href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/">last post</a>).</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/docker/docker/issues/3639">Reported issue</a></li>
+<li><a href="http://l33t.peopleperhour.com/2015/02/18/docker-extending-official-images/">Work around</a></li>
 </ul>
 
 ]]></content>
@@ -3281,52 +3365,6 @@ The answer is when we mock the class in JMockit using the <code>@Mocked</code> a
 
 <p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
 The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
-    <updated>2016-06-06T22:47:42-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
-    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
-However, for that strategy to work, we should pay attention to unit test performance.
-It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
-In addition, the runtime will get compounded as we add more unit tests.
-Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
-
-<!--more-->
-
-
-<p>1) Do NOT add loggings/printing to your tests.
-Use TestNG assertions instead of checking screen output.
-Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
-The logs don&rsquo;t matter when we&rsquo;re running in parallel.
-Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
-
-<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
-This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
-For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
-
-<p>3) Mock logging and config classes if applicable.
-Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
-If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="http://tdongsi.github.io/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
-
-<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
-However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
-As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
-Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
-
-<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
-
-<figure class='code'><figcaption><span>Maven-surefire options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;parallel&gt;</span>classes<span class="nt">&lt;/parallel&gt;</span>
-</span><span class='line'><span class="nt">&lt;forkCount&gt;</span>${forkCount}<span class="nt">&lt;/forkCount&gt;</span>
-</span><span class='line'><span class="nt">&lt;reuseForks&gt;</span>false<span class="nt">&lt;/resuseForks&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
-
 ]]></content>
   </entry>
   
