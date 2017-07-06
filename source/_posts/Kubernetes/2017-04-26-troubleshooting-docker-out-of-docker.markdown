@@ -52,12 +52,6 @@ The expected output of the above `ls` command is as follows:
 srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
 ```
 
-### Resolving problem
-
-To resolve the problem, simply entering the Docker image, update its `/etc/group` file with the correct GID for `docker` group.
-In the example above, the line "docker:x:999:jenkins" should be updated to "docker:x:992:jenkins" to make it work.
-It's recommended to run `docker commit` to save the modified container as a new Docker image and push it to Docker registry (similar process in [this post](http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/)).
-
 The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below). 
 The group `docker` happens to have the group ID 999 on that Kubernetes cluster.
 
@@ -90,6 +84,12 @@ sudo usermod -aG docker jenkins
 ```
 
 The last step `usermod` comes from Docker documentation itself: "If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker" group".
+
+### Resolving problem
+
+To resolve the problem, simply entering the Docker image, update its `/etc/group` file with the correct GID for `docker` group.
+In the example above, the line "docker:x:999:jenkins" should be updated to "docker:x:992:jenkins" to make it work.
+It's recommended to run `docker commit` to save the modified container as a new Docker image and push it to Docker registry (similar process in [this post](http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/)).
 
 ### References
 
