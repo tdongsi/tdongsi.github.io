@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-06-30T11:36:17-07:00</updated>
+  <updated>2017-07-10T10:35:49-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -269,6 +269,157 @@ FROM (SELECT Score FROM Scores ORDER BY Score DESC) t,
   </entry>
   
   <entry>
+    <title type="html"><![CDATA[Bash Trap]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/03/02/bash-trap/"/>
+    <updated>2016-03-02T00:07:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/03/02/bash-trap</id>
+    <content type="html"><![CDATA[<p>In this post, we discuss common usage of bash <code>trap</code> to ensure proper cleanup operations in Bash scripts.
+It also discusses a common idiom <code>trap cleanup INT TERM EXIT</code> where other signals such as INT and TERM is also trapped in addition to EXIT.
+While such idiom could be valid in some Unix system, it is usually redundant and can be simply wrong (duplicate executions) in most cases, as shown on Mac.
+A simple test is provided to verify if such idiom is applicable in your current system.</p>
+
+<!--more-->
+
+
+<h3>Standard usage</h3>
+
+<p>There is a simple idiom to ensure your bash scripts to always do proper cleanup operations before exiting, even when something goes wrong during execution.
+In the context of Java or Python, this is similar to a <code>finally</code> clause that will execute after any exception is caught during execution.</p>
+
+<pre><code class="bash DO THIS"># Setup trap to cleanup before exiting script
+function cleanup {
+    echo "Removing temp files..."
+    if [[ -f $CMD_TMPFILE ]] ; then
+        rm $CMD_TMPFILE
+    fi
+    if [[ -f $LOG_TMPFILE ]] ; then
+        rm $LOG_TMPFILE
+    fi
+}
+trap cleanup EXIT
+
+# Setup
+
+# Thousand lines of code here
+</code></pre>
+
+<p>Putting the cleanup operations at the end of the bash script might not work in cases of error.
+Since the bash script already stops executing due to some fatal error, those clean up commands might never run.</p>
+
+<pre><code class="bash DON'T DO THIS">
+# Setup
+
+# Thousand lines of code here
+
+# This might not run when there is error
+echo "Removing temp files..."
+if [[ -f $CMD_TMPFILE ]] ; then
+    rm $CMD_TMPFILE
+fi
+if [[ -f $LOG_TMPFILE ]] ; then
+    rm $LOG_TMPFILE
+fi
+</code></pre>
+
+<p>For example, in Vertica, you should always run <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/START_REFRESH.htm"><code>SELECT START_REFRESH()</code></a>
+at the end of a deployment script, regardless of any error encountered during script execution.
+It is a good candidate for using <code>trap</code> statement.
+Adding those commands at the end of the script will not work in cases there is an error during deployment, and you might end up with &ldquo;AHM Does Not Advance&rdquo;-related errors (see this <a href="/blog/2016/02/29/vertica-9-refresh-projections/">post</a>).</p>
+
+<h3>Trap multiple signals</h3>
+
+<p>Note that many online examples for <code>trap</code> use a list of signals for cleanup tasks like this <code>trap cleanup INT TERM EXIT</code>, i.e., trapping not only EXIT signal but also INT and TERM signals.
+I believe that if <code>EXIT</code> signal is used, other signals such as <code>INT</code> or <code>TERM</code> are redundant for cleanup purposes.
+<code>EXIT</code> or 0 signal is invoked when the shell exits, an event that also happens when an <code>INT</code> or <code>TERM</code> signal is received.
+It is easy to confirm that with the following short bash script:</p>
+
+<pre><code class="plain Trap tests in Mac OSX">MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo SIGNAL CAPTURED' EXIT
+sleep 3
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -INT %1
+[1] 6613
+SIGNAL CAPTURED
+[1]+  Interrupt: 2            ./test_trap.sh
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -TERM %1
+[1] 6624
+SIGNAL CAPTURED
+[1]+  Terminated: 15          ./test_trap.sh
+</code></pre>
+
+<p>As shown above, a lone <code>EXIT</code> is enough to capture <code>INT</code> and <code>TERM</code> signals.
+Having said that, I understand that my tests can only verify bash on Mac OSX.
+There are probably different shell variants on different operating systems which do not always work that way.</p>
+
+<p>The problem of those <code>trap</code> examples lies in when someone copies and uses the code directly from the web, without understanding how it works.
+Listing multiple signals can make the <code>cleanup</code> steps executed twice, once for the signal such as <code>TERM</code> and once for <code>EXIT</code>, as shown in the modified experiment below.
+Not all cleanup steps could be and should be executed twice.
+For example, it is almost always true that removing some temporary file/folder should not be executed twice during a cleanup.</p>
+
+<pre><code class="plain Problem of trapping multiple signals">MTVL1288aeea2-82:code tdongsi$ cat test_trap.sh
+#!/bin/bash
+trap 'echo SIGNAL CAPTURED' INT TERM EXIT
+sleep 3
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -INT %1
+[1] 7258
+SIGNAL CAPTURED
+SIGNAL CAPTURED
+[1]+  Exit 130                ./test_trap.sh
+
+MTVL1288aeea2-82:code tdongsi$ ./test_trap.sh &amp; sleep 1; kill -TERM %1
+[1] 7278
+Terminated: 15
+SIGNAL CAPTURED
+SIGNAL CAPTURED
+[1]+  Exit 143                ./test_trap.sh
+</code></pre>
+
+<p>In short, you should know how <code>trap</code> works on your production system before listing multiple signals as its parameters, especially when coupled with <code>EXIT</code> signal.</p>
+
+<h3>Other usage notes</h3>
+
+<p>The signal names might be specified with or without prefix <code>SIG</code> or even with numeric values for signal numbers, e.g., 2 for INT (see list below).</p>
+
+<pre><code class="plain List of signals">MTVL1288aeea2-82:octopress tdongsi$ kill -l
+ 1) SIGHUP   2) SIGINT   3) SIGQUIT  4) SIGILL
+ 5) SIGTRAP  6) SIGABRT  7) SIGEMT   8) SIGFPE
+ 9) SIGKILL 10) SIGBUS  11) SIGSEGV 12) SIGSYS
+13) SIGPIPE 14) SIGALRM 15) SIGTERM 16) SIGURG
+17) SIGSTOP 18) SIGTSTP 19) SIGCONT 20) SIGCHLD
+21) SIGTTIN 22) SIGTTOU 23) SIGIO   24) SIGXCPU
+25) SIGXFSZ 26) SIGVTALRM   27) SIGPROF 28) SIGWINCH
+29) SIGINFO 30) SIGUSR1 31) SIGUSR2
+
+OR 
+
+MTVL1288aeea2-82:octopress tdongsi$ man signal
+</code></pre>
+
+<p>If one of the signals specified in <code>trap</code> statement is <code>DEBUG</code>, the list of COMMANDS specified in <code>trap</code> statement will be executed after every simple command.
+This is useful for debugging purpose.
+The following example is taken from <a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">here</a>:</p>
+
+<pre><code class="bash Tracing when a variable is used">declare -t VARIABLE=value
+trap "echo VARIABLE is being used here." DEBUG
+
+# rest of the script
+</code></pre>
+
+<h3>References</h3>
+
+<ol>
+<li><a href="http://tldp.org/LDP/Bash-Beginners-Guide/html/chap_12.html">Signals and Traps</a></li>
+<li><a href="http://redsymbol.net/articles/bash-exit-traps/">Other usages</a></li>
+<li><a href="http://wiki.bash-hackers.org/commands/builtin/declare">declare</a></li>
+</ol>
+
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
     <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
     <updated>2016-02-29T00:54:02-08:00</updated>
@@ -502,31 +653,6 @@ WHERE t1.rank = 1;
 
 <p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
 In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections/"/>
-    <updated>2016-02-07T00:50:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/07/vertica-7-projections</id>
-    <content type="html"><![CDATA[<p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
-
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
 ]]></content>
   </entry>
   
