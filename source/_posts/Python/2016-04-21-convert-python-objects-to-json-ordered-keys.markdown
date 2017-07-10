@@ -8,8 +8,9 @@ categories:
 ---
 
 In the JSON output shown in the last [post](/blog/2016/05/21/convert-python-objects-to-json/), the keys are printed out of order since they are unordered in the internal dictionary `__dict__`.
-In theory, it does not matter when converting to/from JSON.
-However, it sometimes makes sense for the keys to be printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
+In theory, it does not matter to *machines* when converting to/from JSON.
+However, it sometimes makes sense to *humans* for the keys to be pretty-printed in order, especially when we need to look for two keys in JSON next to each other or one key before another.
+<!--more-->
 For example, in the `Config` object in the last post, it is better to see `source` and `target` configurations side by side and, then, get to know what kind of tests from `testName` key before reading details of tests in `queries` key.
 Setting `sort_keys` option in `json.dump` is not applicable here since the keys will be sorted by their names, not their order of appearance like we do in the Java example. 
 

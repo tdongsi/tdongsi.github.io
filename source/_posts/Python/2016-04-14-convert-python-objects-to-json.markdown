@@ -8,6 +8,12 @@ categories:
 - Java
 ---
 
+In this post, we looks into converting a plain, simple Python object into JSON.
+JSON serialization in Java is also provided as an example.
+In the [following post](/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/), we will look into a more advanced method of conversion with attributes pretty-printed in order, like in the Java example.
+
+<!--more-->
+
 ### JSON serialization in Java
 
 In Java, it is pretty straight-forward to convert Java objects (POJO) to JSON using [Jackson library](https://github.com/FasterXML/jackson).

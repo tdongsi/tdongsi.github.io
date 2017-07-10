@@ -24,6 +24,8 @@ Can you produce J different jamcoins of length N, along with proof that they are
 For example, for the jamcoin 1001, a possible set of nontrivial divisors for the base 2 through 10 interpretations of the jamcoin would be: 3, 7, 5, 6, 31, 8, 27, 5, and 77, respectively.
 {% endblockquote %}
 
+<!--more-->
+
 The name "jamcoin" is probably a play on Bitcoin, since it deals with prime/composite numbers, a topic commonly found in cryptography.
 In this problem, we apparently need to determine lots of large numbers (32 digits for Large dataset) if they are composite numbers.
 

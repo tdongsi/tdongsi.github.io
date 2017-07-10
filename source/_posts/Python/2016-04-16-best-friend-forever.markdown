@@ -18,6 +18,8 @@ You want to form the largest possible circle of kids such that each kid in the c
 Give a line that contains N integers F1, F2, ..., FN, where Fi is the student ID number of the BFF of the kid with student ID i, find the greatest number of kids that can be in the circle.
 {% endblockquote %}
 
+<!--more-->
+
 I'm never a strong [sport programmer](https://en.wikipedia.org/wiki/Competitive_programming).
 I'd like to approach to the problem more methodically. 
 While the first three example test cases provided in the problem statement is pretty straight forward, the last example `7 8 10 10 9 2 9 6 3 3` is not so.
