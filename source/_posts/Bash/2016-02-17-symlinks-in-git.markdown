@@ -10,9 +10,7 @@ categories:
 - Bash
 ---
 
-### Context
-
-I had folders with many symbolic links in them, linking to other files in the same Git repository.
+Let's say we have folders with many symbolic links in them, linking to other files in the same Git repository.
 
 ``` bash Before
 $ ls -l link
@@ -28,13 +26,7 @@ $ cat link
 /path/to/target
 ```
 
-If you unknowingly try to run some symlinks linked to SQL scripts like that, you might end up with numerous errors like this: 
-
-``` plain
-vsql:schema_create.sql:1: ERROR 4856:  Syntax error at or near "/" at character 1
-vsql:schema_create.sql:1: LINE 1: /Users/tdongsi/Github/my_repo/db_schema/file...
-``` 
-
+<!--more-->
 
 ### Restoring the symlinks
 

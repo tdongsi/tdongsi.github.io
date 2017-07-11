@@ -16,6 +16,8 @@ For example: `WITH` clause support is only added into SQLite since Feb 2014.
 In summary, the `WITH` clause allows us to arrange sub-queries in a SQL query in order of human logic. 
 This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., [literate programming](https://en.wikipedia.org/wiki/Literate_programming)). 
 
+<!--more-->
+
 For example, we can look into the following `SELECT` query:
 
 ``` sql Hard to read
