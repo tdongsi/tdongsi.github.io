@@ -10,6 +10,8 @@ categories:
 
 The [Amazon Resource Name](http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) (ARN) is used to uniquely identify an AWS resource. You will need to use ARNs to connect your services and data in AWS.
 
+<!--more-->
+
 Format:
 
 * arn:partition:service:region:account-id:resource

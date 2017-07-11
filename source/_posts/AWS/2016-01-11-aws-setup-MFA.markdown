@@ -9,7 +9,9 @@ categories:
 - Security
 ---
 
-This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS:
+This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS.
+
+<!--more-->
 
 * Launch the AWS Console with your AWS Account. From the AWS Console, select "Identity & Access Management".
 
