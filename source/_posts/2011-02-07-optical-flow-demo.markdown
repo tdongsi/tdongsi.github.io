@@ -5,7 +5,6 @@ date: 2011-02-07 01:37:44 -0700
 comments: true
 categories: 
 - OpenCV
-- C++
 ---
 
 {% youtube ysGM3CfBVpU %}

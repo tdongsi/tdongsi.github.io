@@ -115,6 +115,8 @@ Recipes:
 * [Include code from file](http://octopress.org/docs/plugins/include-code/)
 * [rake isolate/integrate](https://blog.pixelingene.com/2011/09/tips-for-speeding-up-octopress-site-generation/)
 * [Image](http://octopress.org/docs/plugins/image-tag/)
+* [Video](https://github.com/optikfluffel/octopress-responsive-video-embed)
+  * [Improved ruby code](https://gist.github.com/jamieowen)
 
 Markdown editing tips:
 
