@@ -12,13 +12,15 @@ categories:
 - Testing
 ---
 
-### Vertica Virtual Machine as sandbox test environment
-
 When developing data-warehouse solutions in Vertica, you want to set up some test environment.
 Ideally, you should have separate schema for each developer. 
 However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment. 
 The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica's commercial license. 
 If that is the case, I recommend that we look into using Vertica Community Edition on **Virtual Machines (VMs)** for sandbox test environment, as a cheap alternative.
+
+<!--more-->
+
+### Vertica Virtual Machine as sandbox test environment
 
 Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes. 
 Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables. 

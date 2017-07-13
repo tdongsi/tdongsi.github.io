@@ -13,6 +13,8 @@ This post is a reminder of using Vertica's system tables for administrating and 
 
 You might ask why the tables are not dropped directly when I truncated the table in the first place. The answer is that all those tables have some specific designs on projection segmentation and partition, and those information will be lost if I drop the tables. These tables are frequently populated with data and cleared for testing purposes, and truncating and inserting with `direct` [hint](https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Statements/INSERT.htm) will give a significant performance boost (see [Best practices](/blog/2015/12/16/vertica-tip-best-practices/)).
 
+<!--more-->
+
 ### v\_monitor schema and COLUMN_STORAGE system table
 
 The [COLUMN_STORAGE system table](https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SystemTables/MONITOR/COLUMN_STORAGE.htm) in `v_monitor` schema returns the "amount of disk storage used by each column of each projection on each node". Therefore, to get the size of each table, you only need to aggregate the `used_byte` data, grouped by schema name and table name.

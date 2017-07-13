@@ -12,6 +12,8 @@ categories:
 
 This post lists some tips and tricks that I learnt when working with Vertica database.
 
+<!--more-->
+
 ### General Tips and Tricks
 
 #### CREATE (INSERT)

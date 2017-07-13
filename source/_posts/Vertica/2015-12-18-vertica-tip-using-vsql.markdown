@@ -9,6 +9,10 @@ categories:
 - Vertica
 ---
 
+Some tips on using command-line tool `vsql` for connecting and interacting with Vertica database.
+
+<!--more-->
+
 ### Using vsql
 
 You can connect to Vertica database with username and password. When doing this, note that the password might be seen in the command history.
