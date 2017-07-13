@@ -12,11 +12,14 @@ Amazon Web Services (AWS) is a collection of web services that deliver computing
 Not all AWS are equal but for AWS beginners, we usually don't know which are more important and which are secondary, supporting services. 
 Personally, I am initially overwhelmed by the number of services offered as well as large amount of documentation associated with each service.
 
-This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. Those layers, from bottom up, are:
+This post documents my understanding on some key AWS services and concepts. In this post, AWS concepts and services can be divided into layers. 
+Those layers, from bottom up, are:
 
 * AWS Infrastructure: Physical data centers and physical network connections.
 * Infrastructure Services (IaaS). 
 * Platform Services (PaaS).
+
+<!--more-->
 
 ### AWS Global Infrastructure
 

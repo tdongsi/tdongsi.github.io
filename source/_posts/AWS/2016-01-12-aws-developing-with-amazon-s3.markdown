@@ -13,6 +13,8 @@ categories:
 Amazon Simple Storage Service or S3 is a simple, scalable web services to store and retrieve data. 
 This post talks about basic concepts of buckets and objects in S3, basic and advanced operations on objects in S3, and standard development considerations when working with S3 using SDK.
 
+<!--more-->
+
 ### S3 Buckets and Objects
 
 Files of any kind such as text, video, photo are stored as objects in S3 *buckets*. 

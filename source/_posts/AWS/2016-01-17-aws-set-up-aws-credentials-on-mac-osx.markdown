@@ -10,6 +10,12 @@ categories:
 - Python
 ---
 
+Quick-start guide on AWS development in Java and Python.
+
+<!--more-->
+
+### Set up AWS development environment
+
 First, you need to set up your AWS credentials on your Mac by creating the following files at the following specific locations:
 
 ``` plain
