@@ -13,6 +13,8 @@ categories:
 
 This post covers different data types and file formats supported by Hive.
 
+<!--more-->
+
 ### Data Types
 
 The following primitive data types are supported:

@@ -11,6 +11,8 @@ categories:
 
 This post covers how to get started with Hive and some basics of Hive, including its command-line interface (CLI).
 
+<!--more-->
+
 ### Starting Hive with Cloudera Quickstart VM
 
 On Cloudera Quickstart VM, the cores of its Hive distribution, including files such as `hive-exec*.jar` and `hive-metastore*.jar`, can be found in `/usr/lib/hive/lib`. 

@@ -13,6 +13,8 @@ categories:
 
 Following up on [Hive CLI](/blog/2015/11/23/programming-hive-hive-cli/), this post covers some lower-level details of Hive such as Hadoop runtime modes and metastore.
 
+<!--more-->
+
 ### Runtime Modes
 
 There are different runtime modes for Hadoop. 

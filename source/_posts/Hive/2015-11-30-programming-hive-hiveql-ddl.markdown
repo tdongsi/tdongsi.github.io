@@ -13,6 +13,8 @@ categories:
 
 This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.
 
+<!--more-->
+
 ### Databases
 
 In Hive, the concept of a database is basically just a namespace of tables. The keyword SCHEMA can be used instead of DATABASE in all the database-related commands. If you don’t specify a database, the `default` database is used.

@@ -19,6 +19,7 @@ Chapter 5 of the book
 
 This post is about HiveQL's parts used to put data into tables and extract data from tables to the filesystem.
 
+<!--more-->
 
 ### LOAD
 

@@ -13,6 +13,8 @@ The following is a quick overview of just the `nzsql` and `nzload` commands.
 For a description of all the CLI tools, see the documentation [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/r_sysadm_summary_of_commands.html?lang=en). 
 You can install the Netezza CLI tools directly onto your system by following the instructions [here](http://www-01.ibm.com/support/knowledgecenter/SSULQD_7.2.0/com.ibm.nz.adm.doc/c_sysadm_client_software_install.html).
 
+<!--more-->
+
 ### nzsql command
 
 You can use `nzsql` in interactive terminal mode by executing the command:
