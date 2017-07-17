@@ -22,6 +22,8 @@ The project is based on a Cassandra interview question found on Glassdoor.
 
 Currently, the first version only works with Windows version of Cassandra (using DataStax Community installer). Developed and tested in Python 2.7.
 
+<!--more-->
+
 ### Input/Output
 
 **Input**

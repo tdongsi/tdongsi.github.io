@@ -15,6 +15,9 @@ categories:
 I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency. 
 
 This post will also apply if you are behind a firewall and/or do not have external access for some reason.
+
+<!--more-->
+
 #### Solution:
 
 * Download the jar file (e.g., the Vertica JDBC jar file). 
