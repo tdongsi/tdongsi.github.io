@@ -16,6 +16,8 @@ I found this email below (names redacted) in an old document folder. It is proba
 1. Developers and test engineers should NOT be siloed into different departments in any company. They should work closely together, as programmers having different roles (develop vs. test) in a project (hint: Agile). An analogy is forwards/defenders in a soccer match: they are all soccer players, with different roles.
    * Organizational boundaries only dampen open collaboration only if people let them (or abuse them). Send emails, or walk to the other building if needed, to work closely with your project team members.
 
+<!--more-->
+
 ***
 
 Hi LeadDeveloper,

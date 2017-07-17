@@ -8,15 +8,21 @@ categories:
 - Java
 ---
 
-[WordCount](https://wiki.apache.org/hadoop/WordCount) is the Hadoop equivalent of “Hello World” example program. When you first start learning a new language or framework, you would want to run and look into some "Hello World" example to get a feel of the new development environment. Your first few programs in those new languages or frameworks are probably extended from those basic "Hello World" examples.
+[WordCount](https://wiki.apache.org/hadoop/WordCount) is the Hadoop equivalent of “Hello World” example program. 
+When you first start learning a new language or framework, you would want to run and look into some "Hello World" example to get a feel of the new development environment. 
+Your first few programs in those new languages or frameworks are probably extended from those basic "Hello World" examples.
 
-Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as [this](https://developer.yahoo.com/hadoop/tutorial/)). Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.
+Most Hadoop tutorials are quite overwhelming in text, but provide little guide on practical hands-on experiments (such as [this](https://developer.yahoo.com/hadoop/tutorial/)). 
+Although they are good and thorough tutorials, many new Hadoop users may be lost midway after walls of texts.
 
-The purpose of this post is to help new users dive into Hadoop more easily. After reading this, you should be able to:
+The purpose of this post is to help new users dive into Hadoop more easily. 
+After reading this, you should be able to:
 
 1. Get started with a simple, local Hadoop sandbox for hands-on experiments.
 1. Perform some simple tasks in HDFS.
 1. Run the most basic example program WordCount, using your own input data.
+
+<!--more-->
 
 ### Get your Hadoop sandbox
 
