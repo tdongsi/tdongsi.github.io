@@ -10,6 +10,8 @@ categories:
 
 Recipes with `ssh-add` command.
 
+<!--more-->
+
 ### Simple usages
 
 ``` plain Adding identity file

@@ -8,7 +8,9 @@ categories:
 - Windows
 ---
 
-Setting up public-key SSH on Windows is much more tricky than Linux (see [here](/blog/2015/03/02/install-ssh-on-linux/)).
+Setting up public-key SSH on Windows is much more tricky than on Linux (see [here](/blog/2015/03/02/install-ssh-on-linux/)).
+
+<!--more-->
 
 ### Install OpenSSH for Windows
 

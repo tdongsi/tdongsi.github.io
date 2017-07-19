@@ -12,6 +12,8 @@ categories:
 
 A few notes on executing Maven + TestNG tests in Jenkins.
 
+<!--more-->
+
 ### Running tests
 
 Use the following Maven commands in Jenkins when executing tests.

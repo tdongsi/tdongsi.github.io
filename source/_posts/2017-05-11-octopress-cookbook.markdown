@@ -8,6 +8,11 @@ categories:
 - Ruby
 ---
 
+Octopress is a Ruby-based framework for generating static blog sites. 
+This post will show the most basics of Octopress to get started on blogging quickly.
+
+<!--more-->
+
 ### Basic workflow
 
 In summary, the workflow for writing blog in Octopress is as follows:
