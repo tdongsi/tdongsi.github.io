@@ -11,7 +11,7 @@ categories:
 - SQL
 ---
 
-This post covers data definition parts of HiveQL language, mostly for creating, altering, and dropping databases and tables. Note that Hive does not support row-level inserts, updates, and deletes. However, Hive adds extensions for better performance in the context of Hadoop.
+This post covers data definition parts of HiveQL language, for creating, altering, and dropping **databases**.
 
 <!--more-->
 

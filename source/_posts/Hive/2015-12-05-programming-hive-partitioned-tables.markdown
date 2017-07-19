@@ -15,7 +15,11 @@ categories:
 Chapter 4
 -->
 
-Continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [posts](/blog/2015/12/05/programming-hive-ddl-table/).
+Continued from the [previous](/blog/2015/12/02/programming-hive-hiveql-ddl/) [posts](/blog/2015/12/05/programming-hive-ddl-table/), this post will look into more details of **partitioned tables**. 
+Note that Hive does not support row-level inserts, updates, and deletes. 
+However, Hive adds extensions such as table partitioning for better performance in the context of Hadoop.
+
+<!--more-->
 
 ### Partitioned Managed Tables
 

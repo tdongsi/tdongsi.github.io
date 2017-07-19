@@ -1,12 +1,17 @@
 ---
 layout: post
-title: "Some NZSQL tips for new Netezza users"
+title: "NZSQL tips for new Netezza users"
 date: 2015-12-07 11:11:06 -0800
 comments: true
 categories: 
 - Database
 - SQL
 ---
+
+Just like any SQL dialect, NZSQL has some quirks and odd conventions which could be really confusing to new Netezza users.
+This post has some tips for those new users.
+
+<!--more-->
 
 * By default, identifiers are treated as UPPERCASE, even if you type them as LOWERCASE. So, for example, these create statements:
 

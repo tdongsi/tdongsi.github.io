@@ -11,7 +11,9 @@ categories:
 - SQL
 ---
 
-Continued from the previous [post](/blog/2015/12/02/programming-hive-hiveql-ddl/).
+Continued from the previous [post](/blog/2015/12/02/programming-hive-hiveql-ddl/), this post covers data definition parts of HiveQL language, for creating, altering, and dropping **tables**.
+
+<!--more-->
 
 ### Creating Tables
 
