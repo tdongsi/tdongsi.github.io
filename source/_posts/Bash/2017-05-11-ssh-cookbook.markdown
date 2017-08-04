@@ -33,6 +33,26 @@ ssh-keyscan -H [ip_address] >> ~/.ssh/known_hosts
 ssh-keyscan -H [hostname] >> ~/.ssh/known_hosts
 ```
 
+Recipe 4: [Java keystore](https://www.youtube.com/watch?v=fQEhA79ifnI)
+
+``` plain Recipe 4: Java keystore related commands
+# Generate Root CA
+keytool -genkey -v -alias rootca -keyalg RSA -keystore kstore
+# Generate Intermediate CA
+keytool -genkey -v -alias CA -keyalg RSA -keystore kstore
+# Sign the CA with rootCA
+TODO
+# Export certificate
+keytool -export -alias CAsigned -keystore kstore -file CAsigned.crt
+# Import cert
+keytool -import -alias CA -keystore kstore -file CAsigned.crt
+# List keystore
+keytool -list -v -keystore kstore
+
+# Import internal root CA with default path
+keytool -import -alias "sfdc root" -keystore $JAVA_HOME/jre/lib/security/cacerts -file ~/Downloads/sfdc_root.cert 
+```
+
 ### `-R` and `-L` of `ssh`
 
 Those options stands for remote and local port forwarding.
