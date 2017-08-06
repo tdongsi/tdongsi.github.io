@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Security | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/security/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-07-19T09:51:32-07:00</updated>
+  <updated>2017-08-05T23:32:53-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -78,6 +78,86 @@
 
 
 <p><img class="center" src="/images/aws/mfa/step8_mfa.png" width="300" height="185" title="Screenshot" ></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Curl Cookbook]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/"/>
+    <updated>2015-08-04T10:43:42-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/08/04/curl-cookbook</id>
+    <content type="html"><![CDATA[<p>This blog lists some recipes for <code>curl</code> command.</p>
+
+<!--more-->
+
+
+<h3>Alternatives to <code>curl</code></h3>
+
+<h4>Simple connectivity test</h4>
+
+<p><code>telnet</code>: Most of <code>curl</code> uses are to simply check if you can connect to some endpoint at some port number.</p>
+
+<p><code>python</code>: In some Linux systems, <code>telnet</code> is not installed and cannot be installed but <code>python</code> is present. In that case, you can use the following Python snippet:</p>
+
+<pre><code class="plain Connectivity test with Python">$ python
+Python 2.7.5 (default, Nov  6 2016, 00:28:07)
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-11)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+&gt;&gt;&gt; import socket
+&gt;&gt;&gt; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+&gt;&gt;&gt; s.connect(('my.service.net',8080))
+</code></pre>
+
+<h4>Full replacement</h4>
+
+<p><code>java</code>: <a href="https://hc.apache.org/index.html">Apache HttpClient</a>.</p>
+
+<p><code>python</code>: <a href="http://docs.python-requests.org/en/master/">requests module</a>. An <a href="https://github.com/tdongsi/bart-parking">example project</a>.</p>
+
+<h3>Standard options by functionality</h3>
+
+<h4>General usage</h4>
+
+<pre><code class="plain Options">-X: HTTP method. For example: -X PUT.
+-O: binary download.
+</code></pre>
+
+<h4>Secure connections</h4>
+
+<pre><code class="plain Options">-k, --insecure: curl to proceed and operate even for server connections otherwise considered insecure.
+</code></pre>
+
+<h3>Cookbook</h3>
+
+<h3>Common problems</h3>
+
+<h4>Passing certificate and private key gives <code>OSStatus -25299</code> error</h4>
+
+<pre><code class="plain Error message">tdongsi-ltm4:download tdongsi$ curl --cert hostcert.crt --key hostcert.key "https://myurl:9093/namespaces/something"
+curl: (58) SSL: Can't load the certificate "hostcert.crt" and its private key: OSStatus -25299
+</code></pre>
+
+<p>As explained in <a href="https://github.com/curl/curl/issues/283">this Github bug</a>, the certificate must be in PKCS#12 format if using Secure Transport.</p>
+
+<p><blockquote><p>the Secure Transport back-end to curl only supports client IDs that are in PKCS#12 (P12) format; it does not support client IDs in PEM format because Apple does not allow us to create a security identity from an identity file in PEM format without using a private API. And we can&rsquo;t use the private API, because apps that use private API are not allowed in any of Apple&rsquo;s app stores.</p></blockquote></p>
+
+<p>You can use <code>openssl</code> to convert your private key + certificate to PKCS12 format, as follows.</p>
+
+<pre><code class="plain Convert to PKCS12 and retry">tdongsi-ltm4:download tdongsi$ openssl pkcs12 -export -in hostcert.crt -inkey hostcert.key -out ajna.p12
+Enter Export Password:
+Verifying - Enter Export Password:
+
+tdongsi-ltm4:download tdongsi$ curl -v -k -E ./ajna.p12:testing "https://myurl:9093/namespaces/something"
+</code></pre>
+
+<p>In the second command above, <code>testing</code> is the password of your choice when you create <code>ajna.p12</code> keystore with the first command.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://curl.haxx.se/docs/manpage.html">curl man page</a></li>
+</ul>
+
 ]]></content>
   </entry>
   
@@ -184,6 +264,25 @@ Last login: Mon May 15 20:23:46 2017 from 10.10.74.67
 
 <pre><code class="plain Recipe 3: Add new hosts to known_hosts file">ssh-keyscan -H [ip_address] &gt;&gt; ~/.ssh/known_hosts
 ssh-keyscan -H [hostname] &gt;&gt; ~/.ssh/known_hosts
+</code></pre>
+
+<p>Recipe 4: <a href="https://www.youtube.com/watch?v=fQEhA79ifnI">Java keystore</a></p>
+
+<pre><code class="plain Recipe 4: Java keystore related commands"># Generate Root CA
+keytool -genkey -v -alias rootca -keyalg RSA -keystore kstore
+# Generate Intermediate CA
+keytool -genkey -v -alias CA -keyalg RSA -keystore kstore
+# Sign the CA with rootCA
+TODO
+# Export certificate
+keytool -export -alias CAsigned -keystore kstore -file CAsigned.crt
+# Import cert
+keytool -import -alias CA -keystore kstore -file CAsigned.crt
+# List keystore
+keytool -list -v -keystore kstore
+
+# Import internal root CA with default path
+keytool -import -alias "sfdc root" -keystore $JAVA_HOME/jre/lib/security/cacerts -file ~/Downloads/sfdc_root.cert 
 </code></pre>
 
 <h3><code>-R</code> and <code>-L</code> of <code>ssh</code></h3>

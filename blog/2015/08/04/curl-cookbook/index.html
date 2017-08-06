@@ -5,12 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Using Virtual Machine for ETL Testing - Personal Programming Notes</title>
+  <title>Curl Cookbook - Personal Programming Notes</title>
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each &hellip;">
+  <meta name="description" content="This blog lists some recipes for curl command. Alternatives to curl Simple connectivity test telnet: Most of curl uses are to simply check if you can &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -19,7 +18,7 @@ Ideally, you should have separate schema for each &hellip;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/">
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
@@ -102,7 +101,7 @@ Ideally, you should have separate schema for each &hellip;">
   
   <header>
     
-      <h1 class="entry-title">Using Virtual Machine for ETL Testing</h1>
+      <h1 class="entry-title">Curl Cookbook</h1>
     
     
       <p class="meta">
@@ -111,78 +110,105 @@ Ideally, you should have separate schema for each &hellip;">
 
 
 
-<time class='entry-date' datetime='2016-01-10T23:49:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:49 pm</span></time>
+<time class='entry-date' datetime='2015-08-04T10:43:42-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>4</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:43 am</span></time>
         
       </p>
     
   </header>
 
 
-<div class="entry-content"><p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer.
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
-The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
-If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
+<div class="entry-content"><p>This blog lists some recipes for <code>curl</code> command.</p>
 
 <!--more-->
 
 
-<h3>Vertica Virtual Machine as sandbox test environment</h3>
+<h3>Alternatives to <code>curl</code></h3>
 
-<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
-Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
-Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
-Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
-In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
-Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
+<h4>Simple connectivity test</h4>
 
-<h3>Single-node VM and KSAFE clause</h3>
+<p><code>telnet</code>: Most of <code>curl</code> uses are to simply check if you can connect to some endpoint at some port number.</p>
 
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
+<p><code>python</code>: In some Linux systems, <code>telnet</code> is not installed and cannot be installed but <code>python</code> is present. In that case, you can use the following Python snippet:</p>
 
-<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
+<figure class='code'><figcaption><span>Connectivity test with Python</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ python
+</span><span class='line'>Python 2.7.5 (default, Nov  6 2016, 00:28:07)
+</span><span class='line'>[GCC 4.8.5 20150623 (Red Hat 4.8.5-11)] on linux2
+</span><span class='line'>Type "help", "copyright", "credits" or "license" for more information.
+</span><span class='line'>&gt;&gt;&gt; import socket
+</span><span class='line'>&gt;&gt;&gt; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+</span><span class='line'>&gt;&gt;&gt; s.connect(('my.service.net',8080))</span></code></pre></td></tr></table></div></figure>
 
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
+
+<p></p>
+
+<h4>Full replacement</h4>
+
+<p><code>java</code>: <a href="https://hc.apache.org/index.html">Apache HttpClient</a>.</p>
+
+<p><code>python</code>: <a href="http://docs.python-requests.org/en/master/">requests module</a>. An <a href="https://github.com/tdongsi/bart-parking">example project</a>.</p>
+
+<h3>Standard options by functionality</h3>
+
+<h4>General usage</h4>
+
+<figure class='code'><figcaption><span>Options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-X: HTTP method. For example: -X PUT.
+</span><span class='line'>-O: binary download.</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Secure connections</h4>
+
+<figure class='code'><figcaption><span>Options</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>-k, --insecure: curl to proceed and operate even for server connections otherwise considered insecure.</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Cookbook</h3>
+
+<h3>Common problems</h3>
+
+<h4>Passing certificate and private key gives <code>OSStatus -25299</code> error</h4>
+
+<figure class='code'><figcaption><span>Error message</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-ltm4:download tdongsi$ curl --cert hostcert.crt --key hostcert.key "https://myurl:9093/namespaces/something"
+</span><span class='line'>curl: (58) SSL: Can't load the certificate "hostcert.crt" and its private key: OSStatus -25299</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As explained in <a href="https://github.com/curl/curl/issues/283">this Github bug</a>, the certificate must be in PKCS#12 format if using Secure Transport.</p>
+
+<blockquote><p>the Secure Transport back-end to curl only supports client IDs that are in PKCS#12 (P12) format; it does not support client IDs in PEM format because Apple does not allow us to create a security identity from an identity file in PEM format without using a private API. And we can't use the private API, because apps that use private API are not allowed in any of Apple's app stores.</p></blockquote>
+
+
+<p>You can use <code>openssl</code> to convert your private key + certificate to PKCS12 format, as follows.</p>
+
+<figure class='code'><figcaption><span>Convert to PKCS12 and retry</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-ltm4:download tdongsi$ openssl pkcs12 -export -in hostcert.crt -inkey hostcert.key -out ajna.p12
+</span><span class='line'>Enter Export Password:
+</span><span class='line'>Verifying - Enter Export Password:
+</span><span class='line'>
+</span><span class='line'>tdongsi-ltm4:download tdongsi$ curl -v -k -E ./ajna.p12:testing "https://myurl:9093/namespaces/something"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In the second command above, <code>testing</code> is the password of your choice when you create <code>ajna.p12</code> keystore with the first command.</p>
+
+<h3>References</h3>
 
 <ul>
-<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
-<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
-<li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
-
-<ul>
-<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
-</ul>
-</li>
-<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
+<li><a href="https://curl.haxx.se/docs/manpage.html">curl man page</a></li>
 </ul>
 
-
-<h4>Find and replace a string in multiple files</h4>
-
-<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
-
-<ul>
-<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
-<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
-</ul>
-
-
-<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
 </div>
 
 
@@ -198,12 +224,12 @@ The reason is that Vertica database with one or two hosts cannot be <em>k-safe</
 
 
 
-<time class='entry-date' datetime='2016-01-10T23:49:15-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:49 pm</span></time>
+<time class='entry-date' datetime='2015-08-04T10:43:42-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>4</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:43 am</span></time>
       
 
 <span class="categories">
   
-    <a class='category' href='/blog/categories/bash/'>bash</a>, <a class='category' href='/blog/categories/centos/'>centos</a>, <a class='category' href='/blog/categories/git/'>git</a>, <a class='category' href='/blog/categories/macosx/'>macosx</a>, <a class='category' href='/blog/categories/testing/'>testing</a>, <a class='category' href='/blog/categories/vertica/'>vertica</a>
+    <a class='category' href='/blog/categories/bash/'>bash</a>, <a class='category' href='/blog/categories/security/'>security</a>
   
 </span>
 
@@ -212,7 +238,7 @@ The reason is that Vertica database with one or two hosts cannot be <em>k-safe</
     
       <div class="sharing">
   
-  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/" data-via="" data-counturl="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/" >Tweet</a>
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/" data-via="" data-counturl="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/" >Tweet</a>
   
   
   
@@ -223,10 +249,10 @@ The reason is that Vertica database with one or two hosts cannot be <em>k-safe</
     
     <p class="meta">
       
-        <a class="basic-alignment left" href="/blog/2015/12/18/vertica-tip-find-empty-tables-in-a-schema/" title="Previous Post: Vertica Tip: Find empty tables">&laquo; Vertica Tip: Find empty tables</a>
+        <a class="basic-alignment left" href="/blog/2015/05/16/ssh-add-cookbook/" title="Previous Post: SSH cookbook: ssh-add">&laquo; SSH cookbook: ssh-add</a>
       
       
-        <a class="basic-alignment right" href="/blog/2016/01/14/aws-overview-of-services/" title="Next Post: AWS: Overview of Services">AWS: Overview of Services &raquo;</a>
+        <a class="basic-alignment right" href="/blog/2015/09/03/running-maven-tests-in-jenkins/" title="Next Post: Running Maven tests in Jenkins">Running Maven tests in Jenkins &raquo;</a>
       
     </p>
   </footer>
