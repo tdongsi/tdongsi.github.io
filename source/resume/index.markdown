@@ -121,7 +121,7 @@ SKIPPED:
 
 * AWS, Kubernetes, Docker, Jenkins, CI/CD.
 * Achievements:
-  * ["Employee Award"](/download/awards/2017_IoT_Star.jpg) for designing and building [a scalable CI/CD system used in IoT Cloud](/download/awards/2017_IoT_slide.jpg).
+  * ["IoT Rock Star Award"](/download/awards/2017_IoT_Star.jpg) for designing and building [a scalable CI/CD system used in IoT Cloud](/download/awards/2017_IoT_slide.jpg).
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 

@@ -10,11 +10,46 @@ categories:
 
 This blog lists some recipes for `curl` command.
 
+<!--more-->
+
 ### Alternatives to `curl`
 
-`telnet`: Most of
+#### Simple connectivity test
+
+`telnet`: Most of `curl` uses are to simply check if you can connect to some endpoint at some port number.
+
+`python`: In some Linux systems, `telnet` is not installed and cannot be installed but `python` is present. In that case, you can use the following Python snippet:
+
+``` plain Connectivity test with Python
+$ python
+Python 2.7.5 (default, Nov  6 2016, 00:28:07)
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-11)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import socket
+>>> s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+>>> s.connect(('my.service.net',8080))
+``` 
+
+#### Full replacement
+
+`java`: [Apache HttpClient](https://hc.apache.org/index.html).
+
+`python`: [requests module](http://docs.python-requests.org/en/master/). An [example project](https://github.com/tdongsi/bart-parking).
 
 ### Standard options by functionality
+
+#### General usage
+
+``` plain Options
+-X: HTTP method. For example: -X PUT.
+-O: binary download.
+```
+
+#### Secure connections
+
+``` plain Options
+-k, --insecure: curl to proceed and operate even for server connections otherwise considered insecure.
+```
 
 ### Cookbook
 
@@ -45,3 +80,6 @@ tdongsi-ltm4:download tdongsi$ curl -v -k -E ./ajna.p12:testing "https://myurl:9
 
 In the second command above, `testing` is the password of your choice when you create `ajna.p12` keystore with the first command.
 
+### References
+
+* [curl man page](https://curl.haxx.se/docs/manpage.html)
