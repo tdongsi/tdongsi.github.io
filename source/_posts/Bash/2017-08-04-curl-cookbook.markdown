@@ -53,6 +53,16 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 ### Cookbook
 
+#### Standard usage
+
+``` plain etcd examples
+TODO
+```
+
+``` plain Other examples
+TODO
+```
+
 ### Common problems
 
 #### Passing certificate and private key gives `OSStatus -25299` error

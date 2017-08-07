@@ -79,7 +79,7 @@ TODO:
   * Teamware:
     MediaWiki, Confluence, JIRA, Trello.
   * DevOps:
-    Jenkins, Spinnaker, 
+    [Jenkins](/blog/categories/jenkins/), Spinnaker, 
     [Splunk](/download/training/COC_Searching_Splunk.pdf), 
     Chef, vagrant, 
     [Docker](/blog/categories/docker/), Kubernetes.

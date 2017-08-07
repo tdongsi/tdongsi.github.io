@@ -116,12 +116,13 @@ See [here](https://help.github.com/articles/error-permission-denied-publickey/) 
 Recipes:
 
 * [Latex for Math formulas](http://blog.zhengdong.me/2012/12/19/latex-math-in-octopress/)
-* [New page](http://gangmax.me/blog/2012/05/04/add-about-page-in-octopress/)
+* [New page](http://gangmax.me/blog/2012/05/04/add-about-page-in-octopress/): `rake new_page["Resume"]` and add link ([example](https://github.com/tdongsi/tdongsi.github.io/blob/source/source/_includes/custom/navigation.html)).
 * [Include code from file](http://octopress.org/docs/plugins/include-code/)
 * [rake isolate/integrate](https://blog.pixelingene.com/2011/09/tips-for-speeding-up-octopress-site-generation/)
 * [Image](http://octopress.org/docs/plugins/image-tag/)
 * [Video](https://github.com/optikfluffel/octopress-responsive-video-embed)
   * [Improved ruby code](https://gist.github.com/jamieowen)
+* [Table](http://samwize.com/2012/09/24/octopress-table-stylesheet/) ([implemented](https://github.com/tdongsi/python/commit/7f75238b62a40696b3dd0160a8ff3e84baea229b)): [Markdown example](https://github.com/tdongsi/tdongsi.github.io/blob/source/source/_posts/Hive/2015-11-21-explaining-wordcount-example.markdown).
 
 Markdown editing tips:
 
