@@ -6,6 +6,7 @@ comments: true
 categories:
 - Bash 
 - Security
+- Git
 ---
 
 This blog lists some recipes for `curl` command.
@@ -61,6 +62,8 @@ def getPrBody(String githubUsername, String githubToken, String repo, String id)
 ``` plain Options
 -X: HTTP method. For example: -X PUT.
 -O: binary download.
+
+-s: silent. It will only output the data you ask for.
 ```
 
 #### Secure connections

@@ -7,6 +7,7 @@ categories:
 - bash
 - Jenkins
 - Groovy
+- Git
 ---
 
 The blog post shows some useful snippets for interacting with Github API.
@@ -45,7 +46,7 @@ curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB_API}/${org}/${rep
 
 #### Posting comment on the Pull Request
 
-Reference: [Create a comment](https://developer.github.com/v3/issues/comments/#create-a-comment)
+Reference: [Create a comment](https://developer.github.com/v3/issues/comments/#create-a-comment).
 
 ``` groovy Equivalent curl in Jenkinsfile
 sh """
@@ -75,7 +76,14 @@ The Jenkins-provided environment variable `$CHANGE_ID`, in the case of a pull re
 
 #### Getting email of branch maintainer
 
-TODO: Note that in Git, there is no such metadata for Git creator.
+At the end of a Jenkins build for a feature branch (NOT `develop`/`master`), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed [here](https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644).
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
 
 ``` groovy Get email of branch maintainer.
 def getBranchCreator(String githubUsername, String githubToken, String repo, String branch) {
@@ -116,11 +124,41 @@ withCredentials([
 
 ### More tips on Github API
 
-TODO: maintainer vs author.
+1) When processing data from Github API, note that any commit has an author and a committer, as shown below. 
 
-TODO: Groovy or `curl` what do you want to do with it.
+``` json Example commit data
+        "commit": {
+            "author": {
+                "name": "Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "committer": {
+                "name": "Tue-Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "message": "@JIRA-4214772@: Add function.",
+            "tree": {
+                "sha": "xxx",
+                "url": "xxx"
+            },
+            "url": "xxx",
+            "comment_count": 0
+        },
+```
 
-There is an API rate limit for public Github API (note "X-RateLimit-Limit" and "X-RateLimit-Remaining" in output below).
+While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:
+
+* Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the "committer" field usually has the Github default name and email, e.g., "Github Enterprise" and "no-reply@github.com".
+* Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.
+
+Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline. 
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be "no-reply@github.com" which is not helpful).
+
+2) There is an API rate limit for the free public Github API (note "X-RateLimit-Limit" and "X-RateLimit-Remaining" in output below).
 
 ``` plain Github API limit
 tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
@@ -159,6 +197,6 @@ Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use
 
 ### Reference
 
-Evernote: Github REST API
+* [curl cookbook](/blog/2015/08/04/curl-cookbook/)
 
 
