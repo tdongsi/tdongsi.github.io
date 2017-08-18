@@ -36,6 +36,24 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 `python`: [requests module](http://docs.python-requests.org/en/master/). An [example project](https://github.com/tdongsi/bart-parking).
 
+`groovy`: String's `toURL().getText()` together with JsonSlurper. 
+
+``` groovy Example Groovy
+import groovy.json.JsonSlurper
+
+def getPrBody(String githubUsername, String githubToken, String repo, String id) {
+  String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
+  println "Querying ${url}"
+  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+  def json = new JsonSlurper().parseText(text)
+  def bodyText = json.body
+  
+  return bodyText
+}
+```
+
 ### Standard options by functionality
 
 #### General usage
@@ -59,13 +77,21 @@ Type "help", "copyright", "credits" or "license" for more information.
 TODO
 ```
 
-``` plain Other examples
-TODO
+Some examples with [Github API](/blog/2017/08/06/github-rest-api/).
+
+``` plain Other Github API examples
+# PUT with data: Merging a PR
+curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}
+
+# GET with authentication: Get PR details
+curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB}/${org}/${repo}/pulls/${env.CHANGE_ID}
 ```
 
 ### Common problems
 
 #### Passing certificate and private key gives `OSStatus -25299` error
+
+You might encounter the following problem with the default `curl` on MacOS. 
 
 ``` plain Error message
 tdongsi-ltm4:download tdongsi$ curl --cert hostcert.crt --key hostcert.key "https://myurl:9093/namespaces/something"
@@ -89,6 +115,7 @@ tdongsi-ltm4:download tdongsi$ curl -v -k -E ./ajna.p12:testing "https://myurl:9
 ```
 
 In the second command above, `testing` is the password of your choice when you create `ajna.p12` keystore with the first command.
+Note that if `curl` is installed from `homebrew` on MacOS, you can use the certificate and its key without `openssl` conversion step.
 
 ### References
 
