@@ -1,0 +1,597 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Github REST API Cookbook - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Github REST API Cookbook</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-08-06T21:37:20-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>9:37 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
+For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
+
+<!--more-->
+
+
+<h3>Working with Pull Requests</h3>
+
+<h4>Extracting Pull Request details</h4>
+
+<figure class='code'><figcaption><span>Get PR body text</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
+</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
+
+<figure class='code'><figcaption><span>Equivalent curl | jq command in Jenkisfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s2">curl -s -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq &#39;.body&#39; -r &gt; pr_body.txt</span>
+</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Posting comment on the Pull Request</h4>
+
+<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
+
+<figure class='code'><figcaption><span>Equivalent curl in Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s2">curl -s -X POST -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; --data &#39;{&quot;</span><span class="n">body</span><span class="s2">&quot;: &quot;</span><span class="n">$</span><span class="o">{</span><span class="n">comment</span><span class="o">}</span><span class="s2">&quot;}&#39; ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments</span>
+</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Merge Pull Request</h4>
+
+<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
+
+<figure class='code'><figcaption><span>Merge pull request</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">stage</span> <span class="o">(</span><span class="s2">&quot;Merge PR&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">withCredentials</span><span class="o">([</span><span class="n">usernamePassword</span><span class="o">(</span><span class="nl">credentialsId:</span> <span class="s1">&#39;credential-value&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_USERNAME&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_PASSWORD&#39;</span><span class="o">,)])</span> <span class="o">{</span>
+</span><span class='line'>            <span class="kt">def</span> <span class="n">GITHUB</span> <span class="o">=</span> <span class="s1">&#39;https://github.ibm.com/api/v3/repos&#39;</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="s2">&quot;curl -X PUT -d &#39;{\&quot;commit_title\&quot;: \&quot;Merge pull request\&quot;}&#39; ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}&quot;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
+
+<h3>Working with Branches</h3>
+
+<h4>Getting email of branch maintainer</h4>
+
+<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
+
+
+
+
+<figure class='code'><figcaption><span>Get email of branch maintainer.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">getBranchCreator</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">branch</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}&quot;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Get last committer.</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">email</span>
+</span><span class='line'>    <span class="c1">// TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.</span>
+</span><span class='line'>    <span class="c1">// In the case, committer name is &#39;GitHub Enterprise&#39;.</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">name</span> <span class="o">==</span> <span class="s1">&#39;GitHub Enterprise&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="c1">// Use author&#39;s email instead</span>
+</span><span class='line'>    <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">author</span><span class="o">.</span><span class="na">email</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="c1">// TRICKY: the following can return inconsistent data, including &quot;null&quot;.</span>
+</span><span class='line'>    <span class="c1">// def author = json.author</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">creator</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Calling from Jenkinsfile</span>
+</span><span class='line'><span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;my-credentials&#39;</span><span class="o">,</span>
+</span><span class='line'>        <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
+</span><span class='line'><span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span> <span class="o">==~</span> <span class="s">/PR-\d+/</span> <span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// If it is a PR build, use some distribution list</span>
+</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="s1">&#39;someemail@enterprise.com&#39;</span>
+</span><span class='line'>    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// TODO: Replace env.GITHUB_USERNAME with the correct Github org name.</span>
+</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="n">getBranchCreator</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;my_repo&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>More tips on Github API</h3>
+
+<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
+
+<figure class='code'><figcaption><span>Example commit data</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'>    <span class="s2">&quot;commit&quot;</span><span class="err">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nt">&quot;author&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Cuong Dong-Si&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;committer&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Tue-Cuong Dong-Si&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;@JIRA-4214772@: Add function.&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="nt">&quot;tree&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;sha&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="nt">&quot;comment_count&quot;</span><span class="p">:</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="p">}</span><span class="err">,</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:</p>
+
+<ul>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#x74;&#x6f;&#58;&#110;&#111;&#x2d;&#x72;&#x65;&#112;&#x6c;&#121;&#x40;&#x67;&#x69;&#116;&#x68;&#117;&#x62;&#x2e;&#x63;&#111;&#x6d;">&#110;&#111;&#x2d;&#x72;&#x65;&#112;&#x6c;&#x79;&#64;&#103;&#105;&#116;&#104;&#117;&#x62;&#x2e;&#99;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
+</ul>
+
+
+<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#111;&#x3a;&#110;&#x6f;&#45;&#114;&#101;&#x70;&#108;&#x79;&#64;&#x67;&#105;&#x74;&#x68;&#117;&#x62;&#x2e;&#99;&#x6f;&#109;">&#x6e;&#111;&#45;&#114;&#101;&#112;&#x6c;&#x79;&#x40;&#103;&#105;&#116;&#104;&#x75;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
+
+<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
+
+<figure class='code'><figcaption><span>Github API limit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
+</span><span class='line'>HTTP/1.1 200 OK
+</span><span class='line'>Date: Fri, 09 Jun 2017 16:16:49 GMT
+</span><span class='line'>Content-Type: application/json; charset=utf-8
+</span><span class='line'>Content-Length: 1236
+</span><span class='line'>Server: GitHub.com
+</span><span class='line'>Status: 200 OK
+</span><span class='line'>X-RateLimit-Limit: 60
+</span><span class='line'>X-RateLimit-Remaining: 55
+</span><span class='line'>X-RateLimit-Reset: 1497025098
+</span><span class='line'>Cache-Control: public, max-age=60, s-maxage=60
+</span><span class='line'>Vary: Accept
+</span><span class='line'>ETag: "4d7770cf5c2478bf64d23bc908494172"
+</span><span class='line'>Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
+</span><span class='line'>X-GitHub-Media-Type: github.v3; format=json
+</span><span class='line'>Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
+</span><span class='line'>Access-Control-Allow-Origin: *
+</span><span class='line'>Content-Security-Policy: default-src 'none'
+</span><span class='line'>Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+</span><span class='line'>X-Content-Type-Options: nosniff
+</span><span class='line'>X-Frame-Options: deny
+</span><span class='line'>X-XSS-Protection: 1; mode=block
+</span><span class='line'>X-Runtime-rack: 0.030687
+</span><span class='line'>Vary: Accept-Encoding
+</span><span class='line'>X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
+</span><span class='line'>Vary: Accept-Encoding
+</span><span class='line'>X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
+</span><span class='line'>
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
+Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
+</ul>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-08-06T21:37:20-07:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>6</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>9:37 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/bash/'>bash</a>, <a class='category' href='/blog/categories/git/'>git</a>, <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/" title="Previous Post: Troubleshooting Groovy code in Jenkinsfile">&laquo; Troubleshooting Groovy code in Jenkinsfile</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/08/13/groovy-dsl/" title="Next Post: Groovy DSL">Groovy DSL &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/08/13/groovy-dsl/">Groovy DSL</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/08/06/github-rest-api/">Github REST API Cookbook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">Troubleshooting Groovy Code in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/25/sending-emails-from-docker-containers/">Sending Emails From Docker Containers</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/20/gradle-settings-in-jenkinsfile/">Maven and Gradle Builds in Jenkinsfile</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/05/15/kubernetes-kube-router/">Kubernetes: Kube-router</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (9)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (6)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (12)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (4)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

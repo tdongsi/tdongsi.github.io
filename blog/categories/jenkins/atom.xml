@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-08-05T23:32:53-07:00</updated>
+  <updated>2017-08-18T00:34:12-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,231 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Groovy DSL]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/13/groovy-dsl/"/>
+    <updated>2017-08-13T15:18:30-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/13/groovy-dsl</id>
+    <content type="html"><![CDATA[<p>Domain-Specific Language is a mini language for a specific problem and/or in a narrow context.
+For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
+
+<p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
+It shows the progression from standard Java-like implementation to its fluent version to its final DSL form.
+This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
+There are probably more advanced methods/frameworks for creating DSL.
+However, those are not in the scope of this post.</p>
+
+<!--more-->
+
+
+<h3>Example problem</h3>
+
+<h3>Version 1: Java-like standard implementation</h3>
+
+<h3>Version 2: Fluent interface with Builder pattern</h3>
+
+<h3>Version 3: DSL with Groovy closure</h3>
+
+<h3>Reference</h3>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/"/>
+    <updated>2017-08-06T21:37:20-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/06/github-rest-api</id>
+    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
+For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
+
+<!--more-->
+
+
+<h3>Working with Pull Requests</h3>
+
+<h4>Extracting Pull Request details</h4>
+
+<pre><code class="groovy Get PR body text">import groovy.json.JsonSlurper
+
+def getPrBody(String githubUsername, String githubToken, String repo, String id) {
+  String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
+  println "Querying ${url}"
+  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+  def json = new JsonSlurper().parseText(text)
+  def bodyText = json.body
+
+  return bodyText
+}
+</code></pre>
+
+<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
+
+<pre><code class="groovy Equivalent curl | jq command in Jenkisfile">sh """
+curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq '.body' -r &gt; pr_body.txt
+"""
+</code></pre>
+
+<h4>Posting comment on the Pull Request</h4>
+
+<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
+
+<pre><code class="groovy Equivalent curl in Jenkinsfile">sh """
+curl -s -X POST -H "Authorization: token ${env.GITHUB_TOKEN}" --data '{"body": "${comment}"}' ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments
+"""
+</code></pre>
+
+<h4>Merge Pull Request</h4>
+
+<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
+
+<pre><code class="groovy Merge pull request">stage ("Merge PR") {
+    steps { 
+        withCredentials([usernamePassword(credentialsId: 'credential-value', usernameVariable: 'ACCESS_TOKEN_USERNAME', passwordVariable: 'ACCESS_TOKEN_PASSWORD',)]) {
+            def GITHUB = 'https://github.ibm.com/api/v3/repos'
+            sh "curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}"
+        }
+    }
+}
+</code></pre>
+
+<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
+
+<h3>Working with Branches</h3>
+
+<h4>Getting email of branch maintainer</h4>
+
+<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
+
+
+<pre><code class="groovy Get email of branch maintainer.">def getBranchCreator(String githubUsername, String githubToken, String repo, String branch) {
+    String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+    String url = "${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}"
+    println "Querying ${url}"
+    def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+    def json = new JsonSlurper().parseText(text)
+
+    // Get last committer.
+    def creator = json.commit.commit.committer.email
+    // TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.
+    // In the case, committer name is 'GitHub Enterprise'.
+    if (json.commit.commit.committer.name == 'GitHub Enterprise') {
+    // Use author's email instead
+    creator = json.commit.commit.author.email
+    }
+    // TRICKY: the following can return inconsistent data, including "null".
+    // def author = json.author
+    return creator
+}
+
+// Calling from Jenkinsfile
+withCredentials([
+    [$class: 'UsernamePasswordMultiBinding', credentialsId: 'my-credentials', 
+        passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
+]) {
+    if (env.BRANCH_NAME ==~ /PR-\d+/ ) {
+        // If it is a PR build, use some distribution list
+        email = 'someemail@enterprise.com'
+    } else {
+        // TODO: Replace env.GITHUB_USERNAME with the correct Github org name.
+        email = getBranchCreator(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'my_repo', env.BRANCH_NAME)
+    }
+}  
+</code></pre>
+
+<h3>More tips on Github API</h3>
+
+<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
+
+<pre><code class="json Example commit data">        "commit": {
+            "author": {
+                "name": "Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "committer": {
+                "name": "Tue-Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "message": "@JIRA-4214772@: Add function.",
+            "tree": {
+                "sha": "xxx",
+                "url": "xxx"
+            },
+            "url": "xxx",
+            "comment_count": 0
+        },
+</code></pre>
+
+<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:</p>
+
+<ul>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#x69;&#x6c;&#x74;&#111;&#x3a;&#x6e;&#111;&#x2d;&#114;&#101;&#x70;&#x6c;&#121;&#64;&#x67;&#105;&#x74;&#x68;&#x75;&#x62;&#x2e;&#x63;&#x6f;&#109;">&#110;&#x6f;&#45;&#114;&#101;&#x70;&#x6c;&#x79;&#x40;&#103;&#x69;&#116;&#x68;&#x75;&#x62;&#x2e;&#x63;&#111;&#109;</a>&rdquo;.</li>
+<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
+</ul>
+
+
+<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#108;&#x74;&#x6f;&#x3a;&#x6e;&#111;&#45;&#114;&#x65;&#112;&#x6c;&#x79;&#64;&#x67;&#x69;&#x74;&#104;&#117;&#x62;&#x2e;&#99;&#x6f;&#109;">&#x6e;&#111;&#x2d;&#x72;&#x65;&#112;&#x6c;&#x79;&#64;&#103;&#105;&#x74;&#x68;&#117;&#98;&#x2e;&#x63;&#111;&#109;</a>&rdquo; which is not helpful).</p>
+
+<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
+
+<pre><code class="plain Github API limit">tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
+HTTP/1.1 200 OK
+Date: Fri, 09 Jun 2017 16:16:49 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 1236
+Server: GitHub.com
+Status: 200 OK
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 55
+X-RateLimit-Reset: 1497025098
+Cache-Control: public, max-age=60, s-maxage=60
+Vary: Accept
+ETag: "4d7770cf5c2478bf64d23bc908494172"
+Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
+X-GitHub-Media-Type: github.v3; format=json
+Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
+Access-Control-Allow-Origin: *
+Content-Security-Policy: default-src 'none'
+Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+X-XSS-Protection: 1; mode=block
+X-Runtime-rack: 0.030687
+Vary: Accept-Encoding
+X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
+Vary: Accept-Encoding
+X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
+
+...
+</code></pre>
+
+<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
+Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Troubleshooting Groovy Code in Jenkinsfile]]></title>
@@ -549,171 +774,6 @@ For example, the Gradle builds can be simplified by defining <code>useNexus</cod
 <li><a href="https://support.cloudbees.com/hc/en-us/articles/203802500-Injecting-Secrets-into-Jenkins-Build-Jobs">Secrets in Jenkins build jobs</a></li>
 <li><a href="https://docs.gradle.org/current/userguide/build_environment.html">Gradle build environment</a></li>
 <li><a href="https://stackoverflow.com/questions/12749225/where-to-put-gradle-configuration-i-e-credentials-that-should-not-be-committe">Stackoverflow dicussion</a>: for older versions of Gradle.</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
-    <updated>2017-04-26T16:24:24-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker</id>
-    <content type="html"><![CDATA[<p>In this blog post, we are using <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a> to build Docker images in our containerized Jenkins slaves.
-We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.</p>
-
-<!--more-->
-
-
-<h3>Problem description</h3>
-
-<p>We got the following error when running Docker inside a Jenkins slave container.</p>
-
-<pre><code class="plain Error message when running Docker">+ docker images
-Cannot connect to the Docker daemon. Is the docker daemon running on this host?
-</code></pre>
-
-<h3>Discussion</h3>
-
-<p>In summary, for <a href="/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a>, the basic requirements to enable building Docker images in a containerized Jenkins slave is:</p>
-
-<ol>
-<li>You&rsquo;ll need to mount &ldquo;/var/run/docker.sock&rdquo; as a volume at &ldquo;/var/run/docker.sock&rdquo;.</li>
-<li>Having <code>docker</code> CLI installed in the containerized Jenkins slave.</li>
-<li>Make sure &ldquo;/var/run/docker.sock&rdquo; has the right permission inside the Jenkins slave container: readable for the current user (e.g., user <code>jenkins</code>) or in &ldquo;docker&rdquo; group.</li>
-</ol>
-
-
-<p>The direct cause of the above error message &ldquo;Cannot connect to the Docker daemon&rdquo; is that the socket &ldquo;/var/run/docker.sock&rdquo; to <code>docker</code> daemon on that Jenkins slave does not have the right permission for the current user (<code>jenkins</code> in the example).
-By convention, the read permission to that Unix domain socket &ldquo;/var/run/docker.sock&rdquo; is given to <code>root</code> user or users in <code>docker</code> group.
-The following commands verify that it is not:</p>
-
-<pre><code class="plain Show GID of docker group">+ ls -l /var/run/docker.sock
-
-srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
-+ cat /etc/group
-...
-docker:x:999:jenkins
-</code></pre>
-
-<p>The expected output of the above <code>ls</code> command is as follows:</p>
-
-<pre><code class="plain Expected output">+ ls -l /var/run/docker.sock
-srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock
-</code></pre>
-
-<p>The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below).
-The group <code>docker</code> happens to have the group ID 999 on that Kubernetes cluster.</p>
-
-<pre><code class="plain Dockerfile for installing Docker CLI in Jenkins slave http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container">FROM jenkins
-
-USER root
-ENV DEBIAN_FRONTEND=noninteractive
-ENV HOME /home/jenkins
-ENV DOCKER_VERSION=1.9.1-0~trusty
-
-RUN apt-get update \
-  &amp;&amp; apt-get install -y docker-engine=$DOCKER_VERSION \
-  &amp;&amp; rm -rf /var/lib/apt/lists/*
-
-RUN usermod -a -G docker jenkins
-</code></pre>
-
-<p>For illustration, the Docker installation steps in Ubuntu are similar:</p>
-
-<pre><code class="plain Installing Docker CLI https://docs.docker.com/engine/installation/linux/linux-postinstall/"># Install from Web
-sudo curl -sSL https://get.docker.com/ | sh
-sudo usermod -aG docker jenkins
-
-# Install from apt
-sudo apt-get update
-sudo apt-get install -y docker-engine
-sudo usermod -aG docker jenkins
-</code></pre>
-
-<p>The last step <code>usermod</code> comes from Docker documentation itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
-
-<h3>Resolving problem</h3>
-
-<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
-In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
-It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker-in-Docker vs Docker-out-of-Docker]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/"/>
-    <updated>2017-04-23T10:42:04-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker</id>
-    <content type="html"><![CDATA[<p>In this post, we look into two different approaches to solving the problem of building/pushing Docker images from a containerized Jenkins system.
-From that understanding, we will discuss the pros and cons of each approach in production Continuous Integration (CI) systems and how one should be used in practice.</p>
-
-<!--more-->
-
-
-<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
-
-<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
-An example setup is to run Jenkins on top of a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
-The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of installing and running another Docker engine (daemon) inside Docker containers.
-Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
-As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
-
-<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
-However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
-He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
-The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<h3>Which one should we use?</h3>
-
-<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
-Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
-
-<p>Instead of trying to run Docker engine inside containers, it is advised to just expose the Docker socket to those containers.
-This can be done by bind-mounting with the <code>-v</code> flag:</p>
-
-<pre><code class="plain Docker out of Docker">docker run -v /var/run/docker.sock:/var/run/docker.sock ...
-</code></pre>
-
-<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
-The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the outer and inner containers are all running on the same host machine.
-However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
-And for the purpose of building/running/pushing Docker images in containerized Jenkins systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly all we need.</p>
-
-<h3>Further discussion</h3>
-
-<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
-However, what&rsquo;s not mentioned is any potential problem of &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
-
-<p>In my opinion, one potential issue of &ldquo;Docker-out-of-Docker&rdquo; approach is one can access the outer Docker container from the inner container through &ldquo;/var/run/docker.sock&rdquo;.
-In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
-The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
-This means that a containerized Jenkins system can be easily compromised if there is no limit on what&rsquo;s running in Jenkins slaves.</p>
-
-<p>It should be noted that, despite of problems listed by Jerome, &ldquo;Docker-in-Docker&rdquo; approach is still a possible choice *IF* you know what you are doing.
-Conflict of security profiles can be resolved with the right, careful setup.
-There are work-arounds for incompatible file systems between the containers.
-With the right setup, &ldquo;Docker-in-Docker&rdquo; can provide essentially free build isolation and security, which is a must for many, especially in corporates.
-However, the ever-present disadvantage of this apporach is long build time for large Docker images since Docker image cache has to be re-populated every run.
-As noted by Jerome, this cache is designed for exclusive access by one single Docker daemon at once.
-Trying to link this cache in each container to some common, pre-populated Docker image cache will lead to corrupt image data.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
-<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
-<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
 </ul>
 
 ]]></content>

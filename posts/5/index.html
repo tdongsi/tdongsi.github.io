@@ -9,10 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Let&rsquo;s say we have folders with many symbolic links in them, linking to other files in the same Git repository. Before1
-2
-$ ls -l link
-... link &hellip;">
+  <meta name="description" content="Most information presented in this post is directly quoted from this page. Epoch: An epoch is 64-bit number that represents a logical time stamp for &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -101,6 +98,118 @@ $ ls -l link
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-02-29T00:54:02-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>29</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:54 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
+
+<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
+The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
+The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
+
+<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>=&gt; select * from epochs;
+</span><span class='line'>
+</span><span class='line'>epoch_close_time            epoch_number
+</span><span class='line'>2016-03-04 21:44:24.192495    610131</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
+The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
+You cannot run any historical queries prior to the AHM.
+By default, Vertica advances the AHM at an interval of 5 minutes.</p>
+
+<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
+To find about the unrefreshed projection, use the following command:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>SELECT * FROM projections where is_up_to_date = 'f';</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
+However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
+AHM could lag behind at the create epoch of some unrefreshed projection.
+Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
+
+<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>select START_REFRESH();</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Links</h3>
+
+<ol>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
+<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
+</ol>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use JMockit ONLY</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-02-21T12:20:46-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2016</span></span> <span class='time'>12:20 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
+Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
+
+<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
+Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
+It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
+This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
+For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
+
+<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -311,74 +420,6 @@ A requirement for unit testing those is to &ldquo;mock&rdquo; current date and t
 
     </article>
   
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/22/aws-setup-MFA/">AWS: Setting Up Multi-Factor Authentication (MFA)</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-22T18:37:23-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS.</p>
-
-</div>
-  
-  
-    <footer>
-      <a rel="full-article" href="/blog/2016/01/22/aws-setup-MFA/">Read on &rarr;</a>
-    </footer>
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
-      <h1 class="entry-title"><a href="/blog/2016/01/19/aws-connecting-applications-and-data/">AWS: Amazon Resource Name</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-01-19T18:37:02-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>19</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>The <a href="http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html">Amazon Resource Name</a> (ARN) is used to uniquely identify an AWS resource. You will need to use ARNs to connect your services and data in AWS.</p>
-
-</div>
-  
-  
-    <footer>
-      <a rel="full-article" href="/blog/2016/01/19/aws-connecting-applications-and-data/">Read on &rarr;</a>
-    </footer>
-  
-
-
-    </article>
-  
   <div class="pagination">
     
       <a class="prev" href="/posts/6">&larr; Older</a>
@@ -399,6 +440,14 @@ A requirement for unit testing those is to &ldquo;mock&rdquo; current date and t
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/08/13/groovy-dsl/">Groovy DSL</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/08/06/github-rest-api/">Github REST API Cookbook</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/">Troubleshooting Groovy Code in Jenkinsfile</a>
       </li>
     
@@ -416,14 +465,6 @@ A requirement for unit testing those is to &ldquo;mock&rdquo; current date and t
     
       <li class="post">
         <a href="/blog/2017/04/26/troubleshooting-docker-out-of-docker/">Troubleshooting Docker-out-of-Docker</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">Groovy Script in Jenkins Pipeline</a>
       </li>
     
   </ul>
@@ -460,7 +501,7 @@ A requirement for unit testing those is to &ldquo;mock&rdquo; current date and t
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (8)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (5)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (4)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (10)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (10)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (4)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (9)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (6)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/java/'>java (11)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (12)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (4)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (4)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
