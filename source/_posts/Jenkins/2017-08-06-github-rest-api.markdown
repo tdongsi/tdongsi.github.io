@@ -122,6 +122,15 @@ withCredentials([
 }  
 ```
 
+#### Deleting a branch
+
+Searching how to delete a branch in Github API's [Branches reference](https://developer.github.com/v3/repos/branches/) does not return anything.
+In fact, to delete a branch, we have to delete its HEAD reference as shown [here](https://developer.github.com/v3/git/refs/#delete-a-reference).
+
+``` plain Deleting a branch
+DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a
+```
+
 ### More tips on Github API
 
 1) When processing data from Github API, note that any commit has an author and a committer, as shown below. 
