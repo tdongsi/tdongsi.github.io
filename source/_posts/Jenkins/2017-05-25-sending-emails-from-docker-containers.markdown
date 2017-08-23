@@ -68,7 +68,7 @@ postdrop: warning: inet_protocols: disabling IPv6 name/address support: Address 
 
 After the `postfix` service is up, Jenkins can be configured to send email with [Mailer plugin](https://wiki.jenkins-ci.org/display/JENKINS/Mailer).
 Mail server can be configured in **Manage Jenkins** page, **E-mail Notification** section.
-Please visit [this post](http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email) for more detailed instructions and screenshots.
+Please visit [Kohei Nozaki's blog post](http://www.nailedtothex.org/roller/kyle/entry/articles-jenkins-email) for more detailed instructions and screenshots.
 We can also test the configuration by sending test e-mail in the same **E-mail Notification** section.
 
 ### Sending email from container
