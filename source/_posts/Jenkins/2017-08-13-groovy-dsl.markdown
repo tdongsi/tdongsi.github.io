@@ -22,7 +22,7 @@ However, those are not in the scope of this post.
 
 ### Example problem
 
-We want to implement a simple DSL that is similar to steps in Jenkinsfile.
+We want to implement a simple DSL that is similar to [Pipeline steps in Jenkinsfile](https://jenkins.io/doc/pipeline/steps/).
 
 ``` plain DSL in Jenkinsfile
 {
@@ -32,6 +32,12 @@ We want to implement a simple DSL that is similar to steps in Jenkinsfile.
     error("Error here")
 }
 ```
+
+TODO:
+For each step in the DSL, the backend classes and objects will perform some execution.
+For simplicity, print statements.
+As we can see, it's hard to achieve such fluent language like in Java.
+
 
 ### Version 1: Java-like standard implementation
 
@@ -164,6 +170,8 @@ GroovyDsl.execute { dsl ->
 println ""
 ```
 
+TODO: replace with execute and add explanation.
+
 ``` groovy Transparent DSL with delegate
 class GroovyDsl {
 
@@ -221,5 +229,5 @@ println ""
 
 ### Reference
 
-* Groovy closure
-* Jenkins steps
+* [Groovy closure](http://groovy-lang.org/closures.html)
+* [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/)
