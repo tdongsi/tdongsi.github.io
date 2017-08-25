@@ -88,6 +88,9 @@ curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/r
 
 # GET with authentication: Get PR details
 curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB}/${org}/${repo}/pulls/${env.CHANGE_ID}
+
+# With proxy
+curl -L -x public0-proxy1.company.net:8080 https://api.github.com
 ```
 
 ### Common problems
