@@ -35,7 +35,7 @@ ssh-keyscan -H [hostname] >> ~/.ssh/known_hosts
 
 Recipe 4: [link](https://github.com/jenkinsci/slack-plugin/issues/149)
 
-``` plain Recipe 4: Add certificates into cacerts
+``` plain Recipe 4: Add self-signed certificates into cacerts
 openssl s_client -connect nexus.company.com:443 < /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > public.crt
 /opt/jdk-latest/jre/bin/keytool -import -alias nexus.company.com  -keystore /opt/jdk-latest/jre/lib/security/cacerts -file public.crt
 

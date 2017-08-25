@@ -33,13 +33,18 @@ We want to implement a simple DSL that is similar to [Pipeline steps in Jenkinsf
 }
 ```
 
-TODO:
-For each step in the DSL, the backend classes and objects will perform some execution.
-For simplicity, print statements.
-As we can see, it's hard to achieve such fluent language like in Java.
+In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as `echo` and `sh` above.
+For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
+For simplicity, `println` statements will be used in the following examples.
 
+The advantage of DSL is that the **developers** can implement the backend in some fully-featured language such as Java but the **users** don't need to know such language to use it.
+Instead, the **users** only need to learn the DSL to use it while still have the flexibility to do what they want.
+TODO: One example: data analysts SQL/database.
 
 ### Version 1: Java-like standard implementation
+
+First, we show a standard implementation in Java to show how backend execution can be implemented.
+In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.
 
 ``` groovy Standard Java implementation
 /**
@@ -49,37 +54,40 @@ As we can see, it's hard to achieve such fluent language like in Java.
 class JavaDsl {
 
     void echo(String message) {
-        println "Echo: $message"
+        println "Echo: $message";
     }
 
     void sh(String script) {
-        println "Shell: $script"
+        println "Shell: $script";
     }
 
     void error(String message) {
-        println "Error here: $message"
+        println "Error here: $message";
     }
 
     // A more advanced DSL
     void withEnv(String var) {
-        println "Using: $var"
+        println "Using: $var";
     }
 
     void execute() {
-        println "Executing ..."
+        println "Executing ...";
     }
 
 }
 
-println "1) Standard Java implementation"
-JavaDsl javaDsl = new JavaDsl()
-javaDsl.withEnv("PATH=/usr/bin")
-javaDsl.echo("Starting pipeline")
-javaDsl.sh("ls .")
-javaDsl.error("Error here")
-javaDsl.execute()
-println ""
+println "1) Standard Java implementation";
+JavaDsl javaDsl = new JavaDsl();
+javaDsl.withEnv("PATH=/usr/bin");
+javaDsl.echo("Starting pipeline");
+javaDsl.sh("ls .");
+javaDsl.error("Error here");
+javaDsl.execute();
+println "";
 ```
+
+The problem of this approach is that users have to write Java (or Groovy) code directly to use it.
+For some domain
 
 ### Version 2: Fluent interface with Builder pattern
 
