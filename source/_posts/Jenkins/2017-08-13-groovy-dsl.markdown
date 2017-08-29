@@ -38,8 +38,9 @@ For each step in the DSL, the backend classes and objects will perform some exec
 For simplicity, `println` statements will be used in the following examples.
 
 The advantage of DSL is that the **developers** can implement the backend in some fully-featured language such as Java but the **users** don't need to know such language to use it.
+Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don't want to get exposed to the implementation details below.
 Instead, the **users** only need to learn the DSL to use it while still have the flexibility to do what they want.
-TODO: One example: data analysts SQL/database.
+One example can be found in data science domain where data scientists are usually more comfortable in R or SQL but automated deployment frameworks or tools can be in another language such as Java.
 
 ### Version 1: Java-like standard implementation
 
@@ -87,7 +88,6 @@ println "";
 ```
 
 The problem of this approach is that users have to write Java (or Groovy) code directly to use it.
-For some domain
 
 ### Version 2: Fluent interface with Builder pattern
 
@@ -133,6 +133,8 @@ builderDsl.withEnv("PATH=/usr/bin")
         .execute()
 println ""
 ```
+
+In this version, the code is less verbose and much more user-friendly.
 
 ### Version 3: DSL with Groovy closure
 
@@ -200,7 +202,7 @@ class GroovyDsl {
         println "Using: $var"
     }
 
-    static void executeBetter(Closure closure) {
+    static void execute(Closure closure) {
         GroovyDsl body = new GroovyDsl()
         // TRICKY: Modify the input var? Hmmm.
         closure.delegate = body
@@ -217,7 +219,7 @@ class GroovyDsl {
 }
 
 println "4) DSL-style Groovy implementation"
-GroovyDsl.executeBetter {
+GroovyDsl.execute {
     withEnv("PATH=/usr/bin")
     echo("Starting pipeline")
     sh("ls .")
@@ -234,6 +236,9 @@ GroovyDsl.executeBest {
 }
 println ""
 ```
+
+In this final version, only a very small boiler-plate code `GroovyDsl.executeBest` remains and can be made transparent to users.
+The users now can start using the DSL without having to learn Groovy or Java.
 
 ### Reference
 
