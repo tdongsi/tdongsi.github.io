@@ -12,3 +12,9 @@ How to create a Jenkins plugin.
 
 <!--more-->
 
+### Basic plugin
+
+### Pipeline plugin
+
+### Blue Ocean plugin
+
