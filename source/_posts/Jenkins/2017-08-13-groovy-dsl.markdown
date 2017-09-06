@@ -241,8 +241,9 @@ GroovyDsl.executeBest {
 println ""
 ```
 
-In this final version, only a very small boiler-plate code `GroovyDsl.executeBest` remains and can be exposed to users.
-The users now can start using the DSL without having to learn Groovy or Java.
+In this final version, only a very small boiler-plate code `GroovyDsl.executeBest` remains.
+The following lines form a mini language (i.e., DSL) that can be exposed to users.
+The users can start using the DSL without having to learn Groovy or Java.
 
 ### Reference
 
