@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-08-22T18:06:23-07:00</updated>
+  <updated>2017-09-05T17:22:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,29 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development/"/>
+    <updated>2017-08-29T08:47:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development</id>
+    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
+
+<!--more-->
+
+
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins World 2017]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-world-2017/"/>
+    <updated>2017-08-29T08:47:04-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/29/jenkins-world-2017</id>
+    <content type="html"><![CDATA[
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Groovy DSL]]></title>
@@ -22,7 +45,7 @@
 For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
 
 <p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
-It shows the progression from standard Java-like implementation to its fluent version to its final DSL form.
+It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
 This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
 There are probably more advanced methods/frameworks for creating DSL.
 However, those are not in the scope of this post.</p>
@@ -32,7 +55,7 @@ However, those are not in the scope of this post.</p>
 
 <h3>Example problem</h3>
 
-<p>We want to implement a simple DSL that is similar to steps in Jenkinsfile.</p>
+<p>We want to implement a simple DSL that is similar to <a href="https://jenkins.io/doc/pipeline/steps/">Pipeline steps in Jenkinsfile</a>.</p>
 
 <figure class='code'><figcaption><span>DSL in Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -48,7 +71,19 @@ However, those are not in the scope of this post.</p>
 </span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
 
 
+<p>In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as <code>echo</code> and <code>sh</code> above.
+For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
+For simplicity, <code>println</code> statements will be used in the following examples.</p>
+
+<p>The advantage of DSL is that the <strong>developers</strong> can implement the backend in some fully-featured language such as Java but the <strong>users</strong> don&rsquo;t need to know such language to use it.
+Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don&rsquo;t want to get exposed to the implementation details (which are usually ugly and compplicated).
+Instead, the <strong>users</strong> only need to learn the DSL to use it while still have the flexibility to do what they want.
+One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.</p>
+
 <h3>Version 1: Java-like standard implementation</h3>
+
+<p>First, we show a standard implementation in Java to show how backend execution can be implemented.
+In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.</p>
 
 <figure class='code'><figcaption><span>Standard Java implementation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -94,38 +129,40 @@ However, those are not in the scope of this post.</p>
 </span><span class='line'><span class="kd">class</span> <span class="nc">JavaDsl</span> <span class="o">{</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="kt">void</span> <span class="nf">echo</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Echo: $message&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Echo: $message&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="kt">void</span> <span class="nf">sh</span><span class="o">(</span><span class="n">String</span> <span class="n">script</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Shell: $script&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Shell: $script&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="kt">void</span> <span class="nf">error</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Error here: $message&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Error here: $message&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="c1">// A more advanced DSL</span>
 </span><span class='line'>    <span class="kt">void</span> <span class="nf">withEnv</span><span class="o">(</span><span class="n">String</span> <span class="n">var</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Using: $var&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Using: $var&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="kt">void</span> <span class="nf">execute</span><span class="o">()</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Executing ...&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Executing ...&quot;</span><span class="o">;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="o">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="n">println</span> <span class="s2">&quot;1) Standard Java implementation&quot;</span>
-</span><span class='line'><span class="n">JavaDsl</span> <span class="n">javaDsl</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JavaDsl</span><span class="o">()</span>
-</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">withEnv</span><span class="o">(</span><span class="s2">&quot;PATH=/usr/bin&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">echo</span><span class="o">(</span><span class="s2">&quot;Starting pipeline&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">sh</span><span class="o">(</span><span class="s2">&quot;ls .&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s2">&quot;Error here&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">execute</span><span class="o">()</span>
-</span><span class='line'><span class="n">println</span> <span class="s2">&quot;&quot;</span>
+</span><span class='line'><span class="n">println</span> <span class="s2">&quot;1) Standard Java implementation&quot;</span><span class="o">;</span>
+</span><span class='line'><span class="n">JavaDsl</span> <span class="n">javaDsl</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JavaDsl</span><span class="o">();</span>
+</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">withEnv</span><span class="o">(</span><span class="s2">&quot;PATH=/usr/bin&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">echo</span><span class="o">(</span><span class="s2">&quot;Starting pipeline&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">sh</span><span class="o">(</span><span class="s2">&quot;ls .&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s2">&quot;Error here&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="n">javaDsl</span><span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+</span><span class='line'><span class="n">println</span> <span class="s2">&quot;&quot;</span><span class="o">;</span>
 </span></code></pre></td></tr></table></div></figure>
 
+
+<p>The problem of this approach is that users have to write Java (or Groovy) code directly to use it.</p>
 
 <h3>Version 2: Fluent interface with Builder pattern</h3>
 
@@ -212,6 +249,9 @@ However, those are not in the scope of this post.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
+<p>In this version, the code is fluent with the object name <code>builderDsl</code> not being repeated every single line.
+As a result, the code is less verbose and much more user-friendly.</p>
+
 <h3>Version 3: DSL with Groovy closure</h3>
 
 <figure class='code'><figcaption><span>Standard Groovy implementation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -295,7 +335,10 @@ However, those are not in the scope of this post.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-
+<p>This first version of Groovy implementation is used to show connection with its Java counterparts.
+As shown below, the input variable <code>dsl</code> in the closure can be abstracted away using delegate.
+The <code>executeBest</code> is the equivalent but less straight-forward way to do the samething with delegate.
+It has the benefit of avoiding modifying any input reference.</p>
 
 <figure class='code'><figcaption><span>Transparent DSL with delegate</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -368,7 +411,7 @@ However, those are not in the scope of this post.</p>
 </span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Using: $var&quot;</span>
 </span><span class='line'>    <span class="o">}</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="kd">static</span> <span class="kt">void</span> <span class="nf">executeBetter</span><span class="o">(</span><span class="n">Closure</span> <span class="n">closure</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="kd">static</span> <span class="kt">void</span> <span class="nf">execute</span><span class="o">(</span><span class="n">Closure</span> <span class="n">closure</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>        <span class="n">GroovyDsl</span> <span class="n">body</span> <span class="o">=</span> <span class="k">new</span> <span class="n">GroovyDsl</span><span class="o">()</span>
 </span><span class='line'>        <span class="c1">// TRICKY: Modify the input var? Hmmm.</span>
 </span><span class='line'>        <span class="n">closure</span><span class="o">.</span><span class="na">delegate</span> <span class="o">=</span> <span class="n">body</span>
@@ -385,7 +428,7 @@ However, those are not in the scope of this post.</p>
 </span><span class='line'><span class="o">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="n">println</span> <span class="s2">&quot;4) DSL-style Groovy implementation&quot;</span>
-</span><span class='line'><span class="n">GroovyDsl</span><span class="o">.</span><span class="na">executeBetter</span> <span class="o">{</span>
+</span><span class='line'><span class="n">GroovyDsl</span><span class="o">.</span><span class="na">execute</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">withEnv</span><span class="o">(</span><span class="s2">&quot;PATH=/usr/bin&quot;</span><span class="o">)</span>
 </span><span class='line'>    <span class="n">echo</span><span class="o">(</span><span class="s2">&quot;Starting pipeline&quot;</span><span class="o">)</span>
 </span><span class='line'>    <span class="n">sh</span><span class="o">(</span><span class="s2">&quot;ls .&quot;</span><span class="o">)</span>
@@ -404,11 +447,14 @@ However, those are not in the scope of this post.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
+<p>In this final version, only a very small boiler-plate code <code>GroovyDsl.executeBest</code> remains and can be exposed to users.
+The users now can start using the DSL without having to learn Groovy or Java.</p>
+
 <h3>Reference</h3>
 
 <ul>
-<li>Groovy closure</li>
-<li>Jenkins steps</li>
+<li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
+<li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
 </ul>
 
 ]]></content>
@@ -654,13 +700,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#x6e;&#x6f;&#x2d;&#x72;&#101;&#x70;&#108;&#x79;&#x40;&#x67;&#105;&#x74;&#x68;&#x75;&#x62;&#46;&#99;&#x6f;&#x6d;">&#110;&#111;&#45;&#114;&#x65;&#x70;&#x6c;&#121;&#x40;&#x67;&#x69;&#x74;&#104;&#117;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#x61;&#105;&#x6c;&#x74;&#x6f;&#58;&#110;&#x6f;&#45;&#114;&#x65;&#112;&#x6c;&#121;&#64;&#103;&#x69;&#x74;&#104;&#117;&#98;&#x2e;&#99;&#111;&#x6d;">&#110;&#111;&#45;&#114;&#101;&#x70;&#x6c;&#x79;&#64;&#103;&#105;&#116;&#x68;&#x75;&#x62;&#x2e;&#99;&#x6f;&#109;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#110;&#x6f;&#45;&#x72;&#101;&#112;&#x6c;&#121;&#x40;&#x67;&#x69;&#116;&#x68;&#117;&#98;&#46;&#99;&#111;&#x6d;">&#x6e;&#111;&#x2d;&#x72;&#101;&#x70;&#108;&#121;&#64;&#x67;&#x69;&#116;&#x68;&#117;&#98;&#x2e;&#99;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#97;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#x6e;&#111;&#45;&#x72;&#x65;&#112;&#x6c;&#x79;&#64;&#103;&#105;&#116;&#x68;&#x75;&#98;&#x2e;&#x63;&#x6f;&#109;">&#110;&#111;&#45;&#114;&#x65;&#112;&#108;&#121;&#64;&#x67;&#x69;&#x74;&#x68;&#x75;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -3437,476 +3483,6 @@ To verify if memory is properly allocated as desired, run <code>free</code> comm
 <li><a href="https://github.com/wmarinho/docker-hp-vertica">Original Dockerfile</a></li>
 <li><a href="https://www.docker.com/">Docker</a></li>
 </ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Analytic Functions in MySQL]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql/"/>
-    <updated>2016-08-17T23:12:54-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/08/17/analytic-functions-in-mysql</id>
-    <content type="html"><![CDATA[<p>MySQL has traditionally lagged behind in support for the SQL standard.
-Unfortunately, from my experience, MySQL is often used as the sandbox for SQL code challenges and interviews.
-If you are used to work with <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/SQLReferenceManual.htm">Vertica SQL</a>, writing SQL statements in MySQL can be challenging exercises, NOT necessarily in a good way, because many useful features are not supported.</p>
-
-<!--more-->
-
-
-<h3>WITH clause</h3>
-
-<p>As discussed in this <a href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/">blog post</a>, <code>WITH</code> clause syntax, also known as <em>Common Table Expressions</em> (CTE), is thankfully supported in Vertica.
-In summary, <code>WITH</code> clause allows us to arrange sub-queries, usually intermediate steps, in a complex SQL query in sequential, logical order.
-This will make the complex queries easier to compose and read: we can write steps by steps of the query from top to bottom like a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).
-Unfortunately, <code>WITH</code> clause is not supported by MySQL although this feature has been requested since <a href="https://bugs.mysql.com/bug.php?id=16244">2006</a>.
-There are <a href="http://guilhembichot.blogspot.fr/2013/11/with-recursive-and-mysql.html">work-arounds</a> for MySQL&rsquo;s lack of CTE, but the easiest way is probably to revert back to using nested subqueries.</p>
-
-<p>Personally, lack of <code>WITH</code> clause support in MySQL is my greatest hindrance as I often ended up writing queries using <code>WITH</code> clauses as first draft before rewriting those queries using nested subqueries.
-This might appear clumsy in SQL interviews even though writing SQL codes with CTE instead of subqueries is the recommended practice for maintainable code.</p>
-
-<h3>Analytic functions</h3>
-
-<p>Another regrettable hindrance when working in MySQL is its lack of analytic functions such as <code>ROW_NUMBER</code>, <code>RANK</code> and <code>DENSE_RANK</code>.
-Those <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">analytic functions</a> are supported in Vertica.
-The difference between these three functions can be a bit subtle, and would be best described in the following example:</p>
-
-<figure class='code'><figcaption><span>Example of ROW_NUMBER, RANK, and DENSE_RANK functions</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">customer_name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">TO_CHAR</span><span class="p">(</span><span class="k">SUM</span><span class="p">(</span><span class="n">annual_income</span><span class="p">),</span><span class="s1">&#39;100000&#39;</span><span class="p">)</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">dense_rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">customer_dimension</span>
-</span><span class='line'><span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_name</span>
-</span><span class='line'><span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The outputs of these functions are only different if there are duplicates in <code>SUM(annual_income)</code> value, as seen in rows 75-81 in the example output below:</p>
-
-<table border="1"><tr BGCOLOR="#CCCCFF"><th>customer_name</th><th>SUM</th><th>row_number</th><th>rank</th><th>dense_rank</th></tr>
-<tr><td>Theodore R. King</td><td>97444</td><td>71</td><td>71</td><td>71</td></tr>
-<tr><td>Laura Y. Pavlov</td><td>97417</td><td>72</td><td>72</td><td>72</td></tr>
-<tr><td>Carla . Garcia</td><td>97371</td><td>73</td><td>73</td><td>73</td></tr>
-<tr><td>Jack Z. Miller</td><td>97356</td><td>74</td><td>74</td><td>74</td></tr>
-<tr><td>Steve W. Williams</td><td>97343</td><td>75</td><td>75</td><td>75</td></tr>
-<tr><td>Lauren Y. Rodriguez</td><td>97343</td><td>76</td><td>75</td><td>75</td></tr>
-<tr><td>Lucas . Webber</td><td>97318</td><td>77</td><td>77</td><td>76</td></tr>
-<tr><td>Sarah N. Moore</td><td>97243</td><td>78</td><td>78</td><td>77</td></tr>
-<tr><td>Lucas O. Li</td><td>97184</td><td>79</td><td>79</td><td>78</td></tr>
-<tr><td>Doug K. Reyes</td><td>97166</td><td>80</td><td>80</td><td>79</td></tr>
-<tr><td>Michael . Weaver</td><td>97162</td><td>81</td><td>81</td><td>80</td></tr>
-</table>
-
-
-<p><br/></p>
-
-<p>Sadly, these useful analytic functions are not supported in MySQL.
-Fortunately, MySQL supports user variables in SQL queries and we can reproduce those functionalities in MySQL using variables and subqueries as follows:</p>
-
-<figure class='code'><figcaption><span>ROW_NUMBER, RANK, and DENSE_RANK functions in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- In Vertica</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="n">ROW_NUMBER</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="n">RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span> <span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">table_1</span> <span class="n">t</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">-- In MySQL</span>
-</span><span class='line'><span class="k">SELECT</span>
-</span><span class='line'><span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">row_number</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">,</span> <span class="o">@</span><span class="n">row_num</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_1</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_1</span> <span class="k">AND</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span> <span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col_3</span><span class="o">=</span><span class="n">col_3</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dense_rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_1</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_1</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_2</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_2</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col_3</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">col_3</span><span class="p">,</span>
-</span><span class='line'><span class="n">t</span><span class="p">.</span><span class="o">*</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">table_1</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">col_1</span><span class="p">,</span> <span class="n">col_2</span><span class="p">,</span> <span class="n">col_3</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'>     <span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">row_num</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">rank</span><span class="p">:</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_1</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col_3</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The MySQL work-around is intentionally generic so that I can adapt it to any use case.
-In addition, it intentionally has a single pass (no <code>SET</code> statements, temporary table) since most SQL code challenges expect a single query.
-Finally, note that the above MySQL solution is intentionally incomplete to make it less convoluted.
-You need to put that solution in a subquery and <code>SELECT</code> only relevant columns from it.</p>
-
-<p>As an example, the above code template is used to solve <a href="https://leetcode.com/problems/rank-scores/">this Rank Scores problem</a>.
-In summary, the question asks for <code>DENSE_RANK</code> functionality to be applied on Score column.</p>
-
-<figure class='code'><figcaption><span>Input table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+----+-------+
-</span><span class='line'>| Id | Score |
-</span><span class='line'>+----+-------+
-</span><span class='line'>| 1  | 3.50  |
-</span><span class='line'>| 2  | 3.65  |
-</span><span class='line'>| 3  | 4.00  |
-</span><span class='line'>| 4  | 3.85  |
-</span><span class='line'>| 5  | 4.00  |
-</span><span class='line'>| 6  | 3.65  |
-</span><span class='line'>+----+-------+</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+-------+------+
-</span><span class='line'>| Score | Rank |
-</span><span class='line'>+-------+------+
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 4.00  | 1    |
-</span><span class='line'>| 3.85  | 2    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.65  | 3    |
-</span><span class='line'>| 3.50  | 4    |
-</span><span class='line'>+-------+------+</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The solution in Vertica SQL would be straight-forward as follows:</p>
-
-<figure class='code'><figcaption><span>Solution in Vertica SQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="n">DENSE_RANK</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span>
-</span><span class='line'><span class="k">FROM</span> <span class="n">Scores</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>In MySQL, apply the above code template and note that there is no <code>partition clause</code> to arrive at the following solution:</p>
-
-<figure class='code'><figcaption><span>Solution in MySQL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span> <span class="n">Score</span><span class="p">,</span> <span class="n">Rank</span> <span class="k">FROM</span>
-</span><span class='line'><span class="p">(</span> <span class="k">SELECT</span> <span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="n">IF</span><span class="p">(</span><span class="o">@</span><span class="n">prev_col2</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="p">,</span> <span class="o">@</span><span class="n">dense</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">Rank</span><span class="p">,</span>
-</span><span class='line'><span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">Score</span>
-</span><span class='line'><span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">Score</span> <span class="k">FROM</span> <span class="n">Scores</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">Score</span> <span class="k">DESC</span><span class="p">)</span> <span class="n">t</span><span class="p">,</span>
-</span><span class='line'><span class="p">(</span><span class="k">SELECT</span> <span class="o">@</span><span class="n">dense</span><span class="p">:</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">@</span><span class="n">prev_col2</span><span class="p">:</span><span class="o">=</span><span class="k">NULL</span><span class="p">)</span> <span class="n">var</span> <span class="p">)</span> <span class="n">x</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Note that the outer <code>SELECT</code> is used to only expose only columns of interest while the main SQL code is enclosed in a subquery.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-row-number-function-mysql.html">ROW_NUMBER in MySQL</a></li>
-<li><a href="http://www.folkstalk.com/2013/03/grouped-dense-rank-function-mysql-sql-query.html">DENSE_RANK in MySQL</a>: this link actually shows <code>RANK</code> implementation.</li>
-<li><a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/SQLReferenceManual/Functions/Analytic/AnalyticFunctions.htm">Vertica Analytic Functions</a></li>
-<li><a href="http://dev.mysql.com/doc/refman/5.7/en/user-variables.html">MySQL user variables</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Improved Priority Queue Recipe in Python]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python/"/>
-    <updated>2016-07-14T17:59:14-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/07/14/priority-queue-recipe-in-python</id>
-    <content type="html"><![CDATA[<p>A priority queue is a commonly used abstract data type, but it is not adequately provided in Python&rsquo;s standard library.</p>
-
-<!--more-->
-
-
-<p>The <a href="https://docs.python.org/2/library/queue.html">module <code>Queue</code></a> provides a <code>PriorityQueue</code> class but that implementation leaves a lot to be desired.
-It does not provide standard <code>peek</code> or <code>remove</code> methods in its public interface, which is sometimes critical.
-Additionally, the entry must be in the tuple form <code>(priority_number, data)</code> where lower number must be used for higher priority task to be returned first.
-Finally, this Queue version is reportedly slower because it adds locks and encapsulation designed for multi-threaded environment, which is arguably the intention of that module.</p>
-
-<p>On the other hand, the <a href="https://docs.python.org/2/library/heapq.html">module <code>heapq</code></a> provides an implementation of binary heap algorithms, which is the most common <em>data structure</em> for implementing priority-queue.
-Although the module does not provide any direct implementation of priority-queue, <a href="https://docs.python.org/2/library/heapq.html">its documentation</a> discusses how to add additional capabilities to a heap-based priority queue and provides a recipe as an example.
-That example is still hard to be used directly since it is not encapsulated into a class and the standard <code>peek</code> method is noticeably missing.</p>
-
-<p>I ended up implementing a wrapper class for that recipe to make it easier to use.</p>
-
-<figure class='code'><figcaption><span>Improved priority-queue recipe</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-<span class='line-number'>45</span>
-<span class='line-number'>46</span>
-<span class='line-number'>47</span>
-<span class='line-number'>48</span>
-<span class='line-number'>49</span>
-<span class='line-number'>50</span>
-<span class='line-number'>51</span>
-<span class='line-number'>52</span>
-<span class='line-number'>53</span>
-<span class='line-number'>54</span>
-<span class='line-number'>55</span>
-<span class='line-number'>56</span>
-<span class='line-number'>57</span>
-<span class='line-number'>58</span>
-<span class='line-number'>59</span>
-<span class='line-number'>60</span>
-<span class='line-number'>61</span>
-<span class='line-number'>62</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="kn">import</span> <span class="nn">heapq</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">itertools</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">class</span> <span class="nc">PriorityQueue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">_REMOVED</span> <span class="o">=</span> <span class="s">&quot;&lt;REMOVED&gt;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot;Add a new task or update the priority of an existing task&quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">:</span>
-</span><span class='line'>            <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="n">count</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
-</span><span class='line'>        <span class="c"># weight = -priority since heap is a min-heap</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">priority</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
-</span><span class='line'>        <span class="n">heapq</span><span class="o">.</span><span class="n">heappush</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Mark the given task as REMOVED.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        Do this to avoid breaking heap-invariance of the internal heap.</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>        <span class="n">entry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span>
-</span><span class='line'>        <span class="k">pass</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Get task with highest priority.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">task</span><span class="p">]</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s">&quot;The priority queue is empty&quot;</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="sd">&quot;&quot;&quot; Check task with highest priority, without removing.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">        :return: Priority, Task with highest priority</span>
-</span><span class='line'><span class="sd">        &quot;&quot;&quot;</span>
-</span><span class='line'>        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">weight</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heap</span><span class="p">)</span>
-</span><span class='line'>            <span class="k">else</span><span class="p">:</span>
-</span><span class='line'>                <span class="k">return</span> <span class="o">-</span><span class="n">weight</span><span class="p">,</span> <span class="n">task</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">return</span> <span class="bp">None</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heap</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">PriorityQueue</span><span class="o">.</span><span class="n">_REMOVED</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">return</span> <span class="s">&quot;[</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="s">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Comparing to the recipe provided in <code>heapq</code> module, a few notes about this implementation:</p>
-
-<ul>
-<li>Task with <strong>higher</strong> priority goes out first. A simple change will remove lots of confusion (and bugs) associated with min-heap implementations.</li>
-<li>Methods and supporting data structures are encapsulated into a class.</li>
-<li>Method names are simplified to <code>add</code>, <code>remove</code>, <code>pop</code> (instead of <code>add_task</code>, for example) since priority queues are NOT only used for task scheduling.</li>
-<li>Method <code>peek</code> is added.</li>
-<li>Method <code>pop</code> and <code>peek</code> return the highest-priority task together with its priority number. The task&rsquo;s priority number can be useful sometimes (see Skyline problem below).</li>
-<li>Override <code>__str__</code> method for pretty printing.</li>
-</ul>
-
-
-<p>As an example, the above priority-queue implementation is used to solve <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">the Skyline problem</a>.
-The Skyline problem states that:</p>
-
-<blockquote><p>You are given a set of n rectangular buildings on a skyline. Find the outline around that set of rectangles, which is the skyline when silhouetted at night.</p></blockquote>
-
-
-<p><img class="center" src="http://tdongsi.github.io/images/python/skyline.png" width="800" height="260" title="Example" alt="An image of example input and output"></p>
-
-<p>One possible approach is to use a priority queue to keep track of the current highest building
-while moving from left to right and adding/removing buildings at key points (i.e., start and end of buildings).
-Compared to the Merge-Sort-like approach detailed in <a href="http://www.geeksforgeeks.org/divide-and-conquer-set-7-the-skyline-problem/">this link</a>, this approach is much more intuitive in my opinion while having similar runtime complexity $\mathcal{O}(n\log{}n)$.</p>
-
-<figure class='code'><figcaption><span>Solution to Skyline problem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-<span class='line-number'>37</span>
-<span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">def</span> <span class="nf">solve_skyline</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>    <span class="sd">&quot;&quot;&quot; Solve the Skyline problem.</span>
-</span><span class='line'>
-</span><span class='line'><span class="sd">    :param mlist: list of buildings in format (start, end, height).</span>
-</span><span class='line'><span class="sd">    :return: List of end points</span>
-</span><span class='line'><span class="sd">    &quot;&quot;&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">skyline</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span class='line'>    <span class="n">cur_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>    <span class="n">pq</span> <span class="o">=</span> <span class="n">PriorityQueue</span><span class="p">()</span>
-</span><span class='line'>    <span class="n">events</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">START</span> <span class="o">=</span> <span class="s">&quot;start&quot;</span>
-</span><span class='line'>    <span class="n">END</span> <span class="o">=</span> <span class="s">&quot;end&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">building</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mlist</span><span class="p">):</span>
-</span><span class='line'>        <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">building</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">start</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">START</span><span class="p">))</span>
-</span><span class='line'>        <span class="n">events</span><span class="p">[</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">END</span><span class="p">))</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># k_events is the ordered list of x-coordinates where buildings start or end (events)</span>
-</span><span class='line'>    <span class="n">k_events</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">events</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c"># Add and remove buildings into a priority-queue for each event.</span>
-</span><span class='line'>    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">k_events</span><span class="p">:</span>
-</span><span class='line'>        <span class="c"># print skyline</span>
-</span><span class='line'>        <span class="n">buildings</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">buildings</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">e</span>
-</span><span class='line'>            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="n">START</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">mlist</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
-</span><span class='line'>            <span class="k">elif</span> <span class="n">label</span> <span class="o">==</span> <span class="n">END</span><span class="p">:</span>
-</span><span class='line'>                <span class="n">pq</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="c"># after processing all buildings for a x-coordinate &quot;key&quot;, check the current highest building</span>
-</span><span class='line'>        <span class="n">temp</span> <span class="o">=</span> <span class="n">pq</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
-</span><span class='line'>        <span class="n">new_height</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">temp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">new_height</span> <span class="o">=</span> <span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span class='line'>        <span class="k">if</span> <span class="n">new_height</span> <span class="o">!=</span> <span class="n">cur_height</span><span class="p">:</span>
-</span><span class='line'>            <span class="n">skyline</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">new_height</span><span class="p">))</span>
-</span><span class='line'>            <span class="n">cur_height</span> <span class="o">=</span> <span class="n">new_height</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">return</span> <span class="n">skyline</span>
-</span></code></pre></td></tr></table></div></figure>
 
 ]]></content>
   </entry>

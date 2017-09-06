@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-08-22T18:06:23-07:00</updated>
+  <updated>2017-09-05T17:22:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,20 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development/"/>
+    <updated>2017-08-29T08:47:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development</id>
+    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
+
+<!--more-->
+
+
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Groovy DSL]]></title>
@@ -22,7 +36,7 @@
 For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
 
 <p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
-It shows the progression from standard Java-like implementation to its fluent version to its final DSL form.
+It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
 This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
 There are probably more advanced methods/frameworks for creating DSL.
 However, those are not in the scope of this post.</p>
@@ -32,7 +46,7 @@ However, those are not in the scope of this post.</p>
 
 <h3>Example problem</h3>
 
-<p>We want to implement a simple DSL that is similar to steps in Jenkinsfile.</p>
+<p>We want to implement a simple DSL that is similar to <a href="https://jenkins.io/doc/pipeline/steps/">Pipeline steps in Jenkinsfile</a>.</p>
 
 <pre><code class="plain DSL in Jenkinsfile">{
     withEnv("PATH=/usr/bin")
@@ -42,7 +56,19 @@ However, those are not in the scope of this post.</p>
 }
 </code></pre>
 
+<p>In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as <code>echo</code> and <code>sh</code> above.
+For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
+For simplicity, <code>println</code> statements will be used in the following examples.</p>
+
+<p>The advantage of DSL is that the <strong>developers</strong> can implement the backend in some fully-featured language such as Java but the <strong>users</strong> don&rsquo;t need to know such language to use it.
+Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don&rsquo;t want to get exposed to the implementation details (which are usually ugly and compplicated).
+Instead, the <strong>users</strong> only need to learn the DSL to use it while still have the flexibility to do what they want.
+One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.</p>
+
 <h3>Version 1: Java-like standard implementation</h3>
+
+<p>First, we show a standard implementation in Java to show how backend execution can be implemented.
+In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.</p>
 
 <pre><code class="groovy Standard Java implementation">/**
  * Java code with standard implementation
@@ -51,37 +77,39 @@ However, those are not in the scope of this post.</p>
 class JavaDsl {
 
     void echo(String message) {
-        println "Echo: $message"
+        println "Echo: $message";
     }
 
     void sh(String script) {
-        println "Shell: $script"
+        println "Shell: $script";
     }
 
     void error(String message) {
-        println "Error here: $message"
+        println "Error here: $message";
     }
 
     // A more advanced DSL
     void withEnv(String var) {
-        println "Using: $var"
+        println "Using: $var";
     }
 
     void execute() {
-        println "Executing ..."
+        println "Executing ...";
     }
 
 }
 
-println "1) Standard Java implementation"
-JavaDsl javaDsl = new JavaDsl()
-javaDsl.withEnv("PATH=/usr/bin")
-javaDsl.echo("Starting pipeline")
-javaDsl.sh("ls .")
-javaDsl.error("Error here")
-javaDsl.execute()
-println ""
+println "1) Standard Java implementation";
+JavaDsl javaDsl = new JavaDsl();
+javaDsl.withEnv("PATH=/usr/bin");
+javaDsl.echo("Starting pipeline");
+javaDsl.sh("ls .");
+javaDsl.error("Error here");
+javaDsl.execute();
+println "";
 </code></pre>
+
+<p>The problem of this approach is that users have to write Java (or Groovy) code directly to use it.</p>
 
 <h3>Version 2: Fluent interface with Builder pattern</h3>
 
@@ -127,6 +155,9 @@ builderDsl.withEnv("PATH=/usr/bin")
 println ""
 </code></pre>
 
+<p>In this version, the code is fluent with the object name <code>builderDsl</code> not being repeated every single line.
+As a result, the code is less verbose and much more user-friendly.</p>
+
 <h3>Version 3: DSL with Groovy closure</h3>
 
 <pre><code class="groovy Standard Groovy implementation">/**
@@ -170,6 +201,11 @@ GroovyDsl.execute { dsl -&gt;
 println ""
 </code></pre>
 
+<p>This first version of Groovy implementation is used to show connection with its Java counterparts.
+As shown below, the input variable <code>dsl</code> in the closure can be abstracted away using delegate.
+The <code>executeBest</code> is the equivalent but less straight-forward way to do the samething with delegate.
+It has the benefit of avoiding modifying any input reference.</p>
+
 <pre><code class="groovy Transparent DSL with delegate">class GroovyDsl {
 
     def echo(String message) {
@@ -189,7 +225,7 @@ println ""
         println "Using: $var"
     }
 
-    static void executeBetter(Closure closure) {
+    static void execute(Closure closure) {
         GroovyDsl body = new GroovyDsl()
         // TRICKY: Modify the input var? Hmmm.
         closure.delegate = body
@@ -206,7 +242,7 @@ println ""
 }
 
 println "4) DSL-style Groovy implementation"
-GroovyDsl.executeBetter {
+GroovyDsl.execute {
     withEnv("PATH=/usr/bin")
     echo("Starting pipeline")
     sh("ls .")
@@ -224,11 +260,14 @@ GroovyDsl.executeBest {
 println ""
 </code></pre>
 
+<p>In this final version, only a very small boiler-plate code <code>GroovyDsl.executeBest</code> remains and can be exposed to users.
+The users now can start using the DSL without having to learn Groovy or Java.</p>
+
 <h3>Reference</h3>
 
 <ul>
-<li>Groovy closure</li>
-<li>Jenkins steps</li>
+<li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
+<li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
 </ul>
 
 ]]></content>
@@ -521,24 +560,6 @@ Object attribute references are translated to lookups in this dictionary, e.g., 
 Note that simply using <code>json.dump(vars(config), config_file)</code> will NOT work if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
 For more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
 The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Use JMockit ONLY]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework/"/>
-    <updated>2016-02-21T12:20:46-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/21/java-1-single-mocking-framework</id>
-    <content type="html"><![CDATA[<p>A more general title would be &ldquo;Use a single mocking framework ONLY&rdquo;.
-Personally, it just means that I should defer learning Wiremock&rsquo;s advanced features and learn JMockit (specifically JMockit 1.2x) which is recently adopted at work.</p>
-
-<p>We know that mocking is a critical enabler for unit tests and automated functional tests that don’t require networks and databases and can complete in reasonable time.
-Mocking tools work by integrating with and replacing critical parts of the Java Class Loader.
-It means that having multiple mocking tools in use will lead to those tools contend to replace the class loader in JVM.
-This will lead to complex and unexpected consequences and, as a result, random test failures and unreliable tests.
-For example, we might have tests that work fine locally but start failing when running in combination with others (using other mocking tools) because different mocking frameworks take over the class loader in different order or in different ways.</p>
-
-<p>To fix that, we need to standardize and settle on a single mocking framework for an organization or a project.</p>
 ]]></content>
   </entry>
   
