@@ -13,7 +13,7 @@ Domain-Specific Language is a mini language for a specific problem and/or in a n
 For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.
 
 This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
-It shows the progression from standard Java-like implementation to its fluent version to its final DSL form.
+It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
 This might help undrestanding the inner workings of a DSL such as Jenkins's Pipeline steps.
 There are probably more advanced methods/frameworks for creating DSL. 
 However, those are not in the scope of this post.
@@ -38,9 +38,9 @@ For each step in the DSL, the backend classes and objects will perform some exec
 For simplicity, `println` statements will be used in the following examples.
 
 The advantage of DSL is that the **developers** can implement the backend in some fully-featured language such as Java but the **users** don't need to know such language to use it.
-Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don't want to get exposed to the implementation details below.
+Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don't want to get exposed to the implementation details (which are usually ugly and compplicated).
 Instead, the **users** only need to learn the DSL to use it while still have the flexibility to do what they want.
-One example can be found in data science domain where data scientists are usually more comfortable in R or SQL but automated deployment frameworks or tools can be in another language such as Java.
+One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.
 
 ### Version 1: Java-like standard implementation
 
@@ -134,7 +134,8 @@ builderDsl.withEnv("PATH=/usr/bin")
 println ""
 ```
 
-In this version, the code is less verbose and much more user-friendly.
+In this version, the code is fluent with the object name `builderDsl` not being repeated every single line.
+As a result, the code is less verbose and much more user-friendly.
 
 ### Version 3: DSL with Groovy closure
 
@@ -180,7 +181,10 @@ GroovyDsl.execute { dsl ->
 println ""
 ```
 
-TODO: replace with execute and add explanation.
+This first version of Groovy implementation is used to show connection with its Java counterparts.
+As shown below, the input variable `dsl` in the closure can be abstracted away using delegate.
+The `executeBest` is the equivalent but less straight-forward way to do the samething with delegate.
+It has the benefit of avoiding modifying any input reference.
 
 ``` groovy Transparent DSL with delegate
 class GroovyDsl {
@@ -237,7 +241,7 @@ GroovyDsl.executeBest {
 println ""
 ```
 
-In this final version, only a very small boiler-plate code `GroovyDsl.executeBest` remains and can be made transparent to users.
+In this final version, only a very small boiler-plate code `GroovyDsl.executeBest` remains and can be exposed to users.
 The users now can start using the DSL without having to learn Groovy or Java.
 
 ### Reference
