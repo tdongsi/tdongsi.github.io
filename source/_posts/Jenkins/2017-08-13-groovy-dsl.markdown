@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Groovy DSL"
+title: "DSL implementation in Groovy"
 date: 2017-08-13 15:18:30 -0700
 comments: true
 categories: 
@@ -20,7 +20,7 @@ However, those are not in the scope of this post.
 
 <!--more-->
 
-### Example problem
+### Example DSL
 
 We want to implement a simple DSL that is similar to [Pipeline steps in Jenkinsfile](https://jenkins.io/doc/pipeline/steps/).
 
@@ -181,10 +181,10 @@ GroovyDsl.execute { dsl ->
 println ""
 ```
 
-This first version of Groovy implementation is used to show connection with its Java counterparts.
+This first version of Groovy implementation is presented here to show connection with its Java counterparts.
 As shown below, the input variable `dsl` in the closure can be abstracted away using delegate.
 The `executeBest` is the equivalent but less straight-forward way to do the samething with delegate.
-It has the benefit of avoiding modifying any input reference.
+It has the benefit of avoiding modifying the input reference `closure`.
 
 ``` groovy Transparent DSL with delegate
 class GroovyDsl {
