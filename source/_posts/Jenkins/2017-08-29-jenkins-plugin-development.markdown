@@ -24,6 +24,7 @@ Reference:
 
 * [Tutorial](https://github.com/jglick/wfdev/tree/pipeline)
 * [Slides](https://github.com/jglick/wfdev/blob/master/preso.pdf)
+* [Developer's guide](https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md)
 
 ### Blue Ocean plugin
 
