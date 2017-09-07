@@ -47,3 +47,5 @@ $ cp ~/demo/default /etc/nginx/sites-enabled/default
 $ sudo service nginx restart
 $ sudo ufw deny 8080
 ```
+
+If your Jenkins is hosted in AWS/Google Cloud, you should consider setting this up.

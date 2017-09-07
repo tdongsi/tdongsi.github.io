@@ -14,7 +14,25 @@ How to create a Jenkins plugin.
 
 ### Basic plugin
 
+Reference:
+
+* [Tutorial](https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017)
+
 ### Pipeline plugin
 
+Reference:
+
+* [Tutorial](https://github.com/jglick/wfdev/tree/pipeline)
+* [Slides](https://github.com/jglick/wfdev/blob/master/preso.pdf)
+
 ### Blue Ocean plugin
+
+``` plain Local development of Blue Ocean plugin
+# this will build and run the plugin in local Jenkins
+mvn install hpi:run
+# this will recompile js & less while editing
+npm run bundle:watch
+```
+
+***Gotcha***: extension changes won't update without a Jenkins restart.
 
