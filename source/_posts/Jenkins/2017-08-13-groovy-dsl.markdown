@@ -183,8 +183,6 @@ println ""
 
 This first version of Groovy implementation is presented here to show connection with its Java counterparts.
 As shown below, the input variable `dsl` in the closure can be abstracted away using delegate.
-The `executeBest` is the equivalent but less straight-forward way to do the samething with delegate.
-It has the benefit of avoiding modifying the input reference `closure`.
 
 ``` groovy Transparent DSL with delegate
 class GroovyDsl {
@@ -245,7 +243,11 @@ In this final version, only a very small boiler-plate code `GroovyDsl.executeBes
 The following lines form a mini language (i.e., DSL) that can be exposed to users.
 The users can start using the DSL without having to learn Groovy or Java.
 
+Note that the `executeBest` is the equivalent but less straight-forward way to do the same thing with delegate.
+Compared with `execute`, it has the benefit of NOT modifying the input reference `closure`.
+
 ### Reference
 
 * [Groovy closure](http://groovy-lang.org/closures.html)
 * [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/)
+* [Another example Groovy implementation](https://dzone.com/articles/groovy-dsl-simple-example)
