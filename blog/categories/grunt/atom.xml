@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Grunt | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/grunt/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2017-09-15T23:50:20-07:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Keep Gruntfile Clean With Load-grunt-config]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/09/15/keep-gruntfile-clean-with-load-grunt-config/"/>
+    <updated>2017-09-15T23:29:17-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/09/15/keep-gruntfile-clean-with-load-grunt-config</id>
+    <content type="html"><![CDATA[<p>In this post, we look into how to keep our Gruntfile clean and tidy.
+By keeping our Gruntfile clean and tidy, it is easier for us to refine and improve the Grunt build process with its numerous plugins.</p>
+
+<!--more-->
+
+
+<h3>Starting point</h3>
+
+<p>Let&rsquo;s say you start a new Node project.</p>
+
+<pre><code class="plain Starting a Node project"># Init by creating package.json file
+npm init
+# Answer questions to create package.json file
+
+# Adding grunt
+npm install grunt --save-dev
+npm install grunt-jslint --save-dev
+npm install load-grunt-tasks --save-dev
+
+# Initalizing Gruntfile
+npm install grunt-init -g
+grunt-init gruntfile
+# grunt-init node
+</code></pre>
+
+<p>At the end of these steps, you have a basic <code>package.json</code> and <code>Gruntfile</code>.
+The basic Gruntfile would appear like this:</p>
+
+<pre><code class="javascript Basic Gruntfile">/*global module:false*/
+module.exports = function(grunt) {
+
+  // Project configuration.
+  grunt.initConfig({
+    // Metadata.
+    pkg: grunt.file.readJSON('package.json'),
+    banner: '/*! &lt;%= pkg.title || pkg.name %&gt; - v&lt;%= pkg.version %&gt; - ' +
+      '&lt;%= grunt.template.today("yyyy-mm-dd") %&gt;\n' +
+      '&lt;%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %&gt;' +
+      '* Copyright (c) &lt;%= grunt.template.today("yyyy") %&gt; &lt;%= pkg.author.name %&gt;;' +
+      ' Licensed &lt;%= _.pluck(pkg.licenses, "type").join(", ") %&gt; */\n',
+    // Task configuration.
+    concat: {
+      options: {
+        banner: '&lt;%= banner %&gt;',
+        stripBanners: true
+      },
+      dist: {
+        src: ['lib/&lt;%= pkg.name %&gt;.js'],
+        dest: 'dist/&lt;%= pkg.name %&gt;.js'
+      }
+    },
+    uglify: {
+      options: {
+        banner: '&lt;%= banner %&gt;'
+      },
+      dist: {
+        src: '&lt;%= concat.dist.dest %&gt;',
+        dest: 'dist/&lt;%= pkg.name %&gt;.min.js'
+      }
+    },
+    jshint: {
+      options: {
+        curly: true,
+        eqeqeq: true,
+        immed: true,
+        latedef: true,
+        newcap: true,
+        noarg: true,
+        sub: true,
+        undef: true,
+        unused: true,
+        boss: true,
+        eqnull: true,
+        browser: true,
+        globals: {}
+      },
+      gruntfile: {
+        src: 'Gruntfile.js'
+      },
+      lib_test: {
+        src: ['lib/**/*.js', 'test/**/*.js']
+      }
+    },
+    qunit: {
+      files: ['test/**/*.html']
+    },
+    watch: {
+      gruntfile: {
+        files: '&lt;%= jshint.gruntfile.src %&gt;',
+        tasks: ['jshint:gruntfile']
+      },
+      lib_test: {
+        files: '&lt;%= jshint.lib_test.src %&gt;',
+        tasks: ['jshint:lib_test', 'qunit']
+      }
+    }
+  });
+
+  // These plugins provide necessary tasks.
+  grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-uglify');
+  grunt.loadNpmTasks('grunt-contrib-qunit');
+  grunt.loadNpmTasks('grunt-contrib-jshint');
+  grunt.loadNpmTasks('grunt-contrib-watch');
+
+  // Default task.
+  grunt.registerTask('default', ['jshint', 'qunit', 'concat', 'uglify']);
+
+};
+</code></pre>
+
+<h3><code>load-grunt-tasks</code> plugin</h3>
+
+<p>In the original basic Gruntfile, we have to manually load our Grunt plugins, as</p>
+
+<pre><code class="javascript">grunt.loadNpmTasks('grunt-contrib-concat');
+grunt.loadNpmTasks('grunt-contrib-uglify');
+grunt.loadNpmTasks('grunt-contrib-imagemin');
+</code></pre>
+
+<p>If you now uninstall the plugin via <code>npm</code> and update your <code>package.json</code>, but forget to update your <code>Gruntfile</code>, your build will break.
+With <code>load-grunt-tasks</code> plugin, you can collapse that down to the following one-liner:</p>
+
+<pre><code class="javascript">require('load-grunt-tasks')(grunt);
+</code></pre>
+
+<p>After requiring the plugin, it will analyze your package.json file, determine which of the dependencies are Grunt plugins and load them all automatically.</p>
+
+<h3><code>load-grunt-config</code> plugin</h3>
+
+<p><code>load-grunt-tasks</code> shrunk your Gruntfile in code and complexity a little, but task configurations still remain in the Gruntfile (defined in <code>grunt.initConfig</code>).
+As you configure a large application, it will still become a very large file.</p>
+
+<p>This is when <code>load-grunt-config</code> comes into play.
+<code>load-grunt-config</code> lets you break up your Gruntfile config by task.
+With <code>load-grunt-config</code>, your <code>Gruntfile</code> may look like this:</p>
+
+<pre><code class="javascript Gruntfile with load-grunt-config">module.exports = function(grunt) {
+
+  var path = require('path');  
+  const appOptions = {
+      data: {},
+      configPath: [
+          path.join(process.cwd(), '/grunt/tasks')
+      ]
+  };
+
+  require('time-grunt')(grunt);
+  require('load-grunt-config')(grunt, appOptions);
+
+};
+</code></pre>
+
+<p>Note that <code>load-grunt-config</code> also includes <code>load-grunt-tasks</code>&rsquo;s functionality.
+The task configurations live in files in folder <code>./grunt/tasks</code>.
+By default, <code>./grunt</code> folder is used but, in this example, using a custom path is demonstrated.
+In other words, our directory structure should be like this:</p>
+
+<pre><code class="plain Directory structure">- current_project/
+-- Gruntfile
+-- grunt/tasks/
+---- concat.js
+---- uglify.js
+---- imagemin.js
+</code></pre>
+
+<p>The task configuration for each task is defined in respective file name.
+For example, task <code>concat</code> is defined in &ldquo;grunt/tasks/concat.js&rdquo;:</p>
+
+<pre><code class="javascript grunt/tasks/concat.js">module.exports = {
+  options: {
+    banner: '&lt;%= banner %&gt;',
+    stripBanners: true
+  },
+  dist: {
+    src: ['lib/&lt;%= pkg.name %&gt;.js'],
+    dest: 'dist/&lt;%= pkg.name %&gt;.js'
+  }
+};
+</code></pre>
+
+<p>The list of registered task aliases such as <code>default</code> is defined in <code>aliases.js</code> file.</p>
+
+<pre><code class="javascript grunt/tasks/aliases.js">module.exports = function(grunt, appOptions) {
+    var buildList = [
+        'jshint',
+        'qunit',
+        'concat',
+        'uglify'
+    ];
+
+    return {
+        default: ['build'],
+        build: buildList,
+        test: ['jslint']
+    };
+};
+</code></pre>
+
+<h3>References</h3>
+
+<ul>
+<li>Safari: Introducing Grunt: the JavaScript task runner</li>
+<li>Common Grunt plugins:
+
+<ul>
+<li><a href="http://firstandthird.github.io/load-grunt-config/">load-grunt-config</a>: key plugin to keep Gruntfile organized.</li>
+<li><a href="https://www.npmjs.com/package/grunt-contrib-concat">concat</a></li>
+<li>Unit Testing: <a href="https://www.npmjs.com/package/grunt-contrib-qunit">qunit</a></li>
+<li>Image optimization: imagemin</li>
+<li>Deploying: deploy</li>
+<li>Chaining: concurrent</li>
+</ul>
+</li>
+<li><a href="https://gruntjs.com/project-scaffolding">Project scaffolding with <code>grunt-init</code></a>
+
+<ul>
+<li>grunt-init-commonjs - Create a commonjs module, including Nodeunit unit tests.</li>
+<li>grunt-init-gruntfile - Create a basic Gruntfile.</li>
+<li>grunt-init-gruntplugin - Create a Grunt plugin, including Nodeunit unit tests.</li>
+<li>grunt-init-jquery - Create a jQuery plugin, including QUnit unit tests.</li>
+<li><a href="https://github.com/gruntjs/grunt-init-node">grunt-init-node</a> - Create a Node.js module, including Nodeunit unit tests.</li>
+</ul>
+</li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>
