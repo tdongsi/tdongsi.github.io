@@ -94,7 +94,43 @@ Reference:
 
 ### Multi-module Maven projects
 
+Officially, multi-module Maven projects are supported differently by Jacoco as documented [here](https://github.com/jacoco/jacoco/wiki/MavenMultiModule).
+Instrumentation will be similar but the challenge of multi-module Maven projects lies in how to collect and report code coverage of all modules correctly.
+Jacoco Maven standard goals, as shown in sections above, work on single modules only: Tests are executed within the module and contributed coverage only to code within the same module.
+Coverage reports were created for each module separately.
 
+In the past, there are some ad-hoc solutions such as [this](https://dzone.com/articles/jacoco-maven-multi-module) (for Jacoco 0.5.x) to work around that limit.
+However, those patterns are also error-prone and hard to customize, especially when Jacoco is used with Surefire plugin.
+Fortunately, Jacoco recently introduced a new Maven goal "report-aggregate" in its release 0.7.7 which will aggregate code coverage data across Maven modules.
+Its usage is also present in the same [link](https://github.com/jacoco/jacoco/wiki/MavenMultiModule) (quoted below) but it is too succint and not very helpful for new users.
+
+{% blockquote %}
+Create a dedicated module in your project for generation of the report. This module should depend on all or some other modules in the project.
+{% endblockquote %}
+
+Let' say you have a multi-module Maven project with this structure:
+
+``` plain Multi-module Maven project
+root pom
+  |- module a
+  |- module b
+  |- module c
+```
+
+To use Jacoco "report-aggregate" goal for these modules, you first need to add a dedicated "coverage" module.
+This "coverage" module should be added into the root POM.
+The multi-module Maven project should now look like this:
+
+``` plain Multi-module Maven project with aggregate coverage module
+root pom
+  |- module a
+  |- module b
+  |- module c
+  |- module "coverage"
+```
+
+The POMs for each module does not need to change at all.
+The POM for the "coverage" module will look like this:
 
 ``` xml Maven pom.xml for coverage module
 <?xml version="1.0" encoding="UTF-8"?>
@@ -167,10 +203,13 @@ Reference:
 
 Links:
 
-* [Cross](https://stackoverflow.com/questions/41885772/jacoco-simple-integration-test-solution/41901853#41901853)
-* [Example](https://stackoverflow.com/questions/13031219/how-to-configure-multi-module-maven-sonar-jacoco-to-give-merged-coverage-rep/37871210#37871210)
+* [Example of report-aggregate](https://stackoverflow.com/questions/13031219/how-to-configure-multi-module-maven-sonar-jacoco-to-give-merged-coverage-rep/37871210#37871210)
 * [Example Maven project](https://github.com/jacoco/jacoco/tree/master/jacoco-maven-plugin.test/it/it-report-aggregate)
 
 ### References
 
 * [Jacoco Maven plugin](http://www.jacoco.org/jacoco/trunk/doc/maven.html): there are example POMs.
+
+<!--
+* [Cross-module reporting](https://stackoverflow.com/questions/41885772/jacoco-simple-integration-test-solution/41901853#41901853)
+-->
