@@ -13,7 +13,7 @@ This blog post goes over some recipes for adding code coverage report to Maven-b
 
 <!--more-->
 
-### Typical usage
+### Standard usage
 
 Based on [offical instruction](http://www.eclemma.org/jacoco/trunk/doc/maven.html) and [this](https://stackoverflow.com/questions/36199422/maven-unit-test-code-coverage), you need to add the following code snippet in to your Maven `pom.xml`.
 
@@ -198,8 +198,10 @@ The POM for the "coverage" module will look like this:
         </plugins>
     </build>
 </project>
-
 ```
+
+Note that we still require "prepare-agent" step to run before the first test suite.
+Depending on what plugins are being used and how the modules are organized within the project, we might have different setup for that particular step.
 
 Links:
 
