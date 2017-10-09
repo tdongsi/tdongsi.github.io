@@ -20,7 +20,10 @@ After that, we will look into adjustments required for a containerized Jenkins s
 We first look at a typical Jenkins setup, where the Jenkins instance is installed directly on a host machine (VM or bare-metal) and has direct communication to the SMTP server.
 For corporate network, you may have to use an SMTP relay server instead.
 For those cases, you can configure SMTP communication by [setting up Postfix](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-postfix-as-a-send-only-smtp-server-on-ubuntu-14-04).
-Its typical settings is defined in */etc/postfix/main.cf* file like this:
+In CentOS, it could be a simple "sudo yum install -y mailx".
+
+After installing, update */etc/postfix/main.cf* with correct relay information: myhostname, myorigin, mydestination, relayhost, alias\_maps, alias\_database. 
+An example */etc/postfix/main.cf* is shown below:
 
 ``` plain /etc/postfix/main.cf example
 # See /usr/share/postfix/main.cf.bak for a commented, more complete version
