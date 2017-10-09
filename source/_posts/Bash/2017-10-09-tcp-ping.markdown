@@ -1,0 +1,52 @@
+---
+layout: post
+title: "TCP ping"
+date: 2017-10-09 14:36:56 -0700
+comments: true
+categories: 
+- Bash
+---
+
+This post explains a work-around for pinging hosts in network where ICMP requests are blocked.
+
+<!--more-->
+
+There are times that we can `ssh` to our servers but simply can't `ping` those servers.
+
+``` plain ssh works but ping fails
+tdongsi$ ping 10.252.158.71
+PING 10.252.158.71 (10.252.158.71): 56 data bytes
+Request timeout for icmp_seq 0
+Request timeout for icmp_seq 1
+Request timeout for icmp_seq 2
+Request timeout for icmp_seq 3
+^C
+--- 10.252.158.71 ping statistics ---
+5 packets transmitted, 0 packets received, 100.0% packet loss
+
+tdongsi$ ssh centos@10.252.158.71
+Last login: Mon Feb  6 23:35:41 2017 from 10.3.55.249
+[centos@kube-1 ~]$ exit
+logout
+Connection to 10.252.158.71 closed.
+```
+
+One possible explanation of seemingly perplexing situation like above is that ICMP requests (i.e., ping) are blocked.
+It is not unheard of that an ISP or a network administrator blocks ICMP requests.
+To work around that limitation, you can use a "TCP ping" on a port, using a tool like `nmap`.
+The following examples check if a host can be reached via port 80:
+
+``` plain "TCP ping" with nmap: success and failure.
+tdongsi$ nmap -sn -PS80 10.252.158.71
+
+Starting Nmap 7.40 ( https://nmap.org ) at 2017-03-03 17:17 PST
+Nmap scan report for master-1 (10.252.158.71)
+Host is up (0.051s latency).
+Nmap done: 1 IP address (1 host up) scanned in 0.06 seconds
+
+tdongsi$ nmap -sn -PS80 master-2
+
+Starting Nmap 7.40 ( https://nmap.org ) at 2017-10-09 14:35 PDT
+Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn
+Nmap done: 1 IP address (0 hosts up) scanned in 2.02 seconds
+```
