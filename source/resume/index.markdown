@@ -117,7 +117,7 @@ SKIPPED:
 
 ### Work Experience
 
-**Member of Technical Staff**, Salesforce (10/2016 - present)
+**Senior Member of Technical Staff**, Salesforce (10/2016 - present)
 
 * AWS, Kubernetes, Docker, Jenkins, CI/CD.
 * Achievements:
