@@ -25,15 +25,15 @@ Checklist:
 ### Skills
 
 <!--
-TODO: Ruby, Go
+TODO: Go
 -->
-* **Programming**: 
+* **Languages**: 
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  Scala, Javascript, Groovy, 
+  Scala, Groovy, Javascript,
   [Perl](/blog/categories/perl/),
-  [bash](/blog/categories/bash/).
+  [bash](/blog/categories/bash/). <!-- Matlab, Ruby -->
 * [**Database**](/blog/categories/database/): 
   [SQLite](/blog/categories/sqlite/), 
   [MySQL](/blog/categories/mysql/),
@@ -42,14 +42,14 @@ TODO: Ruby, Go
   XQuery,
   Data Warehouse.
 * **Java stack**: 
-  [JDBC](/blog/categories/jdbc/), 
   Guava, 
   Spring, 
-  JCommander, SLF4J, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
-  [JUnit](/blog/categories/junit/), TestNG, <!-- Test -->
-  Apache Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+  [JDBC](/blog/categories/jdbc/),
+  SLF4J, JCommander, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
+  [JUnit](/blog/categories/junit/), TestNG, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
+  Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **JavaScript stack**:
-  MongoDB, ExpressJS, NodeJS, 
+  NodeJS, <!-- ExpressJS, MongoDB -->
   Grunt, npm, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
   HTML, CSS.
@@ -72,10 +72,12 @@ TODO: Ruby, Go
   [Vertica](/blog/categories/vertica/), 
   [Cassandra](/blog/categories/cassandra/).
 * **Tools**:
-  * IDE:
-    IntelliJ, PyCharm,
-    [Eclipse](/blog/categories/eclipse/), 
-    Visual Studio.
+  * DevOps:
+    [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
+    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
+    Chef, <!-- Configuration: Puppet, Ansible --> 
+    Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
+    [Docker](/blog/categories/docker/), Kubernetes. <!-- Container -->
   * Version control:
     [Git](/blog/categories/git/), 
     [Github](https://github.com/tdongsi), 
@@ -83,18 +85,19 @@ TODO: Ruby, Go
     Perforce, Subversion.
   * Teamware:
     MediaWiki, Confluence, JIRA, Trello, Slack.
-  * DevOps:
-    [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
-    Chef, <!-- Configuration: Puppet, Ansible --> 
-    Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
-    [Docker](/blog/categories/docker/), Kubernetes. <!-- Container --> 
-
+  * IDE:
+    IntelliJ, PyCharm,
+    [Eclipse](/blog/categories/eclipse/), 
+    Visual Studio.
 <!--
-SKIPPED: in alphabet order
+SKIPPED: in section, then alphabet order
 
 Dimensional Modeling (Kimball)
+Netezza
+Tableau
+
 Make
+PowerShell
 Rake (Ruby)
 sbt (Scala)
 Spinnaker
