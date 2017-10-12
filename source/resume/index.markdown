@@ -107,8 +107,8 @@ SunOS, HP-UX
  
 ### Honor & Awards
 
-* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: Awarded by SVP of IoT Engineering at IoT Cloud All-Hands ([announcement](/download/awards/2017_IoT_slide.jpg)).
-* **SBG Data Hackathon - Best Idea** [August 2016]: Member of team “Ahab” that won Intuit Small Business Group's (SBG) Data Hackathon's Best Idea category. 
+* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: Awarded by SVP of IoT Engineering at Salesforce IoT All-Hands ([announcement](/download/awards/2017_IoT_slide.jpg)).
+* **Winner - Best Idea** [August 2016]: Member of winning team “Ahab” for Best Idea category in Intuit Small Business Group's Data Hackathon. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Learn_Fast.pdf) [March 2015]: Manager's spot award for [“Learn Fast”](https://about.intuit.com/about_intuit/operating_values/).
@@ -119,6 +119,7 @@ SunOS, HP-UX
 * **Dean’s List**, Faculty of Engineering, National University of Singapore [2002-04].
 
 <!--
+* **Best committee member certificate**, IEEE NUS Student Brach Annual General Meeting [2005].
 * **Champion**, IEEE All-Singapore University Tech Quiz [2005, 2006].
 * **First Prize**, Vietnam National Physics Olympiad for Universities [2002]
 * **Merit Prize**, Vietnam National Physics Olympiad for High Schools [2001]
@@ -164,19 +165,20 @@ SunOS, HP-UX
 * Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
 -->
 
-<!--
-**Graduate Student Researcher**, University of California, Riverside (9/2009 - 4/2012) 
-
-* Designed and implemented sensor fusion algorithms for [accelerometers, gyroscopes, and cameras](/resume/mycar_2012.jpg), with applications targeted for smartphones, VR headsets, and driverless car [navigation systems](/resume/mycarb_2012.jpg). 
-  The algorithms, implemented in C++ and Matlab based on probabilistic models and statistical inference methods, are published in peer-reviewed conferences (ICRA).
--->
-
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
 * Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
 * Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
+
+<!--
+**Summer Intern**, Singapore Institute of Manufacturing Technology (5/2005 - 7/2005) 
+
+* Investigated feasibility of using Java technologies for embedded systems, using TStik, STEP and TILT circuit boards and TINI development tools.
+* Implemented several Java applications to interface with several embedded devices.
+* Achievements: A Java application to monitor temperature and send alerts via SMS and Yahoo! Instant Messenger as well as daily email reports. Used Java Swing for GUI control panel design.
+-->
 
 ### Education
 
