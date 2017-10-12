@@ -88,7 +88,7 @@ TODO: Ruby, Go
     [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
     Chef, <!-- Configuration: Puppet, Ansible --> 
     Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
-    [Docker](/blog/categories/docker/), Kubernetes, etcd. <!-- Container --> 
+    [Docker](/blog/categories/docker/), Kubernetes. <!-- Container --> 
 
 <!--
 SKIPPED: in alphabet order
@@ -101,13 +101,6 @@ Spinnaker
 SunOS, HP-UX
 [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
 -->
-
-### Education
-
-* Master of Science, 2009 - 2012, University of California, Riverside. GPA: *3.92/4*
-  * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras, with applications targeted for smartphones, VR headsets, and driverless car navigation systems. 
-    The algorithms, based on probabilistic models and statistical inference methods, are implemented and published in peer-reviewed conferences (ICRA, IROS).
-* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore. GPA: *4.42/5*
  
 ### Honor & Awards
 
@@ -181,6 +174,13 @@ SunOS, HP-UX
 * Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
+
+### Education
+
+* Master of Science, 2009 - 2012, University of California, Riverside. GPA: *3.92/4*
+  * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras, with applications targeted for smartphones, VR headsets, and driverless car navigation systems. 
+    The algorithms, based on probabilistic models and statistical inference methods, are implemented and published in peer-reviewed conferences (ICRA, IROS).
+* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore. GPA: *4.42/5*
 
 ### Courseworks & Trainings
 
