@@ -151,7 +151,7 @@ SunOS, HP-UX
     * Designed and implemented test plans for measuring data ingestion performance of graph database InfiniteGraph in distributed multi-client settings. 
       Fully automated performance tests using Python, in which multiple Java-based clients are compiled and ingest data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
-    * Developed functional tests for Talend data connectors in ETL pipelines from MySQL and Cassandra databases into Objectivity databases.
+    * Developed functional tests for Talend data connectors in ETL pipelines for transforming data from MySQL and Cassandra databases to Objectivity databases.
     * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
 <!--
@@ -182,10 +182,10 @@ SunOS, HP-UX
 
 ### Education
 
-* Master of Science, 2009 - 2012, University of California, Riverside. GPA: *3.92/4*
+* *Master of Science*, 2012, University of California, Riverside. **GPA**: *3.92/4*
   * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras, with applications targeted for smartphones, VR headsets, and driverless car navigation systems. 
     The algorithms, based on probabilistic models and statistical inference methods, are implemented and published in peer-reviewed conferences (ICRA, IROS).
-* Bachelor of Engineering, 2002 - 2006, National University of Singapore, Singapore. GPA: *4.42/5*
+* *Bachelor of Engineering*, 2006, National University of Singapore, Singapore. **GPA**: *4.42/5*
 
 ### Courseworks & Trainings
 
