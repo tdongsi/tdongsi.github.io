@@ -25,7 +25,7 @@ Checklist:
 ### Skills
 
 <!--
-TODO: 
+TODO: Ruby, Go
 -->
 * **Programming**: 
   [Java](/blog/categories/java/), 
@@ -37,20 +37,15 @@ TODO:
 * [**Database**](/blog/categories/database/): 
   [SQLite](/blog/categories/sqlite/), 
   [MySQL](/blog/categories/mysql/),
-  [Vertica](/blog/categories/vertica/), 
-  [Cassandra](/blog/categories/cassandra/).
-* **Data Analytics**: 
   [SQL](/blog/categories/sql/), 
   XPath, 
   XQuery,
-  Data Warehouse,
-  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
-  Dimensional Modeling (Kimball).
+  Data Warehouse.
 * **Java stack**: 
   [JDBC](/blog/categories/jdbc/), 
   Guava, 
   Spring, 
-  JCommander, SLF4J, 
+  JCommander, SLF4J, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG,
   Apache Ant, 
   [Maven](/blog/categories/maven/), Gradle.
@@ -66,6 +61,14 @@ TODO:
   [CentOS](/blog/categories/centos/),
   Ubuntu, SunOS, HP-UX,
   [Amazon Web Services](/blog/categories/aws/).
+* **Big Data**:
+  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
+  HBase,
+  Spark,
+  Storm,
+  Kafka,
+  [Vertica](/blog/categories/vertica/), 
+  [Cassandra](/blog/categories/cassandra/).
 * **Tools**:
   * IDE:
     IntelliJ, PyCharm,
@@ -79,13 +82,17 @@ TODO:
   * Teamware:
     MediaWiki, Confluence, JIRA, Trello.
   * DevOps:
-    [Jenkins](/blog/categories/jenkins/), Spinnaker, 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), 
-    Chef, vagrant, 
-    [Docker](/blog/categories/docker/), Kubernetes.
+    [Jenkins](/blog/categories/jenkins/), SonarQube, <!-- CI/CD --> 
+    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
+    Chef, <!-- Configuration: Puppet, Ansible --> 
+    Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
+    [Docker](/blog/categories/docker/), Kubernetes, etcd. <!-- Container --> 
 
 <!--
-SKIPPED: 
+SKIPPED: in alphabet order
+
+Dimensional Modeling (Kimball)
+Spinnaker
 [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
 -->
 
