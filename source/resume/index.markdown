@@ -46,11 +46,13 @@ TODO: Ruby, Go
   Guava, 
   Spring, 
   JCommander, SLF4J, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
-  [JUnit](/blog/categories/junit/), TestNG,
-  Apache Ant, 
-  [Maven](/blog/categories/maven/), Gradle.
+  [JUnit](/blog/categories/junit/), TestNG, <!-- Test -->
+  Apache Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **JavaScript stack**:
-  MongoDB, ExpressJS, NodeJS, Grunt, HTML, CSS.
+  MongoDB, ExpressJS, NodeJS, 
+  Grunt, npm, <!-- Build -->
+  Jasmine, Mocha, <!-- Test -->
+  HTML, CSS.
 * **Other libraries**: 
   ANTLR, Boost, OpenCV, Eigen, 
   [Numpy](/blog/categories/numpy/), 
@@ -59,7 +61,7 @@ TODO: Ruby, Go
   [Windows](/blog/categories/windows/), 
   [Mac OS](/blog/categories/macosx/), 
   [CentOS](/blog/categories/centos/),
-  Ubuntu, SunOS, HP-UX,
+  Ubuntu, 
   [Amazon Web Services](/blog/categories/aws/).
 * **Big Data**:
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
@@ -80,10 +82,10 @@ TODO: Ruby, Go
     SourceTree, 
     Perforce, Subversion.
   * Teamware:
-    MediaWiki, Confluence, JIRA, Trello.
+    MediaWiki, Confluence, JIRA, Trello, Slack.
   * DevOps:
-    [Jenkins](/blog/categories/jenkins/), SonarQube, <!-- CI/CD --> 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
+    [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
+    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
     Chef, <!-- Configuration: Puppet, Ansible --> 
     Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
     [Docker](/blog/categories/docker/), Kubernetes, etcd. <!-- Container --> 
@@ -92,7 +94,11 @@ TODO: Ruby, Go
 SKIPPED: in alphabet order
 
 Dimensional Modeling (Kimball)
+Make
+Rake (Ruby)
+sbt (Scala)
 Spinnaker
+SunOS, HP-UX
 [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
 -->
 
