@@ -135,14 +135,14 @@ SunOS, HP-UX
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
-* Designed and implemented test frameworks and tools for automated unit and functional testing in **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
-  Worked with business analysts and data scientists on project requirements to develop appropriate tools and test solutions.
+* Designed and implemented automation frameworks and tools for **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
+  Worked with business analysts and data scientists on project requirements to develop appropriate tools and automation solutions.
 * Projects and Achievements:
   * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, 
     verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
-  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won SBG Data Hackathon: 
+  * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won Intuit Data Hackathon: 
     Using Docker containers to recreate data warehouse infrastructure and pipelines in local environment for efficient ETL development and testing.
-  * Three **Intuit Spotlight Awards**: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
+  * Three **Intuit Spotlight Awards** for demonstrating Intuit Values: [“Learn Fast”](/download/awards/2015_Learn_Fast.pdf) 2015, [“Deliver Awesome”](/download/awards/2015_Deliver_Awesome.pdf) 2015, and [“Deliver Awesome”](/download/awards/2016_Deliver_Awesome.pdf) 2016.
   
 **Software Engineer**, Objectivity Inc. (7/2012 - 12/2014)
 
