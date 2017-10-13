@@ -129,9 +129,13 @@ SunOS, HP-UX
 
 **Senior Member of Technical Staff**, Salesforce (10/2016 - present)
 
-* AWS, Kubernetes, Docker, Jenkins, CI/CD.
+* Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, CI/CD.
 * Achievements:
-  * ["IoT Rock Star Award"](/download/awards/2017_IoT_Star.jpg) for designing and building [a scalable CI/CD system used in IoT Cloud](/download/awards/2017_IoT_slide.jpg).
+  * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.pdf) as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
+  * Built robust, highly-available Kubernetes infrastructure on top of internal Compute services (similar to AWS EC2 & S3).
+  * Designed and implemented fully containerized Jenkins systems (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as public and internal Github, DockerHub, Nexus, Slack, PagerDuty. Implemented various key features such as Docker images, access control, code coverage gates, Slack/email notifications.
+  * Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and make Jenkinsfile-based pipeline development easier for Jenkins users.
+  * Awards: ["IoT Rock Star Award"](/download/awards/2017_IoT_Star.jpg) for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
