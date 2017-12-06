@@ -9,7 +9,7 @@
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="Some interesting talks in Jenkins World 2017 are summarized in this blog post. Managing Jenkins with CloudBees Jenkins Team CloudBees Jenkins is the &hellip;">
+  <meta name="description" content="Some interesting talks in Jenkins World 2017 are summarized in this blog post. Jenkins Pipeline on your Local Box to Reduce Cycle Time Interesting &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -120,6 +120,208 @@
 <div class="entry-content"><p>Some interesting talks in <a href="https://www.cloudbees.com/jenkinsworld/schedule">Jenkins World 2017</a> are summarized in this blog post.</p>
 
 <!--more-->
+
+
+<h3>Jenkins Pipeline on your Local Box to Reduce Cycle Time</h3>
+
+<p>Interesting proposal (with <strong>demo</strong>, a big plus) to resolve the following problems (added my own experience):</p>
+
+<ul>
+<li>Non repeatble builds due to allocated physical slaves with reused workspaces.
+
+<ul>
+<li>The idea is equivalent to use Dockerized Jenkins for local job runs before running on central Jenkins.</li>
+<li>My current alternative is to use containerized Jenkins slaves using Kubernetes plugin.</li>
+</ul>
+</li>
+<li>Merging of two companies (YNAP + GerritForge)
+
+<ul>
+<li>Not applicable. However, for large corporates, two product teams can feel like two companies.</li>
+</ul>
+</li>
+<li>Need for fast feedback
+
+<ul>
+<li>Same</li>
+</ul>
+</li>
+<li>One master cannot suit all: central CI not flexible to local team needs.
+
+<ul>
+<li>Maybe applicable for team CI and company-wide CI.</li>
+</ul>
+</li>
+<li>Scalability: central CI only handle <code>master</code> job runs instead of multiple feature job runs.</li>
+</ul>
+
+
+<p>Reference:</p>
+
+<ul>
+<li><a href="https://github.com/NET-A-PORTER/jenkinsworld-2017-sample-app">Code repo</a></li>
+</ul>
+
+
+<figure class='code'><figcaption><span>default Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="cp">#!/bin/env groovy</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">node</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">echo</span> <span class="n">env</span><span class="o">.</span><span class="na">JENKINS_URL</span>
+</span><span class='line'>    <span class="nf">if</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">JENKINS_URL</span> <span class="o">==~</span> <span class="s">/.*central-pipeline.*/</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">echo</span> <span class="s2">&quot;loading central&quot;</span>
+</span><span class='line'>        <span class="n">load</span> <span class="s2">&quot;central/Jenkinsfile&quot;</span>
+</span><span class='line'>    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">echo</span> <span class="s2">&quot;loading local&quot;</span>
+</span><span class='line'>        <span class="n">load</span> <span class="s2">&quot;local/Jenkinsfile&quot;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>local Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="o">{</span> <span class="o">-&gt;</span> <span class="n">docker</span><span class="o">.</span><span class="na">image</span><span class="o">(</span><span class="s1">&#39;slave-sbt&#39;</span><span class="o">).</span><span class="na">inside</span>
+</span><span class='line'>    <span class="o">{</span>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Build&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="nf">sbt</span><span class="o">(</span><span class="s1">&#39;compile&#39;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Test&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="nf">sbt</span><span class="o">(</span><span class="s1">&#39;test&#39;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Deploy Locally&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="nf">sbt</span><span class="o">(</span><span class="s1">&#39;docker:publishLocal&#39;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">def</span> <span class="n">dockerTag</span> <span class="o">=</span> <span class="o">(</span><span class="n">sh</span><span class="o">(</span><span class="nl">script:</span> <span class="s2">&quot;git describe --tags HEAD&quot;</span><span class="o">,</span> <span class="nl">returnStdout:</span> <span class="kc">true</span><span class="o">)).</span><span class="na">trim</span><span class="o">()</span>
+</span><span class='line'>            <span class="n">cleanUpOldContainers</span><span class="o">(</span><span class="n">dockerTag</span><span class="o">)</span>
+</span><span class='line'>            <span class="n">runContainer</span><span class="o">(</span><span class="n">dockerTag</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="kt">def</span> <span class="n">containerUrl</span> <span class="o">=</span> <span class="n">getRunningContainerURL</span><span class="o">(</span><span class="n">dockerTag</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">echo</span> <span class="s2">&quot;Running on $containerUrl&quot;</span>
+</span><span class='line'>            <span class="n">currentBuild</span><span class="o">.</span><span class="na">setDescription</span><span class="o">(</span><span class="s2">&quot;$containerUrl&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Push to GitHub&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">withCredentials</span><span class="o">([[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span>
+</span><span class='line'>                              <span class="nl">credentialsId:</span> <span class="s1">&#39;github&#39;</span><span class="o">,</span>
+</span><span class='line'>                              <span class="nl">usernameVariable:</span> <span class="s1">&#39;USERNAME&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;PASSWORD&#39;</span><span class="o">]])</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">sh</span> <span class="s2">&quot;git branch --list ${env.BRANCH_NAME} || git checkout -b ${env.BRANCH_NAME}&quot;</span>
+</span><span class='line'>                <span class="n">sh</span> <span class="s2">&quot;git push -f https://$USERNAME:$PASSWORD@github.com/NET-A-PORTER/jenkinsworld-2017-sample-app HEAD:refs/heads/${env.BRANCH_NAME}&quot;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">...</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>central Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="o">{</span> <span class="o">-&gt;</span> <span class="n">docker</span><span class="o">.</span><span class="na">image</span><span class="o">(</span><span class="s1">&#39;slave-sbt&#39;</span><span class="o">).</span><span class="na">inside</span>
+</span><span class='line'>    <span class="o">{</span>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Build&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">sh</span> <span class="nf">sbt</span><span class="o">(</span><span class="s1">&#39;compile&#39;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Creating Docker container&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">sh</span> <span class="nf">sbt</span><span class="o">(</span><span class="s1">&#39;docker:stage&#39;</span><span class="o">)</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>        <span class="k">if</span> <span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span> <span class="o">==</span> <span class="s2">&quot;master&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Deploy to Heroku&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>                <span class="n">withCredentials</span><span class="o">([[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span>
+</span><span class='line'>                                  <span class="nl">credentialsId:</span> <span class="s1">&#39;heroku&#39;</span><span class="o">,</span>
+</span><span class='line'>                                  <span class="nl">usernameVariable:</span> <span class="s1">&#39;USERNAME&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;PASSWORD&#39;</span><span class="o">]])</span> <span class="o">{</span>
+</span><span class='line'>                    <span class="n">sh</span> <span class="s2">&quot;echo &#39;machine git.heroku.com login $USERNAME password $PASSWORD&#39; &gt; ~/.netrc&quot;</span>
+</span><span class='line'>                    <span class="n">sh</span> <span class="s2">&quot;chmod 600 ~/.netrc&quot;</span>
+</span><span class='line'>                    <span class="n">sh</span> <span class="s2">&quot;git push -f https://git.heroku.com/jenkinsworld-2017-sample-app.git HEAD:master&quot;</span>
+</span><span class='line'>                <span class="o">}</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">sbt</span><span class="o">(</span><span class="n">target</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="s2">&quot;sbt -no-colors $target&quot;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
 <h3>Managing Jenkins with CloudBees Jenkins Team</h3>
