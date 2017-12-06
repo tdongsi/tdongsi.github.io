@@ -11,6 +11,108 @@ Some interesting talks in [Jenkins World 2017](https://www.cloudbees.com/jenkins
 
 <!--more-->
 
+### Jenkins Pipeline on your Local Box to Reduce Cycle Time
+
+Interesting proposal (with **demo**, a big plus) to resolve the following problems (added my own experience):
+
+* Non repeatble builds due to allocated physical slaves with reused workspaces.
+  * The idea is equivalent to use Dockerized Jenkins for local job runs before running on central Jenkins.
+  * My current alternative is to use containerized Jenkins slaves using Kubernetes plugin.
+* Merging of two companies (YNAP + GerritForge)
+  * Not applicable. However, for large corporates, two product teams can feel like two companies.
+* Need for fast feedback
+  * Same
+* One master cannot suit all: central CI not flexible to local team needs.
+  * Maybe applicable for team CI and company-wide CI.
+* Scalability: central CI only handle `master` job runs instead of multiple feature job runs.
+
+Reference:
+
+* [Code repo](https://github.com/NET-A-PORTER/jenkinsworld-2017-sample-app)
+
+``` groovy default Jenkinsfile
+#!/bin/env groovy
+
+node {
+    checkout scm
+
+    echo env.JENKINS_URL
+    if(env.JENKINS_URL ==~ /.*central-pipeline.*/) {
+        echo "loading central"
+        load "central/Jenkinsfile"
+    } else {
+        echo "loading local"
+        load "local/Jenkinsfile"
+    }
+}()
+```
+
+``` groovy local Jenkinsfile
+{ -> docker.image('slave-sbt').inside 
+    {
+        stage('Build') {
+            sh sbt('compile')
+        }
+        stage('Test') {
+            sh sbt('test')
+        }
+        stage('Deploy Locally') {
+            sh sbt('docker:publishLocal')
+
+            def dockerTag = (sh(script: "git describe --tags HEAD", returnStdout: true)).trim()
+            cleanUpOldContainers(dockerTag)
+            runContainer(dockerTag)
+
+            def containerUrl = getRunningContainerURL(dockerTag)
+
+            echo "Running on $containerUrl"
+            currentBuild.setDescription("$containerUrl")
+
+
+        }
+
+        stage('Push to GitHub') {
+            withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                              credentialsId: 'github',
+                              usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+                sh "git branch --list ${env.BRANCH_NAME} || git checkout -b ${env.BRANCH_NAME}"
+                sh "git push -f https://$USERNAME:$PASSWORD@github.com/NET-A-PORTER/jenkinsworld-2017-sample-app HEAD:refs/heads/${env.BRANCH_NAME}"
+            }
+        }
+    }
+}
+
+...
+```
+
+``` groovy central Jenkinsfile
+{ -> docker.image('slave-sbt').inside
+    {
+        stage('Build') {
+                sh sbt('compile')
+        }
+        stage('Creating Docker container') {
+                sh sbt('docker:stage')
+        }
+        if (env.BRANCH_NAME == "master") {
+            stage('Deploy to Heroku') {
+                withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                                  credentialsId: 'heroku',
+                                  usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+                    sh "echo 'machine git.heroku.com login $USERNAME password $PASSWORD' > ~/.netrc"
+                    sh "chmod 600 ~/.netrc"
+                    sh "git push -f https://git.heroku.com/jenkinsworld-2017-sample-app.git HEAD:master"
+                }
+            }
+        }
+    }
+}
+
+def sbt(target) {
+    return "sbt -no-colors $target"
+}
+```
+
 ### Managing Jenkins with CloudBees Jenkins Team
 
 CloudBees Jenkins is the Enterprise version of Jenkins, as opposed to Open-Source Jenkins.
