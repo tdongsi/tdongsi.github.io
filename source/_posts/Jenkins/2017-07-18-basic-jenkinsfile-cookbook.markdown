@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Basic Jenkinsfile cookbook"
-date: 2017-06-18 11:20:20 -0700
+date: 2017-07-18 11:20:20 -0700
 comments: true
 categories: 
 - Jenkins

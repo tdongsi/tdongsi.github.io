@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Advanced Jenkinsfile cookbook"
-date: 2017-06-19 14:23:01 -0700
+date: 2017-07-19 14:23:01 -0700
 comments: true
 categories: 
 - Groovy
