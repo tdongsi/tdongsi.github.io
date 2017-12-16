@@ -1,0 +1,695 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Groovy in Jenkinsfile - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="Groovy is supported in Jenkinsfile for quick scripting.
+However, lots of features in the Groovy language is not supported and simple works in Groovy &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/06/17/groovy-in-jenkinsfile/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Groovy in Jenkinsfile</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-06-17T12:08:15-07:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>12:08 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>Groovy is supported in Jenkinsfile for quick scripting.
+However, lots of features in the Groovy language is not supported and simple works in Groovy can be really tricky in Jenkinsfile.</p>
+
+<!--more-->
+
+
+<h3>Different ways to process XML file</h3>
+
+<p>In summary, if it is possible, use another script language (e.g., Python) for <strong>file manipulation</strong> in Jenkinsfile.
+It is time consuming to navigate all tricky stuffs of Groovy implementaiton in Jenkins:</p>
+
+<ul>
+<li>In-process Script Approval: you have to approve every single class and method <em>one by one</em>.</li>
+<li>Some features of Groovy is not supported and it takes time to figure out what is not supported and how to work around. When in doubt, use <code>@NonCPS</code>.</li>
+</ul>
+
+
+<h4>Groovy method in Jenkinsfile</h4>
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.StreamingMarkupBuilder</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.XmlUtil</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">settingsFile</span> <span class="o">=</span> <span class="s1">&#39;temp.xml&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@NonCPS</span>
+</span><span class='line'><span class="kt">def</span> <span class="nf">xmlTransform</span><span class="o">(</span><span class="n">txt</span><span class="o">,</span> <span class="n">username</span><span class="o">,</span> <span class="n">password</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">xmlRoot</span> <span class="o">=</span> <span class="k">new</span> <span class="n">XmlSlurper</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="kc">false</span><span class="o">).</span><span class="na">parseText</span><span class="o">(</span><span class="n">txt</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">echo</span> <span class="s1">&#39;Start tranforming XML&#39;</span>
+</span><span class='line'>    <span class="n">xmlRoot</span><span class="o">.</span><span class="na">servers</span><span class="o">.</span><span class="na">server</span><span class="o">.</span><span class="na">each</span> <span class="o">{</span> <span class="n">node</span> <span class="o">-&gt;</span>
+</span><span class='line'>       <span class="n">node</span><span class="o">.</span><span class="na">username</span> <span class="o">=</span> <span class="n">username</span>
+</span><span class='line'>       <span class="n">node</span><span class="o">.</span><span class="na">password</span> <span class="o">=</span> <span class="n">password</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// TRICKY: FileWriter does NOT work</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">outWriter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">StringWriter</span><span class="o">()</span>
+</span><span class='line'>    <span class="n">XmlUtil</span><span class="o">.</span><span class="na">serialize</span><span class="o">(</span> <span class="n">xmlRoot</span><span class="o">,</span> <span class="n">outWriter</span> <span class="o">)</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">outWriter</span><span class="o">.</span><span class="na">toString</span><span class="o">()</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">pipeline</span> <span class="o">{</span>
+</span><span class='line'>   <span class="n">agent</span> <span class="o">{</span> <span class="n">node</span> <span class="o">{</span> <span class="n">label</span> <span class="s1">&#39;test-agent&#39;</span> <span class="o">}</span> <span class="o">}</span>
+</span><span class='line'>   <span class="n">stages</span> <span class="o">{</span>
+</span><span class='line'>       <span class="n">stage</span><span class="o">(</span><span class="s2">&quot;compile&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>               <span class="nf">withCredentials</span><span class="o">([</span>
+</span><span class='line'>                 <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>                 <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>               <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>                   <span class="n">script</span> <span class="o">{</span>
+</span><span class='line'>                       <span class="kt">def</span> <span class="n">xmlTemplate</span> <span class="o">=</span> <span class="n">readFile</span><span class="o">(</span> <span class="s1">&#39;jenkins/settings.xml&#39;</span> <span class="o">)</span>
+</span><span class='line'>                       <span class="kt">def</span> <span class="n">xmlFile</span> <span class="o">=</span> <span class="n">xmlTransform</span><span class="o">(</span><span class="n">xmlTemplate</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>                       <span class="n">writeFile</span> <span class="nl">file:</span> <span class="n">settingsFile</span><span class="o">,</span> <span class="nl">text:</span> <span class="n">xmlFile</span>
+</span><span class='line'>
+</span><span class='line'>                       <span class="n">sh</span> <span class="s2">&quot;mvn -B -s ${settingsFile} clean compile&quot;</span>
+</span><span class='line'>                   <span class="o">}</span>
+</span><span class='line'>               <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>           <span class="n">post</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">failure</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">echo</span> <span class="s2">&quot;Sending email for compile failed (TBD)&quot;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>       <span class="o">}</span>
+</span><span class='line'>   <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some notes:</p>
+
+<ul>
+<li><code>import</code> statements must be at the top, right after the shebang and before anything else.</li>
+<li>The Groovy methods must be annotated with <code>@NonCPS</code> or Jenkins will report the error &ldquo;java.io.NotSerializableException&rdquo;.</li>
+<li>The Groovy methods can not be defined inside a <code>step</code> block. It must be defined at the top.</li>
+<li><code>@NonCPS</code> is required since the Groovy method uses several non-serializble objects.</li>
+</ul>
+
+
+<h4>Groovy method in separate script</h4>
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">myScript</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">pipeline</span> <span class="o">{</span>
+</span><span class='line'>   <span class="n">agent</span> <span class="o">{</span> <span class="n">node</span> <span class="o">{</span> <span class="n">label</span> <span class="s1">&#39;test-agent&#39;</span> <span class="o">}</span> <span class="o">}</span>
+</span><span class='line'>   <span class="n">stages</span> <span class="o">{</span>
+</span><span class='line'>       <span class="n">stage</span><span class="o">(</span><span class="s2">&quot;compile&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>               <span class="nf">withCredentials</span><span class="o">([</span>
+</span><span class='line'>                 <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>                 <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>               <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>                   <span class="n">script</span> <span class="o">{</span>
+</span><span class='line'>                       <span class="n">myScript</span> <span class="o">=</span> <span class="n">load</span> <span class="s1">&#39;jenkins/xml.groovy&#39;</span>
+</span><span class='line'>                       <span class="kt">def</span> <span class="n">xmlTemplate</span> <span class="o">=</span> <span class="n">readFile</span><span class="o">(</span> <span class="s1">&#39;jenkins/settings.xml&#39;</span> <span class="o">)</span>
+</span><span class='line'>                       <span class="n">String</span> <span class="n">xmlFile</span> <span class="o">=</span> <span class="n">myScript</span><span class="o">.</span><span class="na">transformXml</span><span class="o">(</span><span class="n">xmlTemplate</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>                       <span class="n">String</span> <span class="n">myPath</span> <span class="o">=</span> <span class="s1">&#39;temp.xml&#39;</span>
+</span><span class='line'>                       <span class="kt">def</span> <span class="n">mCommand</span> <span class="o">=</span> <span class="s2">&quot;cat &gt;${myPath} &lt;&lt;EOF&quot;</span>
+</span><span class='line'>                       <span class="n">mCommand</span> <span class="o">+=</span> <span class="s2">&quot;\n${xmlFile}\nEOF&quot;</span>
+</span><span class='line'>                       <span class="n">sh</span> <span class="n">mCommand</span>
+</span><span class='line'>
+</span><span class='line'>                       <span class="n">sh</span> <span class="s2">&quot;mvn -B clean compile -s ${myPath}&quot;</span>
+</span><span class='line'>
+</span><span class='line'>                       <span class="n">sh</span> <span class="s2">&quot;rm ${myPath}&quot;</span>
+</span><span class='line'>                   <span class="o">}</span>
+</span><span class='line'>               <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>           <span class="n">post</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">failure</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">echo</span> <span class="s2">&quot;Sending email for compile failed (TBD)&quot;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>       <span class="o">}</span>
+</span><span class='line'>   <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>xml.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.StreamingMarkupBuilder</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.XmlUtil</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@NonCPS</span>
+</span><span class='line'><span class="kt">def</span> <span class="nf">transformXml</span><span class="o">(</span><span class="n">String</span> <span class="n">xmlContent</span><span class="o">,</span> <span class="n">String</span> <span class="n">username</span><span class="o">,</span> <span class="n">String</span> <span class="n">password</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">xml</span> <span class="o">=</span> <span class="k">new</span> <span class="n">XmlSlurper</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="kc">false</span><span class="o">).</span><span class="na">parseText</span><span class="o">(</span><span class="n">xmlContent</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">echo</span> <span class="s1">&#39;Start tranforming XML&#39;</span>
+</span><span class='line'>  <span class="n">xml</span><span class="o">.</span><span class="na">servers</span><span class="o">.</span><span class="na">server</span><span class="o">.</span><span class="na">each</span> <span class="o">{</span> <span class="n">node</span> <span class="o">-&gt;</span>
+</span><span class='line'>    <span class="n">node</span><span class="o">.</span><span class="na">username</span> <span class="o">=</span> <span class="n">username</span>
+</span><span class='line'>    <span class="n">node</span><span class="o">.</span><span class="na">password</span> <span class="o">=</span> <span class="n">password</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">outWriter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">StringWriter</span><span class="o">()</span>
+</span><span class='line'>  <span class="n">XmlUtil</span><span class="o">.</span><span class="na">serialize</span><span class="o">(</span> <span class="n">xml</span><span class="o">,</span> <span class="n">outWriter</span> <span class="o">)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">outWriter</span><span class="o">.</span><span class="na">toString</span><span class="o">()</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">return</span> <span class="k">this</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Groovy method in shared library</h4>
+
+<p>The above Nexus authentication code is likely repeated across multiple Maven builds.
+Therefore, it is worth converting it into a DSL into a Shared Library in Jenkins.
+The DSL takes two parameters:</p>
+
+<ul>
+<li>templateFile: settings.xml template with Nexus credentials info redacted.</li>
+<li>command: Maven command with settings file NOT specified (i.e., NO &ldquo;-s&rdquo; option in the command).</li>
+</ul>
+
+
+<p>The example usage is as follows:</p>
+
+<figure class='code'><figcaption><span>Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">pipeline</span> <span class="o">{</span>
+</span><span class='line'>   <span class="n">agent</span> <span class="o">{</span> <span class="n">node</span> <span class="o">{</span> <span class="n">label</span> <span class="s1">&#39;test-agent&#39;</span> <span class="o">}</span> <span class="o">}</span>
+</span><span class='line'>   <span class="n">stages</span> <span class="o">{</span>
+</span><span class='line'>       <span class="n">stage</span><span class="o">(</span><span class="s2">&quot;compile&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>               <span class="n">script</span> <span class="o">{</span>
+</span><span class='line'>                    <span class="n">withNexusMaven</span> <span class="o">{</span>
+</span><span class='line'>                        <span class="n">templateFile</span> <span class="o">=</span> <span class="s1">&#39;jenkins/settings.xml&#39;</span>
+</span><span class='line'>                        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;mvn -B clean compile&quot;</span>
+</span><span class='line'>                    <span class="o">}</span>
+</span><span class='line'>               <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>           <span class="n">post</span> <span class="o">{</span>
+</span><span class='line'>           <span class="n">failure</span> <span class="o">{</span>
+</span><span class='line'>               <span class="n">echo</span> <span class="s2">&quot;Sending email for compile failed (TBD)&quot;</span>
+</span><span class='line'>            <span class="o">}</span>
+</span><span class='line'>           <span class="o">}</span>
+</span><span class='line'>       <span class="o">}</span>
+</span><span class='line'>   <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The Jenksinfile is much cleaner since most of implementation details have been moved inside the DSL:</p>
+
+<figure class='code'><figcaption><span>withNexusMaven.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="cp">#!groovy</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">groovy.xml.XmlUtil</span>
+</span><span class='line'>
+</span><span class='line'><span class="nd">@NonCPS</span>
+</span><span class='line'><span class="kt">def</span> <span class="nf">transformXml</span><span class="o">(</span><span class="n">String</span> <span class="n">xmlContent</span><span class="o">,</span> <span class="n">String</span> <span class="n">username</span><span class="o">,</span> <span class="n">String</span> <span class="n">password</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">xml</span> <span class="o">=</span> <span class="k">new</span> <span class="n">XmlSlurper</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="kc">false</span><span class="o">).</span><span class="na">parseText</span><span class="o">(</span><span class="n">xmlContent</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">echo</span> <span class="s1">&#39;Start tranforming XML&#39;</span>
+</span><span class='line'>  <span class="n">xml</span><span class="o">.</span><span class="na">servers</span><span class="o">.</span><span class="na">server</span><span class="o">.</span><span class="na">each</span> <span class="o">{</span> <span class="n">node</span> <span class="o">-&gt;</span>
+</span><span class='line'>    <span class="n">node</span><span class="o">.</span><span class="na">username</span> <span class="o">=</span> <span class="n">username</span>
+</span><span class='line'>    <span class="n">node</span><span class="o">.</span><span class="na">password</span> <span class="o">=</span> <span class="n">password</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">outWriter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">StringWriter</span><span class="o">()</span>
+</span><span class='line'>  <span class="n">XmlUtil</span><span class="o">.</span><span class="na">serialize</span><span class="o">(</span> <span class="n">xml</span><span class="o">,</span> <span class="n">outWriter</span> <span class="o">)</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">outWriter</span><span class="o">.</span><span class="na">toString</span><span class="o">()</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">call</span><span class="o">(</span><span class="n">Closure</span> <span class="n">body</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">config</span> <span class="o">=</span> <span class="o">[:]</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">body</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">body</span><span class="o">.</span><span class="na">resolveStrategy</span> <span class="o">=</span> <span class="n">Closure</span><span class="o">.</span><span class="na">DELEGATE_FIRST</span>
+</span><span class='line'>        <span class="n">body</span><span class="o">.</span><span class="na">delegate</span> <span class="o">=</span> <span class="n">config</span>
+</span><span class='line'>        <span class="n">body</span><span class="o">()</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">templateFile</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="na">templateFile</span> <span class="o">?:</span> <span class="s1">&#39;/home/data/settings.xml&#39;</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">command</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="na">command</span> <span class="o">?:</span> <span class="s2">&quot;mvn -B clean compile&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>        <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusUsername&#39;</span><span class="o">],</span>
+</span><span class='line'>        <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;StringBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">,</span> <span class="nl">variable:</span> <span class="s1">&#39;nexusPassword&#39;</span><span class="o">]</span>
+</span><span class='line'>    <span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>        <span class="kt">def</span> <span class="n">xmlTemplate</span> <span class="o">=</span> <span class="n">readFile</span> <span class="n">templateFile</span>
+</span><span class='line'>        <span class="n">String</span> <span class="n">xmlFile</span> <span class="o">=</span> <span class="n">transformXml</span><span class="o">(</span><span class="n">xmlTemplate</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusUsername</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">nexusPassword</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">String</span> <span class="n">tempFile</span> <span class="o">=</span> <span class="s1">&#39;temp.xml&#39;</span>
+</span><span class='line'>        <span class="n">writeFile</span> <span class="nl">file:</span> <span class="n">tempFile</span><span class="o">,</span> <span class="nl">text:</span> <span class="n">xmlFile</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">sh</span> <span class="s2">&quot;${command} -s ${tempFile}&quot;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// Clean up</span>
+</span><span class='line'>        <span class="n">sh</span> <span class="s2">&quot;rm ${tempFile}&quot;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-06-17T12:08:15-07:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>17</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>12:08 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/06/17/groovy-in-jenkinsfile/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/06/17/groovy-in-jenkinsfile/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/" title="Previous Post: Troubleshooting Groovy code in Jenkinsfile">&laquo; Troubleshooting Groovy code in Jenkinsfile</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/06/18/basic-jenkinsfile-cookbook/" title="Next Post: Basic Jenkinsfile cookbook">Basic Jenkinsfile cookbook &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/10/09/tcp-ping/">TCP Ping</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/09/23/jacoco-in-maven-project/">Jacoco in Maven Projects</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/09/15/keep-gruntfile-clean-with-load-grunt-config/">Keep Gruntfile Clean With Load-grunt-config</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/09/05/securing-jenkins-with-nginx/">Securing Jenkins With NGINX</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/08/29/jenkins-plugin-development/">Jenkins Plugin Development</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/08/29/jenkins-world-2017/">Jenkins World 2017</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/08/13/groovy-dsl/">DSL Implementation in Groovy</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (11)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (9)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (18)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (7)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (5)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
