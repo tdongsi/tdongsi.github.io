@@ -7,7 +7,6 @@ published: true
 categories: 
 - Docker
 - Kubernetes
-- Jenkins
 ---
 
 In this blog post, we are using ["Docker out of Docker" approach](/blog/2017/04/23/docker-out-of-docker/) to build Docker images in our containerized Jenkins slaves.

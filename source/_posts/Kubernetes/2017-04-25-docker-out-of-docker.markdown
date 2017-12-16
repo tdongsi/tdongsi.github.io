@@ -7,7 +7,6 @@ published: true
 categories: 
 - Docker
 - Kubernetes
-- Jenkins
 ---
 
 In this post, we look into two different approaches to solving the problem of building/pushing Docker images from a containerized Jenkins system.
