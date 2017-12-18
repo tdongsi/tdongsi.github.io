@@ -17,6 +17,7 @@ How to create a Jenkins plugin.
 Reference:
 
 * [Tutorial](https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017)
+* [Video](https://www.youtube.com/watch?feature=player_embedded&v=azyv183Ua6U)
 
 ### Pipeline plugin
 
