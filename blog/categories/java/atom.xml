@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-15T16:29:18-08:00</updated>
+  <updated>2017-12-21T15:01:12-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -175,7 +175,7 @@ The POM for the &ldquo;coverage&rdquo; module will look like this:</p>
                 &lt;configuration&gt;
                     &lt;excludes&gt;
                         &lt;!-- Example of excluding classes 
-                        &lt;exclude&gt;**/com/salesforce/iot/ingestion/config/AutoConfiguration.class&lt;/exclude&gt;
+                        &lt;exclude&gt;**/com/company/config/AutoConfiguration.class&lt;/exclude&gt;
                         --&gt;
                     &lt;/excludes&gt;
                 &lt;/configuration&gt;
@@ -204,7 +204,15 @@ The POM for the &ldquo;coverage&rdquo; module will look like this:</p>
 </code></pre>
 
 <p>Note that we still require &ldquo;prepare-agent&rdquo; step to run before the first test suite.
-Depending on what plugins are being used and how the modules are organized within the project, we might have different setup for that particular step.</p>
+Depending on what plugins are being used and how the modules are organized within the project, we might have different setup for that particular step.
+One option is to run from the command-line:</p>
+
+<pre><code>tdongsi$ ls
+Dockerfile              README.md               module1       pom.xml
+Jenkinsfile             coverage                module2       scripts
+
+tdongsi$ mvn -B clean org.jacoco:jacoco-maven-plugin:0.7.9:prepare-agent install
+</code></pre>
 
 <p>Links:</p>
 
@@ -213,6 +221,69 @@ Depending on what plugins are being used and how the modules are organized withi
 <li><a href="https://github.com/jacoco/jacoco/tree/master/jacoco-maven-plugin.test/it/it-report-aggregate">Example Maven project</a></li>
 </ul>
 
+
+<h4>Customizations</h4>
+
+<p>In theory, a global threshold is required to enforce code coverage standard across teams.
+However, in practice, different teams are at different stages of module/service maturity and blindly having a global threshold will hamper teams working on newer services/modules.
+In addition, it does not make sense to enforce code coverage on some Maven modules such as those generated in GRPC.
+In Jacoco, you can set coverage limit for individual module instead of global threshold for all modules.
+In the following example, you can specify a coverage threshold for module A by modifying module A&rsquo;s pom.xml file:</p>
+
+<pre><code class="xml Module A's pom.xml">...
+
+&lt;/plugins&gt;
+...
+    &lt;plugin&gt;
+        &lt;groupId&gt;com.atlassian.maven.plugins&lt;/groupId&gt;
+        &lt;artifactId&gt;maven-clover2-plugin&lt;/artifactId&gt;
+    &lt;/plugin&gt;
+
+    &lt;plugin&gt;
+        &lt;groupId&gt;org.jacoco&lt;/groupId&gt;
+        &lt;artifactId&gt;jacoco-maven-plugin&lt;/artifactId&gt;
+        &lt;version&gt;0.7.9&lt;/version&gt;
+
+        &lt;executions&gt;
+            &lt;execution&gt;
+                &lt;id&gt;check&lt;/id&gt;
+                &lt;goals&gt;
+                &lt;goal&gt;check&lt;/goal&gt;
+                &lt;/goals&gt;
+                &lt;configuration&gt;
+                    &lt;!-- TODO: Set haltOnFailureto true when code coverage is enforced --&gt;
+                    &lt;haltOnFailure&gt;false&lt;/haltOnFailure&gt;
+
+                    &lt;rules&gt;
+                        &lt;rule &gt;
+                            &lt;element&gt;CLASS&lt;/element&gt;
+                            &lt;limits&gt;
+                                &lt;limit &gt;
+                                    &lt;counter&gt;LINE&lt;/counter&gt;
+                                    &lt;value&gt;COVEREDRATIO&lt;/value&gt;
+                                    &lt;minimum&gt;0.80&lt;/minimum&gt;
+                                &lt;/limit&gt;
+                                &lt;limit &gt;
+                                    &lt;counter&gt;BRANCH&lt;/counter&gt;
+                                    &lt;value&gt;COVEREDRATIO&lt;/value&gt;
+                                    &lt;minimum&gt;0.80&lt;/minimum&gt;
+                                &lt;/limit&gt;
+                            &lt;/limits&gt;
+                            &lt;excludes&gt;
+                                &lt;!-- 
+                                &lt;exclude&gt;com.test.ExampleExclusion&lt;/exclude&gt;
+                                --&gt;
+                            &lt;/excludes&gt;
+                        &lt;/rule&gt;
+                    &lt;/rules&gt;
+                &lt;/configuration&gt;
+            &lt;/execution&gt;
+        &lt;/executions&gt;
+    &lt;/plugin&gt;
+&lt;/plugins&gt;
+</code></pre>
+
+<p>As you can see, you can also specify files being excluded from coverage calculation.</p>
 
 <h3>References</h3>
 
@@ -244,6 +315,7 @@ Depending on what plugins are being used and how the modules are organized withi
 
 <ul>
 <li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
+<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
 </ul>
 
 
