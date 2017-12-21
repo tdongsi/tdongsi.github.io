@@ -172,7 +172,7 @@ The POM for the "coverage" module will look like this:
                 <configuration>
                     <excludes>
                         <!-- Example of excluding classes 
-                        <exclude>**/com/salesforce/iot/ingestion/config/AutoConfiguration.class</exclude>
+                        <exclude>**/com/company/config/AutoConfiguration.class</exclude>
                         -->
                     </excludes>
                 </configuration>
@@ -202,11 +202,84 @@ The POM for the "coverage" module will look like this:
 
 Note that we still require "prepare-agent" step to run before the first test suite.
 Depending on what plugins are being used and how the modules are organized within the project, we might have different setup for that particular step.
+One option is to run from the command-line:
+
+```
+tdongsi$ ls
+Dockerfile              README.md               module1       pom.xml
+Jenkinsfile             coverage                module2       scripts
+
+tdongsi$ mvn -B clean org.jacoco:jacoco-maven-plugin:0.7.9:prepare-agent install
+```
 
 Links:
 
 * [Example of report-aggregate](https://stackoverflow.com/questions/13031219/how-to-configure-multi-module-maven-sonar-jacoco-to-give-merged-coverage-rep/37871210#37871210)
 * [Example Maven project](https://github.com/jacoco/jacoco/tree/master/jacoco-maven-plugin.test/it/it-report-aggregate)
+
+#### Customizations
+
+In theory, a global threshold is required to enforce code coverage standard across teams.
+However, in practice, different teams are at different stages of module/service maturity and blindly having a global threshold will hamper teams working on newer services/modules.
+In addition, it does not make sense to enforce code coverage on some Maven modules such as those generated in GRPC.
+In Jacoco, you can set coverage limit for individual module instead of global threshold for all modules.
+In the following example, you can specify a coverage threshold for module A by modifying module A's pom.xml file:
+
+``` xml Module A's pom.xml
+...
+
+</plugins>
+...
+    <plugin>
+        <groupId>com.atlassian.maven.plugins</groupId>
+        <artifactId>maven-clover2-plugin</artifactId>
+    </plugin>
+
+    <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.7.9</version>
+        
+        <executions>
+            <execution>
+                <id>check</id>
+                <goals>
+                <goal>check</goal>
+                </goals>
+                <configuration>
+                    <!-- TODO: Set haltOnFailureto true when code coverage is enforced -->
+                    <haltOnFailure>false</haltOnFailure>
+
+                    <rules>
+                        <rule >
+                            <element>CLASS</element>
+                            <limits>
+                                <limit >
+                                    <counter>LINE</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.80</minimum>
+                                </limit>
+                                <limit >
+                                    <counter>BRANCH</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.80</minimum>
+                                </limit>
+                            </limits>
+                            <excludes>
+                                <!-- 
+                                <exclude>com.test.ExampleExclusion</exclude>
+                                -->
+                            </excludes>
+                        </rule>
+                    </rules>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+</plugins>
+```
+
+As you can see, you can also specify files being excluded from coverage calculation.
 
 ### References
 
