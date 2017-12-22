@@ -219,10 +219,11 @@ Links:
 
 #### Customizations
 
-In theory, a global threshold is required to enforce code coverage standard across teams.
+In theory, a global threshold can be defined in `coverage/pom.xml` to enforce code coverage standard across teams.
 However, in practice, different teams are at different stages of module/service maturity and blindly having a global threshold will hamper teams working on newer services/modules.
 In addition, it does not make sense to enforce code coverage on some Maven modules such as those generated in GRPC.
-In Jacoco, you can set coverage limit for individual module instead of global threshold for all modules.
+
+In Jacoco, you can set different coverage limits for individual modules instead of a global threshold for all modules.
 In the following example, you can specify a coverage threshold for module A by modifying module A's pom.xml file:
 
 ``` xml Module A's pom.xml
