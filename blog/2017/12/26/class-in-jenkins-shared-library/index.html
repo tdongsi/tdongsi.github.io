@@ -5,12 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Docker: Copy File Into a Container - Personal Programming Notes</title>
+  <title>Class in Jenkins Shared Library - Personal Programming Notes</title>
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="In this blog post, we have a running Docker container or a running pod in Kubernetes cluster.
-We want to add some files into the running containers &hellip;">
+  <meta name="description" content="This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in src folder as opposed to vars folder, for &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -19,7 +18,7 @@ We want to add some files into the running containers &hellip;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/">
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
@@ -102,7 +101,7 @@ We want to add some files into the running containers &hellip;">
   
   <header>
     
-      <h1 class="entry-title">Docker: Copy File Into a Container</h1>
+      <h1 class="entry-title">Class in Jenkins Shared Library</h1>
     
     
       <p class="meta">
@@ -111,45 +110,57 @@ We want to add some files into the running containers &hellip;">
 
 
 
-<time class='entry-date' datetime='2017-02-09T15:17:19-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>9</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:17 pm</span></time>
+<time class='entry-date' datetime='2017-12-26T11:18:09-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:18 am</span></time>
         
       </p>
     
   </header>
 
 
-<div class="entry-content"><p>In this blog post, we have a running Docker container or a running pod in Kubernetes cluster.
-We want to add some files into the running containers to fix some issue, verify, and commit the changes.</p>
+<div class="entry-content"><p>This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in <code>src</code> folder as opposed to <code>vars</code> folder, for Jenkins Shared Library.</p>
 
 <!--more-->
 
 
-<h3>Best-case scenario: <code>docker cp</code></h3>
+<h3>Recommended practices</h3>
 
-<p>The most obvious way is to create a Dockerfile and rebuild the Docker image.
-The Dockerfile will look like this:</p>
+<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
+TODO: citation needed.</p>
 
-<figure class='code'><figcaption><span>Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<h3>Accessing steps</h3>
+
+<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FROM olderImage
-</span><span class='line'>ADD myfile /path/myfile
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// src/org/foo/Zot.groovy</span>
+</span><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">git</span> <span class="nl">url:</span> <span class="s2">&quot;git@github.com:jenkinsci/${repo}&quot;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>However, in this approach, we need to stop the Docker containers, update, and re-run with the new Docker images.
-It does not work if we want to work with <strong><em>running</em></strong> containers.
-For running containers, the better way to add files into containers is to copy files into containers.
-For the more updated versions of Docker (1.8+), the recommended way for copying is to use <a href="https://docs.docker.com/engine/reference/commandline/cp/"><code>docker cp</code> command</a>.</p>
+<p>Which can then be called from a Scripted Pipeline:</p>
 
-<h3>Copy file directly</h3>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">z</span> <span class="o">=</span> <span class="k">new</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Zot</span><span class="o">()</span>
+</span><span class='line'><span class="n">z</span><span class="o">.</span><span class="na">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<p><code>docker cp</code> does not always work, especially in older versions of Docker.
-In older versions of Docker, the <code>docker cp</code> command only allowed copying files from a <strong>container</strong> to the <strong>host</strong>.
-Only since Docker 1.8, copying files from the host to a container is added.
-You will get some error with unhelpful messages like this in older versions of Docker:</p>
 
-<figure class='code'><figcaption><span>Unsupported "docker cp"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
+
+<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -157,75 +168,69 @@ You will get some error with unhelpful messages like this in older versions of D
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ ls maven_3.3.9-3_all.deb
-</span><span class='line'>maven_3.3.9-3_all.deb
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/
-</span><span class='line'>FATA[0000] Error: Path not specified
-</span><span class='line'>[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/maven_3.3.9-3_all.deb
-</span><span class='line'>FATA[0000] Error: Path not specified</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+</span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="kd">implements</span> <span class="n">Serializable</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">steps</span>
+</span><span class='line'>  <span class="nf">Utilities</span><span class="o">(</span><span class="n">steps</span><span class="o">)</span> <span class="o">{</span><span class="k">this</span><span class="o">.</span><span class="na">steps</span> <span class="o">=</span> <span class="n">steps</span><span class="o">}</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">steps</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${steps.tool &#39;Maven&#39;}/bin/mvn -o ${args}&quot;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>If you find yourself stuck with older versions of Docker, the alternative is to manually copy the files from hosts filesystem to containers filesystem location.
-First, you need to determine where the containers filesystem (volume) is mounted on the host:</p>
+<p>When saving state on classes, such as above, the class must implement the Serializable interface.
+This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
 
-<figure class='code'><figcaption><span>Using inspect to find Volume location</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">org.foo.Utilities</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">utils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Utilities</span><span class="o">(</span><span class="k">this</span><span class="o">)</span>
+</span><span class='line'><span class="n">node</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">utils</span><span class="o">.</span><span class="na">mvn</span> <span class="s1">&#39;clean package&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+
+<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo docker ps
-</span><span class='line'>CONTAINER ID      IMAGE    COMMAND ...
-</span><span class='line'>9a8d782156ca
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Id} } 9a8d782156ca
-</span><span class='line'>9a8d782156ca9a3bd59545a18943de408ca58f42c4389c12e9bb43f4ad239d52
-</span><span class='line'>
-</span><span class='line'>[centos@comp ~]$ sudo docker inspect -f { {.Volumes} } 9a8d782156ca
-</span><span class='line'>map[/home/jenkins:/var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438]
-</span><span class='line'>[centos@comp ~]$ sudo ls /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
-</span><span class='line'>test.txt</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+</span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kd">static</span> <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">script</span><span class="o">,</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">script</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${script.tool &#39;Maven&#39;}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}&quot;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p>NOTE: In the shell commands above, there is no space between <code>{</code> (space is added for Jekyll blog engine).
-After the mounting path is determined, you can manipulate the container'ss filesystem directly, including copying files into it.</p>
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
 
-<figure class='code'><figcaption><span>Directly copy file into containers filesystem</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>[centos@comp ~]$ sudo cp maven_3.3.9-3_all.deb /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438</span></code></pre></td></tr></table></div></figure>
-
-
-<p>You can verify such manipulation by <code>docker exec</code>-ing into the container and verify the files:</p>
-
-<figure class='code'><figcaption><span>Before and After</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>jenkins@9a8d782156ca:~$ ls
-</span><span class='line'>test.txt
-</span><span class='line'>
-</span><span class='line'>jenkins@9a8d782156ca:~$ ls
-</span><span class='line'>maven_3.3.9-3_all.deb  test.txt</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.*</span>
+</span><span class='line'><span class="n">node</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">mvn</span> <span class="k">this</span><span class="o">,</span> <span class="s1">&#39;clean package&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
 <h3>Reference</h3>
 
 <ul>
-<li><a href="https://docs.docker.com/engine/reference/commandline/cp/">docker cp</a></li>
-<li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
+<li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
 </ul>
 
 </div>
@@ -243,12 +248,12 @@ After the mounting path is determined, you can manipulate the container'ss files
 
 
 
-<time class='entry-date' datetime='2017-02-09T15:17:19-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>9</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>3:17 pm</span></time>
+<time class='entry-date' datetime='2017-12-26T11:18:09-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>11:18 am</span></time>
       
 
 <span class="categories">
   
-    <a class='category' href='/blog/categories/docker/'>docker</a>
+    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
   
 </span>
 
@@ -257,7 +262,7 @@ After the mounting path is determined, you can manipulate the container'ss files
     
       <div class="sharing">
   
-  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/" >Tweet</a>
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/" >Tweet</a>
   
   
   
@@ -268,10 +273,8 @@ After the mounting path is determined, you can manipulate the container'ss files
     
     <p class="meta">
       
-        <a class="basic-alignment left" href="/blog/2017/02/08/docker-override-entrypoint/" title="Previous Post: Docker: Override ENTRYPOINT">&laquo; Docker: Override ENTRYPOINT</a>
+        <a class="basic-alignment left" href="/blog/2017/10/09/tcp-ping/" title="Previous Post: TCP ping">&laquo; TCP ping</a>
       
-      
-        <a class="basic-alignment right" href="/blog/2017/02/21/docker-files-not-found-in-docker-container/" title="Next Post: Docker: Files not found in Docker container">Docker: Files not found in Docker container &raquo;</a>
       
     </p>
   </footer>

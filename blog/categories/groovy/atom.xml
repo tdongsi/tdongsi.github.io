@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Groovy | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/groovy/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-21T16:20:25-08:00</updated>
+  <updated>2017-12-26T11:34:20-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,93 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Class in Jenkins Shared Library]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/"/>
+    <updated>2017-12-26T11:18:09-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library</id>
+    <content type="html"><![CDATA[<p>This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in <code>src</code> folder as opposed to <code>vars</code> folder, for Jenkins Shared Library.</p>
+
+<!--more-->
+
+
+<h3>Recommended practices</h3>
+
+<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
+TODO: citation needed.</p>
+
+<h3>Accessing steps</h3>
+
+<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
+
+<pre><code class="groovy">// src/org/foo/Zot.groovy
+package org.foo;
+
+def checkOutFrom(repo) {
+  git url: "git@github.com:jenkinsci/${repo}"
+}
+</code></pre>
+
+<p>Which can then be called from a Scripted Pipeline:</p>
+
+<pre><code class="groovy">def z = new org.foo.Zot()
+z.checkOutFrom(repo)
+</code></pre>
+
+<p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
+
+<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+
+<pre><code class="groovy">package org.foo
+class Utilities implements Serializable {
+  def steps
+  Utilities(steps) {this.steps = steps}
+  def mvn(args) {
+    steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
+  }
+}
+</code></pre>
+
+<p>When saving state on classes, such as above, the class must implement the Serializable interface.
+This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
+
+<pre><code>@Library('utils') import org.foo.Utilities
+def utils = new Utilities(this)
+node {
+  utils.mvn 'clean package'
+}
+</code></pre>
+
+<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+
+<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
+
+<pre><code class="groovy">package org.foo
+class Utilities {
+  static def mvn(script, args) {
+    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
+  }
+}
+</code></pre>
+
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
+
+<pre><code class="groovy">@Library('utils') import static org.foo.Utilities.*
+node {
+  mvn this, 'clean package'
+}
+</code></pre>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[DSL Implementation in Groovy]]></title>
@@ -413,13 +500,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#x6c;&#x74;&#x6f;&#58;&#x6e;&#111;&#x2d;&#x72;&#101;&#112;&#108;&#x79;&#64;&#103;&#105;&#x74;&#x68;&#x75;&#98;&#x2e;&#x63;&#x6f;&#109;">&#x6e;&#x6f;&#45;&#x72;&#101;&#112;&#x6c;&#x79;&#x40;&#103;&#x69;&#116;&#104;&#x75;&#x62;&#x2e;&#99;&#111;&#x6d;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#116;&#111;&#x3a;&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#108;&#121;&#64;&#x67;&#105;&#x74;&#104;&#x75;&#x62;&#x2e;&#x63;&#x6f;&#109;">&#x6e;&#x6f;&#45;&#114;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#x75;&#98;&#x2e;&#x63;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#x74;&#x6f;&#58;&#110;&#x6f;&#45;&#x72;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#x75;&#98;&#x2e;&#x63;&#111;&#109;">&#110;&#x6f;&#45;&#114;&#x65;&#x70;&#x6c;&#x79;&#x40;&#103;&#105;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#105;&#x6c;&#116;&#x6f;&#58;&#110;&#111;&#x2d;&#x72;&#101;&#x70;&#x6c;&#121;&#x40;&#103;&#x69;&#x74;&#x68;&#x75;&#98;&#x2e;&#99;&#111;&#109;">&#110;&#x6f;&#x2d;&#x72;&#101;&#112;&#108;&#121;&#x40;&#103;&#x69;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -957,181 +1044,6 @@ If you want the secret files in specific locations, the workaround is to create 
 
 <ul>
 <li><a href="https://jenkins.io/doc/pipeline/steps/">Basic Jenkinsfile steps</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Troubleshooting Groovy Code in Jenkinsfile]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile/"/>
-    <updated>2017-06-16T23:52:44-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/06/16/troubleshooting-groovy-scripts-in-jenkinsfile</id>
-    <content type="html"><![CDATA[<p>In this post, we look into some troubleshooting tips when <a href="/blog/2017/04/18/groovy-code-in-jenkins-pipeline/">using independent Groovy scripts in Jenkins pipeline</a> and how to work around those.</p>
-
-<!--more-->
-
-
-<h3>Cannot load a Groovy script in Declarative Pipeline</h3>
-
-<p><strong>Problem</strong>: Loading Groovy methods from a file with <code>load</code> step does not work inside Declarative Pipeline step, as reported in <a href="https://issues.jenkins-ci.org/browse/JENKINS-43455">this issue</a>.</p>
-
-<p><strong>Workaround</strong>: There are a few work-arounds. The most straight-forward one is to use <a href="https://jenkins.io/doc/book/pipeline/syntax/#declarative-pipeline"><code>script</code> step</a>.</p>
-
-<pre><code class="groovy Loading Groovy script">    steps {
-        checkout scm
-        withCredentials([
-            [$class: 'StringBinding', credentialsId: 'nexusUserName', variable: 'nexusUserName'],
-            [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
-        ]) {
-            script {
-                myScript = load 'jenkins/xml.groovy'
-                String myFile = myScript.transformXml(settingsFile, env.nexusUserName, env.nexusPassword)
-                sh "mvn -B -s ${myFile} clean compile"
-
-                sh "rm ${myFile}"
-            }
-        }
-    }
-</code></pre>
-
-<p> You can also define Groovy methods from inside the Jenkinsfile.</p>
-
-<pre><code class="groovy Example Jenkinsfile">import groovy.xml.StreamingMarkupBuilder
-import groovy.xml.XmlUtil
-
-@NonCPS
-def xmlTransform(txt, username, password) {
-
-    def xmlRoot = new XmlSlurper(false, false).parseText(txt)
-    echo 'Start tranforming XML'
-    xmlRoot.servers.server.each { node -&gt;
-       node.username = username
-       node.password = password
-    }
-
-    // TRICKY: FileWriter does NOT work
-    def outWriter = new StringWriter()
-    XmlUtil.serialize( xmlRoot, outWriter )
-    return outWriter.toString()
-}
-
-...
-
-   steps {
-        checkout scm
-        withCredentials([
-            [$class: 'StringBinding', credentialsId: 'nexusUserName', variable: 'nexusUserName'],
-            [$class: 'StringBinding', credentialsId: 'nexusPassword', variable: 'nexusPassword']
-        ]) {
-            script {
-                myScript = load 'jenkins/xml.groovy'
-                String myFile = xmlTransform(settingsFile, env.nexusUserName, env.nexusPassword)
-                sh "mvn -B -s ${myFile} clean compile"
-
-                sh "rm ${myFile}"
-            }
-        }
-    }
-</code></pre>
-
-<p>For Declarative Pipeline, to reuse the code from a Groovy script, you must use Shared Libraries.
-Shared Libraries are not specific to Declarative; they were released some time ago and were seen in Scripted Pipeline.
-<a href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/">This blog post</a> discusses an older mechanism for Shared Library.
-For the newer mechanism of importing library, please check out <a href="https://jenkins.io/blog/2017/02/15/declarative-notifications/">this blog post</a>.
-Due to Declarative Pipeline’s lack of support for defining methods, Shared Libraries definitely take on a vital role for code-reuse in Jenkinsfile.</p>
-
-<h3><code>File</code> reading and writing not supported</h3>
-
-<p>Java/Grooy reading and writing using &ldquo;java.io.File&rdquo; class is not directly supported.</p>
-
-<pre><code class="groovy Using File class does NOT work">def myFile = new File('/home/data/myfile.xml')
-</code></pre>
-
-<p>In fact, using that class in Jenkinsfile must go through &ldquo;In-Process Script Approval&rdquo; with this warning.</p>
-
-<p><blockquote><p>new java.io.File java.lang.String Approving this signature may introduce a security vulnerability! You are advised to deny it.</p></blockquote></p>
-
-<p>Even then, &ldquo;java.io.File&rdquo; will refer to <strong>files on the master</strong> (where Jenkins is running), not the current workspace on Jenkins slave (or slave container).
-As a result, it will report the following error even though the file is present in filesystem (<a href="https://stackoverflow.com/questions/41739468/groovy-reports-that-a-file-doesnt-exists-when-it-really-is-present-in-the-syste">relevant Stackoverflow</a>) on slave:</p>
-
-<pre><code class="plain">java.io.FileNotFoundException: /home/data/myfile.xml (No such file or directory)
-    at java.io.FileInputStream.open0(Native Method)
-</code></pre>
-
-<p>That also means related class such as FileWriter will NOT work as expected.
-It reports no error during execution but you will find no file since those files are created on Jenkins master.</p>
-
-<p><strong>Workaround</strong>:</p>
-
-<ul>
-<li>For file reading, use <a href="https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#readfile-read-file-from-workspace"><code>readFile</code> step</a>.</li>
-<li>For file writing, use <code>writeFile</code> step. However, Pipeline steps (such as <code>writeFile</code>) are NOT allowed in <code>@NonCPS</code> methods. For more complex file writing, you might want to export the file content as String and use the following code snippet:</li>
-</ul>
-
-
-<pre><code class="groovy Shell command">    String xmlFile = ...
-
-    // TRICKY: FileWriter does NOT work in xmlTransform
-    def mCommand = "cat &gt;${settingsFile} &lt;&lt;EOF"
-    mCommand += "\n${xmlFile}\nEOF"
-    sh mCommand
-</code></pre>
-
-<p>In the code snippet above, we construct a <a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells"><em>here document</em>-formatted</a> command for writing multi-line string in <code>mCommand</code> before passing to <code>sh</code> step for executing.</p>
-
-<pre><code class="plain heredoc example to explain mCommand">$ cat &gt;output.txt &lt;&lt;EOF
-SELECT foo, bar FROM db
-WHERE foo='baz'
-More line from xmlFile
-EOF
-
-$ cat output.txt
-SELECT foo, bar FROM db
-WHERE foo='baz'
-More line from xmlFile
-</code></pre>
-
-<h3>Serialization errors</h3>
-
-<p>You often encounter this type of errors when using non-serialiable classes from Groovy/Java libraries.</p>
-
-<pre><code class="plain Error in Jenkins log">java.io.NotSerializableException: org.codehaus.groovy.control.ErrorCollector
-    at org.jboss.marshalling.river.RiverMarshaller.doWriteObject(RiverMarshaller.java:860)
-</code></pre>
-
-<pre><code class="plain Related error in Jenkins log">java.lang.UnsupportedOperationException: Calling public static java.lang.Iterable 
-org.codehaus.groovy.runtime.DefaultGroovyMethods.each(java.lang.Iterable,groovy.lang.Closure) on a
-CPS-transformed closure is not yet supported (JENKINS-26481); 
-encapsulate in a @NonCPS method, or use Java-style loops
-    at org.jenkinsci.plugins.workflow.cps.GroovyClassLoaderWhitelist.checkJenkins26481
-    (GroovyClassLoaderWhitelist.java:90)
-</code></pre>
-
-<p>There is also some known <a href="https://issues.jenkins-ci.org/browse/JENKINS-35140">issue about JsonSlurper</a>.
-These problems come from the fact that variables in Jenkins pipelines must be serializable.
-Since pipeline must survive a Jenkins restart, the state of the running program is periodically saved to disk for possible resume later.
-Any &ldquo;live&rdquo; objects such as a network connection is not serializble.</p>
-
-<p><strong>Workaround</strong>:
-Explicitly discard non-serializable objects or use <a href="https://support.cloudbees.com/hc/en-us/articles/230612967-Pipeline-The-pipeline-even-if-successful-ends-with-java-io-NotSerializableException">@NonCPS</a> methods.</p>
-
-<p>Quoted from <a href="https://github.com/jenkinsci/workflow-cps-plugin/blob/master/README.md">here</a>: <code>@NonCPS</code> methods may safely use non-<code>Serializable</code> objects as local variables, though they should NOT accept nonserializable parameters or return or store nonserializable values.
-You may NOT call regular (CPS-transformed) methods, or Pipeline steps, from a <code>@NonCPS</code> method, so they are best used for performing some calculations before passing a summary back to the main script.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://jenkins.io/doc/book/pipeline/syntax/#declarative-pipeline">Declarative syntax</a></li>
-<li><a href="https://jenkins.io/blog/2017/02/15/declarative-notifications/">Shared Libraries for Declarative Pipeline</a></li>
-<li>Here document
-
-<ul>
-<li><a href="https://en.wikipedia.org/wiki/Here_document#Unix_shells">Theory</a></li>
-<li><a href="https://stackoverflow.com/questions/2500436/how-does-cat-eof-work-in-bash">Common usage from Stackoverflow</a></li>
-<li><a href="http://www.guguncube.com/2140/unix-set-a-multi-line-text-to-a-string-variable-or-file-in-bash">Heredoc with and without variable expansion</a></li>
-</ul>
-</li>
 </ul>
 
 ]]></content>
