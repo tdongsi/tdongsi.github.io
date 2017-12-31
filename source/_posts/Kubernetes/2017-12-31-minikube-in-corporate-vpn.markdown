@@ -22,14 +22,15 @@ Downloading Minikube ISO
 <!--more-->
 
 The issue has been extensively discussed in [this bug report](https://github.com/kubernetes/minikube/issues/1099).
-I have attempted different approaches for this issue, but none are consistently working.
+[This pull request](https://github.com/kubernetes/minikube/pull/1329) supposedly fixes the issue, in v0.19.0 release.
+However, I'm still occasionally seeing the issue.
+I have attempted different approaches but they have different degrees of convenience and success in different networks.
 
 1. Use OpenConnect for VPN access rather than Cisco's AnyConnect client.
 1. Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.
 1. Use `--host-only-cidr` option in `minikube start`.
 
-In addition, [this pull request](https://github.com/kubernetes/minikube/pull/1329) supposedly fixes the issue, in v0.19.0 release.
-In this post, we will look into each approach.
+In this post, we will look into each approach in more details.
 
 ### Using OpenConnect
 
@@ -38,20 +39,24 @@ Here's how you setup OpenConnect on Mac OSX:
 
 1. OpenConnect can be installed via [homebrew](http://mxcl.github.com/homebrew/):
 
-        brew update
-        brew install openconnect
-
+```
+brew update
+brew install openconnect
+```
 1. Install the [Mac OS X TUN/TAP](http://tuntaposx.sourceforge.net/) driver
 
-1. Connect!
+1. Connect. The only thing you should be prompted for is your VPN password.
 
-        sudo openconnect --user=<VPN username> --cafile=<.pem file from step 4.3> <your vpn hostname>
+```
+sudo openconnect --user=<VPN username> --cafile=<.pem file from step 4.3> <your vpn hostname>
+```
 
-    The only thing you should be prompted for is your VPN password.  I added the command to my aliases file.
-
-1. To disconnect, just Ctrl-c in the window where you started the VPN connection.
+1. To disconnect, just Ctrl-C in the window where you started the VPN connection.
 
 ### Port forwarding localhost:xxx -> minikube_IP:xxx
+
+This approach is the more convenient and more reliable in my experience.
+
 
 
 
