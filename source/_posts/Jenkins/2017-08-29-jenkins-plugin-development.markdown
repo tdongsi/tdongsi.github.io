@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Jenkins Plugin Development"
-date: 2017-08-29 08:47:17 -0700
+date: 2017-11-29 08:47:17 -0700
 comments: true
 categories: 
 - Jenkins

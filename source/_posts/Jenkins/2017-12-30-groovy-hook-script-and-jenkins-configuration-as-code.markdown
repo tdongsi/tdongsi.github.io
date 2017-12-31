@@ -74,6 +74,39 @@ Therefore, we can only set "Replay" permission for Runs with the following:
 strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
 ```
 
+### Notifications
+
+```groovy Configure Slack
+import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// configure slack
+def slack = Jenkins.instance.getExtensionList(
+  jenkins.plugins.slack.SlackNotifier.DescriptorImpl.class
+)[0]
+def params = [
+  slackTeamDomain: "domain",
+  slackToken: "token",
+  slackRoom: "",
+  slackBuildServerUrl: "$JENKINS_URL",
+  slackSendAs: ""
+]
+def req = [
+  getParameter: { name -> params[name] }
+] as org.kohsuke.stapler.StaplerRequest
+slack.configure(req, null)
+slack.save()
+```
+
+```groovy Global email settings
+import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// set email
+def location_config = JenkinsLocationConfiguration.get()
+location_config.setAdminAddress("jenkins@azsb.skybet.net")
+```
+
 ### References
 
 * [Groovy Hook Script](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script)
