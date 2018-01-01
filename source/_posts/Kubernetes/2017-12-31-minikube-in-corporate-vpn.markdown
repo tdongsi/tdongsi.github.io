@@ -97,6 +97,8 @@ export DOCKER_TLS_VERIFY="1"
 export DOCKER_HOST="tcp://192.168.99.100:2376"
 export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
 export DOCKER_API_VERSION="1.23"
+# Run this command to configure your shell:
+# eval $(minikube docker-env)
 
 tdongsi$ echo $DOCKER_HOST
 tcp://192.168.99.100:2376
@@ -118,7 +120,11 @@ kubectl config use-context minikube
 
 ### Use `--host-only-cidr` option
 
-
+This approach is the most simple but it also has less success than I hoped for.
+The idea of this approach is that AnyConnect VPN client routes `192.168.96.0/19` through its tunnel.
+This will conflict with the default Minikube network of `192.168.99.0/24`.
+Therefore, we use `minikube start --host-only-cidr 10.254.254.1/24` to instruct minikube to use a different, unused arbitrary network.
+It is worth a try but it often does not work in my experience.
 
 ### Reference
 
