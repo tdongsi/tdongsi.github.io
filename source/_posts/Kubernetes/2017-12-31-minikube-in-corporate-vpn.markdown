@@ -89,13 +89,39 @@ http://192.168.99.100:30000
 must now be accessed via `localhost:30000`.
 Similar applies to other services that are deployed to minikube, such as `jenkins` shown above.
 
-When not working on VPN, you can set `kubectl` to switch back to the old context:
+In addition, the `eval $(minikube docker-env)` standard pattern to reuse minikube's Docker deamon would not work anymore.
+
+```
+tdongsi$ minikube docker-env
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://192.168.99.100:2376"
+export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
+export DOCKER_API_VERSION="1.23"
+
+tdongsi$ echo $DOCKER_HOST
+tcp://192.168.99.100:2376
+tdongsi$ docker images
+Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?
+```
+
+Instead, you have to adjust DOCKER_HOST accordingly and use `docker --tlsverify=false ...`.
+
+```
+tdognsi$ export DOCKER_HOST="tcp://127.0.0.1:2376" 
+```
+
+Finally, when not working on VPN, you can set `kubectl` to switch back to the old context:
 
 ```
 kubectl config use-context minikube
 ```
 
+### Use `--host-only-cidr` option
+
+
+
 ### Reference
 
 * [Bug report & discussion](https://github.com/kubernetes/minikube/issues/1099)
 * [OpenConnect instructions](https://gist.github.com/moklett/3170636)
+* [VBoxManage](https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm)
