@@ -56,9 +56,44 @@ sudo openconnect --user=<VPN username> --cafile=<.pem file from step 4.3> <your 
 ### Port forwarding localhost:xxx -> minikube_IP:xxx
 
 This approach is the more convenient and more reliable in my experience.
+All you need to do is to set up a list of port forwarding rules for minikube's VirtualBox:
 
+```
+VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
+VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
+VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
+VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376
+```
 
+Then, you can set up a new Kubernetes context for working with VPN:
 
+```
+kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
+kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube
+```
+
+When working on VPN, you can set `kubectl` to switch to the new context:
+
+```
+kubectl config use-context minikube-vpn
+```
+
+All Minikube URLs now must be accessed through `localhost` in browser.
+For example, the standard Kubernetes dashboard URL such as:
+
+```
+tdongsi$ minikube dashboard --url
+http://192.168.99.100:30000
+```
+
+must now be accessed via `localhost:30000`.
+Similar applies to other services that are deployed to minikube, such as `jenkins` shown above.
+
+When not working on VPN, you can set `kubectl` to switch back to the old context:
+
+```
+kubectl config use-context minikube
+```
 
 ### Reference
 
