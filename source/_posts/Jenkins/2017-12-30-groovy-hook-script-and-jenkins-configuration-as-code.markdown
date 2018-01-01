@@ -6,6 +6,7 @@ comments: true
 categories: 
 - Jenkins
 - Groovy
+- TODO
 ---
 
 This post discusses [Groovy Hook Scripts](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script) and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.

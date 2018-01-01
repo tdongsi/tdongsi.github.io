@@ -6,6 +6,7 @@ comments: true
 categories: 
 - Groovy
 - Jenkins
+- TODO
 ---
 
 This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in `src` folder as opposed to `vars` folder, for Jenkins Shared Library.
