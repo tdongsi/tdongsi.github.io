@@ -64,7 +64,7 @@ instance.setAuthorizationStrategy(strategy)
 instance.save()
 ```
 
-Make sure [`matrix-auth` plugin](https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin) is installed before you can import GlobalMatrixAuthorizationStrategy class.
+For importing GlobalMatrixAuthorizationStrategy class, make sure that [`matrix-auth` plugin](https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin) is installed.
 For full list of standard permissions in the matrix, see [this code snippet](https://gist.github.com/jnbnyc/c6213d3d12c8f848a385).
 Note that the matrix can be different if different plugins are installed.
 For example, the "Replay" permission for Runs is not simply `hudson.model.Run.REPLAY` since there is no such static constant.
@@ -74,6 +74,52 @@ Therefore, we can only set "Replay" permission for Runs with the following:
 ``` groovy
 strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
 ```
+
+### Basic Jenkins security
+
+In addition to enable authorization strategy, we should also set some basic configurations for hardening Jenkins.
+Those includes various options that you see in Jenkins UI when going to Manage Jenkins > Configure Global Security.
+
+* [Disable Jenkins CLI](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI)
+* Limit Jenkins agent protocols.
+* "Enable Slave -> Master Access Control"
+* "Prevent Cross Site Request Forgery exploits"
+
+``` groovy Basic Jenkins security
+import hudson.security.csrf.DefaultCrumbIssuer
+import jenkins.model.Jenkins
+import jenkins.model.JenkinsLocationConfiguration
+import jenkins.security.s2m.AdminWhitelistRule
+import org.kohsuke.stapler.StaplerProxy
+import hudson.tasks.Mailer
+
+println("--- Configuring Remoting (JNLP4 only, no Remoting CLI)")
+Jenkins.instance.getDescriptor("jenkins.CLI").get().setEnabled(false)
+Jenkins.instance.agentProtocols = new HashSet<String>(["JNLP4-connect"])
+
+println("--- Enable Slave -> Master Access Control")
+Jenkins.instance.getExtensionList(StaplerProxy.class)
+    .get(AdminWhitelistRule.class)
+    .masterKillSwitch = false
+
+println("--- Checking the CSRF protection")
+if (Jenkins.instance.crumbIssuer == null) {
+    println "CSRF protection is disabled, Enabling the default Crumb Issuer"
+    Jenkins.instance.crumbIssuer = new DefaultCrumbIssuer(true)
+}
+
+println("--- Configuring Quiet Period")
+// We do not wait for anything
+Jenkins.instance.quietPeriod = 0
+Jenkins.instance.save()
+
+println("--- Configuring Email global settings")
+JenkinsLocationConfiguration.get().adminAddress = "admin@non.existent.email"
+Mailer.descriptor().defaultSuffix = "@non.existent.email"
+```
+
+Some are not working for versions before 2.46, according to [this](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI).
+For disabling Jenkins CLI, you can simply add the java argument `-Djenkins.CLI.disabled=true` on Jenkins startup.
 
 ### Notifications
 
@@ -143,3 +189,4 @@ maven.save()
 * [Groovy Hook Script](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script)
 * [Matrix-based Authorizaiton](https://gist.github.com/jnbnyc/c6213d3d12c8f848a385)
 * [Jenkins config as code](https://github.com/oleg-nenashev/demo-jenkins-config-as-code)
+* [Disable Jenkins CLI: different versions](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI)
