@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-26T11:34:20-08:00</updated>
+  <updated>2017-12-31T16:42:32-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,144 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn/"/>
+    <updated>2017-12-31T12:40:08-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn</id>
+    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
+
+<pre><code>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
+Starting local Kubernetes v1.8.0 cluster...
+Starting VM...
+Downloading Minikube ISO
+ 140.01 MB / 140.01 MB [============================================] 100.00% 0s
+
+^C
+</code></pre>
+
+<!--more-->
+
+
+<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
+<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
+However, I&rsquo;m still occasionally seeing the issue.
+I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
+
+<ol>
+<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
+<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
+<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
+</ol>
+
+
+<p>In this post, we will look into each approach in more details.</p>
+
+<h3>Using OpenConnect</h3>
+
+<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
+Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
+
+<ol>
+<li>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</li>
+</ol>
+
+
+<pre><code>brew update
+brew install openconnect
+</code></pre>
+
+<ol>
+<li><p>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</p></li>
+<li><p>Connect. The only thing you should be prompted for is your VPN password.</p></li>
+</ol>
+
+
+<pre><code>sudo openconnect --user=&lt;VPN username&gt; --cafile=&lt;.pem file from step 4.3&gt; &lt;your vpn hostname&gt;
+</code></pre>
+
+<ol>
+<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
+</ol>
+
+
+<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
+
+<p>This approach is the more convenient and more reliable in my experience.
+All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
+
+<pre><code>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
+VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
+VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
+VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376
+</code></pre>
+
+<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
+
+<pre><code>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
+kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube
+</code></pre>
+
+<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
+
+<pre><code>kubectl config use-context minikube-vpn
+</code></pre>
+
+<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
+For example, the standard Kubernetes dashboard URL such as:</p>
+
+<pre><code>tdongsi$ minikube dashboard --url
+http://192.168.99.100:30000
+</code></pre>
+
+<p>must now be accessed via <code>localhost:30000</code>.
+Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
+
+<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
+
+<pre><code>tdongsi$ minikube docker-env
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://192.168.99.100:2376"
+export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
+export DOCKER_API_VERSION="1.23"
+# Run this command to configure your shell:
+# eval $(minikube docker-env)
+
+tdongsi$ echo $DOCKER_HOST
+tcp://192.168.99.100:2376
+tdongsi$ docker images
+Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?
+</code></pre>
+
+<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
+
+<pre><code>tdognsi$ export DOCKER_HOST="tcp://127.0.0.1:2376" 
+</code></pre>
+
+<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
+
+<pre><code>kubectl config use-context minikube
+</code></pre>
+
+<h3>Use <code>--host-only-cidr</code> option</h3>
+
+<p>This approach is the most simple but it also has less success than I hoped for.
+The idea of this approach is that AnyConnect VPN client routes <code>192.168.96.0/19</code> through its tunnel.
+This will conflict with the default Minikube network of <code>192.168.99.0/24</code>.
+Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
+It is worth a try but it often does not work in my experience.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
+<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
+<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Sending Emails From Docker Containers]]></title>
@@ -391,203 +529,6 @@ Trying to link this cache in each container to some common, pre-populated Docker
 <li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
 <li><a href="https://github.com/jpetazzo/dind">dind</a></li>
 <li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Root User in a Pod]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod/"/>
-    <updated>2017-01-25T18:22:51-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/01/25/docker-root-user-in-a-pod</id>
-    <content type="html"><![CDATA[<p>In the following scenario, we have some pod running in Kubernetes cluster.</p>
-
-<pre><code>tdongsi-mac:kubernetes tdongsi$ kubectl --kubeconfig kubeconfig describe pod jenkins
-Name:               jenkins
-Namespace:          default
-Image(s):           docker.registry.company.net/tdongsi/jenkins:2.23
-Node:               kube-worker-1/10.252.158.72
-Start Time:         Tue, 24 Jan 2017 16:57:47 -0800
-Labels:             name=jenkins
-Status:             Running
-Reason:
-Message:
-IP:             172.17.27.3
-Replication Controllers:    &lt;none&gt;
-Containers:
-  jenkins:
-    Container ID:   docker://943d6e55038804c8
-    Image:      docker.registry.company.net/tdongsi/jenkins:2.23
-    Image ID:       docker://242c1836544e5ca31616
-    State:      Running
-      Started:      Tue, 24 Jan 2017 16:57:48 -0800
-    Ready:      True
-    Restart Count:  0
-    Environment Variables:
-Conditions:
-  Type      Status
-  Ready     True
-Volumes:
-  jenkins-data:
-    Type:   HostPath (bare host directory volume)
-    Path:   /jdata
-No events. 
-</code></pre>
-
-<p>For troubleshooting purposes, we sometimes need to enter the container or execute some commands with root privilege.
-Sometimes, we simply cannot <code>sudo</code> or have the root password.</p>
-
-<!--more-->
-
-
-<pre><code>jenkins@jenkins:~$ sudo ls /etc/hosts
-[sudo] password for jenkins:
-Sorry, try again.
-</code></pre>
-
-<p>Modifying the Docker image to set root password (e.g., by editing <code>Dockerfile</code> and rebuild) is sometimes not an option,
-such as when the Docker image is downloaded from another source and read-only.
-Moreover, if the container is running in production, we don&rsquo;t want to stop the container while troubleshooting some temporary issues.</p>
-
-<h3><code>nsenter</code> approach</h3>
-
-<p>I found one way to enter a &ldquo;live&rdquo; container as root by using <code>nsenter</code>.
-In summary, we find the process ID of the target container and provide it to <code>nsenter</code> as an argument.
-In the case of a Kuberentes cluster, we need to find which Kubernetes slave the pod is running on and log into it to execute the following <code>docker</code> commands.</p>
-
-<pre><code class="plain Finding running container ID and name">[centos@kube-worker-1 ~]$ sudo docker ps
-CONTAINER ID        IMAGE                                              COMMAND                CREATED             STATUS              PORTS               NAMES
-943d6e5a3bb8        docker.registry.company.net/tdongsi/jenkins:2.23   "/usr/local/bin/tini   25 hours ago        Up 25 hours                             k8s_jenkins.6e7c865_...
-fadfc479f24e        gcr.io/google_containers/pause:0.8.0               "/pause"               25 hours ago        Up 25 hours                             k8s_POD.9243e30_...
-</code></pre>
-
-<p>Use <code>docker inspect</code> to find the process ID based on the container ID.
-The Go template <code>{ {.State.Pid} }</code> (NOTE: without space) is used to simplify the output to a single numerical Pid.</p>
-
-<pre><code class="plain">[centos@kube-worker-1 ~]$ sudo docker inspect --format { {.State.Pid} } 943d6e5a3bb8
-9176
-
-[centos@kube-worker-1 ~]$ sudo nsenter --target 9176 --mount --uts --ipc --net --pid
-root@jenkins:/# cd ~
-root@jenkins:~# vi /etc/hosts
-root@jenkins:~# exit
-</code></pre>
-
-<p>For later versions of Docker, the more direct way is to use <code>docker exec</code> with the container name shown in <code>docker ps</code> output (see next section).
-However, note that <code>docker exec</code> might not work for earlier versions of Docker (tested with Docker 1.6) and <code>nsenter</code> must be used instead.</p>
-
-<p>After entering the container as <code>root</code>, you might want to add the user into sudo group and save the modified Docker image.</p>
-
-<pre><code>[centos@kube-worker-3 ~]$ sudo nsenter --target 17377 --mount --uts --ipc --net --pid
-root@node-v4:~# cd /home/jenkins
-root@node-v4:/home/jenkins# usermod -a -G sudo jenkins
-root@node-v4:/home/jenkins# passwd jenkins
-Enter new UNIX password:
-Retype new UNIX password:
-passwd: password updated successfully
-root@node-v4:/home/jenkins# exit
-logout
-
-[centos@kube-worker-3 ~]$ sudo docker commit --author tdongsi --message "Add Jenkins password" \
-280e5237cc6a docker.registry.company.net/tdongsi/jenkins-agent:2.80
-b1fe6c66195e32fcb8ef4974e3d6228ee2f4cf46ab08dbc074f633d95005941b
-
-[centos@kube-worker-3 ~]$ sudo docker push docker.registry.company.net/tdongsi/jenkins-agent:2.80
-The push refers to a repository [docker.registry.company.net/tdongsi/jenkins-agent] (len: 1)
-b1fe6c66195e: Image already exists
-151c68e860a5: Image successfully pushed
-670d6fd894d6: Image successfully pushed
-...
-</code></pre>
-
-<p>After that, you can verify <code>sudo</code>ing in the new Docker image.</p>
-
-<pre><code>tdongsi-mac:~ tdongsi$ docker pull docker.registry.company.net/tdongsi/jenkins-agent:2.80
-2.80: Pulling from tdongsi/jenkins-agent
-bf5d46315322: Already exists
-9f13e0ac480c: Already exists
-ebe26e644840: Pull complete
-40af181810e7: Pull complete
-...
-
-tdongsi-mac:~ tdongsi$ docker run -d --restart=always --entrypoint="java" \
-docker.registry.company.net/tdongsi/jenkins-agent:2.80 -jar /usr/share/jenkins/slave.jar \
--jnlpUrl http://10.252.78.115/computer/slave/slave-agent.jnlp
-dd9c207e2ef1c0520439451b1775b976e3c9e09712f8ca1fb42f1bc082f14809
-
-tdongsi-mac:~ tdongsi$ docker ps
-CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-dd9c207e2ef1        docker.registry.company.net/tdongsi/jenkins-agent:2.80   "java -jar /usr/sh..."   5 seconds ago       Up 4 seconds                            ecstatic_galileo
-tdongsi-mac:~ tdongsi$ docker exec -it dd9c207e2ef1 bash
-jenkins@dd9c207e2ef1:~$ sudo ls /etc/hosts
-[sudo] password for jenkins:
-/etc/hosts
-jenkins@dd9c207e2ef1:~$ sudo cat /etc/hosts
-127.0.0.1   localhost
-::1 localhost ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-172.17.0.2  dd9c207e2ef1
-jenkins@dd9c207e2ef1:~$ exit
-exit
-</code></pre>
-
-<h3><code>docker exec</code> approach</h3>
-
-<p>Later versions of <code>docker</code> adds <code>--user</code> flag that allows us to specify which user that we should enter the container as.
-First, we figure out which Kubernetes node is running a particular pod by using the command <code>kubectl describe pod</code>.
-After <code>ssh</code>-ing into that Kubernetes node, we can find the corresponding container running in that pod with the command <code>docker ps -a</code>.
-The following examples demonstrate entering a <code>jenkins-slave</code> container as <code>root</code> and <code>jenkins</code> user.</p>
-
-<pre><code class="plain Entering container ">[root@dev-worker-2 ~]# docker ps -a
-CONTAINER ID        IMAGE                                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
-10f031d08389        docker.registry.company.net/tdongsi/jenkins:jenkins-agent                    "jenkins-slave 9f22f2"   19 minutes ago      Up 19 minutes                           k8s_slave.beb667bf_...
-767915746e2c        docker.registry.company.net/tdongsi/pause:2.0                                "/pause"                 19 minutes ago      Up 19 minutes                           k8s_POD.abb8e705_...
-
-[root@dev-worker-2 ~]# docker exec -it --user root 10f031d08389 /bin/sh
-#
-# ls
-support  workspace
-# id
-uid=0(root) gid=0(root) groups=0(root)
-# exit
-
-[root@dev-worker-2 ~]# docker exec -it --user jenkins 10f031d08389 /bin/sh
-$ ls
-support  workspace
-$ id
-uid=25001(jenkins) gid=25001(jenkins) groups=25001(jenkins),992(docker)
-$ exit
-</code></pre>
-
-<p>As mentioned, older versions of <code>docker</code> does not support <code>--user</code> flag and does not allow entering container as root.
-In that case, use <code>nsenter</code> method presented in the previous section.</p>
-
-<pre><code class="plain Unsupported operation on Docker 1.6">[root@kube-worker-1 ~]# docker exec -it --user root af9a884eb3f1 /bin/sh
-flag provided but not defined: --user
-See 'docker exec --help'.
-[root@kube-worker-1 ~]# docker version
-Client version: 1.6.2.el7
-Client API version: 1.18
-Go version (client): go1.4.2
-Git commit (client): c3ca5bb/1.6.2
-OS/Arch (client): linux/amd64
-Server version: 1.6.2.el7
-Server API version: 1.18
-Go version (server): go1.4.2
-Git commit (server): c3ca5bb/1.6.2
-OS/Arch (server): linux/amd64
-</code></pre>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/jpetazzo/nsenter">nsenter tool</a></li>
-<li><a href="https://docs.docker.com/engine/reference/commandline/exec/">docker exec</a> manual</li>
-<li><a href="http://stackoverflow.com/questions/28721699/root-password-inside-a-docker-container">StackOverflow discussion</a></li>
 </ul>
 
 ]]></content>

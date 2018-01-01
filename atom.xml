@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-26T11:34:20-08:00</updated>
+  <updated>2017-12-31T16:42:32-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,403 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn/"/>
+    <updated>2017-12-31T12:40:08-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn</id>
+    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
+</span><span class='line'>Starting local Kubernetes v1.8.0 cluster...
+</span><span class='line'>Starting VM...
+</span><span class='line'>Downloading Minikube ISO
+</span><span class='line'> 140.01 MB / 140.01 MB [============================================] 100.00% 0s
+</span><span class='line'>
+</span><span class='line'>^C</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--more-->
+
+
+<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
+<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
+However, I&rsquo;m still occasionally seeing the issue.
+I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
+
+<ol>
+<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
+<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
+<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
+</ol>
+
+
+<p>In this post, we will look into each approach in more details.</p>
+
+<h3>Using OpenConnect</h3>
+
+<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
+Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
+
+<ol>
+<li>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</li>
+</ol>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>brew update
+</span><span class='line'>brew install openconnect</span></code></pre></td></tr></table></div></figure>
+
+
+<ol>
+<li><p>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</p></li>
+<li><p>Connect. The only thing you should be prompted for is your VPN password.</p></li>
+</ol>
+
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>sudo openconnect --user=&lt;VPN username&gt; --cafile=&lt;.pem file from step 4.3&gt; &lt;your vpn hostname&gt;</span></code></pre></td></tr></table></div></figure>
+
+
+<ol>
+<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
+</ol>
+
+
+<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
+
+<p>This approach is the more convenient and more reliable in my experience.
+All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
+</span><span class='line'>VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
+</span><span class='line'>VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
+</span><span class='line'>VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
+</span><span class='line'>kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube</span></code></pre></td></tr></table></div></figure>
+
+
+<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube-vpn</span></code></pre></td></tr></table></div></figure>
+
+
+<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
+For example, the standard Kubernetes dashboard URL such as:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube dashboard --url
+</span><span class='line'>http://192.168.99.100:30000</span></code></pre></td></tr></table></div></figure>
+
+
+<p>must now be accessed via <code>localhost:30000</code>.
+Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
+
+<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube docker-env
+</span><span class='line'>export DOCKER_TLS_VERIFY="1"
+</span><span class='line'>export DOCKER_HOST="tcp://192.168.99.100:2376"
+</span><span class='line'>export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
+</span><span class='line'>export DOCKER_API_VERSION="1.23"
+</span><span class='line'># Run this command to configure your shell:
+</span><span class='line'># eval $(minikube docker-env)
+</span><span class='line'>
+</span><span class='line'>tdongsi$ echo $DOCKER_HOST
+</span><span class='line'>tcp://192.168.99.100:2376
+</span><span class='line'>tdongsi$ docker images
+</span><span class='line'>Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdognsi$ export DOCKER_HOST="tcp://127.0.0.1:2376" </span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Use <code>--host-only-cidr</code> option</h3>
+
+<p>This approach is the most simple but it also has less success than I hoped for.
+The idea of this approach is that AnyConnect VPN client routes <code>192.168.96.0/19</code> through its tunnel.
+This will conflict with the default Minikube network of <code>192.168.99.0/24</code>.
+Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
+It is worth a try but it often does not work in my experience.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
+<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
+<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Groovy Hook Script and Jenkins Configuration as Code]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/"/>
+    <updated>2017-12-30T21:02:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code</id>
+    <content type="html"><![CDATA[<p>This post discusses <a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Scripts</a> and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
+This can help us to set up local environment for developing Jenkins Pipeline libraries and to evaluate various Jenkins features.</p>
+
+<!--more-->
+
+
+<h3>Groovy Hook Scripts</h3>
+
+<p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
+For given hook <code>HOOK</code>, the following locations are searched:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>WEB-INF/HOOK.groovy in jenkins.war
+</span><span class='line'>WEB-INF/HOOK.groovy.d/*.groovy in the lexical order in jenkins.war
+</span><span class='line'>$JENKINS_HOME/HOOK.groovy
+</span><span class='line'>$JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>init</code> is the most commonly used hook.</p>
+
+<h3>Authorization</h3>
+
+<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.security.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">realm</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HudsonPrivateSecurityRealm</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setSecurityRealm</span><span class="o">(</span><span class="n">realm</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">strategy</span> <span class="o">=</span> <span class="k">new</span> <span class="n">hudson</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">FullControlOnceLoggedInAuthorizationStrategy</span><span class="o">()</span>
+</span><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">setAllowAnonymousRead</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setAuthorizationStrategy</span><span class="o">(</span><span class="n">strategy</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Matrix-based authorization: Gives all authenticated users admin access:</p>
+
+<figure class='code'><figcaption><span>Matrix-based authorization</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.security.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">realm</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HudsonPrivateSecurityRealm</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setSecurityRealm</span><span class="o">(</span><span class="n">realm</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">strategy</span> <span class="o">=</span> <span class="k">new</span> <span class="n">hudson</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">GlobalMatrixAuthorizationStrategy</span><span class="o">()</span>
+</span><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">Jenkins</span><span class="o">.</span><span class="na">ADMINISTER</span><span class="o">,</span> <span class="s1">&#39;authenticated&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setAuthorizationStrategy</span><span class="o">(</span><span class="n">strategy</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Make sure <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed before you can import GlobalMatrixAuthorizationStrategy class.
+For full list of standard permissions in the matrix, see <a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">this code snippet</a>.
+Note that the matrix can be different if different plugins are installed.
+For example, the &ldquo;Replay&rdquo; permission for Runs is not simply <code>hudson.model.Run.REPLAY</code> since there is no such static constant.
+Such permission is only available after <a href="https://github.com/jenkinsci/workflow-cps-plugin">Workflow CPS plugin</a> is installed.
+Therefore, we can only set &ldquo;Replay&rdquo; permission for Runs with the following:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">org</span><span class="o">.</span><span class="na">jenkinsci</span><span class="o">.</span><span class="na">plugins</span><span class="o">.</span><span class="na">workflow</span><span class="o">.</span><span class="na">cps</span><span class="o">.</span><span class="na">replay</span><span class="o">.</span><span class="na">ReplayAction</span><span class="o">.</span><span class="na">REPLAY</span><span class="o">,</span><span class="n">USER</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Notifications</h3>
+
+<figure class='code'><figcaption><span>Configure Slack</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// configure slack</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">slack</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">jenkins</span><span class="o">.</span><span class="na">plugins</span><span class="o">.</span><span class="na">slack</span><span class="o">.</span><span class="na">SlackNotifier</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span>
+</span><span class='line'><span class="o">)[</span><span class="mi">0</span><span class="o">]</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">params</span> <span class="o">=</span> <span class="o">[</span>
+</span><span class='line'>  <span class="nl">slackTeamDomain:</span> <span class="s2">&quot;domain&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackToken:</span> <span class="s2">&quot;token&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackRoom:</span> <span class="s2">&quot;&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackBuildServerUrl:</span> <span class="s2">&quot;$JENKINS_URL&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackSendAs:</span> <span class="s2">&quot;&quot;</span>
+</span><span class='line'><span class="o">]</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">req</span> <span class="o">=</span> <span class="o">[</span>
+</span><span class='line'>  <span class="nl">getParameter:</span> <span class="o">{</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">params</span><span class="o">[</span><span class="n">name</span><span class="o">]</span> <span class="o">}</span>
+</span><span class='line'><span class="o">]</span> <span class="k">as</span> <span class="n">org</span><span class="o">.</span><span class="na">kohsuke</span><span class="o">.</span><span class="na">stapler</span><span class="o">.</span><span class="na">StaplerRequest</span>
+</span><span class='line'><span class="n">slack</span><span class="o">.</span><span class="na">configure</span><span class="o">(</span><span class="n">req</span><span class="o">,</span> <span class="kc">null</span><span class="o">)</span>
+</span><span class='line'><span class="n">slack</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Global email settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// set email</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">location_config</span> <span class="o">=</span> <span class="n">JenkinsLocationConfiguration</span><span class="o">.</span><span class="na">get</span><span class="o">()</span>
+</span><span class='line'><span class="n">location_config</span><span class="o">.</span><span class="na">setAdminAddress</span><span class="o">(</span><span class="s2">&quot;jenkins@skynet.net&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Tools</h3>
+
+<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
+
+<figure class='code'><figcaption><span>Setup JDKs and Maven</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.Jenkins</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.model.JDK</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven.MavenInstallation</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tools.InstallSourceProperty</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">println</span><span class="o">(</span><span class="s2">&quot;--- Setup tool installations&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="c1">// By default we offer no JDK7, Nodes should override</span>
+</span><span class='line'><span class="n">JDK</span> <span class="n">jdk7</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk7&quot;</span><span class="o">,</span> <span class="s2">&quot;/non/existent/JVM&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="c1">// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+</span>
+</span><span class='line'><span class="n">JDK</span> <span class="n">jdk8</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk8&quot;</span><span class="o">,</span> <span class="s2">&quot;&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">JDK</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">jdk7</span><span class="o">,</span> <span class="n">jdk8</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">InstallSourceProperty</span> <span class="n">p</span> <span class="o">=</span> <span class="k">new</span> <span class="n">InstallSourceProperty</span><span class="o">([</span><span class="k">new</span> <span class="n">Maven</span><span class="o">.</span><span class="na">MavenInstaller</span><span class="o">(</span><span class="s2">&quot;3.5.0&quot;</span><span class="o">)])</span>
+</span><span class='line'><span class="n">MavenInstallation</span> <span class="n">mvn</span> <span class="o">=</span> <span class="k">new</span> <span class="n">MavenInstallation</span><span class="o">(</span><span class="s2">&quot;mvn&quot;</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="o">[</span><span class="n">p</span><span class="o">])</span>
+</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">Maven</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">mvn</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Configure global maven options</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">maven</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">hudson</span><span class="o">.</span><span class="na">maven</span><span class="o">.</span><span class="na">MavenModuleSet</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span>
+</span><span class='line'><span class="o">)[</span><span class="mi">0</span><span class="o">]</span>
+</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">setGlobalMavenOpts</span><span class="o">(</span><span class="s2">&quot;-Dmaven.test.failure.ignore=false&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
+<li><a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">Matrix-based Authorizaiton</a></li>
+<li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Jenkins config as code</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Class in Jenkins Shared Library]]></title>
@@ -134,6 +531,53 @@ This ensures that a Pipeline using the class, as seen in the example below, can 
 <li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
 </ul>
 
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development/"/>
+    <updated>2017-11-29T07:47:17-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development</id>
+    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
+
+<!--more-->
+
+
+<h3>Basic plugin</h3>
+
+<p>Reference:</p>
+
+<ul>
+<li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
+<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
+</ul>
+
+
+<h3>Pipeline plugin</h3>
+
+<p>Reference:</p>
+
+<ul>
+<li><a href="https://github.com/jglick/wfdev/tree/pipeline">Tutorial</a></li>
+<li><a href="https://github.com/jglick/wfdev/blob/master/preso.pdf">Slides</a></li>
+<li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md">Developer&rsquo;s guide</a></li>
+</ul>
+
+
+<h3>Blue Ocean plugin</h3>
+
+<figure class='code'><figcaption><span>Local development of Blue Ocean plugin</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># this will build and run the plugin in local Jenkins
+</span><span class='line'>mvn install hpi:run
+</span><span class='line'># this will recompile js & less while editing
+</span><span class='line'>npm run bundle:watch</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong><em>Gotcha</em></strong>: extension changes won&rsquo;t update without a Jenkins restart.</p>
 ]]></content>
   </entry>
   
@@ -1055,53 +1499,6 @@ For example, task <code>concat</code> is defined in &ldquo;grunt/tasks/concat.js
 </li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development/"/>
-    <updated>2017-08-29T08:47:17-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/29/jenkins-plugin-development</id>
-    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
-
-<!--more-->
-
-
-<h3>Basic plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
-<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
-</ul>
-
-
-<h3>Pipeline plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/jglick/wfdev/tree/pipeline">Tutorial</a></li>
-<li><a href="https://github.com/jglick/wfdev/blob/master/preso.pdf">Slides</a></li>
-<li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md">Developer&rsquo;s guide</a></li>
-</ul>
-
-
-<h3>Blue Ocean plugin</h3>
-
-<figure class='code'><figcaption><span>Local development of Blue Ocean plugin</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'># this will build and run the plugin in local Jenkins
-</span><span class='line'>mvn install hpi:run
-</span><span class='line'># this will recompile js & less while editing
-</span><span class='line'>npm run bundle:watch</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong><em>Gotcha</em></strong>: extension changes won&rsquo;t update without a Jenkins restart.</p>
 ]]></content>
   </entry>
   
@@ -2219,13 +2616,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#116;&#111;&#x3a;&#110;&#x6f;&#x2d;&#114;&#101;&#x70;&#x6c;&#x79;&#64;&#x67;&#105;&#116;&#104;&#x75;&#x62;&#x2e;&#x63;&#x6f;&#x6d;">&#110;&#x6f;&#45;&#114;&#101;&#112;&#x6c;&#x79;&#64;&#x67;&#105;&#116;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#x74;&#x6f;&#58;&#x6e;&#x6f;&#45;&#x72;&#x65;&#112;&#108;&#x79;&#x40;&#x67;&#x69;&#116;&#104;&#117;&#x62;&#x2e;&#99;&#111;&#109;">&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#x6c;&#121;&#x40;&#103;&#x69;&#116;&#x68;&#x75;&#98;&#46;&#99;&#111;&#109;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#x6f;&#58;&#x6e;&#x6f;&#x2d;&#114;&#101;&#x70;&#108;&#121;&#x40;&#103;&#105;&#116;&#104;&#x75;&#98;&#46;&#x63;&#111;&#x6d;">&#110;&#111;&#x2d;&#x72;&#101;&#112;&#x6c;&#121;&#x40;&#x67;&#x69;&#x74;&#104;&#117;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#x6e;&#111;&#x2d;&#x72;&#x65;&#112;&#x6c;&#121;&#x40;&#103;&#105;&#116;&#104;&#x75;&#98;&#46;&#x63;&#x6f;&#x6d;">&#110;&#x6f;&#x2d;&#114;&#x65;&#112;&#108;&#x79;&#64;&#x67;&#105;&#116;&#104;&#x75;&#x62;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -4803,243 +5200,6 @@ Adminstrators privilege is required for doing so.</p>
 <ul>
 <li><a href="https://github.com/jenkinsci/pipeline-examples/tree/master/pipeline-examples/load-from-file">JenkinsCI example</a></li>
 <li><a href="https://jenkins.io/doc/pipeline/steps/workflow-cps/#load-evaluate-a-groovy-source-file-into-the-pipeline-script"><code>load</code> step</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Jenkins Pipeline Shared Libraries]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries/"/>
-    <updated>2017-03-17T15:38:14-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries</id>
-    <content type="html"><![CDATA[<p>When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles <a href="https://en.wikipedia.org/wiki/Don't_repeat_yourself">DRY</a>.
-A very common use case is that you have many projects that are built in the similar way, such as Nexus authentication step in Gradle build.
-One way is to use <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin">Workflow plugin</a>.
-Comprehensive user documentation can be found in <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">this section</a> of Jenkins handbook.</p>
-
-<p>In the following sections, we review a couple <strong>older</strong>, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.</p>
-
-<!--more-->
-
-
-<h3>Simple copying</h3>
-
-<p>A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its <code>$JENKINS_HOME</code>.
-All such Groovy files are stored in <em>$JENKINS_HOME/workflow-libs</em> folder, following this directory structure:</p>
-
-<figure class='code'><figcaption><span>Directory structure of a Shared Library repository</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>(root)
-</span><span class='line'>+- src                     # Groovy source files
-</span><span class='line'>|   +- org
-</span><span class='line'>|       +- foo
-</span><span class='line'>|           +- Bar.groovy  # for org.foo.Bar class
-</span><span class='line'>+- vars
-</span><span class='line'>|   +- foo.groovy          # for global 'foo' variable
-</span><span class='line'>|   +- foo.txt             # help for 'foo' variable
-</span><span class='line'>+- resources               # resource files (external libraries only)
-</span><span class='line'>|   +- org
-</span><span class='line'>|       +- foo
-</span><span class='line'>|           +- bar.json    # static helper data for org.foo.Bar</span></code></pre></td></tr></table></div></figure>
-
-
-<p>By manually modifying the Groovy files (e.g., <em>vars/foo.groovy</em>) and restarting Jenkins, you can update their behaviors accordingly.
-This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.</p>
-
-<h3>Git-based update</h3>
-
-<p>A more scalable alternative for updating Groovy codes is to use <code>git push</code>, exposed by Jenkins.</p>
-
-<p>As a side note, this method is no longer mentioned in documentation, as of March 2017.
-In fact, you have to look into a <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d">very old commit</a>
-or <a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">outdated, unofficial fork</a> to find this method briefly mentioned at all.
-It is also occasionally mentioned in support articles such as <a href="https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs">this</a>.</p>
-
-<p>In this method, the directory <em>$JENKINS_HOME/workflow-libs</em> is exposed by Jenkins as a Git repository.
-You can deploy new changes to this directory through <code>git push</code> and any such event will trigger Jenkins to recompile Groovy files.
-There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
-The Git repository is exposed in two endpoints:</p>
-
-<ul>
-<li><a href="http://server/jenkins/workflowLibs.git">http://server/jenkins/workflowLibs.git</a> (when your Jenkins is <code>http://server/jenkins/</code>).</li>
-<li>ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH">an SSH server</a>)</li>
-</ul>
-
-
-<p>This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., &ldquo;shared-lib&rdquo; on Github) and only <code>git push</code> to the <code>workflowLibs.git</code> repository in the event of deployment.
-Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.</p>
-
-<h4>Jenkinsfile to update global library</h4>
-
-<p>In this Git-based update approach, all Groovy files should be in some Git repository (e.g., &ldquo;shared-lib&rdquo;) with certain directory structure (shown in the last section).
-Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
-The Jenkinsfile for such workflow-libs should be as follows:</p>
-
-<figure class='code'><figcaption><span>Jenkinsfile for deployment</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>  stage 'Checkout'
-</span><span class='line'>  checkout scm
-</span><span class='line'>
-</span><span class='line'>  if (env.BRANCH_NAME == 'master') {
-</span><span class='line'>    stage 'Update'
-</span><span class='line'>    println "Updating Jenkins workflow-libs"
-</span><span class='line'>    sshagent(['jenkins_ssh_key']) {
-</span><span class='line'>      sh """
-</span><span class='line'>         git branch master
-</span><span class='line'>         git checkout master
-</span><span class='line'>         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
-</span><span class='line'>         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
-</span><span class='line'>         git push --force jenkins master
-</span><span class='line'>      """
-</span><span class='line'>    }
-</span><span class='line'>  }</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Some comments on this Jenkinsfile:</p>
-
-<ul>
-<li><code>sshagent(['jenkins_ssh_key'])</code> indicates that the current node/slave is known as <a href="https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin">an SSH agent</a> to Jenkins master, using Jenkins credentials with ID <code>jenkins_ssh_key</code>.</li>
-<li><code>git remote add</code> uses the currently checked out Git repo and branch as a remote branch (named &ldquo;jenkins&rdquo;) to the <code>workflowLibs</code> repository.</li>
-<li>The <code>workflowLibs</code> repository is managed by Jenkins, exposed at that location <em>ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git</em>.</li>
-<li>Then we force push any new changes to the Git repository on Jenkins.</li>
-</ul>
-
-
-<p>After the push, the Git repository <code>workflowLibs</code> on Jenkins should have latest change, same as the current &ldquo;shared-lib&rdquo; repository.
-Upon a <code>git push</code> event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
-Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.</p>
-
-<figure class='code'><figcaption><span>Key pair generation</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
-</span><span class='line'>
-</span><span class='line'>jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
-</span><span class='line'>Generating public/private rsa key pair.
-</span><span class='line'>Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
-</span><span class='line'>Enter passphrase (empty for no passphrase):
-</span><span class='line'>Enter same passphrase again:</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The generated public key should be added to the user via <em>jenkinsurl.com/user/tdongsi/configure</em> URL and private key should be added to the credentials ID <code>jenkins_ssh_key</code>.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Files Not Found in Docker Container]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/"/>
-    <updated>2017-02-21T15:14:43-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container</id>
-    <content type="html"><![CDATA[<p>In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
-In summary, there is currently no way to add additional content into <code>VOLUME</code> directory in a trivial way.
-If you unknowingly adds files into a folder that has been used as a <code>VOLUME</code> mount point in a Docker image or one of its base images, the files cannot be found for seemingly no reason.</p>
-
-<!--more-->
-
-
-<h3>Problem description</h3>
-
-<p>Let&rsquo;s say we created the following Dockerfile for container, extending on top of a base Docker image:</p>
-
-<figure class='code'><figcaption><span>Dockerfile of the extended image</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FROM docker.registry.company.net/base
-</span><span class='line'>MAINTAINER myemail@company.net
-</span><span class='line'>
-</span><span class='line'>RUN ssh-keyscan -H github.company.net &gt;&gt; /home/jenkins/.ssh/known_hosts
-</span><span class='line'>
-</span><span class='line'>RUN mkdir -p /home/jenkins/.m2 /home/jenkins/store
-</span><span class='line'>COPY settings.xml /home/jenkins/.m2/settings.xml
-</span><span class='line'>
-</span><span class='line'>RUN openssl s_client -connect nexus.company.net:443 &lt; /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' &gt; /home/jenkins/public.crt \
-</span><span class='line'>    && /opt/jdk-latest/jre/bin/keytool -import -noprompt -storepass change_this -alias nexus.company.net -keystore /home/jenkins/cacerts -file /home/jenkins/public.crt</span></code></pre></td></tr></table></div></figure>
-
-
-<p>When we try to build the above image with <code>docker build</code>, we should expect several files dropped into the home <code>/home/jenkins</code> folder.
-In fact, we can add several <code>echo</code> commands into the above Dockerfile to verify in the build log that the files are actually created.
-However, when we start running a container from this new Docker image using <code>docker run</code>, the files simply don&rsquo;t exist in <code>/home/jenkins</code>.</p>
-
-<p>This was very perplexing at first.
-Struggling with different options of rebuilding (<code>docker build</code>) and re-running (<code>docker run</code>) gives no different outcomes.
-It eventually turns out that <code>/home/jenkins</code> is mounted as a volume in the <code>base</code> image or one of its base images.
-If you have access to the base images' Dockerfiles, you should expect to find the following lines in one of the base Dockerfiles:</p>
-
-<figure class='code'><figcaption><span>Base Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>...
-</span><span class='line'>VOLUME /home/jenkins
-</span><span class='line'>WORKDIR /home/jenkins
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Otherwise, you can verify with the following <code>docker inspect</code> command when the Docker container is still running:</p>
-
-<figure class='code'><figcaption><span>Show Volumes</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:docker tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
-</span><span class='line'>map[/home/jenkins:{}]</span></code></pre></td></tr></table></div></figure>
-
-
-<p>This problem is already seen and reported in <a href="https://github.com/docker/docker/issues/3639">this issue</a>.
-There have been suggestions that <code>VOLUME</code> directive in Dockerfile is a mistake.
-It should be an option/directive when running <code>docker run</code>, not when building images.</p>
-
-<h3>Resolving problem</h3>
-
-<p>The above problem can be resolved by simply adding files into another path that has NOT been used as VOLUME.
-If the specific <code>VOLUME</code>ed path (<code>/home/path</code> in the example) must be used, you can also use <code>docker copy</code> to add files into a running container (see <a href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/">last post</a>).</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/docker/docker/issues/3639">Reported issue</a></li>
-<li><a href="http://l33t.peopleperhour.com/2015/02/18/docker-extending-official-images/">Work around</a></li>
 </ul>
 
 ]]></content>

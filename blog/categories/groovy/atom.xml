@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Groovy | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/groovy/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-26T11:34:20-08:00</updated>
+  <updated>2017-12-31T16:42:32-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,145 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Groovy Hook Script and Jenkins Configuration as Code]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/"/>
+    <updated>2017-12-30T21:02:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code</id>
+    <content type="html"><![CDATA[<p>This post discusses <a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Scripts</a> and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
+This can help us to set up local environment for developing Jenkins Pipeline libraries and to evaluate various Jenkins features.</p>
+
+<!--more-->
+
+
+<h3>Groovy Hook Scripts</h3>
+
+<p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
+For given hook <code>HOOK</code>, the following locations are searched:</p>
+
+<pre><code>WEB-INF/HOOK.groovy in jenkins.war
+WEB-INF/HOOK.groovy.d/*.groovy in the lexical order in jenkins.war
+$JENKINS_HOME/HOOK.groovy
+$JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
+</code></pre>
+
+<p>The <code>init</code> is the most commonly used hook.</p>
+
+<h3>Authorization</h3>
+
+<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+
+<pre><code class="groovy">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+import hudson.security.*
+def realm = new HudsonPrivateSecurityRealm(false)
+instance.setSecurityRealm(realm)
+
+def strategy = new hudson.security.FullControlOnceLoggedInAuthorizationStrategy()
+strategy.setAllowAnonymousRead(false)
+instance.setAuthorizationStrategy(strategy)
+
+instance.save()
+</code></pre>
+
+<p>Matrix-based authorization: Gives all authenticated users admin access:</p>
+
+<pre><code class="groovy Matrix-based authorization">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+import hudson.security.*
+def realm = new HudsonPrivateSecurityRealm(false)
+instance.setSecurityRealm(realm)
+
+def strategy = new hudson.security.GlobalMatrixAuthorizationStrategy()
+strategy.add(Jenkins.ADMINISTER, 'authenticated')
+instance.setAuthorizationStrategy(strategy)
+
+instance.save()
+</code></pre>
+
+<p>Make sure <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed before you can import GlobalMatrixAuthorizationStrategy class.
+For full list of standard permissions in the matrix, see <a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">this code snippet</a>.
+Note that the matrix can be different if different plugins are installed.
+For example, the &ldquo;Replay&rdquo; permission for Runs is not simply <code>hudson.model.Run.REPLAY</code> since there is no such static constant.
+Such permission is only available after <a href="https://github.com/jenkinsci/workflow-cps-plugin">Workflow CPS plugin</a> is installed.
+Therefore, we can only set &ldquo;Replay&rdquo; permission for Runs with the following:</p>
+
+<pre><code class="groovy">strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
+</code></pre>
+
+<h3>Notifications</h3>
+
+<pre><code class="groovy Configure Slack">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// configure slack
+def slack = Jenkins.instance.getExtensionList(
+  jenkins.plugins.slack.SlackNotifier.DescriptorImpl.class
+)[0]
+def params = [
+  slackTeamDomain: "domain",
+  slackToken: "token",
+  slackRoom: "",
+  slackBuildServerUrl: "$JENKINS_URL",
+  slackSendAs: ""
+]
+def req = [
+  getParameter: { name -&gt; params[name] }
+] as org.kohsuke.stapler.StaplerRequest
+slack.configure(req, null)
+slack.save()
+</code></pre>
+
+<pre><code class="groovy Global email settings">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// set email
+def location_config = JenkinsLocationConfiguration.get()
+location_config.setAdminAddress("jenkins@skynet.net")
+</code></pre>
+
+<h3>Tools</h3>
+
+<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
+
+<pre><code class="groovy Setup JDKs and Maven">import jenkins.model.Jenkins
+import hudson.model.JDK
+import hudson.tasks.Maven.MavenInstallation;
+import hudson.tasks.Maven
+import hudson.tools.InstallSourceProperty
+
+println("--- Setup tool installations")
+// By default we offer no JDK7, Nodes should override
+JDK jdk7 = new JDK("jdk7", "/non/existent/JVM")
+// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+
+JDK jdk8 = new JDK("jdk8", "")
+Jenkins.instance.getDescriptorByType(JDK.DescriptorImpl.class).setInstallations(jdk7, jdk8)
+
+InstallSourceProperty p = new InstallSourceProperty([new Maven.MavenInstaller("3.5.0")])
+MavenInstallation mvn = new MavenInstallation("mvn", null, [p])
+Jenkins.instance.getDescriptorByType(Maven.DescriptorImpl.class).setInstallations(mvn)
+
+// Configure global maven options
+def maven = Jenkins.instance.getExtensionList(
+  hudson.maven.MavenModuleSet.DescriptorImpl.class
+)[0]
+maven.setGlobalMavenOpts("-Dmaven.test.failure.ignore=false")
+maven.save()
+</code></pre>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
+<li><a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">Matrix-based Authorizaiton</a></li>
+<li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Jenkins config as code</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Class in Jenkins Shared Library]]></title>
@@ -500,13 +639,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#116;&#111;&#x3a;&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#108;&#121;&#64;&#x67;&#105;&#x74;&#104;&#x75;&#x62;&#x2e;&#x63;&#x6f;&#109;">&#x6e;&#x6f;&#45;&#114;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#x75;&#98;&#x2e;&#x63;&#x6f;&#x6d;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#97;&#x69;&#x6c;&#116;&#x6f;&#x3a;&#x6e;&#111;&#45;&#x72;&#x65;&#112;&#x6c;&#x79;&#64;&#x67;&#x69;&#116;&#x68;&#x75;&#98;&#46;&#99;&#x6f;&#x6d;">&#x6e;&#111;&#x2d;&#114;&#101;&#x70;&#x6c;&#121;&#64;&#x67;&#x69;&#x74;&#104;&#x75;&#x62;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#105;&#x6c;&#116;&#x6f;&#58;&#110;&#111;&#x2d;&#x72;&#101;&#x70;&#x6c;&#121;&#x40;&#103;&#x69;&#x74;&#x68;&#x75;&#98;&#x2e;&#99;&#111;&#109;">&#110;&#x6f;&#x2d;&#x72;&#101;&#112;&#108;&#121;&#x40;&#103;&#x69;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#97;&#105;&#x6c;&#116;&#111;&#58;&#x6e;&#111;&#45;&#114;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#105;&#x74;&#104;&#117;&#98;&#46;&#99;&#111;&#x6d;">&#x6e;&#x6f;&#45;&#x72;&#101;&#112;&#x6c;&#x79;&#x40;&#x67;&#x69;&#116;&#104;&#x75;&#98;&#46;&#x63;&#111;&#109;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -701,349 +840,6 @@ You can click on individual steps and get more details, such as the log output f
 <li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/TUTORIAL.md">TUTORIAL</a></li>
 <li><a href="https://jenkins.io/blog/2016/06/16/parallel-test-executor-plugin/">More in Blog post</a></li>
 <li><a href="https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin">Plugin page</a>: <code>splitTests</code> defined by this plugin.</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Basic Jenkinsfile Cookbook]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/07/18/basic-jenkinsfile-cookbook/"/>
-    <updated>2017-07-18T11:20:20-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/07/18/basic-jenkinsfile-cookbook</id>
-    <content type="html"><![CDATA[<p>This post shows how to customize standard Pipeline &ldquo;steps&rdquo; in Jenkinsfile besides their common usage.</p>
-
-<!--more-->
-
-
-<p>List of basic Jenkinsfile steps in this post:</p>
-
-<ul>
-<li><code>checkout</code>/<code>git</code></li>
-<li><code>findFiles</code></li>
-<li><code>input</code></li>
-<li><code>junit</code></li>
-<li><code>parameters</code>/<code>properties</code></li>
-<li><code>podTemplates</code></li>
-<li><code>sendSlack</code></li>
-<li><code>withCredentials</code></li>
-</ul>
-
-
-<h3><code>checkout</code>/<code>git</code> step</h3>
-
-<p><code>scm</code> is the global variable for the current commit AND branch AND repository of Jenkinsfile.
-<code>checkout scm</code> means checking out all other files with same version as the Jenkinsfile associated with running pipeline.
-To check out another repository, you need to specify the paremeters to <code>checkout</code> step.</p>
-
-<pre><code class="groovy Checkout from another Git repo">checkout([$class: 'GitSCM', branches: [[name: '*/master']],
-     userRemoteConfigs: [[url: 'http://git-server/user/repository.git']]])
-
-// From README file.
-checkout scm: [$class: 'MercurialSCM', source: 'ssh://hg@bitbucket.org/user/repo', clean: true, credentialsId: '1234-5678-abcd'], poll: false
-// If scm is the only parameter, you can omit its name, but Groovy syntax then requires parentheses around the value:
-checkout([$class: 'MercurialSCM', source: 'ssh://hg@bitbucket.org/user/repo'])
-
-// Short hand form for Git
-git branch: 'develop', url: 'https://github.com/WtfJoke/Any.git'
-</code></pre>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://jenkins.io/doc/pipeline/steps/git/#git-git"><code>git</code> step</a></li>
-<li><a href="https://stackoverflow.com/questions/14843696/checkout-multiple-git-repos-into-same-jenkins-workspace"><code>git</code> example</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/workflow-scm-step/#checkout-general-scm"><code>checkout</code> step</a></li>
-<li><a href="https://github.com/jenkinsci/workflow-scm-step-plugin/blob/master/README.md"><code>checkout</code> README</a></li>
-</ul>
-
-
-<h3><code>findFiles</code> step</h3>
-
-<p>Doing in Bash:</p>
-
-<pre><code class="groovy Doing in Bash">    sh '''
-    for file in target/surefire-reports/*.txt;
-    do
-        echo $file &gt;&gt; testresult
-    done
-    cat testresult
-    '''
-    def result = readFile "testresult"
-</code></pre>
-
-<pre><code class="groovy Doing in Groovy">    def files = findFiles(glob: 'target/surefire-reports/*.txt')
-    for file in files:
-      echo """
-      ${files[0].name} ${files[0].path} ${files[0].directory} 
-      ${files[0].length} ${files[0].lastModified}
-      """
-</code></pre>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://jenkins.io/doc/pipeline/steps/pipeline-utility-steps/"><code>findFiles</code> step</a></li>
-<li>Related: <code>readFile</code>, <code>writeFile</code>.</li>
-</ul>
-
-
-<h3><code>input</code> step</h3>
-
-<p>Simple <code>input</code> step can be used to ask for approval to proceed.
-For asking input from a list of multiple choices, you can use the advanced version of input.</p>
-
-<pre><code class="groovy Input from list of choices">       sh "source scripts/findCL.sh &gt; choiceLists.txt"
-       def choiceOptions = readFile "${env.WORKSPACE}/choiceLists.txt"
-       def choice = input(
-       id: 'CHOICE_LIST', message:'Choose a CL' , parameters: [
-        [$class: 'ChoiceParameterDefinition', name:'CHOICE_LIST_SELECTED', description:'Select one', choices:choiceOptions]
-      ])
-</code></pre>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://jenkins.io/doc/pipeline/steps/pipeline-input-step/"><code>input</code> step</a></li>
-</ul>
-
-
-<h3><code>junit</code> step</h3>
-
-<p>JUnit tests + PMD, FindBugs, CheckStyle.
-In Blue Ocean interface, these will be displayed in a separate tab.</p>
-
-<pre><code class="groovy Related steps">stage('JUnit-Reports'){
-    junit allowEmptyResults: true, testResults: '**/build/test-results/*.xml'
-}
-
-stage('FindBugs-Reports'){
-    step([$class: 'FindBugsPublisher', canComputeNew: false, defaultEncoding: '', 
-    excludePattern: '', healthy: '', includePattern: '', 
-    pattern: '**/build/reports/findbugs/*.xml', unHealthy: ''])
-}
-
-stage('PMD-Reports'){
-    step([$class: 'PmdPublisher', canComputeNew: false, defaultEncoding: '', 
-    healthy: '', pattern: '**/build/reports/pmd/*.xml', unHealthy: ''])
-}
-
-stage('CheckStyle-Reports'){
-    step([$class: 'CheckStylePublisher', canComputeNew: false, defaultEncoding: '', 
-    healthy: '', pattern: '**/build/reports/checkstyle/*.xml', unHealthy: ''])
-}
-</code></pre>
-
-<h3><code>parameters</code>/<code>properties</code> step</h3>
-
-<p><code>parameters</code> step adds certain job parameters for the overall pipeline job.
-In the Jenkins interface, this will be converted to read-only form when you click on &ldquo;View Configuration&rdquo; for that job.</p>
-
-<pre><code class="groovy parameters step in Declarative pipeline">pipeline {
-    agent { node { label 'aqueduct-agent' } }
-    parameters {
-        choice(name: 'ClusterName', choices: 'func\ninteg\nperf', description: 'Name of the cluster to test.')
-    }
-    stages {
-        stage("Build") {
-            steps {
-                echo "Hello"
-                ...
-            }
-        } //  end of stage
-    }
-    post {
-        always {
-            ...
-        }
-    }
-}
-</code></pre>
-
-<p>TODO: Add screenshot</p>
-
-<p>In Scripted pipeline, its equivalent counterpart is <code>properties</code> step, as shown below.</p>
-
-<pre><code class="groovy parameters step for Scripted pipeline">properties(
-    [
-        [
-            $class  : 'jenkins.model.BuildDiscarderProperty',
-            strategy: [
-                $class      : 'LogRotator',
-                numToKeepStr: '500'
-            ]
-        ],
-        pipelineTriggers(
-            [
-                [
-                    $class: 'hudson.triggers.TimerTrigger',
-                    spec  : "H/20 * * * *"
-                ]
-            ]
-        )
-    ]
-)
-
-node('agent') {
-    stage('Checkout') {
-        checkout scm
-    }
-    ...
-}
-</code></pre>
-
-<p>TODO: Add screenshot</p>
-
-<h3><code>podTemplate</code> step</h3>
-
-<p>This step is used to specify a new pod template for running jobs on Kubernetes cluster.</p>
-
-<pre><code class="groovy Kubernetes plugin">podTemplate(label:'base-agent', containers: [
-    containerTemplate(name: 'maven', 
-        image: 'ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-aqueduct-agent:13',
-        workingDir: '/home/jenkins',
-        volumes: [hostPathVolume(mountPath: '/srv/jenkins', hostPath: '/usr/local/npm'),
-        secretVolume(mountPath: '/etc/mount2', secretName: 'my-secret')],
-        imagePullSecrets: 'sfregistry')
-]) {
-    node('base-agent') {
-        stage('Checkout') {
-            checkout scm
-        }
-
-        stage('main') {
-            sh 'java -version'
-            sh 'mvn -version'
-            sh 'python -V'
-        }
-
-        input 'Finished with K8S pod?'
-    }
-}
-</code></pre>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://wiki.jenkins.io/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a></li>
-<li><a href="https://www.infoq.com/articles/scaling-docker-with-kubernetes">Tutorial</a></li>
-<li><a href="https://github.com/jenkinsci/kubernetes-plugin">Github repo</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/kubernetes/">Pipeline steps</a></li>
-</ul>
-
-
-<h3><code>sendSlack</code> step</h3>
-
-<p>Standard Jenkinsfile for testing Slack</p>
-
-<pre><code class="groovy Jenkinsfile">node('test-agent') {
-    stage('Checkout') {
-        checkout scm
-    }
-
-    stage('Main') {
-        withCredentials([string(credentialsId: 'matrixsfdc-slack', variable: 'TOKEN')]) {
-            slackSend ( teamDomain: 'matrixsfdc', channel: '#jenkins-pcloud', token: env.TOKEN,
-                   baseUrl: 'https://matrixsfdc.slack.com/services/hooks/jenkins-ci/',
-                   color: '#FFFF00', 
-                   message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-                   )
-        }
-    }
-
-    input 'Finished with K8S pod?'
-}
-</code></pre>
-
-<h3><code>withCredentials</code> step</h3>
-
-<p>There are different variations of <code>withCredentials</code> step.
-The most common ones are:</p>
-
-<pre><code class="groovy Binding secret to username and password separately">node {
-    withCredentials([usernamePassword(credentialsId: 'amazon', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-        // available as an env variable, but will be masked if you try to print it out any which way
-        sh 'echo $PASSWORD'
-        // also available as a Groovy variable—note double quotes for string interpolation
-        echo "$USERNAME"
-    }
-}
-</code></pre>
-
-<pre><code class="groovy Binding secret to $username:$password">node {
-  withCredentials([usernameColonPassword(credentialsId: 'mylogin', variable: 'USERPASS')]) {
-    sh '''
-      set +x
-      curl -u $USERPASS https://private.server/ &gt; output
-    '''
-  }
-}
-</code></pre>
-
-<pre><code class="groovy Binding secret string to a variable">node {
-  withCredentials([string(credentialsId: 'secretString', variable: 'MY_STRING')]) {
-    sh '''
-      echo $MY_STRING
-    '''
-  }
-}
-</code></pre>
-
-<p>For secret file, the file will be passed into some secret location and that secret location will be bound to some variable.
-If you want the secret files in specific locations, the workaround is to create symlinks to those secret files.</p>
-
-<pre><code class="groovy Binding secret file">        withCredentials( [file(credentialsId: 'host-cert', variable: 'HOST_CERT'),
-                        file(credentialsId: 'host-key', variable: 'HOST_KEY'),
-                        file(credentialsId: 'cert-ca', variable: 'CERT_CA')
-                        ]) 
-        {
-            sh """
-                mkdir download
-                ln -s ${env.HOST_CERT} download/hostcert.crt
-                ln -s ${env.HOST_KEY} download/hostcert.key
-                ln -s ${env.CERT_CA} download/ca.crt
-            """
-
-            // The Python script read those files download/*.* by default
-            sh "python python/main.py"
-        }
-</code></pre>
-
-<p>For &ldquo;private key with passphrase&rdquo; Credential type, <code>sshagent</code> is only usage that I know (credential ID is <code>jenkins_ssh_key</code> in this example):</p>
-
-<pre><code class="groovy Binding private key with passphrase">node('my-agent'){
-  stage 'Checkout'
-  checkout scm
-
-  if (env.BRANCH_NAME == 'master') {
-    stage 'Commit'
-    println "Pushing Jenkins Shared Library"
-
-    sshagent(['jenkins_ssh_key']) {
-      sh """
-        git branch master
-        git checkout master
-        ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
-        git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
-        git push --force jenkins master
-      """
-    }
-
-  }
-}
-</code></pre>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://wiki.jenkins.io/display/JENKINS/Credentials+Binding+Plugin?focusedCommentId=80184884">Credentials Binding plugin</a></li>
-</ul>
-
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://jenkins.io/doc/pipeline/steps/">Basic Jenkinsfile steps</a></li>
 </ul>
 
 ]]></content>

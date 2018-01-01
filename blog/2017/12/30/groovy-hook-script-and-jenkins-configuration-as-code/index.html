@@ -1,0 +1,508 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Groovy Hook Script and Jenkins Configuration as Code - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="This post discusses Groovy Hook Scripts and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
+This can help us to set &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Groovy Hook Script and Jenkins Configuration as Code</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2017-12-30T21:02:48-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>9:02 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>This post discusses <a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Scripts</a> and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
+This can help us to set up local environment for developing Jenkins Pipeline libraries and to evaluate various Jenkins features.</p>
+
+<!--more-->
+
+
+<h3>Groovy Hook Scripts</h3>
+
+<p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
+For given hook <code>HOOK</code>, the following locations are searched:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>WEB-INF/HOOK.groovy in jenkins.war
+</span><span class='line'>WEB-INF/HOOK.groovy.d/*.groovy in the lexical order in jenkins.war
+</span><span class='line'>$JENKINS_HOME/HOOK.groovy
+</span><span class='line'>$JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The <code>init</code> is the most commonly used hook.</p>
+
+<h3>Authorization</h3>
+
+<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.security.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">realm</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HudsonPrivateSecurityRealm</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setSecurityRealm</span><span class="o">(</span><span class="n">realm</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">strategy</span> <span class="o">=</span> <span class="k">new</span> <span class="n">hudson</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">FullControlOnceLoggedInAuthorizationStrategy</span><span class="o">()</span>
+</span><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">setAllowAnonymousRead</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setAuthorizationStrategy</span><span class="o">(</span><span class="n">strategy</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Matrix-based authorization: Gives all authenticated users admin access:</p>
+
+<figure class='code'><figcaption><span>Matrix-based authorization</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.security.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">realm</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HudsonPrivateSecurityRealm</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setSecurityRealm</span><span class="o">(</span><span class="n">realm</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">strategy</span> <span class="o">=</span> <span class="k">new</span> <span class="n">hudson</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">GlobalMatrixAuthorizationStrategy</span><span class="o">()</span>
+</span><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">Jenkins</span><span class="o">.</span><span class="na">ADMINISTER</span><span class="o">,</span> <span class="s1">&#39;authenticated&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">setAuthorizationStrategy</span><span class="o">(</span><span class="n">strategy</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">instance</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Make sure <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed before you can import GlobalMatrixAuthorizationStrategy class.
+For full list of standard permissions in the matrix, see <a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">this code snippet</a>.
+Note that the matrix can be different if different plugins are installed.
+For example, the &ldquo;Replay&rdquo; permission for Runs is not simply <code>hudson.model.Run.REPLAY</code> since there is no such static constant.
+Such permission is only available after <a href="https://github.com/jenkinsci/workflow-cps-plugin">Workflow CPS plugin</a> is installed.
+Therefore, we can only set &ldquo;Replay&rdquo; permission for Runs with the following:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">strategy</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">org</span><span class="o">.</span><span class="na">jenkinsci</span><span class="o">.</span><span class="na">plugins</span><span class="o">.</span><span class="na">workflow</span><span class="o">.</span><span class="na">cps</span><span class="o">.</span><span class="na">replay</span><span class="o">.</span><span class="na">ReplayAction</span><span class="o">.</span><span class="na">REPLAY</span><span class="o">,</span><span class="n">USER</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Notifications</h3>
+
+<figure class='code'><figcaption><span>Configure Slack</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// configure slack</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">slack</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">jenkins</span><span class="o">.</span><span class="na">plugins</span><span class="o">.</span><span class="na">slack</span><span class="o">.</span><span class="na">SlackNotifier</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span>
+</span><span class='line'><span class="o">)[</span><span class="mi">0</span><span class="o">]</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">params</span> <span class="o">=</span> <span class="o">[</span>
+</span><span class='line'>  <span class="nl">slackTeamDomain:</span> <span class="s2">&quot;domain&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackToken:</span> <span class="s2">&quot;token&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackRoom:</span> <span class="s2">&quot;&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackBuildServerUrl:</span> <span class="s2">&quot;$JENKINS_URL&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="nl">slackSendAs:</span> <span class="s2">&quot;&quot;</span>
+</span><span class='line'><span class="o">]</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">req</span> <span class="o">=</span> <span class="o">[</span>
+</span><span class='line'>  <span class="nl">getParameter:</span> <span class="o">{</span> <span class="n">name</span> <span class="o">-&gt;</span> <span class="n">params</span><span class="o">[</span><span class="n">name</span><span class="o">]</span> <span class="o">}</span>
+</span><span class='line'><span class="o">]</span> <span class="k">as</span> <span class="n">org</span><span class="o">.</span><span class="na">kohsuke</span><span class="o">.</span><span class="na">stapler</span><span class="o">.</span><span class="na">StaplerRequest</span>
+</span><span class='line'><span class="n">slack</span><span class="o">.</span><span class="na">configure</span><span class="o">(</span><span class="n">req</span><span class="o">,</span> <span class="kc">null</span><span class="o">)</span>
+</span><span class='line'><span class="n">slack</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Global email settings</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.*</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// set email</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">location_config</span> <span class="o">=</span> <span class="n">JenkinsLocationConfiguration</span><span class="o">.</span><span class="na">get</span><span class="o">()</span>
+</span><span class='line'><span class="n">location_config</span><span class="o">.</span><span class="na">setAdminAddress</span><span class="o">(</span><span class="s2">&quot;jenkins@skynet.net&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Tools</h3>
+
+<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
+
+<figure class='code'><figcaption><span>Setup JDKs and Maven</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.Jenkins</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.model.JDK</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven.MavenInstallation</span><span class="o">;</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tools.InstallSourceProperty</span>
+</span><span class='line'>
+</span><span class='line'><span class="nf">println</span><span class="o">(</span><span class="s2">&quot;--- Setup tool installations&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="c1">// By default we offer no JDK7, Nodes should override</span>
+</span><span class='line'><span class="n">JDK</span> <span class="n">jdk7</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk7&quot;</span><span class="o">,</span> <span class="s2">&quot;/non/existent/JVM&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="c1">// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+</span>
+</span><span class='line'><span class="n">JDK</span> <span class="n">jdk8</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk8&quot;</span><span class="o">,</span> <span class="s2">&quot;&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">JDK</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">jdk7</span><span class="o">,</span> <span class="n">jdk8</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">InstallSourceProperty</span> <span class="n">p</span> <span class="o">=</span> <span class="k">new</span> <span class="n">InstallSourceProperty</span><span class="o">([</span><span class="k">new</span> <span class="n">Maven</span><span class="o">.</span><span class="na">MavenInstaller</span><span class="o">(</span><span class="s2">&quot;3.5.0&quot;</span><span class="o">)])</span>
+</span><span class='line'><span class="n">MavenInstallation</span> <span class="n">mvn</span> <span class="o">=</span> <span class="k">new</span> <span class="n">MavenInstallation</span><span class="o">(</span><span class="s2">&quot;mvn&quot;</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="o">[</span><span class="n">p</span><span class="o">])</span>
+</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">Maven</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">mvn</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Configure global maven options</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">maven</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">hudson</span><span class="o">.</span><span class="na">maven</span><span class="o">.</span><span class="na">MavenModuleSet</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span>
+</span><span class='line'><span class="o">)[</span><span class="mi">0</span><span class="o">]</span>
+</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">setGlobalMavenOpts</span><span class="o">(</span><span class="s2">&quot;-Dmaven.test.failure.ignore=false&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
+<li><a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">Matrix-based Authorizaiton</a></li>
+<li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Jenkins config as code</a></li>
+</ul>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2017-12-30T21:02:48-08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2017</span></span> <span class='time'>9:02 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2017/12/26/class-in-jenkins-shared-library/" title="Previous Post: Class in Jenkins Shared Library">&laquo; Class in Jenkins Shared Library</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/12/31/minikube-in-corporate-vpn/" title="Next Post: Minikube in corporate VPN">Minikube in corporate VPN &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/12/31/minikube-in-corporate-vpn/">Minikube in Corporate VPN</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/">Groovy Hook Script and Jenkins Configuration as Code</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/12/26/class-in-jenkins-shared-library/">Class in Jenkins Shared Library</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/11/29/jenkins-plugin-development/">Jenkins Plugin Development</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/10/09/tcp-ping/">TCP Ping</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/09/23/jacoco-in-maven-project/">Jacoco in Maven Projects</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/09/15/keep-gruntfile-clean-with-load-grunt-config/">Keep Gruntfile Clean With Load-grunt-config</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (11)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (10)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (11)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (17)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (8)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (5)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (5)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
