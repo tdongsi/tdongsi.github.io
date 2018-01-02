@@ -6,7 +6,7 @@ comments: true
 categories: 
 - Jenkins
 - Groovy
-- TODO
+- Security
 ---
 
 This post discusses [Groovy Hook Scripts](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script) and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
@@ -190,3 +190,4 @@ maven.save()
 * [Matrix-based Authorizaiton](https://gist.github.com/jnbnyc/c6213d3d12c8f848a385)
 * [Jenkins config as code](https://github.com/oleg-nenashev/demo-jenkins-config-as-code)
 * [Disable Jenkins CLI: different versions](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI)
+* [Slave to Master Access Control](https://wiki.jenkins.io/display/JENKINS/Slave+To+Master+Access+Control)

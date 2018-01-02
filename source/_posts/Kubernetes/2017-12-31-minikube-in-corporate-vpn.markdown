@@ -39,19 +39,17 @@ Here's how you setup OpenConnect on Mac OSX:
 
 1. OpenConnect can be installed via [homebrew](http://mxcl.github.com/homebrew/):
 
-```
-brew update
-brew install openconnect
-```
-1. Install the [Mac OS X TUN/TAP](http://tuntaposx.sourceforge.net/) driver
+    ``` plain
+    brew update
+    brew install openconnect
+    ```
+2. Install the [Mac OS X TUN/TAP](http://tuntaposx.sourceforge.net/) driver
+3. Connect. The only thing you should be prompted for is your VPN password.
 
-1. Connect. The only thing you should be prompted for is your VPN password.
-
-```
-sudo openconnect --user=<VPN username> --cafile=<.pem file from step 4.3> <your vpn hostname>
-```
-
-1. To disconnect, just Ctrl-C in the window where you started the VPN connection.
+    ``` plain
+    sudo openconnect --user=<VPN username> <your vpn hostname>
+    ```
+4. To disconnect, just Ctrl-C in the window where you started the VPN connection.
 
 ### Port forwarding localhost:xxx -> minikube_IP:xxx
 
@@ -120,9 +118,9 @@ kubectl config use-context minikube
 
 ### Use `--host-only-cidr` option
 
-This approach is the most simple but it also has less success than I hoped for.
-The idea of this approach is that AnyConnect VPN client routes `192.168.96.0/19` through its tunnel.
-This will conflict with the default Minikube network of `192.168.99.0/24`.
+This approach is the most simple but it also has less success than I hoped.
+The idea of this approach is that AnyConnect VPN client likely routes `192.168.96.0/19` through its tunnel.
+This may conflict with the default Minikube network of `192.168.99.0/24`.
 Therefore, we use `minikube start --host-only-cidr 10.254.254.1/24` to instruct minikube to use a different, unused arbitrary network.
 It is worth a try but it often does not work in my experience.
 
