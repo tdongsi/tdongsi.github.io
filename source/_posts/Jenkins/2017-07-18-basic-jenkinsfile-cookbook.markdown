@@ -335,3 +335,4 @@ Reference:
 ### References
 
 * [Basic Jenkinsfile steps](https://jenkins.io/doc/pipeline/steps/)
+* [Source code of Basic steps](https://github.com/jenkinsci/workflow-basic-steps-plugin/tree/master/src/main/java/org/jenkinsci/plugins/workflow/steps)
