@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Todo | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/todo/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2018-01-06T18:34:20-08:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Class in Jenkins Shared Library]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/"/>
+    <updated>2017-12-26T11:18:09-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library</id>
+    <content type="html"><![CDATA[<p>This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in <code>src</code> folder as opposed to <code>vars</code> folder, for Jenkins Shared Library.</p>
+
+<!--more-->
+
+
+<h3>Recommended practices</h3>
+
+<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
+TODO: citation needed.</p>
+
+<h3>Accessing steps</h3>
+
+<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
+
+<pre><code class="groovy">// src/org/foo/Zot.groovy
+package org.foo;
+
+def checkOutFrom(repo) {
+  git url: "git@github.com:jenkinsci/${repo}"
+}
+</code></pre>
+
+<p>Which can then be called from a Scripted Pipeline:</p>
+
+<pre><code class="groovy">def z = new org.foo.Zot()
+z.checkOutFrom(repo)
+</code></pre>
+
+<p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
+
+<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+
+<pre><code class="groovy">package org.foo
+class Utilities implements Serializable {
+  def steps
+  Utilities(steps) {this.steps = steps}
+  def mvn(args) {
+    steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
+  }
+}
+</code></pre>
+
+<p>When saving state on classes, such as above, the class must implement the Serializable interface.
+This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
+
+<pre><code>@Library('utils') import org.foo.Utilities
+def utils = new Utilities(this)
+node {
+  utils.mvn 'clean package'
+}
+</code></pre>
+
+<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+
+<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
+
+<pre><code class="groovy">package org.foo
+class Utilities {
+  static def mvn(script, args) {
+    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
+  }
+}
+</code></pre>
+
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
+
+<pre><code class="groovy">@Library('utils') import static org.foo.Utilities.*
+node {
+  mvn this, 'clean package'
+}
+</code></pre>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development/"/>
+    <updated>2017-11-29T07:47:17-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development</id>
+    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
+
+<!--more-->
+
+
+<h3>Basic plugin</h3>
+
+<p>Reference:</p>
+
+<ul>
+<li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
+<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
+</ul>
+
+
+<h3>Pipeline plugin</h3>
+
+<p>Reference:</p>
+
+<ul>
+<li><a href="https://github.com/jglick/wfdev/tree/pipeline">Tutorial</a></li>
+<li><a href="https://github.com/jglick/wfdev/blob/master/preso.pdf">Slides</a></li>
+<li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md">Developer&rsquo;s guide</a></li>
+</ul>
+
+
+<h3>Blue Ocean plugin</h3>
+
+<pre><code class="plain Local development of Blue Ocean plugin"># this will build and run the plugin in local Jenkins
+mvn install hpi:run
+# this will recompile js &amp; less while editing
+npm run bundle:watch
+</code></pre>
+
+<p><strong><em>Gotcha</em></strong>: extension changes won&rsquo;t update without a Jenkins restart.</p>
+]]></content>
+  </entry>
+  
+</feed>

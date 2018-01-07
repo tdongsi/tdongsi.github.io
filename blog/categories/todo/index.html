@@ -5,12 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Docker: Files Not Found in Docker Container - Personal Programming Notes</title>
+  <title>Category: Todo - Personal Programming Notes</title>
   <meta name="author" content="Cuong Dong-Si">
 
   
-  <meta name="description" content="In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
-In summary, there is currently no way to add &hellip;">
+  <meta name="description" content="Category: todo">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -19,7 +18,7 @@ In summary, there is currently no way to add &hellip;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/">
+  <link rel="canonical" href="http://tdongsi.github.io/blog/categories/todo/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
@@ -98,149 +97,49 @@ In summary, there is currently no way to add &hellip;">
   <div id="main">
     <div id="content">
       <div>
-<article class="hentry" role="article">
+<article role="article">
   
   <header>
-    
-      <h1 class="entry-title">Docker: Files Not Found in Docker Container</h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2017-02-21T15:14:43-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2017</span></span> <span class='time'>3:14 pm</span></time>
-        
-      </p>
+    <h1 class="entry-title">Category: Todo</h1>
     
   </header>
+  
+  <div id="blog-archives" class="category">
 
 
-<div class="entry-content"><p>In this post, we look into a perplexing issue that happens often when we try to extend an offical image.
-In summary, there is currently no way to add additional content into <code>VOLUME</code> directory in a trivial way.
-If you unknowingly adds files into a folder that has been used as a <code>VOLUME</code> mount point in a Docker image or one of its base images, the files cannot be found for seemingly no reason.</p>
 
-<!--more-->
+  
+  <h2>2017</h2>
 
+<article>
+  
+<h1><a href="/blog/2017/12/26/class-in-jenkins-shared-library/">Class in Jenkins Shared Library</a></h1>
+<time datetime="2017-12-26T11:18:09-08:00" pubdate><span class='month'>Dec</span> <span class='day'>26</span> <span class='year'>2017</span></time>
 
-<h3>Problem description</h3>
-
-<p>Let&rsquo;s say we created the following Dockerfile for container, extending on top of a base Docker image:</p>
-
-<figure class='code'><figcaption><span>Dockerfile of the extended image</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FROM docker.registry.company.net/base
-</span><span class='line'>MAINTAINER myemail@company.net
-</span><span class='line'>
-</span><span class='line'>RUN ssh-keyscan -H github.company.net &gt;&gt; /home/jenkins/.ssh/known_hosts
-</span><span class='line'>
-</span><span class='line'>RUN mkdir -p /home/jenkins/.m2 /home/jenkins/store
-</span><span class='line'>COPY settings.xml /home/jenkins/.m2/settings.xml
-</span><span class='line'>
-</span><span class='line'>RUN openssl s_client -connect nexus.company.net:443 &lt; /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' &gt; /home/jenkins/public.crt \
-</span><span class='line'>    && /opt/jdk-latest/jre/bin/keytool -import -noprompt -storepass change_this -alias nexus.company.net -keystore /home/jenkins/cacerts -file /home/jenkins/public.crt</span></code></pre></td></tr></table></div></figure>
+<footer>
+  <span class="categories">posted in <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>, <a class='category' href='/blog/categories/todo/'>todo</a></span>
+</footer>
 
 
-<p>When we try to build the above image with <code>docker build</code>, we should expect several files dropped into the home <code>/home/jenkins</code> folder.
-In fact, we can add several <code>echo</code> commands into the above Dockerfile to verify in the build log that the files are actually created.
-However, when we start running a container from this new Docker image using <code>docker run</code>, the files simply don&rsquo;t exist in <code>/home/jenkins</code>.</p>
-
-<p>This was very perplexing at first.
-Struggling with different options of rebuilding (<code>docker build</code>) and re-running (<code>docker run</code>) gives no different outcomes.
-It eventually turns out that <code>/home/jenkins</code> is mounted as a volume in the <code>base</code> image or one of its base images.
-If you have access to the base images' Dockerfiles, you should expect to find the following lines in one of the base Dockerfiles:</p>
-
-<figure class='code'><figcaption><span>Base Dockerfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>...
-</span><span class='line'>VOLUME /home/jenkins
-</span><span class='line'>WORKDIR /home/jenkins
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+</article>
 
 
-<p>Otherwise, you can verify with the following <code>docker inspect</code> command when the Docker container is still running:</p>
 
-<figure class='code'><figcaption><span>Show Volumes</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>mymac:docker tdongsi$ docker inspect --format { {.Config.Volumes} } 683bb8ce246a
-</span><span class='line'>map[/home/jenkins:{}]</span></code></pre></td></tr></table></div></figure>
+<article>
+  
+<h1><a href="/blog/2017/11/29/jenkins-plugin-development/">Jenkins Plugin Development</a></h1>
+<time datetime="2017-11-29T07:47:17-08:00" pubdate><span class='month'>Nov</span> <span class='day'>29</span> <span class='year'>2017</span></time>
+
+<footer>
+  <span class="categories">posted in <a class='category' href='/blog/categories/java/'>java</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>, <a class='category' href='/blog/categories/todo/'>todo</a></span>
+</footer>
 
 
-<p>This problem is already seen and reported in <a href="https://github.com/docker/docker/issues/3639">this issue</a>.
-There have been suggestions that <code>VOLUME</code> directive in Dockerfile is a mistake.
-It should be an option/directive when running <code>docker run</code>, not when building images.</p>
-
-<h3>Resolving problem</h3>
-
-<p>The above problem can be resolved by simply adding files into another path that has NOT been used as VOLUME.
-If the specific <code>VOLUME</code>ed path (<code>/home/path</code> in the example) must be used, you can also use <code>docker copy</code> to add files into a running container (see <a href="/blog/2017/02/09/docker-copy-file-into-a-container/">last post</a>).</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/docker/docker/issues/3639">Reported issue</a></li>
-<li><a href="http://l33t.peopleperhour.com/2015/02/18/docker-extending-official-images/">Work around</a></li>
-</ul>
+</article>
 
 </div>
 
-
-  <footer>
-    <p class="meta">
-      
   
-
-<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
-
-      
-
-
-
-
-<time class='entry-date' datetime='2017-02-21T15:14:43-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2017</span></span> <span class='time'>3:14 pm</span></time>
-      
-
-<span class="categories">
-  
-    <a class='category' href='/blog/categories/docker/'>docker</a>
-  
-</span>
-
-
-    </p>
-    
-      <div class="sharing">
-  
-  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/" data-via="" data-counturl="http://tdongsi.github.io/blog/2017/02/21/docker-files-not-found-in-docker-container/" >Tweet</a>
-  
-  
-  
-    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
-  
-</div>
-
-    
-    <p class="meta">
-      
-        <a class="basic-alignment left" href="/blog/2017/02/09/docker-copy-file-into-a-container/" title="Previous Post: Docker: Copy file into a container">&laquo; Docker: Copy file into a container</a>
-      
-      
-        <a class="basic-alignment right" href="/blog/2017/03/17/jenkins-pipeline-shared-libraries/" title="Next Post: Jenkins Pipeline Shared Libraries">Jenkins Pipeline Shared Libraries &raquo;</a>
-      
-    </p>
-  </footer>
 </article>
 
 </div>

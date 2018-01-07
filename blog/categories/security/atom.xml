@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Security | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/security/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-31T16:42:32-08:00</updated>
+  <updated>2018-01-06T18:34:20-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,195 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Groovy Hook Script and Jenkins Configuration as Code]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/"/>
+    <updated>2017-12-30T21:02:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code</id>
+    <content type="html"><![CDATA[<p>This post discusses <a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Scripts</a> and how to use them for full configuration-as-code in Jenkins with Docker, Pipeline.
+This can help us to set up local environment for developing Jenkins Pipeline libraries and to evaluate various Jenkins features.</p>
+
+<!--more-->
+
+
+<h3>Groovy Hook Scripts</h3>
+
+<p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
+For given hook <code>HOOK</code>, the following locations are searched:</p>
+
+<pre><code>WEB-INF/HOOK.groovy in jenkins.war
+WEB-INF/HOOK.groovy.d/*.groovy in the lexical order in jenkins.war
+$JENKINS_HOME/HOOK.groovy
+$JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
+</code></pre>
+
+<p>The <code>init</code> is the most commonly used hook.</p>
+
+<h3>Authorization</h3>
+
+<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+
+<pre><code class="groovy">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+import hudson.security.*
+def realm = new HudsonPrivateSecurityRealm(false)
+instance.setSecurityRealm(realm)
+
+def strategy = new hudson.security.FullControlOnceLoggedInAuthorizationStrategy()
+strategy.setAllowAnonymousRead(false)
+instance.setAuthorizationStrategy(strategy)
+
+instance.save()
+</code></pre>
+
+<p>Matrix-based authorization: Gives all authenticated users admin access:</p>
+
+<pre><code class="groovy Matrix-based authorization">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+import hudson.security.*
+def realm = new HudsonPrivateSecurityRealm(false)
+instance.setSecurityRealm(realm)
+
+def strategy = new hudson.security.GlobalMatrixAuthorizationStrategy()
+strategy.add(Jenkins.ADMINISTER, 'authenticated')
+instance.setAuthorizationStrategy(strategy)
+
+instance.save()
+</code></pre>
+
+<p>For importing GlobalMatrixAuthorizationStrategy class, make sure that <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed.
+For full list of standard permissions in the matrix, see <a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">this code snippet</a>.
+Note that the matrix can be different if different plugins are installed.
+For example, the &ldquo;Replay&rdquo; permission for Runs is not simply <code>hudson.model.Run.REPLAY</code> since there is no such static constant.
+Such permission is only available after <a href="https://github.com/jenkinsci/workflow-cps-plugin">Workflow CPS plugin</a> is installed.
+Therefore, we can only set &ldquo;Replay&rdquo; permission for Runs with the following:</p>
+
+<pre><code class="groovy">strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
+</code></pre>
+
+<h3>Basic Jenkins security</h3>
+
+<p>In addition to enable authorization strategy, we should also set some basic configurations for hardening Jenkins.
+Those includes various options that you see in Jenkins UI when going to Manage Jenkins > Configure Global Security.</p>
+
+<ul>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">Disable Jenkins CLI</a></li>
+<li>Limit Jenkins agent protocols.</li>
+<li>&ldquo;Enable Slave -> Master Access Control&rdquo;</li>
+<li>&ldquo;Prevent Cross Site Request Forgery exploits&rdquo;</li>
+</ul>
+
+
+<pre><code class="groovy Basic Jenkins security">import hudson.security.csrf.DefaultCrumbIssuer
+import jenkins.model.Jenkins
+import jenkins.model.JenkinsLocationConfiguration
+import jenkins.security.s2m.AdminWhitelistRule
+import org.kohsuke.stapler.StaplerProxy
+import hudson.tasks.Mailer
+
+println("--- Configuring Remoting (JNLP4 only, no Remoting CLI)")
+Jenkins.instance.getDescriptor("jenkins.CLI").get().setEnabled(false)
+Jenkins.instance.agentProtocols = new HashSet&lt;String&gt;(["JNLP4-connect"])
+
+println("--- Enable Slave -&gt; Master Access Control")
+Jenkins.instance.getExtensionList(StaplerProxy.class)
+    .get(AdminWhitelistRule.class)
+    .masterKillSwitch = false
+
+println("--- Checking the CSRF protection")
+if (Jenkins.instance.crumbIssuer == null) {
+    println "CSRF protection is disabled, Enabling the default Crumb Issuer"
+    Jenkins.instance.crumbIssuer = new DefaultCrumbIssuer(true)
+}
+
+println("--- Configuring Quiet Period")
+// We do not wait for anything
+Jenkins.instance.quietPeriod = 0
+Jenkins.instance.save()
+
+println("--- Configuring Email global settings")
+JenkinsLocationConfiguration.get().adminAddress = "admin@non.existent.email"
+Mailer.descriptor().defaultSuffix = "@non.existent.email"
+</code></pre>
+
+<p>Some are not working for versions before 2.46, according to <a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">this</a>.
+For disabling Jenkins CLI, you can simply add the java argument <code>-Djenkins.CLI.disabled=true</code> on Jenkins startup.</p>
+
+<h3>Notifications</h3>
+
+<pre><code class="groovy Configure Slack">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// configure slack
+def slack = Jenkins.instance.getExtensionList(
+  jenkins.plugins.slack.SlackNotifier.DescriptorImpl.class
+)[0]
+def params = [
+  slackTeamDomain: "domain",
+  slackToken: "token",
+  slackRoom: "",
+  slackBuildServerUrl: "$JENKINS_URL",
+  slackSendAs: ""
+]
+def req = [
+  getParameter: { name -&gt; params[name] }
+] as org.kohsuke.stapler.StaplerRequest
+slack.configure(req, null)
+slack.save()
+</code></pre>
+
+<pre><code class="groovy Global email settings">import jenkins.model.*
+def instance = Jenkins.getInstance()
+
+// set email
+def location_config = JenkinsLocationConfiguration.get()
+location_config.setAdminAddress("jenkins@skynet.net")
+</code></pre>
+
+<h3>Tools</h3>
+
+<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
+
+<pre><code class="groovy Setup JDKs and Maven">import jenkins.model.Jenkins
+import hudson.model.JDK
+import hudson.tasks.Maven.MavenInstallation;
+import hudson.tasks.Maven
+import hudson.tools.InstallSourceProperty
+
+println("--- Setup tool installations")
+// By default we offer no JDK7, Nodes should override
+JDK jdk7 = new JDK("jdk7", "/non/existent/JVM")
+// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+
+JDK jdk8 = new JDK("jdk8", "")
+Jenkins.instance.getDescriptorByType(JDK.DescriptorImpl.class).setInstallations(jdk7, jdk8)
+
+InstallSourceProperty p = new InstallSourceProperty([new Maven.MavenInstaller("3.5.0")])
+MavenInstallation mvn = new MavenInstallation("mvn", null, [p])
+Jenkins.instance.getDescriptorByType(Maven.DescriptorImpl.class).setInstallations(mvn)
+
+// Configure global maven options
+def maven = Jenkins.instance.getExtensionList(
+  hudson.maven.MavenModuleSet.DescriptorImpl.class
+)[0]
+maven.setGlobalMavenOpts("-Dmaven.test.failure.ignore=false")
+maven.save()
+</code></pre>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
+<li><a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">Matrix-based Authorizaiton</a></li>
+<li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Jenkins config as code</a></li>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">Disable Jenkins CLI: different versions</a></li>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Slave+To+Master+Access+Control">Slave to Master Access Control</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Datadog]]></title>
@@ -330,108 +519,6 @@ Last login: Mon May 15 20:23:46 2017 from 10.10.74.67
 </li>
 </ul>
 
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[SSH Cookbook: Ssh]]></title>
-    <link href="http://tdongsi.github.io/blog/2015/05/11/ssh-cookbook/"/>
-    <updated>2015-05-11T13:45:35-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2015/05/11/ssh-cookbook</id>
-    <content type="html"><![CDATA[<p>This blog lists some recipes that is related to <code>ssh</code> commands.</p>
-
-<!--more-->
-
-
-<h3>Quick recipes</h3>
-
-<p>Recipe 1: <a href="https://askubuntu.com/questions/53553/how-do-i-retrieve-the-public-key-from-a-ssh-private-key">link</a></p>
-
-<pre><code class="plain Recipe 1: Generate public key from private key">ssh-keygen -y -f ~/.ssh/id_rsa &gt; ~/.ssh/id_rsa.pub
-</code></pre>
-
-<p>Recipe 2: <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#verify-key-pair-fingerprints">link</a></p>
-
-<pre><code class="plain Recipe 2: Show fingerprint of the private key in MD5 format (used by Github, AWS)">openssl rsa -in ~/.ssh/id_rsa -pubout -outform DER | openssl md5 -c
-</code></pre>
-
-<p>Recipe 3: <a href="https://serverfault.com/questions/132970/can-i-automatically-add-a-new-host-to-known-hosts">link</a>.</p>
-
-<pre><code class="plain Recipe 3: Add new hosts to known_hosts file">ssh-keyscan -H [ip_address] &gt;&gt; ~/.ssh/known_hosts
-ssh-keyscan -H [hostname] &gt;&gt; ~/.ssh/known_hosts
-</code></pre>
-
-<p>Recipe 4: <a href="https://github.com/jenkinsci/slack-plugin/issues/149">link</a></p>
-
-<pre><code class="plain Recipe 4: Add self-signed certificates into cacerts">openssl s_client -connect nexus.company.com:443 &lt; /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' &gt; public.crt
-/opt/jdk-latest/jre/bin/keytool -import -alias nexus.company.com  -keystore /opt/jdk-latest/jre/lib/security/cacerts -file public.crt
-
-# Typical error in Java
-javax.net.ssl.SSLHandshakeException: 
-sun.security.validator.ValidatorException: PKIX path building failed: 
-sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-</code></pre>
-
-<p>Recipe 4: <a href="https://www.youtube.com/watch?v=fQEhA79ifnI">Java keystore</a></p>
-
-<pre><code class="plain Recipe 4: Java keystore related commands"># Generate Root CA
-keytool -genkey -v -alias rootca -keyalg RSA -keystore kstore
-# Generate Intermediate CA
-keytool -genkey -v -alias CA -keyalg RSA -keystore kstore
-# Sign the CA with rootCA
-TODO
-# Export certificate
-keytool -export -alias CAsigned -keystore kstore -file CAsigned.crt
-# Import cert
-keytool -import -alias CA -keystore kstore -file CAsigned.crt
-# List keystore
-keytool -list -v -keystore kstore
-
-# Import internal root CA with default path
-keytool -import -alias "sfdc root" -keystore $JAVA_HOME/jre/lib/security/cacerts -file ~/Downloads/sfdc_root.cert 
-</code></pre>
-
-<h3><code>-R</code> and <code>-L</code> of <code>ssh</code></h3>
-
-<p>Those options stands for remote and local port forwarding.
-There are blog posts explain these options better than <a href="https://unix.stackexchange.com/questions/115897/whats-ssh-port-forwarding-and-whats-the-difference-between-ssh-local-and-remot#">this</a>.
-The awesome answer and sketches are reproduced here for occasional review:</p>
-
-<p><img class="center" src="/images/bash/LocalForwarding.png" width="600" height="500"></p>
-
-<p><img class="center" src="/images/bash/RemoteForwarding.png" width="490" height="500"></p>
-
-<pre><code class="plain Example 1">ssh -L 80:localhost:80 SUPERSERVER
-</code></pre>
-
-<p>In Example 1, you specify that a connection made to the local port 80 is to be forwarded to port 80 on SUPERSERVER.
-That means if someone connects to your computer with a webbrowser, he gets the response of the webserver running on SUPERSERVER.
-You, on your local machine, have no webserver running.</p>
-
-<pre><code class="plain Example 2">ssh -R 80:localhost:80 tinyserver
-</code></pre>
-
-<p>In Example 2, you specify, that a connection made to the port 80 of tinyserver is to be forwarded to port 80 on your local machine.
-That means if someone connects to the small and slow server with a webbrowser, he gets the response of the webserver running on your local machine.
-The tinyserver, which has not enough diskspace for the big website, has no webserver running.
-But people connecting to tinyserver think so.</p>
-
-<p>Other things could be: The powerful machine has five webservers running on five different ports.
-If a user connects to one of the five tinyservers at port 80 with his webbrowser, the request is redirected to the corresponding webserver running on the powerful machine.
-That would be</p>
-
-<pre><code class="plain Example 3 (before)">ssh -R 80:localhost:30180 tinyserver1
-ssh -R 80:localhost:30280 tinyserver2
-etc.
-</code></pre>
-
-<p>Or maybe your machine is only the connection between the powerful and the small servers.
-Then it would be (for one of the tinyservers that play to have their own webservers):</p>
-
-<pre><code class="plain Example 3 (after)">ssh -R 80:SUPERSERVER:30180 tinyserver1
-ssh -R 80:SUPERSERVER:30280 tinyserver2
-etc
-</code></pre>
 ]]></content>
   </entry>
   

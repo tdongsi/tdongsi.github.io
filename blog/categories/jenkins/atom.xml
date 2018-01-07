@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2017-12-31T16:42:32-08:00</updated>
+  <updated>2018-01-06T18:34:20-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -71,7 +71,7 @@ instance.setAuthorizationStrategy(strategy)
 instance.save()
 </code></pre>
 
-<p>Make sure <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed before you can import GlobalMatrixAuthorizationStrategy class.
+<p>For importing GlobalMatrixAuthorizationStrategy class, make sure that <a href="https://wiki.jenkins.io/display/JENKINS/Matrix+Authorization+Strategy+Plugin"><code>matrix-auth</code> plugin</a> is installed.
 For full list of standard permissions in the matrix, see <a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">this code snippet</a>.
 Note that the matrix can be different if different plugins are installed.
 For example, the &ldquo;Replay&rdquo; permission for Runs is not simply <code>hudson.model.Run.REPLAY</code> since there is no such static constant.
@@ -80,6 +80,54 @@ Therefore, we can only set &ldquo;Replay&rdquo; permission for Runs with the fol
 
 <pre><code class="groovy">strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
 </code></pre>
+
+<h3>Basic Jenkins security</h3>
+
+<p>In addition to enable authorization strategy, we should also set some basic configurations for hardening Jenkins.
+Those includes various options that you see in Jenkins UI when going to Manage Jenkins > Configure Global Security.</p>
+
+<ul>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">Disable Jenkins CLI</a></li>
+<li>Limit Jenkins agent protocols.</li>
+<li>&ldquo;Enable Slave -> Master Access Control&rdquo;</li>
+<li>&ldquo;Prevent Cross Site Request Forgery exploits&rdquo;</li>
+</ul>
+
+
+<pre><code class="groovy Basic Jenkins security">import hudson.security.csrf.DefaultCrumbIssuer
+import jenkins.model.Jenkins
+import jenkins.model.JenkinsLocationConfiguration
+import jenkins.security.s2m.AdminWhitelistRule
+import org.kohsuke.stapler.StaplerProxy
+import hudson.tasks.Mailer
+
+println("--- Configuring Remoting (JNLP4 only, no Remoting CLI)")
+Jenkins.instance.getDescriptor("jenkins.CLI").get().setEnabled(false)
+Jenkins.instance.agentProtocols = new HashSet&lt;String&gt;(["JNLP4-connect"])
+
+println("--- Enable Slave -&gt; Master Access Control")
+Jenkins.instance.getExtensionList(StaplerProxy.class)
+    .get(AdminWhitelistRule.class)
+    .masterKillSwitch = false
+
+println("--- Checking the CSRF protection")
+if (Jenkins.instance.crumbIssuer == null) {
+    println "CSRF protection is disabled, Enabling the default Crumb Issuer"
+    Jenkins.instance.crumbIssuer = new DefaultCrumbIssuer(true)
+}
+
+println("--- Configuring Quiet Period")
+// We do not wait for anything
+Jenkins.instance.quietPeriod = 0
+Jenkins.instance.save()
+
+println("--- Configuring Email global settings")
+JenkinsLocationConfiguration.get().adminAddress = "admin@non.existent.email"
+Mailer.descriptor().defaultSuffix = "@non.existent.email"
+</code></pre>
+
+<p>Some are not working for versions before 2.46, according to <a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">this</a>.
+For disabling Jenkins CLI, you can simply add the java argument <code>-Djenkins.CLI.disabled=true</code> on Jenkins startup.</p>
 
 <h3>Notifications</h3>
 
@@ -147,6 +195,8 @@ maven.save()
 <li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
 <li><a href="https://gist.github.com/jnbnyc/c6213d3d12c8f848a385">Matrix-based Authorizaiton</a></li>
 <li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Jenkins config as code</a></li>
+<li><a href="https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI">Disable Jenkins CLI: different versions</a></li>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Slave+To+Master+Access+Control">Slave to Master Access Control</a></li>
 </ul>
 
 ]]></content>
