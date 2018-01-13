@@ -131,7 +131,7 @@ SunOS, HP-UX
 
 * Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, CI/CD.
 * Achievements:
-  * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.pdf) as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
+  * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
   * Built robust, highly-available Kubernetes infrastructure on top of internal Compute services (similar to AWS EC2 & S3).
   * Designed and implemented fully containerized Jenkins systems (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as public and internal Github, DockerHub, Nexus, Slack, PagerDuty. Implemented various key features such as Docker images, access control, code coverage gates, Slack/email notifications.
   * Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and make Jenkinsfile-based pipeline development easier for Jenkins users.
