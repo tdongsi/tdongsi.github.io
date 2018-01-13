@@ -186,10 +186,10 @@ SunOS, HP-UX
 
 ### Education
 
-* *Master of Science*, 2012, University of California, Riverside. **GPA**: *3.92/4*
+* *Master of Science*, University of California, Riverside. **GPA**: *3.92/4*
   * Designed and implemented sensor fusion algorithms for accelerometers, gyroscopes, and cameras, with applications targeted for smartphones, VR headsets, and driverless car navigation systems. 
     The algorithms, based on probabilistic models and statistical inference methods, are implemented and published in peer-reviewed conferences (ICRA, IROS).
-* *Bachelor of Engineering*, 2006, National University of Singapore, Singapore. **GPA**: *4.42/5*
+* *Bachelor of Engineering*, National University of Singapore, Singapore. **GPA**: *4.42/5*
 
 ### Courseworks & Trainings
 
