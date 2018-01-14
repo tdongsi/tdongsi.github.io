@@ -4,6 +4,7 @@ title: "Docker-in-Docker vs Docker-out-of-Docker"
 date: 2017-04-23 10:42:04 -0700
 comments: true
 published: true
+featured: true
 categories: 
 - Docker
 - Kubernetes

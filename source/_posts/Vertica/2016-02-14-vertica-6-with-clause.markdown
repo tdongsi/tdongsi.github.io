@@ -3,6 +3,7 @@ layout: post
 title: "WITH clause in SQL"
 date: 2016-02-03 00:50:48 -0800
 comments: true
+featured: true
 categories: 
 - Vertica
 - SQL

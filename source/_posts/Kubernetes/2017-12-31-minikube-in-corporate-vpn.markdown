@@ -3,6 +3,7 @@ layout: post
 title: "Minikube in corporate VPN"
 date: 2017-12-31 12:40:08 -0800
 comments: true
+featured: true
 categories: 
 - Kubernetes
 ---

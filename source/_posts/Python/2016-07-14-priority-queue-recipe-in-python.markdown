@@ -3,6 +3,7 @@ layout: post
 title: "Improved Priority Queue recipe in Python"
 date: 2016-07-14 17:59:14 -0700
 comments: true
+featured: true
 categories: 
 - Python
 - Algorithm
