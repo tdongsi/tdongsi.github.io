@@ -30,6 +30,48 @@ In summary, the workflow for writing blog in Octopress is as follows:
   * `rake deploy`
     * After this step, the content in the "public" directory is copied into "_deploy" directory and git add/commit/push to the remote Github branch.
 
+### Setting up on a new machine
+
+This section discusses installing basic Ruby packages and their requirements to use Octopress.
+
+For [Octopress 2](https://github.com/imathis/octopress), we have to use Ruby 2.3.x since one of its packages `yajl-ruby 1.2.1` [requires `ruby < 2.4`](https://github.com/brianmario/yajl-ruby/issues/164).
+The instructions for installing different Ruby versions on different Mac OSX versions are in [this page](https://gorails.com/setup/osx/10.13-high-sierra).
+In summary, to install Ruby 2.3.6 on OSX High Sierra (10.13):
+
+```
+brew install rbenv ruby-build
+
+# Add rbenv to bash so that it loads every time you open a terminal
+echo 'if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi' >> ~/.bash_profile
+source ~/.bash_profile
+
+# Install Ruby
+rbenv install 2.3.6
+rbenv global 2.3.6
+ruby -v
+```
+
+Then follow Octopress instructions to run `gem install bundler` and `bundle install`.
+
+Do NOT install `ruby` from Homebrew directly.
+If you already installed the latest Ruby via Homebrew `brew install ruby`, Bundler may not pick up the older Ruby version.
+Check for it by using the command `bundle env`.
+If that is the case, force Bundler to use the other Ruby version by [these commands](https://github.com/bundler/bundler/issues/4260):
+
+```
+# Uninstall the latest Ruby installed via Homebrew
+brew uninstall ruby
+$ gem uninstall bundler
+
+# Confirm Ruby version
+$ ruby -v
+$ rbenv global
+
+$ rbenv rehash
+$ gem install bundler
+$ bundle env
+```
+
 ### Setting up new blog
 
 This section assumes that we will publish in `gh-pages` branch which is more common (publishing in `master` branch only works for `username.github.io` repository).
