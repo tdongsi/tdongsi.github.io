@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Docker | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/docker/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-01-16T11:17:20-08:00</updated>
+  <updated>2018-01-17T15:42:34-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,64 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Design Patterns for Container-based Distributed Systems]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/01/14/design-patterns-for-container-based-distributed-systems/"/>
+    <updated>2018-01-14T14:56:56-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/01/14/design-patterns-for-container-based-distributed-systems</id>
+    <content type="html"><![CDATA[<p>In earlier dates, object-oriented programming (OOP) revolutionized software development by dividing applications into modular components in memory (objects).
+Today, the rise of microservice architectures and containerization technologies enable a similar revolution in developing distributed systems and SaaS/PaaS products.
+&ldquo;Containers&rdquo; is analogus to &ldquo;objects&rdquo; in OOP, as a unit of development and deployment in distributed systems.
+In <a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45406.pdf">this paper</a>, the authors argued that just like Design Patterns for Object-Oriented Programming, codified in the famous &ldquo;Gang of Four&rdquo; book, some Design Patterns have emerged for Container-based Distributed Systems.
+In the same paper, the authors attempted to do something similar, documenting the most common patterns and their usage.</p>
+
+<!--more-->
+
+
+<h3>General ideas</h3>
+
+<p>The container and the container image should be the abstractions for the development of distributed systems.
+Similar to what objects did for OOP, thinking in term of containers abstracts away the low-level details of code and allows us to think in higher-level design patterns.
+Based on how containers interact with other containers and get deployed into actual VM nodes, the authors divide the patterns in to three main groups:</p>
+
+<ul>
+<li>Single-container patterns: How to expose interface of application in container (just like object interface)
+
+<ul>
+<li>Upward direction: expose application info/metrics such as <code>/health</code> endpoint.</li>
+<li>Downward direction: Formal life cycle agreed between application and management system (similar to Android Activity model).</li>
+</ul>
+</li>
+<li>Single-node multi-container patterns:
+
+<ul>
+<li>Sidecar pattern</li>
+<li>Ambassador pattern</li>
+<li>Adapter pattern</li>
+</ul>
+</li>
+<li>Multi-node patterns
+
+<ul>
+<li>Leader election pattern</li>
+<li>Work queue pattern</li>
+<li>Scatter/Gather pattern</li>
+</ul>
+</li>
+</ul>
+
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://www.amazon.com/Design-Patterns-Elements-Reusable-Object-Oriented/dp/0201633612/ref=sr_1_3?ie=UTF8&amp;qid=1516232505&amp;sr=8-3&amp;keywords=design+patterns">Gang of Four book</a></li>
+<li><a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45406.pdf">Original Paper</a></li>
+<li><a href="http://blog.kubernetes.io/2015/06/the-distributed-system-toolkit-patterns.html">Single-node multi-container patterns</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Sending Emails From Docker Containers]]></title>
@@ -433,93 +491,6 @@ If the specific <code>VOLUME</code>ed path (<code>/home/path</code> in the examp
 <ul>
 <li><a href="https://github.com/docker/docker/issues/3639">Reported issue</a></li>
 <li><a href="http://l33t.peopleperhour.com/2015/02/18/docker-extending-official-images/">Work around</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Docker: Copy File Into a Container]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container/"/>
-    <updated>2017-02-09T15:17:19-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/02/09/docker-copy-file-into-a-container</id>
-    <content type="html"><![CDATA[<p>In this blog post, we have a running Docker container or a running pod in Kubernetes cluster.
-We want to add some files into the running containers to fix some issue, verify, and commit the changes.</p>
-
-<!--more-->
-
-
-<h3>Best-case scenario: <code>docker cp</code></h3>
-
-<p>The most obvious way is to create a Dockerfile and rebuild the Docker image.
-The Dockerfile will look like this:</p>
-
-<pre><code class="plain Dockerfile">FROM olderImage
-ADD myfile /path/myfile
-...
-</code></pre>
-
-<p>However, in this approach, we need to stop the Docker containers, update, and re-run with the new Docker images.
-It does not work if we want to work with <strong><em>running</em></strong> containers.
-For running containers, the better way to add files into containers is to copy files into containers.
-For the more updated versions of Docker (1.8+), the recommended way for copying is to use <a href="https://docs.docker.com/engine/reference/commandline/cp/"><code>docker cp</code> command</a>.</p>
-
-<h3>Copy file directly</h3>
-
-<p><code>docker cp</code> does not always work, especially in older versions of Docker.
-In older versions of Docker, the <code>docker cp</code> command only allowed copying files from a <strong>container</strong> to the <strong>host</strong>.
-Only since Docker 1.8, copying files from the host to a container is added.
-You will get some error with unhelpful messages like this in older versions of Docker:</p>
-
-<pre><code class="plain Unsupported "docker cp"">[centos@comp ~]$ ls maven_3.3.9-3_all.deb
-maven_3.3.9-3_all.deb
-
-[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-FATA[0000] Error: Path not specified
-[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins
-FATA[0000] Error: Path not specified
-[centos@comp ~]$ sudo docker cp ./maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/
-FATA[0000] Error: Path not specified
-[centos@comp ~]$ sudo docker cp maven_3.3.9-3_all.deb 9a8d782156ca:/home/jenkins/maven_3.3.9-3_all.deb
-FATA[0000] Error: Path not specified
-</code></pre>
-
-<p>If you find yourself stuck with older versions of Docker, the alternative is to manually copy the files from hosts filesystem to containers filesystem location.
-First, you need to determine where the containers filesystem (volume) is mounted on the host:</p>
-
-<pre><code class="plain Using inspect to find Volume location">[centos@comp ~]$ sudo docker ps
-CONTAINER ID      IMAGE    COMMAND ...
-9a8d782156ca
-
-[centos@comp ~]$ sudo docker inspect -f { {.Id} } 9a8d782156ca
-9a8d782156ca9a3bd59545a18943de408ca58f42c4389c12e9bb43f4ad239d52
-
-[centos@comp ~]$ sudo docker inspect -f { {.Volumes} } 9a8d782156ca
-map[/home/jenkins:/var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438]
-[centos@comp ~]$ sudo ls /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
-test.txt
-</code></pre>
-
-<p>NOTE: In the shell commands above, there is no space between <code>{</code> (space is added for Jekyll blog engine).
-After the mounting path is determined, you can manipulate the container'ss filesystem directly, including copying files into it.</p>
-
-<pre><code class="plain Directly copy file into containers filesystem">[centos@comp ~]$ sudo cp maven_3.3.9-3_all.deb /var/lib/docker/vfs/dir/b051cc2b086c53ce436ad82b9332ba79687f3ddcf8ee77e3f8264e7cafe32438
-</code></pre>
-
-<p>You can verify such manipulation by <code>docker exec</code>-ing into the container and verify the files:</p>
-
-<pre><code class="plain Before and After">jenkins@9a8d782156ca:~$ ls
-test.txt
-
-jenkins@9a8d782156ca:~$ ls
-maven_3.3.9-3_all.deb  test.txt
-</code></pre>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/commandline/cp/">docker cp</a></li>
-<li><a href="http://stackoverflow.com/questions/22907231/copying-files-from-host-to-docker-container">Stackoverflow discussion</a></li>
 </ul>
 
 ]]></content>
