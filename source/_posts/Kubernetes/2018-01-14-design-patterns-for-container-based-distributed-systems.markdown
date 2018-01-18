@@ -6,7 +6,6 @@ comments: true
 categories: 
 - Docker
 - Kubernetes
-- TODO
 ---
 
 In earlier dates, object-oriented programming (OOP) revolutionized software development by dividing applications into modular components in memory (objects).
@@ -23,17 +22,28 @@ The container and the container image should be the abstractions for the develop
 Similar to what objects did for OOP, thinking in term of containers abstracts away the low-level details of code and allows us to think in higher-level design patterns.
 Based on how containers interact with other containers and get deployed into actual VM nodes, the authors divide the patterns in to three main groups:
 
-* Single-container patterns: How to expose interface of application in container (just like object interface)
+* Single-container patterns: How to expose interface of application in container (just like object interface).
     * Upward direction: expose application info/metrics such as `/health` endpoint.
     * Downward direction: Formal life cycle agreed between application and management system (similar to Android Activity model).
-* Single-node multi-container patterns:
-    * Sidecar pattern
-    * Ambassador pattern
-    * Adapter pattern
+* Single-node multi-container patterns: Basically, how to design a pod in Kubernetes (pod = group of symbiotic containers)
+    * Sidecar pattern:
+        * Sidecar containers will extend and enhance the main container.
+        * Example: Log forwarding sidecar that collects logs from main container from local disk and stream to a cluster storage system.
+    * Ambassador pattern:
+        * Ambassador containers will proxy communication to and from the main container.
+        * Ambassador simplifies and standardizes the outside world to the main container.
+        * Example: Redis proxy ambassador that will discover dependent services for the main container.
+    * Adapter pattern:
+        * Adapter containers will standardize and normalize the output of the main container.
+        * In contrast to ambassador, adapter simplifies and normalizes the main app to outside world.
+        * Example: Adapters to ensure all containers have the same monitoring interface to hook to central monitoring system.
 * Multi-node patterns
     * Leader election pattern
+        * When we have many replicas, but only one of them is active at a time.
     * Work queue pattern
+        * One coordinator and many workers distributed to as many nodes for processing.
     * Scatter/Gather pattern
+        * Similar to "Work queue" pattern, except one coordinator scatter works to many slaves, then gather/merge works from many slaves.
 
 ### References
 
