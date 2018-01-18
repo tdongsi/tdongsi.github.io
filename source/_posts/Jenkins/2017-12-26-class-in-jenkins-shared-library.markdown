@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Class in Jenkins Shared Library"
+title: "`src` folder in Jenkins Shared Library"
 date: 2017-12-26 11:18:09 -0800
 comments: true
 categories: 
@@ -8,11 +8,28 @@ categories:
 - Jenkins
 ---
 
-This post reviews things to keep in mind when we implement Groovy classes and/or static Groovy methods, in `src` folder as opposed to `vars` folder, for Jenkins Shared Library.
+This post reviews best practices when we implement Groovy classes and/or static Groovy methods, in `src` folder as opposed to `vars` folder, for Jenkins Shared Library.
 
 <!--more-->
 
-### Examples of shared libraries in `src`
+### Examples of shared libraries in `src` folder
+
+All Groovy files in Jenkins shared library for pipelines have to follow this directory structure:
+
+``` plain Directory structure of a Shared Library repository
+(root)
++- src                     # Groovy source files
+|   +- org
+|       +- foo
+|           +- Bar.groovy  # for org.foo.Bar class
++- vars
+|   +- foo.groovy          # for global 'foo' variable
+|   +- foo.txt             # help for 'foo' variable
++- resources               # resource files (external libraries only)
+|   +- org
+|       +- foo
+|           +- bar.json    # static helper data for org.foo.Bar
+```
 
 `src` folder is intended to set up with `groovy` files in the standard directory structure, such as "src/org/foo/bar.groovy".
 It will be added to the class path when the Jenkins pipelines are executed.
@@ -97,7 +114,7 @@ All three approaches shown in three examples above are valid in Scripted Jenkins
 However, per [recommended](https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&t=2310) by [CloudBees Inc.](https://www.slideshare.net/BrentLaster/2017-jenkins-world/36), `src` folder is best for utility classes that contains a bunch of static Groovy methods.
 It is easier to use global variables in the `vars` directory instead of classes in the `src` directory, especially when you need to support **declarative** pipelines in your team.
 The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., "myCustomFunction var1, var2" format.
-As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible to declarative syntax.
+As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible with declarative pipeline syntax.
 
 When using `src` area's Groovy codes with `library` step, you should use a temporary variable to reduce its verbosity, as follows:
 
@@ -110,5 +127,5 @@ mvn this, 'clean package'
 
 ### Reference
 
-* [Great talk at Jenkins World 2017](https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&t=1576)
+* [Great Talk at Jenkins World 2017](https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&t=1576)
 * [Accessing Steps section in Jenkins Doc](https://jenkins.io/doc/book/pipeline/shared-libraries/)

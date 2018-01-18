@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Jenkins Pipeline Shared Libraries"
+title: "Updating Jenkins Pipeline Shared Libraries"
 date: 2017-03-17 14:38:14 -0800
 comments: true
 published: true
