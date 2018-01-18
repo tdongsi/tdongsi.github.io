@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Groovy Script in Jenkins pipeline"
+title: "Load Groovy Script in Jenkins pipeline"
 date: 2017-04-18 17:07:44 -0700
 comments: true
 published: true
@@ -11,6 +11,7 @@ categories:
 
 In this post, we look into loading and reusing independent Groovy scripts for more modular and testable Jenkins pipeline.
 An example with Scripted Pipeline is provided although it is also applicable to newer Declarative Pipeline with minor modifications.
+Keep in mind that Jenkins Shared Libraries is the more scalable alternative to run and reuse custom Groovy scripts in Jenkins pipeline.
 
 <!--more-->
 
