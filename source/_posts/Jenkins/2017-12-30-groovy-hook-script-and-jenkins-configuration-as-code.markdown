@@ -30,9 +30,9 @@ The `init` is the most commonly used hook.
 
 ### Authorization
 
-"Logged-in users can do anything".
+This section shows how to enable different authorization strategies in Groovy code.
 
-``` groovy
+``` groovy "Logged-in users can do anything"
 import jenkins.model.*
 def instance = Jenkins.getInstance()
 

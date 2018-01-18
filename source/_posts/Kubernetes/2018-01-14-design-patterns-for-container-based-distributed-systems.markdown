@@ -48,8 +48,8 @@ Based on how containers interact with other containers and get deployed into act
 ### Why multiple containers on single node
 
 The more contentious patterns are probably single-node multi-container patterns, especially the sidecar pattern.
-The most common argument is that we can build the functionality of the sidecar into a single main container.
-However, recall that we can use similar arguments in OOP to end up with a large class that tries to do many things at once.
+The most common anti-pattern is that we try to merge the functionality of the sidecar container into the main container.
+Analogously, we also have seen a similar anti-pattern in OOP that ends up with a large class that tries to do many things at once.
 There are several benefits to use separate containers:
 
 * Container is the unit of resource allocation and accounting.
