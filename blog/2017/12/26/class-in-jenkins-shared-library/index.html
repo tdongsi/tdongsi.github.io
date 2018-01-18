@@ -122,24 +122,23 @@
 <!--more-->
 
 
-<h3>Recommended practices</h3>
+<h3>Examples of shared libraries in <code>src</code></h3>
 
-<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
-TODO: citation needed.</p>
+<p><code>src</code> folder is intended to set up with <code>groovy</code> files in the standard directory structure, such as &ldquo;src/org/foo/bar.groovy&rdquo;.
+It will be added to the class path when the Jenkins pipelines are executed.</p>
 
-<h3>Accessing steps</h3>
-
-<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>.
+However, Groovy classes in shared Jenkins library cannot directly call those basic steps.
 They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 1</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// src/org/foo/Zot.groovy</span>
-</span><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">;</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// src/org/demo/buildUtils.groovy</span>
+</span><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'>
 </span><span class='line'><span class="kt">def</span> <span class="nf">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">git</span> <span class="nl">url:</span> <span class="s2">&quot;git@github.com:jenkinsci/${repo}&quot;</span>
@@ -147,20 +146,23 @@ They can however implement methods, outside of the scope of an enclosing class, 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Which can then be called from a Scripted Pipeline:</p>
+<p>Which is stored implicitly in library and can then be invoked from a Scripted Pipeline:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 1 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">z</span> <span class="o">=</span> <span class="k">new</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Zot</span><span class="o">()</span>
-</span><span class='line'><span class="n">z</span><span class="o">.</span><span class="na">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">myUtils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">buildUtils</span><span class="o">()</span>
+</span><span class='line'><span class="n">myUtils</span><span class="o">.</span><span class="na">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
 <p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
 
-<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+<p>In the following example, we create an enclosing class that would facilitate things like defining a superclass.
+In that case, to access standard DSL steps such as <code>sh</code> or <code>git</code>, we can explicitly pass special global variables <code>env</code> and <code>steps</code> into a constructor or a method of the class.
+Global object <code>env</code> contains all current environment variables while <code>steps</code> contains all standard pipeline steps.
+Note that the class must also implement Serializable interface to support saving the state if the pipeline is stopped or resumed.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 2</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -168,10 +170,20 @@ They can however implement methods, outside of the scope of an enclosing class, 
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="kd">implements</span> <span class="n">Serializable</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">env</span>
 </span><span class='line'>  <span class="kt">def</span> <span class="n">steps</span>
-</span><span class='line'>  <span class="nf">Utilities</span><span class="o">(</span><span class="n">steps</span><span class="o">)</span> <span class="o">{</span><span class="k">this</span><span class="o">.</span><span class="na">steps</span> <span class="o">=</span> <span class="n">steps</span><span class="o">}</span>
+</span><span class='line'>  <span class="nf">Utilities</span><span class="o">(</span><span class="n">env</span><span class="o">,</span> <span class="n">steps</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">env</span> <span class="o">=</span> <span class="n">env</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">steps</span> <span class="o">=</span> <span class="n">steps</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
 </span><span class='line'>  <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">args</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">steps</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${steps.tool &#39;Maven&#39;}/bin/mvn -o ${args}&quot;</span>
 </span><span class='line'>  <span class="o">}</span>
@@ -179,33 +191,34 @@ They can however implement methods, outside of the scope of an enclosing class, 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>When saving state on classes, such as above, the class must implement the Serializable interface.
-This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+
+<figure class='code'><figcaption><span>Example 2 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">org.foo.Utilities</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">utils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Utilities</span><span class="o">(</span><span class="k">this</span><span class="o">)</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.foo.Utilities</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">utils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Utilities</span><span class="o">(</span><span class="n">env</span><span class="o">,</span> <span class="n">steps</span><span class="o">)</span>
 </span><span class='line'><span class="n">node</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">utils</span><span class="o">.</span><span class="na">mvn</span> <span class="s1">&#39;clean package&#39;</span>
 </span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+<p>In the final example, we can also use static method and pass in the <code>script</code> object, which already has access to everything, including environment variables <code>script.env</code> and Pipeline steps such as <code>script.sh</code>.</p>
 
-<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 3</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="o">{</span>
 </span><span class='line'>  <span class="kd">static</span> <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">script</span><span class="o">,</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">script</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${script.tool &#39;Maven&#39;}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}&quot;</span>
@@ -214,22 +227,46 @@ This ensures that a Pipeline using the class, as seen in the example below, can 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows (note <code>import static</code>):</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 3 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.*</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.*</span>
 </span><span class='line'><span class="n">node</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">mvn</span> <span class="k">this</span><span class="o">,</span> <span class="s1">&#39;clean package&#39;</span>
 </span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
+<h3>Recommended practices</h3>
+
+<p>All three approaches shown in three examples above are valid in Scripted Jenkinsfile.
+However, per <a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=2310">recommended</a> by <a href="https://www.slideshare.net/BrentLaster/2017-jenkins-world/36">CloudBees Inc.</a>, <code>src</code> folder is best for utility classes that contains a bunch of static Groovy methods.
+It is easier to use global variables in the <code>vars</code> directory instead of classes in the <code>src</code> directory, especially when you need to support <strong>declarative</strong> pipelines in your team.
+The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., &ldquo;myCustomFunction var1, var2&rdquo; format.
+As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible to declarative syntax.</p>
+
+<p>When using <code>src</code> area&rsquo;s Groovy codes with <code>library</code> step, you should use a temporary variable to reduce its verbosity, as follows:</p>
+
+<figure class='code'><figcaption><span>Reduce verbosity</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">mvn</span> <span class="o">=</span> <span class="n">library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">).</span><span class="na">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.</span><span class="na">mvn</span>
+</span><span class='line'><span class="n">mvn</span> <span class="k">this</span><span class="o">,</span> <span class="s1">&#39;clean package&#39;</span>
+</span><span class='line'><span class="c1">// or </span>
+</span><span class='line'><span class="c1">// mvn self, &#39;clean package&#39;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
 <h3>Reference</h3>
 
 <ul>
+<li><a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=1576">Great talk at Jenkins World 2017</a></li>
 <li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
 </ul>
 
@@ -253,7 +290,7 @@ This ensures that a Pipeline using the class, as seen in the example below, can 
 
 <span class="categories">
   
-    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>, <a class='category' href='/blog/categories/todo/'>todo</a>
+    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
   
 </span>
 
@@ -552,7 +589,7 @@ This ensures that a Pipeline using the class, as seen in the example below, can 
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (11)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (11)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (11)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (17)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (9)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (5)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/todo/'>todo (2)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (11)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (11)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (2)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (1)</a></li><li><a href='/blog/categories/groovy/'>groovy (11)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (17)</a></li><li><a href='/blog/categories/jmockit/'>jmockit (3)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (9)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (5)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/todo/'>todo (1)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 

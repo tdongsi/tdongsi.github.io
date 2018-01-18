@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-01-17T21:53:57-08:00</updated>
+  <updated>2018-01-18T00:16:15-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -338,9 +338,9 @@ For given hook <code>HOOK</code>, the following locations are searched:</p>
 
 <h3>Authorization</h3>
 
-<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+<p>This section shows how to enable different authorization strategies in Groovy code.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>"Logged-in users can do anything"</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -623,24 +623,23 @@ For disabling Jenkins CLI, you can simply add the java argument <code>-Djenkins.
 <!--more-->
 
 
-<h3>Recommended practices</h3>
+<h3>Examples of shared libraries in <code>src</code></h3>
 
-<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
-TODO: citation needed.</p>
+<p><code>src</code> folder is intended to set up with <code>groovy</code> files in the standard directory structure, such as &ldquo;src/org/foo/bar.groovy&rdquo;.
+It will be added to the class path when the Jenkins pipelines are executed.</p>
 
-<h3>Accessing steps</h3>
-
-<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>.
+However, Groovy classes in shared Jenkins library cannot directly call those basic steps.
 They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 1</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// src/org/foo/Zot.groovy</span>
-</span><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">;</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// src/org/demo/buildUtils.groovy</span>
+</span><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'>
 </span><span class='line'><span class="kt">def</span> <span class="nf">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">git</span> <span class="nl">url:</span> <span class="s2">&quot;git@github.com:jenkinsci/${repo}&quot;</span>
@@ -648,20 +647,23 @@ They can however implement methods, outside of the scope of an enclosing class, 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Which can then be called from a Scripted Pipeline:</p>
+<p>Which is stored implicitly in library and can then be invoked from a Scripted Pipeline:</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 1 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">z</span> <span class="o">=</span> <span class="k">new</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Zot</span><span class="o">()</span>
-</span><span class='line'><span class="n">z</span><span class="o">.</span><span class="na">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">myUtils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">buildUtils</span><span class="o">()</span>
+</span><span class='line'><span class="n">myUtils</span><span class="o">.</span><span class="na">checkOutFrom</span><span class="o">(</span><span class="n">repo</span><span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
 <p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
 
-<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+<p>In the following example, we create an enclosing class that would facilitate things like defining a superclass.
+In that case, to access standard DSL steps such as <code>sh</code> or <code>git</code>, we can explicitly pass special global variables <code>env</code> and <code>steps</code> into a constructor or a method of the class.
+Global object <code>env</code> contains all current environment variables while <code>steps</code> contains all standard pipeline steps.
+Note that the class must also implement Serializable interface to support saving the state if the pipeline is stopped or resumed.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 2</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -669,10 +671,20 @@ They can however implement methods, outside of the scope of an enclosing class, 
 <span class='line-number'>6</span>
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="kd">implements</span> <span class="n">Serializable</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">env</span>
 </span><span class='line'>  <span class="kt">def</span> <span class="n">steps</span>
-</span><span class='line'>  <span class="nf">Utilities</span><span class="o">(</span><span class="n">steps</span><span class="o">)</span> <span class="o">{</span><span class="k">this</span><span class="o">.</span><span class="na">steps</span> <span class="o">=</span> <span class="n">steps</span><span class="o">}</span>
+</span><span class='line'>  <span class="nf">Utilities</span><span class="o">(</span><span class="n">env</span><span class="o">,</span> <span class="n">steps</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">env</span> <span class="o">=</span> <span class="n">env</span>
+</span><span class='line'>    <span class="k">this</span><span class="o">.</span><span class="na">steps</span> <span class="o">=</span> <span class="n">steps</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
 </span><span class='line'>  <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">args</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">steps</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${steps.tool &#39;Maven&#39;}/bin/mvn -o ${args}&quot;</span>
 </span><span class='line'>  <span class="o">}</span>
@@ -680,33 +692,34 @@ They can however implement methods, outside of the scope of an enclosing class, 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>When saving state on classes, such as above, the class must implement the Serializable interface.
-This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+
+<figure class='code'><figcaption><span>Example 2 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">org.foo.Utilities</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">utils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Utilities</span><span class="o">(</span><span class="k">this</span><span class="o">)</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.foo.Utilities</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">utils</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Utilities</span><span class="o">(</span><span class="n">env</span><span class="o">,</span> <span class="n">steps</span><span class="o">)</span>
 </span><span class='line'><span class="n">node</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">utils</span><span class="o">.</span><span class="na">mvn</span> <span class="s1">&#39;clean package&#39;</span>
 </span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+<p>In the final example, we can also use static method and pass in the <code>script</code> object, which already has access to everything, including environment variables <code>script.env</code> and Pipeline steps such as <code>script.sh</code>.</p>
 
-<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 3</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">package</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span>
 </span><span class='line'><span class="kd">class</span> <span class="nc">Utilities</span> <span class="o">{</span>
 </span><span class='line'>  <span class="kd">static</span> <span class="kt">def</span> <span class="nf">mvn</span><span class="o">(</span><span class="n">script</span><span class="o">,</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
 </span><span class='line'>    <span class="n">script</span><span class="o">.</span><span class="na">sh</span> <span class="s2">&quot;${script.tool &#39;Maven&#39;}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}&quot;</span>
@@ -715,22 +728,46 @@ This ensures that a Pipeline using the class, as seen in the example below, can 
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows (note <code>import static</code>):</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><figcaption><span>Example 3 (continued)</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span> <span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">foo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.*</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="nd">@Library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">)</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">static</span> <span class="n">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.*</span>
 </span><span class='line'><span class="n">node</span> <span class="o">{</span>
 </span><span class='line'>  <span class="n">mvn</span> <span class="k">this</span><span class="o">,</span> <span class="s1">&#39;clean package&#39;</span>
 </span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
+<h3>Recommended practices</h3>
+
+<p>All three approaches shown in three examples above are valid in Scripted Jenkinsfile.
+However, per <a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=2310">recommended</a> by <a href="https://www.slideshare.net/BrentLaster/2017-jenkins-world/36">CloudBees Inc.</a>, <code>src</code> folder is best for utility classes that contains a bunch of static Groovy methods.
+It is easier to use global variables in the <code>vars</code> directory instead of classes in the <code>src</code> directory, especially when you need to support <strong>declarative</strong> pipelines in your team.
+The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., &ldquo;myCustomFunction var1, var2&rdquo; format.
+As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible to declarative syntax.</p>
+
+<p>When using <code>src</code> area&rsquo;s Groovy codes with <code>library</code> step, you should use a temporary variable to reduce its verbosity, as follows:</p>
+
+<figure class='code'><figcaption><span>Reduce verbosity</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">mvn</span> <span class="o">=</span> <span class="n">library</span><span class="o">(</span><span class="s1">&#39;utils&#39;</span><span class="o">).</span><span class="na">org</span><span class="o">.</span><span class="na">demo</span><span class="o">.</span><span class="na">Utilities</span><span class="o">.</span><span class="na">mvn</span>
+</span><span class='line'><span class="n">mvn</span> <span class="k">this</span><span class="o">,</span> <span class="s1">&#39;clean package&#39;</span>
+</span><span class='line'><span class="c1">// or </span>
+</span><span class='line'><span class="c1">// mvn self, &#39;clean package&#39;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
 <h3>Reference</h3>
 
 <ul>
+<li><a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=1576">Great talk at Jenkins World 2017</a></li>
 <li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
 </ul>
 
@@ -2819,13 +2856,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#111;&#58;&#110;&#111;&#45;&#x72;&#101;&#112;&#x6c;&#x79;&#64;&#x67;&#105;&#116;&#104;&#117;&#x62;&#x2e;&#x63;&#111;&#109;">&#110;&#111;&#45;&#x72;&#x65;&#112;&#108;&#121;&#64;&#x67;&#105;&#116;&#104;&#117;&#98;&#x2e;&#99;&#111;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#116;&#111;&#x3a;&#110;&#111;&#x2d;&#x72;&#101;&#112;&#108;&#x79;&#x40;&#x67;&#x69;&#x74;&#x68;&#117;&#x62;&#46;&#99;&#x6f;&#x6d;">&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#x6c;&#121;&#x40;&#x67;&#105;&#116;&#104;&#x75;&#98;&#x2e;&#x63;&#111;&#109;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#105;&#108;&#x74;&#111;&#x3a;&#110;&#111;&#45;&#114;&#101;&#112;&#108;&#x79;&#x40;&#x67;&#x69;&#x74;&#x68;&#x75;&#x62;&#46;&#99;&#x6f;&#109;">&#110;&#111;&#x2d;&#x72;&#101;&#x70;&#108;&#121;&#x40;&#x67;&#x69;&#116;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#x6d;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#x69;&#x6c;&#116;&#111;&#58;&#x6e;&#111;&#45;&#114;&#x65;&#x70;&#x6c;&#x79;&#64;&#103;&#105;&#116;&#x68;&#117;&#x62;&#x2e;&#99;&#x6f;&#109;">&#110;&#x6f;&#x2d;&#114;&#x65;&#x70;&#108;&#121;&#x40;&#103;&#105;&#x74;&#104;&#117;&#x62;&#46;&#x63;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 

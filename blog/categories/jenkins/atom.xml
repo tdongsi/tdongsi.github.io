@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-01-17T21:53:57-08:00</updated>
+  <updated>2018-01-18T00:16:15-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -39,9 +39,9 @@ $JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
 
 <h3>Authorization</h3>
 
-<p>&ldquo;Logged-in users can do anything&rdquo;.</p>
+<p>This section shows how to enable different authorization strategies in Groovy code.</p>
 
-<pre><code class="groovy">import jenkins.model.*
+<pre><code class="groovy "Logged-in users can do anything"">import jenkins.model.*
 def instance = Jenkins.getInstance()
 
 import hudson.security.*
@@ -212,59 +212,63 @@ maven.save()
 <!--more-->
 
 
-<h3>Recommended practices</h3>
+<h3>Examples of shared libraries in <code>src</code></h3>
 
-<p>Per recommended by Jenkins documentation by CloudBees Inc., <code>src</code> folder is best for static Groovy methods.
-TODO: citation needed.</p>
+<p><code>src</code> folder is intended to set up with <code>groovy</code> files in the standard directory structure, such as &ldquo;src/org/foo/bar.groovy&rdquo;.
+It will be added to the class path when the Jenkins pipelines are executed.</p>
 
-<h3>Accessing steps</h3>
-
-<p>Groovy classes in Shared Jenkins library cannot directly call steps such as <code>sh</code> or <code>git</code>.
+<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>.
+However, Groovy classes in shared Jenkins library cannot directly call those basic steps.
 They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
 
-<pre><code class="groovy">// src/org/foo/Zot.groovy
-package org.foo;
+<pre><code class="groovy Example 1">// src/org/demo/buildUtils.groovy
+package org.demo
 
 def checkOutFrom(repo) {
   git url: "git@github.com:jenkinsci/${repo}"
 }
 </code></pre>
 
-<p>Which can then be called from a Scripted Pipeline:</p>
+<p>Which is stored implicitly in library and can then be invoked from a Scripted Pipeline:</p>
 
-<pre><code class="groovy">def z = new org.foo.Zot()
-z.checkOutFrom(repo)
+<pre><code class="groovy Example 1 (continued)">def myUtils = new org.demo.buildUtils()
+myUtils.checkOutFrom(repo)
 </code></pre>
 
 <p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
 
-<p>Alternately, a set of steps can be passed explicitly using this to a library class, in a constructor, or just one method:</p>
+<p>In the following example, we create an enclosing class that would facilitate things like defining a superclass.
+In that case, to access standard DSL steps such as <code>sh</code> or <code>git</code>, we can explicitly pass special global variables <code>env</code> and <code>steps</code> into a constructor or a method of the class.
+Global object <code>env</code> contains all current environment variables while <code>steps</code> contains all standard pipeline steps.
+Note that the class must also implement Serializable interface to support saving the state if the pipeline is stopped or resumed.</p>
 
-<pre><code class="groovy">package org.foo
+<pre><code class="groovy Example 2">package org.demo
 class Utilities implements Serializable {
+  def env
   def steps
-  Utilities(steps) {this.steps = steps}
+  Utilities(env, steps) {
+    this.env = env
+    this.steps = steps
+  }
+
   def mvn(args) {
     steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
   }
 }
 </code></pre>
 
-<p>When saving state on classes, such as above, the class must implement the Serializable interface.
-This ensures that a Pipeline using the class, as seen in the example below, can properly suspend and resume in Jenkins.</p>
+<pre><code class="groovy Example 2 (continued)">@Library('utils') 
+import org.foo.Utilities
 
-<pre><code>@Library('utils') import org.foo.Utilities
-def utils = new Utilities(this)
+def utils = new Utilities(env, steps)
 node {
   utils.mvn 'clean package'
 }
 </code></pre>
 
-<p>If the library needs to access global variables, such as <code>env</code>, those should be explicitly passed into the library classes, or methods, in a similar manner.</p>
+<p>In the final example, we can also use static method and pass in the <code>script</code> object, which already has access to everything, including environment variables <code>script.env</code> and Pipeline steps such as <code>script.sh</code>.</p>
 
-<p>Instead of passing numerous variables from the Scripted Pipeline into a library,</p>
-
-<pre><code class="groovy">package org.foo
+<pre><code class="groovy Example 3">package org.demo
 class Utilities {
   static def mvn(script, args) {
     script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
@@ -272,17 +276,35 @@ class Utilities {
 }
 </code></pre>
 
-<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows:</p>
+<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows (note <code>import static</code>):</p>
 
-<pre><code class="groovy">@Library('utils') import static org.foo.Utilities.*
+<pre><code class="groovy Example 3 (continued)">@Library('utils') 
+import static org.demo.Utilities.*
 node {
   mvn this, 'clean package'
 }
 </code></pre>
 
+<h3>Recommended practices</h3>
+
+<p>All three approaches shown in three examples above are valid in Scripted Jenkinsfile.
+However, per <a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=2310">recommended</a> by <a href="https://www.slideshare.net/BrentLaster/2017-jenkins-world/36">CloudBees Inc.</a>, <code>src</code> folder is best for utility classes that contains a bunch of static Groovy methods.
+It is easier to use global variables in the <code>vars</code> directory instead of classes in the <code>src</code> directory, especially when you need to support <strong>declarative</strong> pipelines in your team.
+The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., &ldquo;myCustomFunction var1, var2&rdquo; format.
+As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible to declarative syntax.</p>
+
+<p>When using <code>src</code> area&rsquo;s Groovy codes with <code>library</code> step, you should use a temporary variable to reduce its verbosity, as follows:</p>
+
+<pre><code class="groovy Reduce verbosity">def mvn = library('utils').org.demo.Utilities.mvn
+mvn this, 'clean package'
+// or 
+// mvn self, 'clean package'
+</code></pre>
+
 <h3>Reference</h3>
 
 <ul>
+<li><a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=1576">Great talk at Jenkins World 2017</a></li>
 <li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
 </ul>
 
