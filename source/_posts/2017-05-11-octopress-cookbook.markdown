@@ -149,6 +149,12 @@ $ ssh -T git@github.com
 The command `ssh-add -l -E md5` can be used to find if there is a matching public key on Github.
 See [here](https://help.github.com/articles/error-permission-denied-publickey/) for more information.
 
+### Make Google searchable
+
+After the blog is deployed to `github.com`, make it searchable by Google will allow the top search field working.
+The usual way is to either resubmit your site in your Google Webmaster Tools or submit it [here](http://www.google.com/addurl/).
+See [this Stackoverflow thread](https://stackoverflow.com/questions/9466360/how-to-request-google-to-re-crawl-my-website) for more options.
+
 ### Reference
 
 * [Clone a specific Git branch](http://stackoverflow.com/questions/1911109/how-to-clone-a-specific-git-branch)
