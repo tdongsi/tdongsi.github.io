@@ -28,6 +28,8 @@ $JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
 
 The `init` is the most commonly used hook.
 
+* [Groovy Hook Script](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script)
+
 ### Authorization
 
 This section shows how to enable different authorization strategies in Groovy code.
@@ -75,6 +77,11 @@ Therefore, we can only set "Replay" permission for Runs with the following:
 strategy.add(org.jenkinsci.plugins.workflow.cps.replay.ReplayAction.REPLAY,USER)
 ```
 
+**References**
+
+* [Matrix-based Authorizaiton](https://gist.github.com/jnbnyc/c6213d3d12c8f848a385)
+* [Jenkins config as code](https://github.com/oleg-nenashev/demo-jenkins-config-as-code)
+
 ### Basic Jenkins security
 
 In addition to enable authorization strategy, we should also set some basic configurations for hardening Jenkins.
@@ -120,6 +127,35 @@ Mailer.descriptor().defaultSuffix = "@non.existent.email"
 
 Some are not working for versions before 2.46, according to [this](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI).
 For disabling Jenkins CLI, you can simply add the java argument `-Djenkins.CLI.disabled=true` on Jenkins startup.
+
+**References**
+
+* [Disable Jenkins CLI: different versions](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI)
+* [Slave to Master Access Control](https://wiki.jenkins.io/display/JENKINS/Slave+To+Master+Access+Control)
+
+### Create Jobs and Items
+
+``` groovy Create "Pipeline script from SCM" job
+import hudson.plugins.git.*;
+
+def scm = new GitSCM("git@github.com:dermeister0/Tests.git")
+scm.branches = [new BranchSpec("*/develop")];
+
+def flowDefinition = new org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition(scm, "Jenkinsfile")
+
+def parent = Jenkins.instance
+def job = new org.jenkinsci.plugins.workflow.job.WorkflowJob(parent, "New Job")
+job.definition = flowDefinition
+```
+
+* [Stackoverflow thread](https://stackoverflow.com/questions/16963309/how-create-and-configure-a-new-jenkins-job-using-groovy)
+* [More example](https://github.com/linagora/james-jenkins/blob/master/create-dsl-job.groovy)
+
+### Create credentials
+
+TODO
+
+* [CloudBees tutorial](https://support.cloudbees.com/hc/en-us/articles/217708168-create-credentials-from-groovy)
 
 ### Notifications
 
@@ -183,11 +219,3 @@ def maven = Jenkins.instance.getExtensionList(
 maven.setGlobalMavenOpts("-Dmaven.test.failure.ignore=false")
 maven.save()
 ```
-
-### References
-
-* [Groovy Hook Script](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script)
-* [Matrix-based Authorizaiton](https://gist.github.com/jnbnyc/c6213d3d12c8f848a385)
-* [Jenkins config as code](https://github.com/oleg-nenashev/demo-jenkins-config-as-code)
-* [Disable Jenkins CLI: different versions](https://support.cloudbees.com/hc/en-us/articles/234709648-Disable-Jenkins-CLI)
-* [Slave to Master Access Control](https://wiki.jenkins.io/display/JENKINS/Slave+To+Master+Access+Control)
