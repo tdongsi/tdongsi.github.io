@@ -10,7 +10,6 @@ categories:
 - Jenkins
 - TestNG
 - JMockit
-- Eclipse
 ---
 
 We have all seen it before: intermittent unit test failures.

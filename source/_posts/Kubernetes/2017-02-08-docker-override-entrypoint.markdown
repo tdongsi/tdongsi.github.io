@@ -6,7 +6,6 @@ comments: true
 published: true
 categories: 
 - Docker
-- Jenkins
 ---
 
 In this entry, we go over common mistakes when we try to override `ENTRYPOINT` in a Docker image and how to do it properly.

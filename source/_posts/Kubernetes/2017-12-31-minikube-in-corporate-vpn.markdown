@@ -108,7 +108,11 @@ Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker 
 Instead, you have to adjust DOCKER_HOST accordingly and use `docker --tlsverify=false ...`.
 
 ```
-tdognsi$ export DOCKER_HOST="tcp://127.0.0.1:2376" 
+tdongsi$ export DOCKER_HOST="tcp://127.0.0.1:2376"
+tdongsi$ alias dockervpn="docker --tlsverify=false"
+
+tdongsi$ dockervpn images
+...
 ```
 
 Finally, when not working on VPN, you can set `kubectl` to switch back to the old context:
