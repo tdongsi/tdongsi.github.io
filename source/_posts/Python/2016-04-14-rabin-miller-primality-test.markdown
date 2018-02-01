@@ -83,23 +83,23 @@ def is_prime(number, trial=10):
     SMALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37,
                     43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
-    def rabin_miller_trial(num):
+    def rabin_miller_trial(n):
         """ Check if prime pass the Rabin-Miller trial.
 
-        :param num: a random "witness" of primality.
+        :param n: a random "witness" of primality.
 
         :return: True if composite, False if probably prime.
         """
-        num = pow(num, remainder, number)
+        n = pow(n, d, number)
 
         # For first iteration, 1 or -1 remainder implies prime
-        if num == 1 or num == number - 1:
+        if n == 1 or n == number - 1:
             return False
 
         # For next iterations, -1 implies prime, others imply composite
-        for _ in range(exponent):
-            num = pow(num, 2, number)
-            if num == number - 1:
+        for _ in range(s):
+            n = pow(n, 2, number)
+            if n == number - 1:
                 return False
 
         return True
@@ -115,7 +115,7 @@ def is_prime(number, trial=10):
             return False
 
     # Starting Rabin-Miller algorithm
-    exponent, remainder = decompose(number - 1)
+    s, d = decompose(number - 1)
 
     for _ in range(trial):
         num = random.randint(2, number - 2)
