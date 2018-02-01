@@ -70,10 +70,11 @@ def decompose(num):
         exp += 1
     return exp, num
 
-def is_pseudo_prime(prime, trial=10):
+
+def is_prime(number, trial=10):
     """ Rabin Miller test of primality.
 
-    :param prime: the input number.
+    :param number: the input number.
     :param trial: Number of Rabin-Miller trial.
     :return: True if all trials passed, False if not.
     """
@@ -89,34 +90,35 @@ def is_pseudo_prime(prime, trial=10):
 
         :return: True if composite, False if probably prime.
         """
-        num = pow(num, remainder, prime)
+        num = pow(num, remainder, number)
 
         # For first iteration, 1 or -1 remainder implies prime
-        if num == 1 or num == prime - 1:
+        if num == 1 or num == number - 1:
             return False
 
         # For next iterations, -1 implies prime, others imply composite
-        for _ in xrange(exponent):
-            num = pow(num, 2, prime)
-            if num == prime - 1:
+        for _ in range(exponent):
+            num = pow(num, 2, number)
+            if num == number - 1:
                 return False
 
         return True
 
     # Labor saving steps
-    if prime < 2:
+    if number < 2:
         return False
     for p in SMALL_PRIMES:
-        if p * p > prime:
+        if p * p > number:
+            # if input is small enough for small primes
             return True
-        if prime % p == 0:
+        if number % p == 0:
             return False
 
     # Starting Rabin-Miller algorithm
-    exponent, remainder = decompose(prime - 1)
+    exponent, remainder = decompose(number - 1)
 
-    for _ in xrange(trial):
-        num = random.randint(2, prime - 2)
+    for _ in range(trial):
+        num = random.randint(2, number - 2)
         if rabin_miller_trial(num):
             return False
 
