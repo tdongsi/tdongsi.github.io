@@ -46,7 +46,7 @@ TODO: Go
   Spring, 
   [JDBC](/blog/categories/jdbc/),
   SLF4J, JCommander, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
-  [JUnit](/blog/categories/junit/), TestNG, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
+  [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
   Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **JavaScript stack**:
   NodeJS, <!-- ExpressJS, MongoDB -->
@@ -66,8 +66,6 @@ TODO: Go
 * **Big Data**:
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
   HBase,
-  Spark,
-  Storm,
   Kafka,
   [Vertica](/blog/categories/vertica/), 
   [Cassandra](/blog/categories/cassandra/).
@@ -107,7 +105,7 @@ SunOS, HP-UX
  
 ### Honor & Awards
 
-* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: Awarded by SVP of IoT Engineering in Salesforce IoT All-Hands ([announcement](/download/awards/2017_IoT_slide.jpg)).
+* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
 * **Winner - Best Idea** [August 2016]: Member of winning team “Ahab” for Best Idea category in Intuit Small Business Group's Data Hackathon. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
@@ -115,7 +113,7 @@ SunOS, HP-UX
 * [**IEEE ICRA Travel Award**](/download/awards/ICRA_2012_Travel.pdf) [2012], by **National Science Foundation**.
 * [**IEEE ICRA Travel Award**](/download/awards/ICRA_2011_Travel.pdf) [2011], by **IEEE Robotics and Automation Society**.
 * **Dean’s Distinguished Fellowship** [2009], by **University of California, Riverside**.
-* **Singapore Scholarship**, by **Singapore Ministry of Foreign Affairs** [2002-06], merit-based full tuition scholarship for pursuing undergraduate study in Singapore, awarded to the top students of ASEAN nations.
+* **Singapore Scholarship** [2002-06], full tuition & allowance scholarship for top ASEAN undergraduates.
 * **Dean’s List**, Faculty of Engineering, National University of Singapore [2002-04].
 
 <!--
@@ -132,10 +130,12 @@ SunOS, HP-UX
 * Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, CI/CD.
 * Achievements:
   * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
-  * Built robust, highly-available Kubernetes infrastructure on top of internal Compute services (similar to AWS EC2 & S3).
-  * Designed and implemented fully containerized Jenkins systems (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as public and internal Github, DockerHub, Nexus, Slack, PagerDuty. Implemented various key features such as Docker images, access control, code coverage gates, Slack/email notifications.
-  * Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and make Jenkinsfile-based pipeline development easier for Jenkins users.
-  * Awards: ["IoT Rock Star Award"](/download/awards/2017_IoT_Star.jpg) for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
+  * Built robust, highly-available **Kubernetes** infrastructure on top of internal Compute services (similar to AWS EC2 & S3).
+    Integrated with **Prometheus** and **Heapster**-enabled Dashboard for monitoring.
+  * Designed and implemented **fully containerized Jenkins systems** (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as Github/GHE, DockerHub, Artifactory, Nexus, Slack, PagerDuty. 
+  * Implemented various key features such as Docker images, access control, Jacoco-based code coverage gates, Slack/email notifications.
+    Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and ease Jenkins pipeline configuration for developers.
+  * Designed and implemented web services for continuously syncing Github/GHE commits to [GUS](https://developer.salesforce.com/blogs/engineering/2014/08/meet-gus-keeping-salesforce-agile.html), integrating HBase schema upgrade to Perforce, and posting to [Chatter](https://www.salesforce.com/products/chatter/overview/) on build successes.
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
