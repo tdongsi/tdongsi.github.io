@@ -17,7 +17,7 @@ This can help us to set up local environment for developing Jenkins Pipeline lib
 ### Groovy Hook Scripts
 
 These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins. 
-For given hook `HOOK`, the following locations are searched:
+For a given hook `HOOK`, the following locations are searched:
 
 ```
 WEB-INF/HOOK.groovy in jenkins.war
@@ -26,9 +26,13 @@ $JENKINS_HOME/HOOK.groovy
 $JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
 ```
 
-The `init` is the most commonly used hook.
+The `init` is the most commonly used hook (i.e., `HOOK=init`).
+The following sections show how some of the most common tasks and configurations in Jenkins can be achieved by using such Groovy scripts.
+For example, in [this project](https://github.com/tdongsi/jenkins-config), many of such scripts are added into a Dockerized Jenkins master and executed when
+starting a container to replicate configurations of the Jenkins instance in production.
 
-* [Groovy Hook Script](https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script)
+On a side note, IntelliJ is probably the best development tool for working with these Groovy Scripts IMO.
+Check out [these instructions on how to set it up](https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md).
 
 ### Authorization
 
