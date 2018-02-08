@@ -30,9 +30,10 @@ The `init` is the most commonly used hook (i.e., `HOOK=init`).
 The following sections show how some of the most common tasks and configurations in Jenkins can be achieved by using such Groovy scripts.
 For example, in [this project](https://github.com/tdongsi/jenkins-config), many of such scripts are added into a Dockerized Jenkins master and executed when
 starting a container to replicate configurations of the Jenkins instance in production.
+It will give us ability to quickly spin up local Jenkins instances for development or troubleshooting issues in production Jenkins.
 
-On a side note, IntelliJ is probably the best development tool for working with these Groovy Scripts IMO.
-Check out [these instructions on how to set it up](https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md).
+On a side note, IntelliJ IDEA is probably the best development tool for working with these Groovy Scripts IMO.
+Check out [these instructions on how to set it up in IntelliJ](https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md).
 
 ### Authorization
 
@@ -266,34 +267,4 @@ def instance = Jenkins.getInstance()
 // set email
 def location_config = JenkinsLocationConfiguration.get()
 location_config.setAdminAddress("jenkins@skynet.net")
-```
-
-### Tools
-
-JDKs and Maven can be setup with the following ([reference](https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy)):
-
-``` groovy Setup JDKs and Maven
-import jenkins.model.Jenkins
-import hudson.model.JDK
-import hudson.tasks.Maven.MavenInstallation;
-import hudson.tasks.Maven
-import hudson.tools.InstallSourceProperty
-
-println("--- Setup tool installations")
-// By default we offer no JDK7, Nodes should override
-JDK jdk7 = new JDK("jdk7", "/non/existent/JVM")
-// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+
-JDK jdk8 = new JDK("jdk8", "")
-Jenkins.instance.getDescriptorByType(JDK.DescriptorImpl.class).setInstallations(jdk7, jdk8)
-
-InstallSourceProperty p = new InstallSourceProperty([new Maven.MavenInstaller("3.5.0")])
-MavenInstallation mvn = new MavenInstallation("mvn", null, [p])
-Jenkins.instance.getDescriptorByType(Maven.DescriptorImpl.class).setInstallations(mvn)
-
-// Configure global maven options
-def maven = Jenkins.instance.getExtensionList(
-  hudson.maven.MavenModuleSet.DescriptorImpl.class
-)[0]
-maven.setGlobalMavenOpts("-Dmaven.test.failure.ignore=false")
-maven.save()
 ```
