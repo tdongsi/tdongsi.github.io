@@ -3,15 +3,19 @@ layout: post
 title: "Jenkins Plugin Development"
 date: 2017-11-29 08:47:17 -0700
 comments: true
+published: false
 categories: 
 - Jenkins
 - Java
-- TODO
 ---
 
 How to create a Jenkins plugin.
 
 <!--more-->
+
+<!-- Photos:
+IMG_[1110..1116]
+-->
 
 ### Basic plugin
 
