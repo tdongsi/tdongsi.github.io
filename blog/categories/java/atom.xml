@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-02-04T00:55:01-08:00</updated>
+  <updated>2018-02-08T00:08:26-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,49 +12,6 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
-  
-  <entry>
-    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development/"/>
-    <updated>2017-11-29T07:47:17-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development</id>
-    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
-
-<!--more-->
-
-
-<h3>Basic plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
-<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
-</ul>
-
-
-<h3>Pipeline plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/jglick/wfdev/tree/pipeline">Tutorial</a></li>
-<li><a href="https://github.com/jglick/wfdev/blob/master/preso.pdf">Slides</a></li>
-<li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md">Developer&rsquo;s guide</a></li>
-</ul>
-
-
-<h3>Blue Ocean plugin</h3>
-
-<pre><code class="plain Local development of Blue Ocean plugin"># this will build and run the plugin in local Jenkins
-mvn install hpi:run
-# this will recompile js &amp; less while editing
-npm run bundle:watch
-</code></pre>
-
-<p><strong><em>Gotcha</em></strong>: extension changes won&rsquo;t update without a Jenkins restart.</p>
-]]></content>
-  </entry>
   
   <entry>
     <title type="html"><![CDATA[Jacoco in Maven Projects]]></title>
@@ -677,6 +634,208 @@ Splitting those classes into multiple smaller classes will distribute the load e
 &lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
 &lt;reuseForks&gt;false&lt;/resuseForks&gt;
 </code></pre>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Convert Python Objects to JSON]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/05/21/convert-python-objects-to-json/"/>
+    <updated>2016-05-21T22:09:50-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/05/21/convert-python-objects-to-json</id>
+    <content type="html"><![CDATA[<p>In this post, we looks into converting a plain, simple Python object into JSON.
+JSON serialization in Java is also provided as an example.
+In the <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">following post</a>, we will look into a more advanced method of conversion with attributes pretty-printed in order, like in the Java example.</p>
+
+<!--more-->
+
+
+<h3>JSON serialization in Java</h3>
+
+<p>In Java, it is pretty straight-forward to convert Java objects (POJO) to JSON using <a href="https://github.com/FasterXML/jackson">Jackson library</a>.
+The following code will convert an example POJO to JSON:</p>
+
+<pre><code class="java Example POJO">public class Config {
+    public String type;
+    public String host;
+    public String user;
+    public String password;
+    public String url;
+}
+</code></pre>
+
+<pre><code class="java Jackson examples">ObjectMapper mapper = new ObjectMapper();
+Config conn = new Config();
+conn.type = "hive";
+conn.host = "192.168.5.184";
+conn.user = "cloudera";
+conn.password = "password";
+conn.url = "jdbc:hive2://192.168.5.184:10000/DWH";
+
+// POJO to JSON in file
+mapper.writeValue(new File("config.json"), obj);
+// POJO to JSON in String
+String jsonInString = mapper.writerWithDefaultPrettyPrinter()
+        .writeValueAsString(conn);
+</code></pre>
+
+<p>The JSON output is shown below.
+Note that the keys (e.g., &ldquo;type&rdquo;, &ldquo;host&rdquo;) appear in the same order as defined in the <code>Config</code> class.
+This will become important later when we try to convert Python objects to JSON.</p>
+
+<pre><code class="json JSON representation of Config object">{
+  "type" : "hive",
+  "host" : "192.168.5.184",
+  "user" : "cloudera",
+  "password" : "password",
+  "url" : "jdbc:hive2://192.168.5.184:10000/DWH"
+}
+</code></pre>
+
+<h3>JSON serialization in Python</h3>
+
+<p>In Python, we have <code>json</code> module to convert a <em>serializable</em> object to JSON format.
+The first attempt at JSON serialization in Python may look like this, with a slightly complex Python object is intentionally used as an example:</p>
+
+<pre><code class="python First attempt at JSON serialization">class Config(object):
+    pass
+
+
+def get_hive_config():
+    """ Get pre-defined Hive configuration.
+
+    :return: Config object for Hive.
+    """
+
+    conn = Config()
+    conn.type = "hive"
+    conn.host = "192.168.5.184"
+    conn.user = "cloudera"
+    conn.password = "password"
+    conn.url = "jdbc:hive2://192.168.5.184:10000/DWH"
+
+    return conn
+
+
+def get_vertica_config():
+    """ Get pre-defined Vertica configuration.
+
+    :return: Config object for Vertica.
+    """
+
+    conn = Config()
+    conn.type = "vertica"
+    conn.host = "192.168.5.174"
+    conn.user = "dbadmin"
+    conn.password = "password"
+    conn.url = "jdbc:vertica://192.168.5.174:5433/VMart"
+
+    return conn
+
+
+def create_config_file(filename, query_generator):
+
+    hive_source = get_hive_config()
+    vertica_target = get_vertica_config()
+
+    config = Config()
+    config.source = hive_source
+    config.target = vertica_target
+    config.testName = "count"
+    config.queries = query_generator
+
+    with open(filename, 'w') as config_file:
+        json.dump(config, config_file)
+
+
+def main():
+
+    FILE_NAME = "hive_vertica_count.json"
+    query_generator = generate_count_queries()
+    create_config_file(FILE_NAME, query_generator)
+</code></pre>
+
+<p>This first attempt with <code>json.dump(config, config_file)</code> will fail with the following error:</p>
+
+<pre><code class="python JSON serialization error">TypeError: &lt;__main__.Config object at 0x10ab824d0&gt; is not JSON serializable
+</code></pre>
+
+<p>As the message indicates, <code>Config</code> object is not JSON serializable.
+<code>json.dump</code> function expects a serializable object such as one of Python standard object types (see Python to JSON mapping table below) or their subclasses.</p>
+
+<table>
+<thead>
+<tr>
+<th> Python </th>
+<th> JSON </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> dict </td>
+<td> object </td>
+</tr>
+<tr>
+<td> list, tuple </td>
+<td> array </td>
+</tr>
+<tr>
+<td> str, unicode </td>
+<td> string </td>
+</tr>
+<tr>
+<td> int, long, float </td>
+<td> number </td>
+</tr>
+<tr>
+<td> True </td>
+<td> true </td>
+</tr>
+<tr>
+<td> False </td>
+<td> false </td>
+</tr>
+<tr>
+<td> None </td>
+<td> null </td>
+</tr>
+</tbody>
+</table>
+
+
+<p><br></p>
+
+<p>The solution for that problem is to specify the <code>default</code> parameter with a function that returns object&rsquo;s <code>__dict__</code> attribute.
+<code>__dict__</code> is the internal attribute dictionary that contains all attributes associated with an object.
+Object attribute references are translated to lookups in this dictionary, e.g., <code>o.x</code> is translated to <code>o.__dict__["x"]</code>.</p>
+
+<pre><code class="python Correct options">    with open(filename, 'w') as config_file:
+        json.dump(config, config_file, default=vars, indent=4)
+</code></pre>
+
+<pre><code class="python Pretty print without ordering">{
+    "source": {
+        "url": "jdbc:hive2://192.168.5.184:10000/DWH", 
+        "host": "192.168.5.184", 
+        "password": "password", 
+        "type": "hive", 
+        "user": "cloudera"
+    }, 
+    "queries": "...", 
+    "target": {
+        "url": "jdbc:vertica://192.168.5.174:5433/VMart", 
+        "host": "192.168.5.174", 
+        "password": "password", 
+        "type": "vertica", 
+        "user": "dbadmin"
+    }, 
+    "testName": "count"
+}
+</code></pre>
+
+<p>Here, we use <code>vars</code> <a href="https://docs.python.org/2/library/functions.html#vars">built-in function</a> to retrieve the object&rsquo;s <code>__dict__</code> attribute.
+Note that simply using <code>json.dump(vars(config), config_file)</code> will NOT work if any attribute of the object is another complex object (e.g., <code>source</code> and <code>target</code> attributes in this example).
+For more complex objects such as those include <code>set</code>s, we may have to define our own Encoder that extends <code>json.JSONEncoder</code> and provide it to <code>json.dump</code> function.
+The next <a href="/blog/2016/05/25/convert-python-objects-to-json-ordered-keys/">post</a> will discuss how to print keys in order of which they are defined, like in the Java example.</p>
 ]]></content>
   </entry>
   

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-02-04T00:55:01-08:00</updated>
+  <updated>2018-02-08T00:08:26-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -367,49 +367,6 @@ mvn this, 'clean package'
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Jenkins Plugin Development]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development/"/>
-    <updated>2017-11-29T07:47:17-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/11/29/jenkins-plugin-development</id>
-    <content type="html"><![CDATA[<p>How to create a Jenkins plugin.</p>
-
-<!--more-->
-
-
-<h3>Basic plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/MarkEWaite/hello-world-plugin/tree/jenkins-world-2017">Tutorial</a></li>
-<li><a href="https://www.youtube.com/watch?feature=player_embedded&amp;v=azyv183Ua6U">Video</a></li>
-</ul>
-
-
-<h3>Pipeline plugin</h3>
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/jglick/wfdev/tree/pipeline">Tutorial</a></li>
-<li><a href="https://github.com/jglick/wfdev/blob/master/preso.pdf">Slides</a></li>
-<li><a href="https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md">Developer&rsquo;s guide</a></li>
-</ul>
-
-
-<h3>Blue Ocean plugin</h3>
-
-<pre><code class="plain Local development of Blue Ocean plugin"># this will build and run the plugin in local Jenkins
-mvn install hpi:run
-# this will recompile js &amp; less while editing
-npm run bundle:watch
-</code></pre>
-
-<p><strong><em>Gotcha</em></strong>: extension changes won&rsquo;t update without a Jenkins restart.</p>
-]]></content>
-  </entry>
-  
-  <entry>
     <title type="html"><![CDATA[Jenkins World 2017]]></title>
     <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-world-2017/"/>
     <updated>2017-08-29T08:47:04-07:00</updated>
@@ -588,19 +545,6 @@ IMG_1099
 
 <!-- Photos:
 IMG_[1100..1107]
--->
-
-
-<h3>Plugin Development for Pipeline</h3>
-
-<p>See <a href="/blog/2017/08/29/jenkins-plugin-development/">Pipeline plugin development</a>.</p>
-
-<h3>Extending Blue Ocean</h3>
-
-<p>See <a href="/blog/2017/08/29/jenkins-plugin-development/">Blue Ocean plugin development</a>.</p>
-
-<!-- Photos:
-IMG_[1110..1116]
 -->
 
 
@@ -988,6 +932,210 @@ Compared with <code>execute</code>, it has the benefit of NOT modifying the inpu
 <li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
 <li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
 <li><a href="https://dzone.com/articles/groovy-dsl-simple-example">Another example Groovy implementation</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/"/>
+    <updated>2017-08-06T21:37:20-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/06/github-rest-api</id>
+    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
+For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
+
+<!--more-->
+
+
+<h3>Working with Pull Requests</h3>
+
+<h4>Extracting Pull Request details</h4>
+
+<pre><code class="groovy Get PR body text">import groovy.json.JsonSlurper
+
+def getPrBody(String githubUsername, String githubToken, String repo, String id) {
+  String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
+  println "Querying ${url}"
+  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+  def json = new JsonSlurper().parseText(text)
+  def bodyText = json.body
+
+  return bodyText
+}
+</code></pre>
+
+<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
+
+<pre><code class="groovy Equivalent curl | jq command in Jenkisfile">sh """
+curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq '.body' -r &gt; pr_body.txt
+"""
+</code></pre>
+
+<h4>Posting comment on the Pull Request</h4>
+
+<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
+
+<pre><code class="groovy Equivalent curl in Jenkinsfile">sh """
+curl -s -X POST -H "Authorization: token ${env.GITHUB_TOKEN}" --data '{"body": "${comment}"}' ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments
+"""
+</code></pre>
+
+<h4>Merge Pull Request</h4>
+
+<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
+
+<pre><code class="groovy Merge pull request">stage ("Merge PR") {
+    steps { 
+        withCredentials([usernamePassword(credentialsId: 'credential-value', usernameVariable: 'ACCESS_TOKEN_USERNAME', passwordVariable: 'ACCESS_TOKEN_PASSWORD',)]) {
+            def GITHUB = 'https://github.ibm.com/api/v3/repos'
+            sh "curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}"
+        }
+    }
+}
+</code></pre>
+
+<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
+
+<h3>Working with Branches</h3>
+
+<h4>Getting email of branch maintainer</h4>
+
+<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
+
+
+<pre><code class="groovy Get email of branch maintainer.">def getBranchCreator(String githubUsername, String githubToken, String repo, String branch) {
+    String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+    String url = "${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}"
+    println "Querying ${url}"
+    def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+    def json = new JsonSlurper().parseText(text)
+
+    // Get last committer.
+    def creator = json.commit.commit.committer.email
+    // TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.
+    // In the case, committer name is 'GitHub Enterprise'.
+    if (json.commit.commit.committer.name == 'GitHub Enterprise') {
+    // Use author's email instead
+    creator = json.commit.commit.author.email
+    }
+    // TRICKY: the following can return inconsistent data, including "null".
+    // def author = json.author
+    return creator
+}
+
+// Calling from Jenkinsfile
+withCredentials([
+    [$class: 'UsernamePasswordMultiBinding', credentialsId: 'my-credentials', 
+        passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
+]) {
+    if (env.BRANCH_NAME ==~ /PR-\d+/ ) {
+        // If it is a PR build, use some distribution list
+        email = 'someemail@enterprise.com'
+    } else {
+        // TODO: Replace env.GITHUB_USERNAME with the correct Github org name.
+        email = getBranchCreator(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'my_repo', env.BRANCH_NAME)
+    }
+}  
+</code></pre>
+
+<h4>Deleting a branch</h4>
+
+<p>Searching how to delete a branch in Github API&rsquo;s <a href="https://developer.github.com/v3/repos/branches/">Branches reference</a> does not return anything.
+In fact, to delete a branch, we have to delete its HEAD reference as shown <a href="https://developer.github.com/v3/git/refs/#delete-a-reference">here</a>.</p>
+
+<pre><code class="plain Deleting a branch">DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a
+</code></pre>
+
+<h3>More tips on Github API</h3>
+
+<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
+
+<pre><code class="json Example commit data">        "commit": {
+            "author": {
+                "name": "Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "committer": {
+                "name": "Tue-Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "message": "@JIRA-4214772@: Add function.",
+            "tree": {
+                "sha": "xxx",
+                "url": "xxx"
+            },
+            "url": "xxx",
+            "comment_count": 0
+        },
+</code></pre>
+
+<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:</p>
+
+<ul>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#105;&#x6c;&#x74;&#x6f;&#x3a;&#x6e;&#x6f;&#x2d;&#114;&#x65;&#x70;&#x6c;&#121;&#x40;&#x67;&#x69;&#116;&#104;&#117;&#x62;&#x2e;&#99;&#111;&#x6d;">&#x6e;&#x6f;&#45;&#114;&#101;&#112;&#x6c;&#121;&#x40;&#103;&#x69;&#116;&#x68;&#117;&#98;&#x2e;&#x63;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
+</ul>
+
+
+<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#116;&#111;&#x3a;&#110;&#x6f;&#x2d;&#114;&#x65;&#112;&#108;&#x79;&#x40;&#103;&#105;&#116;&#104;&#x75;&#98;&#x2e;&#99;&#x6f;&#x6d;">&#110;&#111;&#45;&#x72;&#x65;&#112;&#x6c;&#x79;&#x40;&#x67;&#x69;&#116;&#x68;&#x75;&#98;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
+
+<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
+
+<pre><code class="plain Github API limit">tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
+HTTP/1.1 200 OK
+Date: Fri, 09 Jun 2017 16:16:49 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 1236
+Server: GitHub.com
+Status: 200 OK
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 55
+X-RateLimit-Reset: 1497025098
+Cache-Control: public, max-age=60, s-maxage=60
+Vary: Accept
+ETag: "4d7770cf5c2478bf64d23bc908494172"
+Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
+X-GitHub-Media-Type: github.v3; format=json
+Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
+Access-Control-Allow-Origin: *
+Content-Security-Policy: default-src 'none'
+Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+X-XSS-Protection: 1; mode=block
+X-Runtime-rack: 0.030687
+Vary: Accept-Encoding
+X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
+Vary: Accept-Encoding
+X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
+
+...
+</code></pre>
+
+<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
+Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
 </ul>
 
 ]]></content>
