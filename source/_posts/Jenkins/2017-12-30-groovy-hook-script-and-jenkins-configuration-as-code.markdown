@@ -151,11 +151,85 @@ job.definition = flowDefinition
 * [Stackoverflow thread](https://stackoverflow.com/questions/16963309/how-create-and-configure-a-new-jenkins-job-using-groovy)
 * [More example](https://github.com/linagora/james-jenkins/blob/master/create-dsl-job.groovy)
 
-### Create credentials
+### Create different kinds of Credentials
 
-TODO
+Adding Credentials to a new, local Jenkins for development or troubleshooting can be a daunting task.
+However, with the following scripts and the right setup (NEVER commit your secrets into VCS), developers can automate adding the required Credentials into the new Jenkins.
+
+```groovy Preamble
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
+import org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl
+import com.cloudbees.plugins.credentials.domains.Domain
+import com.cloudbees.plugins.credentials.CredentialsScope
+import jenkins.model.Jenkins
+import hudson.util.Secret
+import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey
+import com.cloudbees.plugins.credentials.impl.CertificateCredentialsImpl
+import com.cloudbees.plugins.credentials.SecretBytes
+
+def domain = Domain.global()
+def store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+```
+
+```groovy "Username with Password" type
+def githubAccount = new UsernamePasswordCredentialsImpl(
+        CredentialsScope.GLOBAL, "test-github", "Test Github Account",
+        "testuser",
+        "testpassword"
+)
+store.addCredentials(domain, githubAccount)
+```
+
+```groovy "Secret text" type
+def secretString = new StringCredentialsImpl(
+        CredentialsScope.GLOBAL, "test-secret-string", "Test Secret String",
+        Secret.fromString("testpassword")
+)
+store.addCredentials(domain, secretString)
+```
+
+```groovy "Secret file" type
+def secret = '''Hi,
+This is the content of the file.
+'''
+
+def secretBytes = SecretBytes.fromBytes(secret.getBytes())
+def secretFile = new FileCredentialsImpl(
+  CredentialsScope.GLOBAL, 
+  'test-secret-file', 
+  'description', 
+  'file.txt', 
+  secretBytes)
+store.addCredentials(domain, secretFile)
+```
+
+```groovy "SSH Username with private key" type
+String keyfile = "/var/jenkins_home/.ssh/id_rsa"
+def privateKey = new BasicSSHUserPrivateKey(
+        CredentialsScope.GLOBAL,
+        "jenkins_ssh_key",
+        "git",
+        new BasicSSHUserPrivateKey.FileOnMasterPrivateKeySource(keyfile),
+        "",
+        ""
+)
+store.addCredentials(domain, privateKey)
+```
+
+```groovy "Certificate" type
+String minikubeKeyfile = "/var/jenkins_home/secret_data/minikube.pfx"
+def minikubeCreds = new CertificateCredentialsImpl(
+        CredentialsScope.GLOBAL,
+        "minikube",
+        "Minikube client certificate",
+        "secret",
+        new CertificateCredentialsImpl.FileOnMasterKeyStoreSource(minikubeKeyfile))
+store.addCredentials(domain, minikubeCreds)
+```
 
 * [CloudBees tutorial](https://support.cloudbees.com/hc/en-us/articles/217708168-create-credentials-from-groovy)
+* [Examples](https://github.com/tdongsi/jenkins-config/blob/develop/init_scripts/src/main/groovy/scripts/Credentials.groovy)
 
 ### Notifications
 
