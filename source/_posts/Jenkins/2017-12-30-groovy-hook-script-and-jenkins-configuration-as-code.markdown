@@ -195,6 +195,7 @@ store.addCredentials(domain, secretString)
 ```
 
 ```groovy "Secret file" type
+// Text file
 def secret = '''Hi,
 This is the content of the file.
 '''
@@ -202,9 +203,20 @@ This is the content of the file.
 def secretBytes = SecretBytes.fromBytes(secret.getBytes())
 def secretFile = new FileCredentialsImpl(
   CredentialsScope.GLOBAL, 
-  'test-secret-file', 
+  'text-secret-file', 
   'description', 
   'file.txt', 
+  secretBytes)
+store.addCredentials(domain, secretFile)
+
+// Binary file
+Path fileLocation = Paths.get("/path/to/some/file.tar");
+def secretBytes = SecretBytes.fromBytes(Files.readAllBytes(fileLocation))
+def secretFile = new FileCredentialsImpl(
+  CredentialsScope.GLOBAL, 
+  'binary-secret-file', 
+  'description', 
+  'file.tar', 
   secretBytes)
 store.addCredentials(domain, secretFile)
 ```
