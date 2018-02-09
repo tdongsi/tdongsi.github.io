@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-02-08T00:08:26-08:00</updated>
+  <updated>2018-02-08T15:40:46-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -27,7 +27,7 @@ This can help us to set up local environment for developing Jenkins Pipeline lib
 <h3>Groovy Hook Scripts</h3>
 
 <p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
-For given hook <code>HOOK</code>, the following locations are searched:</p>
+For a given hook <code>HOOK</code>, the following locations are searched:</p>
 
 <pre><code>WEB-INF/HOOK.groovy in jenkins.war
 WEB-INF/HOOK.groovy.d/*.groovy in the lexical order in jenkins.war
@@ -35,12 +35,14 @@ $JENKINS_HOME/HOOK.groovy
 $JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order
 </code></pre>
 
-<p>The <code>init</code> is the most commonly used hook.</p>
+<p>The <code>init</code> is the most commonly used hook (i.e., <code>HOOK=init</code>).
+The following sections show how some of the most common tasks and configurations in Jenkins can be achieved by using such Groovy scripts.
+For example, in <a href="https://github.com/tdongsi/jenkins-config">this project</a>, many of such scripts are added into a Dockerized Jenkins master and executed when
+starting a container to replicate configurations of the Jenkins instance in production.
+It will give us ability to quickly spin up local Jenkins instances for development or troubleshooting issues in production Jenkins.</p>
 
-<ul>
-<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
-</ul>
-
+<p>On a side note, IntelliJ IDEA is probably the best development tool for working with these Groovy Scripts IMO.
+Check out <a href="https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md">these instructions on how to set it up in IntelliJ</a>.</p>
 
 <h3>Authorization</h3>
 
@@ -170,12 +172,92 @@ job.definition = flowDefinition
 </ul>
 
 
-<h3>Create credentials</h3>
+<h3>Create different kinds of Credentials</h3>
 
-<p>TODO</p>
+<p>Adding Credentials to a new, local Jenkins for development or troubleshooting can be a daunting task.
+However, with the following scripts and the right setup (NEVER commit your secrets into VCS), developers can automate adding the required Credentials into the new Jenkins.</p>
+
+<pre><code class="groovy Preamble">import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
+import org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl
+import com.cloudbees.plugins.credentials.domains.Domain
+import com.cloudbees.plugins.credentials.CredentialsScope
+import jenkins.model.Jenkins
+import hudson.util.Secret
+import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey
+import com.cloudbees.plugins.credentials.impl.CertificateCredentialsImpl
+import com.cloudbees.plugins.credentials.SecretBytes
+
+def domain = Domain.global()
+def store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+</code></pre>
+
+<pre><code class="groovy "Username with Password" type">def githubAccount = new UsernamePasswordCredentialsImpl(
+        CredentialsScope.GLOBAL, "test-github", "Test Github Account",
+        "testuser",
+        "testpassword"
+)
+store.addCredentials(domain, githubAccount)
+</code></pre>
+
+<pre><code class="groovy "Secret text" type">def secretString = new StringCredentialsImpl(
+        CredentialsScope.GLOBAL, "test-secret-string", "Test Secret String",
+        Secret.fromString("testpassword")
+)
+store.addCredentials(domain, secretString)
+</code></pre>
+
+<pre><code class="groovy "Secret file" type">// Text file
+def secret = '''Hi,
+This is the content of the file.
+'''
+
+def secretBytes = SecretBytes.fromBytes(secret.getBytes())
+def secretFile = new FileCredentialsImpl(
+  CredentialsScope.GLOBAL, 
+  'text-secret-file', 
+  'description', 
+  'file.txt', 
+  secretBytes)
+store.addCredentials(domain, secretFile)
+
+// Binary file
+Path fileLocation = Paths.get("/path/to/some/file.tar");
+def secretBytes = SecretBytes.fromBytes(Files.readAllBytes(fileLocation))
+def secretFile = new FileCredentialsImpl(
+  CredentialsScope.GLOBAL, 
+  'binary-secret-file', 
+  'description', 
+  'file.tar', 
+  secretBytes)
+store.addCredentials(domain, secretFile)
+</code></pre>
+
+<pre><code class="groovy "SSH Username with private key" type">String keyfile = "/var/jenkins_home/.ssh/id_rsa"
+def privateKey = new BasicSSHUserPrivateKey(
+        CredentialsScope.GLOBAL,
+        "jenkins_ssh_key",
+        "git",
+        new BasicSSHUserPrivateKey.FileOnMasterPrivateKeySource(keyfile),
+        "",
+        ""
+)
+store.addCredentials(domain, privateKey)
+</code></pre>
+
+<pre><code class="groovy "Certificate" type">String minikubeKeyfile = "/var/jenkins_home/secret_data/minikube.pfx"
+def minikubeCreds = new CertificateCredentialsImpl(
+        CredentialsScope.GLOBAL,
+        "minikube",
+        "Minikube client certificate",
+        "secret",
+        new CertificateCredentialsImpl.FileOnMasterKeyStoreSource(minikubeKeyfile))
+store.addCredentials(domain, minikubeCreds)
+</code></pre>
 
 <ul>
 <li><a href="https://support.cloudbees.com/hc/en-us/articles/217708168-create-credentials-from-groovy">CloudBees tutorial</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-config/blob/develop/init_scripts/src/main/groovy/scripts/Credentials.groovy">Examples</a></li>
 </ul>
 
 
@@ -208,35 +290,6 @@ def instance = Jenkins.getInstance()
 // set email
 def location_config = JenkinsLocationConfiguration.get()
 location_config.setAdminAddress("jenkins@skynet.net")
-</code></pre>
-
-<h3>Tools</h3>
-
-<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
-
-<pre><code class="groovy Setup JDKs and Maven">import jenkins.model.Jenkins
-import hudson.model.JDK
-import hudson.tasks.Maven.MavenInstallation;
-import hudson.tasks.Maven
-import hudson.tools.InstallSourceProperty
-
-println("--- Setup tool installations")
-// By default we offer no JDK7, Nodes should override
-JDK jdk7 = new JDK("jdk7", "/non/existent/JVM")
-// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+
-JDK jdk8 = new JDK("jdk8", "")
-Jenkins.instance.getDescriptorByType(JDK.DescriptorImpl.class).setInstallations(jdk7, jdk8)
-
-InstallSourceProperty p = new InstallSourceProperty([new Maven.MavenInstaller("3.5.0")])
-MavenInstallation mvn = new MavenInstallation("mvn", null, [p])
-Jenkins.instance.getDescriptorByType(Maven.DescriptorImpl.class).setInstallations(mvn)
-
-// Configure global maven options
-def maven = Jenkins.instance.getExtensionList(
-  hudson.maven.MavenModuleSet.DescriptorImpl.class
-)[0]
-maven.setGlobalMavenOpts("-Dmaven.test.failure.ignore=false")
-maven.save()
 </code></pre>
 ]]></content>
   </entry>
@@ -1088,13 +1141,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#105;&#x6c;&#x74;&#x6f;&#x3a;&#x6e;&#x6f;&#x2d;&#114;&#x65;&#x70;&#x6c;&#121;&#x40;&#x67;&#x69;&#116;&#104;&#117;&#x62;&#x2e;&#99;&#111;&#x6d;">&#x6e;&#x6f;&#45;&#114;&#101;&#112;&#x6c;&#121;&#x40;&#103;&#x69;&#116;&#x68;&#117;&#98;&#x2e;&#x63;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#116;&#111;&#x3a;&#110;&#x6f;&#x2d;&#x72;&#101;&#x70;&#x6c;&#x79;&#x40;&#103;&#x69;&#116;&#104;&#117;&#98;&#x2e;&#99;&#x6f;&#109;">&#110;&#111;&#45;&#114;&#x65;&#x70;&#108;&#121;&#x40;&#x67;&#105;&#x74;&#x68;&#x75;&#98;&#46;&#x63;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#116;&#111;&#x3a;&#110;&#x6f;&#x2d;&#114;&#x65;&#112;&#108;&#x79;&#x40;&#103;&#105;&#116;&#104;&#x75;&#98;&#x2e;&#99;&#x6f;&#x6d;">&#110;&#111;&#45;&#x72;&#x65;&#112;&#x6c;&#x79;&#x40;&#x67;&#x69;&#116;&#x68;&#x75;&#98;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#110;&#x6f;&#x2d;&#x72;&#x65;&#x70;&#x6c;&#x79;&#x40;&#103;&#105;&#116;&#104;&#117;&#x62;&#46;&#x63;&#111;&#109;">&#x6e;&#111;&#x2d;&#114;&#x65;&#112;&#x6c;&#121;&#x40;&#x67;&#105;&#x74;&#x68;&#x75;&#98;&#46;&#99;&#x6f;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 

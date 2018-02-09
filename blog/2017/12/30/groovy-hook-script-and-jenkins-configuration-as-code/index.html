@@ -127,7 +127,7 @@ This can help us to set up local environment for developing Jenkins Pipeline lib
 <h3>Groovy Hook Scripts</h3>
 
 <p>These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins.
-For given hook <code>HOOK</code>, the following locations are searched:</p>
+For a given hook <code>HOOK</code>, the following locations are searched:</p>
 
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -139,12 +139,14 @@ For given hook <code>HOOK</code>, the following locations are searched:</p>
 </span><span class='line'>$JENKINS_HOME/HOOK.groovy.d/*.groovy in the lexical order</span></code></pre></td></tr></table></div></figure>
 
 
-<p>The <code>init</code> is the most commonly used hook.</p>
+<p>The <code>init</code> is the most commonly used hook (i.e., <code>HOOK=init</code>).
+The following sections show how some of the most common tasks and configurations in Jenkins can be achieved by using such Groovy scripts.
+For example, in <a href="https://github.com/tdongsi/jenkins-config">this project</a>, many of such scripts are added into a Dockerized Jenkins master and executed when
+starting a container to replicate configurations of the Jenkins instance in production.
+It will give us ability to quickly spin up local Jenkins instances for development or troubleshooting issues in production Jenkins.</p>
 
-<ul>
-<li><a href="https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script">Groovy Hook Script</a></li>
-</ul>
-
+<p>On a side note, IntelliJ IDEA is probably the best development tool for working with these Groovy Scripts IMO.
+Check out <a href="https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md">these instructions on how to set it up in IntelliJ</a>.</p>
 
 <h3>Authorization</h3>
 
@@ -344,12 +346,174 @@ For disabling Jenkins CLI, you can simply add the java argument <code>-Djenkins.
 </ul>
 
 
-<h3>Create credentials</h3>
+<h3>Create different kinds of Credentials</h3>
 
-<p>TODO</p>
+<p>Adding Credentials to a new, local Jenkins for development or troubleshooting can be a daunting task.
+However, with the following scripts and the right setup (NEVER commit your secrets into VCS), developers can automate adding the required Credentials into the new Jenkins.</p>
+
+<figure class='code'><figcaption><span>Preamble</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.plugins.credentials.domains.Domain</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.plugins.credentials.CredentialsScope</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.Jenkins</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.util.Secret</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.plugins.credentials.impl.CertificateCredentialsImpl</span>
+</span><span class='line'><span class="kn">import</span> <span class="nn">com.cloudbees.plugins.credentials.SecretBytes</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">domain</span> <span class="o">=</span> <span class="n">Domain</span><span class="o">.</span><span class="na">global</span><span class="o">()</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">store</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span><span class="s1">&#39;com.cloudbees.plugins.credentials.SystemCredentialsProvider&#39;</span><span class="o">)[</span><span class="mi">0</span><span class="o">].</span><span class="na">getStore</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>"Username with Password" type</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">githubAccount</span> <span class="o">=</span> <span class="k">new</span> <span class="n">UsernamePasswordCredentialsImpl</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span> <span class="s2">&quot;test-github&quot;</span><span class="o">,</span> <span class="s2">&quot;Test Github Account&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;testuser&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;testpassword&quot;</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">githubAccount</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>"Secret text" type</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="n">secretString</span> <span class="o">=</span> <span class="k">new</span> <span class="n">StringCredentialsImpl</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span> <span class="s2">&quot;test-secret-string&quot;</span><span class="o">,</span> <span class="s2">&quot;Test Secret String&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="n">Secret</span><span class="o">.</span><span class="na">fromString</span><span class="o">(</span><span class="s2">&quot;testpassword&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">secretString</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>"Secret file" type</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="c1">// Text file</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">secret</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;Hi,</span>
+</span><span class='line'><span class="s1">This is the content of the file.</span>
+</span><span class='line'><span class="s1">&#39;&#39;&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="n">secretBytes</span> <span class="o">=</span> <span class="n">SecretBytes</span><span class="o">.</span><span class="na">fromBytes</span><span class="o">(</span><span class="n">secret</span><span class="o">.</span><span class="na">getBytes</span><span class="o">())</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">secretFile</span> <span class="o">=</span> <span class="k">new</span> <span class="n">FileCredentialsImpl</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;text-secret-file&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;description&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;file.txt&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">secretBytes</span><span class="o">)</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">secretFile</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Binary file</span>
+</span><span class='line'><span class="n">Path</span> <span class="n">fileLocation</span> <span class="o">=</span> <span class="n">Paths</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="s2">&quot;/path/to/some/file.tar&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">secretBytes</span> <span class="o">=</span> <span class="n">SecretBytes</span><span class="o">.</span><span class="na">fromBytes</span><span class="o">(</span><span class="n">Files</span><span class="o">.</span><span class="na">readAllBytes</span><span class="o">(</span><span class="n">fileLocation</span><span class="o">))</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">secretFile</span> <span class="o">=</span> <span class="k">new</span> <span class="n">FileCredentialsImpl</span><span class="o">(</span>
+</span><span class='line'>  <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;binary-secret-file&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;description&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s1">&#39;file.tar&#39;</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">secretBytes</span><span class="o">)</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">secretFile</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>"SSH Username with private key" type</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">keyfile</span> <span class="o">=</span> <span class="s2">&quot;/var/jenkins_home/.ssh/id_rsa&quot;</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">privateKey</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BasicSSHUserPrivateKey</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;jenkins_ssh_key&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;git&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="k">new</span> <span class="n">BasicSSHUserPrivateKey</span><span class="o">.</span><span class="na">FileOnMasterPrivateKeySource</span><span class="o">(</span><span class="n">keyfile</span><span class="o">),</span>
+</span><span class='line'>        <span class="s2">&quot;&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;&quot;</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">privateKey</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>"Certificate" type</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">String</span> <span class="n">minikubeKeyfile</span> <span class="o">=</span> <span class="s2">&quot;/var/jenkins_home/secret_data/minikube.pfx&quot;</span>
+</span><span class='line'><span class="kt">def</span> <span class="n">minikubeCreds</span> <span class="o">=</span> <span class="k">new</span> <span class="n">CertificateCredentialsImpl</span><span class="o">(</span>
+</span><span class='line'>        <span class="n">CredentialsScope</span><span class="o">.</span><span class="na">GLOBAL</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;minikube&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;Minikube client certificate&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="s2">&quot;secret&quot;</span><span class="o">,</span>
+</span><span class='line'>        <span class="k">new</span> <span class="n">CertificateCredentialsImpl</span><span class="o">.</span><span class="na">FileOnMasterKeyStoreSource</span><span class="o">(</span><span class="n">minikubeKeyfile</span><span class="o">))</span>
+</span><span class='line'><span class="n">store</span><span class="o">.</span><span class="na">addCredentials</span><span class="o">(</span><span class="n">domain</span><span class="o">,</span> <span class="n">minikubeCreds</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <ul>
 <li><a href="https://support.cloudbees.com/hc/en-us/articles/217708168-create-credentials-from-groovy">CloudBees tutorial</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-config/blob/develop/init_scripts/src/main/groovy/scripts/Credentials.groovy">Examples</a></li>
 </ul>
 
 
@@ -410,59 +574,6 @@ For disabling Jenkins CLI, you can simply add the java argument <code>-Djenkins.
 </span><span class='line'><span class="c1">// set email</span>
 </span><span class='line'><span class="kt">def</span> <span class="n">location_config</span> <span class="o">=</span> <span class="n">JenkinsLocationConfiguration</span><span class="o">.</span><span class="na">get</span><span class="o">()</span>
 </span><span class='line'><span class="n">location_config</span><span class="o">.</span><span class="na">setAdminAddress</span><span class="o">(</span><span class="s2">&quot;jenkins@skynet.net&quot;</span><span class="o">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Tools</h3>
-
-<p>JDKs and Maven can be setup with the following (<a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code/blob/master/init_scripts/src/main/groovy/scripts/Tools.groovy">reference</a>):</p>
-
-<figure class='code'><figcaption><span>Setup JDKs and Maven</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">jenkins.model.Jenkins</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.model.JDK</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven.MavenInstallation</span><span class="o">;</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tasks.Maven</span>
-</span><span class='line'><span class="kn">import</span> <span class="nn">hudson.tools.InstallSourceProperty</span>
-</span><span class='line'>
-</span><span class='line'><span class="nf">println</span><span class="o">(</span><span class="s2">&quot;--- Setup tool installations&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="c1">// By default we offer no JDK7, Nodes should override</span>
-</span><span class='line'><span class="n">JDK</span> <span class="n">jdk7</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk7&quot;</span><span class="o">,</span> <span class="s2">&quot;/non/existent/JVM&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="c1">// Java 8 should be a default Java, because we require it for Jenkins 2.60.1+</span>
-</span><span class='line'><span class="n">JDK</span> <span class="n">jdk8</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JDK</span><span class="o">(</span><span class="s2">&quot;jdk8&quot;</span><span class="o">,</span> <span class="s2">&quot;&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">JDK</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">jdk7</span><span class="o">,</span> <span class="n">jdk8</span><span class="o">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">InstallSourceProperty</span> <span class="n">p</span> <span class="o">=</span> <span class="k">new</span> <span class="n">InstallSourceProperty</span><span class="o">([</span><span class="k">new</span> <span class="n">Maven</span><span class="o">.</span><span class="na">MavenInstaller</span><span class="o">(</span><span class="s2">&quot;3.5.0&quot;</span><span class="o">)])</span>
-</span><span class='line'><span class="n">MavenInstallation</span> <span class="n">mvn</span> <span class="o">=</span> <span class="k">new</span> <span class="n">MavenInstallation</span><span class="o">(</span><span class="s2">&quot;mvn&quot;</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="o">[</span><span class="n">p</span><span class="o">])</span>
-</span><span class='line'><span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getDescriptorByType</span><span class="o">(</span><span class="n">Maven</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setInstallations</span><span class="o">(</span><span class="n">mvn</span><span class="o">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// Configure global maven options</span>
-</span><span class='line'><span class="kt">def</span> <span class="n">maven</span> <span class="o">=</span> <span class="n">Jenkins</span><span class="o">.</span><span class="na">instance</span><span class="o">.</span><span class="na">getExtensionList</span><span class="o">(</span>
-</span><span class='line'>  <span class="n">hudson</span><span class="o">.</span><span class="na">maven</span><span class="o">.</span><span class="na">MavenModuleSet</span><span class="o">.</span><span class="na">DescriptorImpl</span><span class="o">.</span><span class="na">class</span>
-</span><span class='line'><span class="o">)[</span><span class="mi">0</span><span class="o">]</span>
-</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">setGlobalMavenOpts</span><span class="o">(</span><span class="s2">&quot;-Dmaven.test.failure.ignore=false&quot;</span><span class="o">)</span>
-</span><span class='line'><span class="n">maven</span><span class="o">.</span><span class="na">save</span><span class="o">()</span>
 </span></code></pre></td></tr></table></div></figure>
 
 </div>
