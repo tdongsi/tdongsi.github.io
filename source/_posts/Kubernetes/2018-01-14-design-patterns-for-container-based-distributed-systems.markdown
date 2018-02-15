@@ -44,6 +44,7 @@ Based on how containers interact with other containers and get deployed into act
         * One coordinator and many workers distributed to as many nodes for processing.
     * Scatter/Gather pattern
         * Similar to "Work queue" pattern, except one coordinator scatter partial works to many slaves, then gather/merge partial outcomes from those slaves.
+        * Example: A search engine service (e.g., Google) will multicast a request (search query) to all workers. Each worker will compute a local result and send it back to a gatherer who will consolidate into a single presentable response.
 
 ### Why multiple containers on single node
 
