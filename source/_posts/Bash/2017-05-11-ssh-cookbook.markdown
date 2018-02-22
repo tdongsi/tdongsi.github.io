@@ -52,8 +52,6 @@ Recipe 4: [Java keystore](https://www.youtube.com/watch?v=fQEhA79ifnI)
 keytool -genkey -v -alias rootca -keyalg RSA -keystore kstore
 # Generate Intermediate CA
 keytool -genkey -v -alias CA -keyalg RSA -keystore kstore
-# Sign the CA with rootCA
-TODO
 # Export certificate
 keytool -export -alias CAsigned -keystore kstore -file CAsigned.crt
 # Import cert

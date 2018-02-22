@@ -77,7 +77,7 @@ def getPrBody(String githubUsername, String githubToken, String repo, String id)
 #### Standard usage
 
 ``` plain etcd examples
-TODO
+curl -X GET http://master-1:2379/v2/keys/coreos.com/network/config
 ```
 
 Some examples with [Github API](/blog/2017/08/06/github-rest-api/).

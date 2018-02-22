@@ -248,7 +248,7 @@ In the following example, you can specify a coverage threshold for module A by m
                 <goal>check</goal>
                 </goals>
                 <configuration>
-                    <!-- TODO: Set haltOnFailureto true when code coverage is enforced -->
+                    <!-- NOTE: Set haltOnFailureto true when code coverage is enforced -->
                     <haltOnFailure>false</haltOnFailure>
 
                     <rules>

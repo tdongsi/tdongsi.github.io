@@ -116,7 +116,7 @@ withCredentials([
         // If it is a PR build, use some distribution list
         email = 'someemail@enterprise.com'
     } else {
-        // TODO: Replace env.GITHUB_USERNAME with the correct Github org name.
+        // NOTE: Replace env.GITHUB_USERNAME with the correct Github org name.
         email = getBranchCreator(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'my_repo', env.BRANCH_NAME)
     }
 }  
