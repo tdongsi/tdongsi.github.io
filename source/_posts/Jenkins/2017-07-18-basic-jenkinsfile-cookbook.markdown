@@ -130,6 +130,10 @@ In the Jenkins interface, this will be converted to read-only form when you clic
 
 ``` groovy parameters step in Declarative pipeline
 pipeline {
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
     agent { node { label 'aqueduct-agent' } }
     parameters {
         choice(name: 'ClusterName', choices: 'func\ninteg\nperf', description: 'Name of the cluster to test.')
@@ -184,6 +188,11 @@ node('agent') {
 ```
 
 TODO: Add screenshot
+
+Reference:
+
+* [buildDiscarder](https://stackoverflow.com/questions/39542485/how-to-write-pipeline-to-discard-old-builds)
+* [disableConcurrentBuilds](https://thepracticalsysadmin.com/limit-jenkins-multibranch-pipeline-builds/)
 
 ### `podTemplate` step
 
