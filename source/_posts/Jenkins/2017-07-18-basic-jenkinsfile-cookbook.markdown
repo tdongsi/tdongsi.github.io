@@ -126,7 +126,6 @@ stage('CheckStyle-Reports'){
 ### `parameters`/`properties` step
 
 `parameters` step adds certain job parameters for the overall pipeline job.
-In the Jenkins interface, this will be converted to read-only form when you click on "View Configuration" for that job.
 
 ``` groovy parameters step in Declarative pipeline
 pipeline {
@@ -154,8 +153,6 @@ pipeline {
 }
 ```
 
-TODO: Add screenshot
-
 In Scripted pipeline, its equivalent counterpart is `properties` step, as shown below.
 
 ``` groovy parameters step for Scripted pipeline
@@ -165,14 +162,14 @@ properties(
             $class  : 'jenkins.model.BuildDiscarderProperty',
             strategy: [
                 $class      : 'LogRotator',
-                numToKeepStr: '500'
+                numToKeepStr: '20'
             ]
         ],
         pipelineTriggers(
             [
                 [
                     $class: 'hudson.triggers.TimerTrigger',
-                    spec  : "H/20 * * * *"
+                    spec  : "H 8 * * *"
                 ]
             ]
         )
@@ -187,7 +184,11 @@ node('agent') {
 }
 ```
 
-TODO: Add screenshot
+In the Jenkins UI, this will be converted to configurations when you click on "View Configuration" for that job, as shown in screenshot below.
+Note that the configurations in this page is read-only when using Jenkinsfile.
+Any modifications made to the page will be ignored, leaving configurations set in Jenkinsfile final ("Infrastructure as Code").
+
+{% img center /images/jenkins/properties.png 600 400 'View Configuration' 'Screenshot of View Configuration page'%}
 
 Reference:
 
