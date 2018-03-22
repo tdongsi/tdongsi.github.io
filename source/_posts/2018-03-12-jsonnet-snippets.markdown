@@ -1,13 +1,14 @@
 ---
 layout: post
 title: "Jsonnet code recipes"
-date: 2018-03-12 14:24:32 -0700
+date: 2017-07-12 14:24:32 -0700
 comments: true
 categories: 
 ---
 
-If you are working a lot with JSON files, you should know `jsonnet` tool.
-Some of the following Jsonnet code recipes might help you.
+If you are working/sending a lot with JSON data in files such as CloudFormation templates, [`Jsonnet` tool](http://jsonnet.org/) can help reducting the hassle of maintaining similar JSON data.
+Using Jsonnet templates, it is easier to organize data and reduce repeated code present in JSON data.
+This post goes over a few common Jsonnet code recipes.
 
 <!--more-->
 
