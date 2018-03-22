@@ -6,9 +6,9 @@ comments: true
 categories: 
 ---
 
-If you are working/sending a lot with JSON data in files such as CloudFormation templates, [`Jsonnet` tool](http://jsonnet.org/) can help reducting the hassle of maintaining similar JSON data.
-Using Jsonnet templates, it is easier to organize data and reduce repeated code present in JSON data.
-This post goes over a few common Jsonnet code recipes.
+If you are sending/working with lots of JSON data in files such as AWS CloudFormation templates, [`Jsonnet` tool](http://jsonnet.org/) can help reducing the hassle of maintaining.
+Using Jsonnet templates, it is easier to organize data and reduce repeated code present in such JSON data.
+This post goes over a few common Jsonnet code recipes for generating JSON data.
 
 <!--more-->
 
