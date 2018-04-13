@@ -105,6 +105,7 @@ SunOS, HP-UX
  
 ### Honor & Awards
 
+* [**Salesforce Spot Bonus**](/download/awards/2018_Spot_Bonus.pdf) [March 2018]: for absolute dedication and ownership.
 * [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
 * **Winner - Best Idea** [August 2016]: Member of winning team “Ahab” for Best Idea category in Intuit Small Business Group's Data Hackathon. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
