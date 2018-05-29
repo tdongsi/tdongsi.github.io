@@ -8,7 +8,7 @@ categories:
 - Kubernetes
 ---
 
-In earlier dates, object-oriented programming (OOP) revolutionized software development by dividing applications into modular components as objects and classes.
+In early and mid-1990s, object-oriented programming (OOP) revolutionized software development by dividing applications into modular components as objects and classes.
 Today, the rise of microservice architectures and containerization technologies enable a similar revolution in developing distributed systems and SaaS/PaaS products.
 "Containers" and "container images" are analogus to "objects" and "classes" in OOP, respectively, as a unit of development and deployment in distributed systems.
 In [this paper](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45406.pdf), the authors argued that just like Design Patterns for Object-Oriented Programming, codified in the famous ["Gang of Four" book](https://www.amazon.com/Design-Patterns-Elements-Reusable-Object-Oriented/dp/0201633612/ref=sr_1_3?ie=UTF8&qid=1516232505&sr=8-3&keywords=design+patterns), some Design Patterns have emerged for Container-based Distributed Systems.
