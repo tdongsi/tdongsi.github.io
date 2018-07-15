@@ -202,7 +202,7 @@ This step is used to specify a new pod template for running jobs on Kubernetes c
 ``` groovy Kubernetes plugin
 podTemplate(label:'base-agent', containers: [
     containerTemplate(name: 'maven', 
-        image: 'ops0-artifactrepo1-0-prd.data.sfdc.net/tdongsi/matrix-jenkins-aqueduct-agent:13',
+        image: 'docker.my/tdongsi/jenkins-agent:13',
         workingDir: '/home/jenkins',
         volumes: [hostPathVolume(mountPath: '/srv/jenkins', hostPath: '/usr/local/npm'),
         secretVolume(mountPath: '/etc/mount2', secretName: 'my-secret')],
