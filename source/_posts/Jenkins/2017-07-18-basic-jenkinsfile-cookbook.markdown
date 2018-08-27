@@ -256,11 +256,11 @@ node('test-agent') {
 }
 ```
 
-### `stash`/`unstash` step
+### `stash`/`unstash` steps
 
 `stash` step can be used to save a set of files, to be `unstash`ed later in the same build, generally for using in another workspace.
 `unstash` will restore the files into the same relative locations as when they are `stash`ed.
-Therefore, you should use `dir` step when you want to change the base directory of the stashed files.
+If you want to change the base directory of the stashed files, you should wrap the `stash` steps in `dir` step.
 
 We should use `stash`/`unstash` to avoid the common anti-pattern of copying files into some special, globally visible directory such as Jenkins home or one of its subdirectories.
 Using such anti-pattern will make it hard to support many jobs for many users since, eventually, there will be some name clash and, subsequently, some convoluted naming of those files to avoid such name clashes.
