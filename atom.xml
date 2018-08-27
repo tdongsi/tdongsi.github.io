@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-07-18T17:47:01-07:00</updated>
+  <updated>2018-08-27T14:04:24-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -2994,13 +2994,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#x6c;&#116;&#111;&#x3a;&#110;&#111;&#x2d;&#x72;&#x65;&#x70;&#108;&#x79;&#x40;&#x67;&#x69;&#x74;&#104;&#x75;&#x62;&#x2e;&#x63;&#x6f;&#109;">&#x6e;&#x6f;&#45;&#114;&#x65;&#x70;&#108;&#121;&#64;&#103;&#x69;&#x74;&#x68;&#x75;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#58;&#x6e;&#111;&#45;&#x72;&#101;&#x70;&#108;&#x79;&#64;&#x67;&#x69;&#116;&#x68;&#117;&#98;&#46;&#99;&#x6f;&#x6d;">&#110;&#111;&#45;&#114;&#101;&#112;&#x6c;&#x79;&#x40;&#103;&#105;&#116;&#x68;&#x75;&#98;&#x2e;&#x63;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#x6c;&#116;&#x6f;&#58;&#x6e;&#x6f;&#45;&#x72;&#x65;&#x70;&#108;&#x79;&#x40;&#103;&#105;&#x74;&#104;&#x75;&#98;&#x2e;&#99;&#x6f;&#109;">&#x6e;&#x6f;&#x2d;&#x72;&#x65;&#112;&#x6c;&#x79;&#x40;&#x67;&#105;&#116;&#x68;&#x75;&#98;&#46;&#99;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#105;&#x6c;&#x74;&#x6f;&#x3a;&#x6e;&#x6f;&#45;&#114;&#x65;&#112;&#108;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#x6d;">&#x6e;&#111;&#45;&#114;&#x65;&#112;&#x6c;&#x79;&#64;&#103;&#105;&#x74;&#x68;&#x75;&#x62;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -3331,6 +3331,7 @@ You can click on individual steps and get more details, such as the log output f
 <li><code>parameters</code>/<code>properties</code></li>
 <li><code>podTemplates</code></li>
 <li><code>sendSlack</code></li>
+<li><code>stash</code>/<code>unstash</code></li>
 <li><code>withCredentials</code></li>
 </ul>
 
@@ -3719,6 +3720,221 @@ Any modifications made to the page will be ignored, leaving configurations set i
 </span><span class='line'>    <span class="n">input</span> <span class="s1">&#39;Finished with K8S pod?&#39;</span>
 </span><span class='line'><span class="o">}</span>
 </span></code></pre></td></tr></table></div></figure>
+
+
+<h3><code>stash</code>/<code>unstash</code> steps</h3>
+
+<p><code>stash</code> step can be used to save a set of files, to be <code>unstash</code>ed later in the same build, generally for using in another workspace.
+<code>unstash</code> will restore the files into the same relative locations as when they are <code>stash</code>ed.
+If you want to change the base directory of the stashed files, you should wrap the <code>stash</code> steps in <code>dir</code> step.</p>
+
+<p>We should use <code>stash</code>/<code>unstash</code> to avoid the common anti-pattern of copying files into some special, globally visible directory such as Jenkins home or one of its subdirectories.
+Using such anti-pattern will make it hard to support many jobs for many users since, eventually, there will be some name clash and, subsequently, some convoluted naming of those files to avoid such name clashes.</p>
+
+<p>Note that <code>stash</code> and <code>unstash</code> steps are designed for use with small files.
+If the size is above 5 MB, we should consider an alternative such as Nexus/Artifactory for jar files, blob stores for images.</p>
+
+<p>Example usage of <code>stash</code> and <code>unstash</code>:</p>
+
+<figure class='code'><figcaption><span>stash/unstash example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Stash&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">dir</span> <span class="o">(</span><span class="s1">&#39;test&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="s1">&#39;&#39;&#39;</span>
+</span><span class='line'><span class="s1">                cd release_notes</span>
+</span><span class='line'><span class="s1">                touch deployment_ids.json</span>
+</span><span class='line'><span class="s1">                touch deployment_summary.json</span>
+</span><span class='line'><span class="s1">                ls -al</span>
+</span><span class='line'><span class="s1">            &#39;&#39;&#39;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">stash</span> <span class="nl">name:</span> <span class="s1">&#39;deployment_ids&#39;</span><span class="o">,</span> <span class="nl">includes:</span> <span class="s1">&#39;release_notes/deployment_ids.json&#39;</span>
+</span><span class='line'>            <span class="n">stash</span> <span class="nl">name:</span> <span class="s1">&#39;deployment_summary&#39;</span><span class="o">,</span> <span class="nl">includes:</span> <span class="s1">&#39;release_notes/deployment_summary.json&#39;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="o">}</span> <span class="c1">// end dir</span>
+</span><span class='line'>    <span class="o">}</span> <span class="c1">// end stage &#39;Stash&#39;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Check unstash&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">dir</span><span class="o">(</span><span class="s1">&#39;check&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">unstash</span> <span class="s1">&#39;deployment_ids&#39;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">sh</span> <span class="s1">&#39;tree -L 2&#39;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">dir</span><span class="o">(</span><span class="s1">&#39;check2&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>            <span class="n">unstash</span> <span class="s1">&#39;deployment_summary&#39;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">sh</span> <span class="s1">&#39;tree -L 2&#39;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Clean up&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">sh</span> <span class="s1">&#39;tree -L 2&#39;</span>
+</span><span class='line'>        <span class="n">deleteDir</span><span class="o">()</span>
+</span><span class='line'>    <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Example output:</p>
+
+<figure class='code'><figcaption><span>Console output of the above stash/unstash example</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>[Pipeline] sh
+</span><span class='line'>04:14:04 + cd release_notes
+</span><span class='line'>04:14:04 + touch deployment_ids.json
+</span><span class='line'>04:14:04 + touch deployment_summary.json
+</span><span class='line'>04:14:04 + ls -al
+</span><span class='line'>04:14:04 total 128
+</span><span class='line'>04:14:04 drwxr-xr-x  5 jenkins cdrom  4096 Aug 18 04:14 .
+</span><span class='line'>04:14:04 drwxr-xr-x 26 jenkins cdrom  4096 Aug 18 04:14 ..
+</span><span class='line'>04:14:04 -rw-r--r--  1 jenkins cdrom     0 Aug 18 04:14 deployment_ids.json
+</span><span class='line'>04:14:04 -rw-r--r--  1 jenkins cdrom     0 Aug 18 04:14 deployment_summary.json
+</span><span class='line'>[Pipeline] stash
+</span><span class='line'>04:14:04 Stashed 1 file(s)
+</span><span class='line'>[Pipeline] stash
+</span><span class='line'>04:14:04 Stashed 1 file(s)
+</span><span class='line'>[Pipeline] }
+</span><span class='line'>[Pipeline] // dir
+</span><span class='line'>[Pipeline] }
+</span><span class='line'>[Pipeline] // stage
+</span><span class='line'>[Pipeline] stage
+</span><span class='line'>[Pipeline] { (Check unstash)
+</span><span class='line'>[Pipeline] dir
+</span><span class='line'>04:14:04 Running in /var/lib/jenkins/workspace/feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ/check
+</span><span class='line'>[Pipeline] {
+</span><span class='line'>[Pipeline] unstash
+</span><span class='line'>[Pipeline] sh
+</span><span class='line'>04:14:04 [check] Running shell script
+</span><span class='line'>04:14:05 + tree -L 2
+</span><span class='line'>04:14:05 .
+</span><span class='line'>04:14:05 └── release_notes
+</span><span class='line'>04:14:05     └── deployment_ids.json
+</span><span class='line'>04:14:05 
+</span><span class='line'>04:14:05 1 directory, 1 file
+</span><span class='line'>[Pipeline] }
+</span><span class='line'>[Pipeline] // dir
+</span><span class='line'>[Pipeline] dir
+</span><span class='line'>04:14:05 Running in /var/lib/jenkins/workspace/feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ/check2
+</span><span class='line'>[Pipeline] {
+</span><span class='line'>[Pipeline] unstash
+</span><span class='line'>[Pipeline] sh
+</span><span class='line'>04:14:05 [check2] Running shell script
+</span><span class='line'>04:14:05 + tree -L 2
+</span><span class='line'>04:14:05 .
+</span><span class='line'>04:14:05 └── release_notes
+</span><span class='line'>04:14:05     └── deployment_summary.json
+</span><span class='line'>04:14:05 
+</span><span class='line'>04:14:05 1 directory, 1 file
+</span><span class='line'>[Pipeline] }
+</span><span class='line'>[Pipeline] // dir
+</span><span class='line'>[Pipeline] }
+</span><span class='line'>[Pipeline] // stage
+</span><span class='line'>[Pipeline] stage
+</span><span class='line'>[Pipeline] { (Clean up)
+</span><span class='line'>[Pipeline] sh
+</span><span class='line'>04:14:05 [feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ] Running shell script
+</span><span class='line'>04:14:05 + tree -L 2
+</span><span class='line'>04:14:05 .
+</span><span class='line'>04:14:05 ├── check
+</span><span class='line'>04:14:05 │   └── release_notes
+</span><span class='line'>04:14:05 ├── check2
+</span><span class='line'>04:14:05 │   └── release_notes
+</span><span class='line'>04:14:05 ├── check2@tmp
+</span><span class='line'>04:14:05 ├── check@tmp
+</span><span class='line'>04:14:05 ├── Jenkinsfile
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
 
 
 <h3><code>withCredentials</code> step</h3>
