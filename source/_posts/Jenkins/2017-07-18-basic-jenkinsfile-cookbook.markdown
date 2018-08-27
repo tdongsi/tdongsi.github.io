@@ -21,6 +21,7 @@ List of basic Jenkinsfile steps in this post:
 * `parameters`/`properties`
 * `podTemplates`
 * `sendSlack`
+* `stash`/`unstash`
 * `withCredentials`
 
 ### `checkout`/`git` step
@@ -253,6 +254,125 @@ node('test-agent') {
     
     input 'Finished with K8S pod?'
 }
+```
+
+### `stash`/`unstash` step
+
+`stash` step can be used to save a set of files, to be `unstash`ed later in the same build, generally for using in another workspace.
+`unstash` will restore the files into the same relative locations as when they are `stash`ed.
+Therefore, you should use `dir` step when you want to change the base directory of the stashed files.
+
+We should use `stash`/`unstash` to avoid the common anti-pattern of copying files into some special, globally visible directory such as Jenkins home or one of its subdirectories.
+Using such anti-pattern will make it hard to support many jobs for many users since, eventually, there will be some name clash and, subsequently, some convoluted naming of those files to avoid such name clashes.
+
+Note that `stash` and `unstash` steps are designed for use with small files.
+If the size is above 5 MB, we should consider an alternative such as Nexus/Artifactory for jar files, blob stores for images.
+
+Example usage of `stash` and `unstash`:
+
+``` groovy stash/unstash example
+        stage('Stash') {  
+            dir ('test') {
+                sh '''
+                    cd release_notes
+                    touch deployment_ids.json
+                    touch deployment_summary.json
+                    ls -al
+                '''
+
+                stash name: 'deployment_ids', includes: 'release_notes/deployment_ids.json'
+                stash name: 'deployment_summary', includes: 'release_notes/deployment_summary.json'
+                
+            } // end dir
+        } // end stage 'Stash'
+
+        stage('Check unstash') {
+            dir('check') {
+                unstash 'deployment_ids'
+
+                sh 'tree -L 2'
+            } 
+
+            dir('check2') {
+                unstash 'deployment_summary'
+
+                sh 'tree -L 2'
+            }
+        }
+
+        stage('Clean up') {
+            sh 'tree -L 2'
+            deleteDir()
+        }
+```
+
+Example output:
+
+``` plain Console output of the above stash/unstash example
+[Pipeline] sh
+04:14:04 + cd release_notes
+04:14:04 + touch deployment_ids.json
+04:14:04 + touch deployment_summary.json
+04:14:04 + ls -al
+04:14:04 total 128
+04:14:04 drwxr-xr-x  5 jenkins cdrom  4096 Aug 18 04:14 .
+04:14:04 drwxr-xr-x 26 jenkins cdrom  4096 Aug 18 04:14 ..
+04:14:04 -rw-r--r--  1 jenkins cdrom     0 Aug 18 04:14 deployment_ids.json
+04:14:04 -rw-r--r--  1 jenkins cdrom     0 Aug 18 04:14 deployment_summary.json
+[Pipeline] stash
+04:14:04 Stashed 1 file(s)
+[Pipeline] stash
+04:14:04 Stashed 1 file(s)
+[Pipeline] }
+[Pipeline] // dir
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Check unstash)
+[Pipeline] dir
+04:14:04 Running in /var/lib/jenkins/workspace/feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ/check
+[Pipeline] {
+[Pipeline] unstash
+[Pipeline] sh
+04:14:04 [check] Running shell script
+04:14:05 + tree -L 2
+04:14:05 .
+04:14:05 └── release_notes
+04:14:05     └── deployment_ids.json
+04:14:05 
+04:14:05 1 directory, 1 file
+[Pipeline] }
+[Pipeline] // dir
+[Pipeline] dir
+04:14:05 Running in /var/lib/jenkins/workspace/feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ/check2
+[Pipeline] {
+[Pipeline] unstash
+[Pipeline] sh
+04:14:05 [check2] Running shell script
+04:14:05 + tree -L 2
+04:14:05 .
+04:14:05 └── release_notes
+04:14:05     └── deployment_summary.json
+04:14:05 
+04:14:05 1 directory, 1 file
+[Pipeline] }
+[Pipeline] // dir
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Clean up)
+[Pipeline] sh
+04:14:05 [feature_test-23NL25SRLW3W6WXNVW2NXBADUXIYBTCBZAO5YRKVQPVT3NUSEOTQ] Running shell script
+04:14:05 + tree -L 2
+04:14:05 .
+04:14:05 ├── check
+04:14:05 │   └── release_notes
+04:14:05 ├── check2
+04:14:05 │   └── release_notes
+04:14:05 ├── check2@tmp
+04:14:05 ├── check@tmp
+04:14:05 ├── Jenkinsfile
+...
 ```
 
 ### `withCredentials` step
