@@ -132,7 +132,7 @@ SunOS, HP-UX
 
 **Senior Member of Technical Staff**, <a name="Salesforce">Salesforce</a> (10/2016 - 6/2018)
 
-* Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, Groovy/Java, CI/CD.
+* Salesforce IoT. Worked with AWS, Kubernetes, Docker, Jenkins, Groovy/Java, CI/CD.
 * Achievements:
   * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) from scratch as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
   * Built a robust, highly-available **Kubernetes** infrastructure on top of internal Compute services at Salesforce (similar to AWS EC2 & S3).
