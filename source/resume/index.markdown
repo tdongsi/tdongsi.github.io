@@ -126,11 +126,11 @@ SunOS, HP-UX
 
 ### Work Experience
 
-**Software Development Engineer 4**, Apple (7/2018 - present)
+**Software Development Engineer 4**, <a name="Apple">Apple</a> (7/2018 - present)
 
 * Apple News & Stocks.
 
-**Senior Member of Technical Staff**, Salesforce (10/2016 - 6/2018)
+**Senior Member of Technical Staff**, <a name="Salesforce">Salesforce</a> (10/2016 - 6/2018)
 
 * Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, Groovy/Java, CI/CD.
 * Achievements:
@@ -146,7 +146,7 @@ SunOS, HP-UX
   * Security Champion for the team: championing for best practices for secure, scalable, highly-available services.
 -->
 
-**Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
+**Software Engineer II**, <a name="Intuit">Intuit</a> (12/2014 - 10/2016) 
 
 * Designed and implemented automation frameworks and tools for **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
   Worked with business analysts and data scientists on project requirements to develop appropriate tools and automation solutions.
