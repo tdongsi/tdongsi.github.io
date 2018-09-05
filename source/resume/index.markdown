@@ -126,17 +126,25 @@ SunOS, HP-UX
 
 ### Work Experience
 
-**Senior Member of Technical Staff**, Salesforce (10/2016 - present)
+**Software Development Engineer 4**, Apple (7/2018 - present)
 
-* Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, CI/CD.
+* Apple News & Stocks.
+
+**Senior Member of Technical Staff**, Salesforce (10/2016 - 6/2018)
+
+* Salesforce IoT. Working with AWS, Kubernetes, Docker, Jenkins, Groovy/Java, CI/CD.
 * Achievements:
-  * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
-  * Built robust, highly-available **Kubernetes** infrastructure on top of internal Compute services (similar to AWS EC2 & S3).
+  * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) from scratch as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
+  * Built a robust, highly-available **Kubernetes** infrastructure on top of internal Compute services at Salesforce (similar to AWS EC2 & S3).
     Integrated with **Prometheus** and **Heapster**-enabled Dashboard for monitoring.
   * Designed and implemented **fully containerized Jenkins systems** (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as Github/GHE, DockerHub, Artifactory, Nexus, Slack, PagerDuty. 
   * Implemented various key features such as Docker images, access control, Jacoco-based code coverage gates, Slack/email notifications.
     Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and ease Jenkins pipeline configuration for developers.
-  * Designed and implemented web services for continuously syncing Github/GHE commits to [GUS](https://developer.salesforce.com/blogs/engineering/2014/08/meet-gus-keeping-salesforce-agile.html), integrating HBase schema upgrade to Perforce, and posting to [Chatter](https://www.salesforce.com/products/chatter/overview/) on build successes.
+    Built solutions and infrastructure for front-end testing (Dockerized Headless browser, PhantomJS).
+  * Designed and implemented Kubernetes-backed micro-services for continuously syncing Github/GHE commits to [GUS](https://developer.salesforce.com/blogs/engineering/2014/08/meet-gus-keeping-salesforce-agile.html), integrating HBase schema upgrade to Perforce, and posting to [Chatter](https://www.salesforce.com/products/chatter/overview/) on build successes.
+<!--
+  * Security Champion for the team: championing for best practices for secure, scalable, highly-available services.
+-->
 
 **Software Engineer II**, Intuit Inc. (12/2014 - 10/2016) 
 
