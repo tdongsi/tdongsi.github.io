@@ -134,7 +134,8 @@ builderDsl.withEnv("PATH=/usr/bin")
 println ""
 ```
 
-In this version, the code is fluent with the object name `builderDsl` not being repeated every single line.
+In this version, [the Build design pattern](https://en.wikipedia.org/wiki/Builder_pattern#Java) is used in the implementation.
+As shown above, the code is much more fluent with the object name `builderDsl` not being repeated every single line.
 As a result, the code is less verbose and much more user-friendly.
 
 ### Version 3: DSL with Groovy closure
