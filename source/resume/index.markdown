@@ -25,7 +25,7 @@ Checklist:
 ### Skills
 
 <!--
-TODO: Go
+Want to do: Javascript, Go
 -->
 * **Languages**: 
   [Java](/blog/categories/java/), 
