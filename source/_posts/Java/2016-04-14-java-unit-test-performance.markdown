@@ -6,7 +6,6 @@ comments: true
 published: true
 categories: 
 - Java
-- JMockit
 - TestNG
 - Testing
 - Maven
