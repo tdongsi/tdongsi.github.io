@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "IntelliJ setup for Jenkins shared library development"
+title: "IntelliJ setup for Jenkins development"
 date: 2018-06-07 22:32:59 -0700
 comments: true
 categories: 
@@ -10,7 +10,7 @@ categories:
 - Gradle
 ---
 
-This posts will show how to setup IntelliJ for Jenkins shared library development, including auto-complete for [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/).
+This posts will show how to setup IntelliJ for development of Jenkins [Groovy Init Scripts](http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/) and [shared libraries](https://jenkins.io/doc/book/pipeline/shared-libraries/), including auto-complete for [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/).
 
 <!--more-->
 
@@ -26,6 +26,8 @@ It is best to start a new project:
 ![Screeshot](/images/idea/screen02.png "Project Name")
 1. Enter path to Gradle. For Gradle on Mac installed via Homebrew, the Gradle home is like this:
 ![Screeshot](/images/idea/screen03.png "Configure Gradle")
+   NOTE: For Gradle installed on a Mac via Homebrew, the path "/usr/local/opt/gradle/libexec" may be preferrable to "/usr/local/Cellar/gradle/X.X/libexec" since the former will stay the same after Gradle version upgrades.
+   In addition, if you work extensively with Grails/Gradle/Groovy, you may prefer installing via [`sdk` tool](https://sdkman.io/install).
 1. Choose **Project name** and **Project Location**
 ![Screeshot](/images/idea/screen04.png "Project location")
 1. Finish
@@ -110,6 +112,15 @@ sourceSets {
     }
 }
 ```
+
+Optionally, for unit testing Jenkins shared library, we have to add the following dependencies into our **build.gradle** file.
+
+``` groovy
+    testCompile group: 'com.lesfurets', name: 'jenkins-pipeline-unit', version: '1.1'
+    testCompile group: 'org.spockframework', name: 'spock-core', version: '1.1-groovy-2.4'
+```
+
+The final **build.gradle** will look like [this](https://github.com/tdongsi/jenkins-steps-override/blob/master/build.gradle).
 
 ### Add for pipeline
 
