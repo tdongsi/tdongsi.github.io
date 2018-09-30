@@ -3,6 +3,7 @@ layout: post
 title: "IntelliJ setup for Jenkins development"
 date: 2018-02-09 22:32:59 -0700
 comments: true
+featured: true
 categories: 
 - Jenkins
 - Groovy

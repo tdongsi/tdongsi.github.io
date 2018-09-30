@@ -4,7 +4,6 @@ title: "AWS: Setting up Multi-Factor Authentication (MFA)"
 date: 2016-01-22 18:37:23 -0800
 comments: true
 published: true
-featured: true
 categories: 
 - AWS
 - Security
