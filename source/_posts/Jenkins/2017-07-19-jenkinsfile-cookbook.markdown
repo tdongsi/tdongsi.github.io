@@ -115,6 +115,7 @@ stash name: 'sources', includes: 'pom.xml,src/'
 
 Later, you `unstash` these same files back into **other** workspaces.
 You could have just run `git` anew in each agent's workspace, but this would result in duplicated changelog entries, as well as contacting the Git server twice.
+
 * A Pipeline build is permitted to run as many SCM checkouts as it needs to, which is useful for projects working with multiple repositories, but not what we want here.
 * More importantly, if anyone pushes a new Git commit at  the wrong time, you might be testing different sources in some branches - which is prevented when you do the checkout just once and distribute sources to agents yourself.
 
@@ -124,11 +125,12 @@ The Maven project is set up to expect a file `exclusions.txt` at its root, and i
 When you run the `parallel` step, each branch is started at the same time, and the overall step completes when all the branches finish: “fork & join”.
 
 There are several new ideas at work here:
-* A single Pipeline build allocates several executors, potentially on different agents, at the same time.
-You can see these starting and finishing in the Jenkins executor widget on the main screen.
 
+* A single Pipeline build allocates several executors, potentially on different agents, at the same time.
+  You can see these starting and finishing in the Jenkins executor widget on the main screen.
 * Each call to `node` gets its own workspace.
-This kind of flexibility is impossible in a freestyle project, each build of which is tied to exactly one workspace.The Parallel Test Executor plugin works around that for its freestyle build step by triggering multiple builds of the project, making the history hard to follow.
+  This kind of flexibility is impossible in a freestyle project, each build of which is tied to exactly one workspace.
+  The Parallel Test Executor plugin works around that for its freestyle build step by triggering multiple builds of the project, making the history hard to follow.
 
 Do not use `env` in this case:
 
