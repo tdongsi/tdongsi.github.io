@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "IntelliJ setup for Jenkins shared library development"
-date: 2018-09-29 22:32:59 -0700
+date: 2018-06-07 22:32:59 -0700
 comments: true
 categories: 
 - Jenkins
