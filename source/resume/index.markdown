@@ -128,7 +128,7 @@ SunOS, HP-UX
 
 **Software Development Engineer 4**, <a name="Apple">Apple</a> (7/2018 - present)
 
-* Apple News & Stocks.
+* [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 
 **Senior Member of Technical Staff**, <a name="Salesforce">Salesforce</a> (10/2016 - 6/2018)
 
