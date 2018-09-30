@@ -10,7 +10,7 @@ categories:
 - Gradle
 ---
 
-This posts will show how to setup IntelliJ for development of Jenkins [Groovy Init Scripts](http://tdongsi.github.io/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/) and [shared libraries](https://jenkins.io/doc/book/pipeline/shared-libraries/), including auto-complete for [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/).
+This posts will show how to setup IntelliJ for development of Jenkins [Groovy Init Scripts](/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/) and [shared libraries](https://jenkins.io/doc/book/pipeline/shared-libraries/), including auto-complete for [Jenkins pipeline steps](https://jenkins.io/doc/pipeline/steps/).
 This is based on my original write-up in [this project](https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md).
 
 <!--more-->

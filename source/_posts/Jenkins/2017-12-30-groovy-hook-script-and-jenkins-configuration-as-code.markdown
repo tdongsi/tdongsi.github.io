@@ -34,7 +34,7 @@ It will give us ability to quickly spin up local Jenkins instances for developme
 
 On a side note, IntelliJ IDEA is probably the best development tool for working with these Groovy Scripts.
 Check out [these instructions on how to set it up in IntelliJ](https://github.com/tdongsi/jenkins-config/blob/develop/docs/IDE.md).
-*UPDATED ON 2018/09/29*: More on IntelliJ setup is discussed in [this blog post](/blog/2018/06/07/intellij-setup-for-jenkins-shared-library-development/).
+*UPDATED ON 2018/09/29*: More on IntelliJ setup is discussed in [this blog post](/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/).
 
 ### Authorization
 
