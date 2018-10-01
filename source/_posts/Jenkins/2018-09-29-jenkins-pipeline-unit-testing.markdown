@@ -5,9 +5,7 @@ date: 2018-06-07 22:33:46 -0700
 comments: true
 categories: 
 - Jenkins
-- Java
 - Groovy
-- Gradle
 - Testing
 ---
 
@@ -20,7 +18,11 @@ In this blog post, we will see how to do unit testing for Jenkins shared library
 
 <!--more-->
 
-### Testing Jenkins shared library (WIP)
+### Testing Jenkins shared library 
+
+#### Example Groovy file
+
+For this tutorial, we look at the following Groovy build wrapper as the example under test:
 
 ```groovy buildWrapper.groovy
 def call(Closure body) {
@@ -57,22 +59,26 @@ def call(Closure body) {
 }
 ```
 
-In Jenkinsfile, you can call it as follows to use default parameters:
+After the shared library is set up properly, you can call the above Groovy build wrapper in Jenkinsfile as follows to use default parameters:
 
-```groovy
+```groovy Jenkinsfile for first use case 
 buildWrapper {
 }
 ```
 
-or you can set the parameters in the wrapper's body:
+or you can set the parameters in the wrapper's body as follows:
 
-```groovy
+```groovy Jenkinsfile for second use case
 buildWrapper {
   settings = "dummy.xml"
 }
 ```
 
-You can test that using PipelineUnitTests.
+In the next section, we will look into automated testing of both use cases using JenkinsPipelineUnit.
+
+#### Using JenkinsPipelineUnit (WIP)
+
+To use JenkinsPipelineUnit, it is recommended to set up IntelliJ following [this tutorial](/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/).
 
 Need to mock some function and variables
 
@@ -107,7 +113,7 @@ The process is very similar: you need to mock out some global variables and func
 You will need to `printCallStack` to obtain the expected output and save it into some text file.
 Then, you can use `testNonRegression` for automated verification of no-regression in Jenkinsfile.
 
-However, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+However, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT used by any other codes.
 Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.
 
 ### References
