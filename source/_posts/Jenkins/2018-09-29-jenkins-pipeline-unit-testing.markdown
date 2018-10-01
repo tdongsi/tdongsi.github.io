@@ -11,13 +11,16 @@ categories:
 - Testing
 ---
 
-This blog post explains how to do unit testing for Jenkins shared library with PipelineUnitTests.
-
-https://jenkins.io/doc/book/pipeline/development/#unit-test
+[Jenkins shared library](https://jenkins.io/doc/book/pipeline/shared-libraries/) is a powerful way for sharing Groovy code between multiple Jenkins pipelines.
+However, when many Jenkins pipelines, including mission-critical deployment pipelines, depend on such shared libraries, automated testing becomes necessary to prevent regressions whenever new changes are introduced into shared librariers.
+Despite its drawbacks, the third-party [Pipeline Unit Testing framework](https://github.com/jenkinsci/JenkinsPipelineUnit) satisfies some of automated testing needs.
+It would allow you to do mock execution of pipeline steps and checking for expected behaviors before actually running in Jenkins.
+However, documentation for this third-party framework is severely lacking (mentioned briefly [here](https://jenkins.io/doc/book/pipeline/development/#unit-test)) and it is one of many reasons that unit testing for Jenkins shared libraries is usually an after-thought, instead of being integrated early.
+In this blog post, we will see how to do unit testing for Jenkins shared library with the Pipeline Unit Testing framework.
 
 <!--more-->
 
-### Jenkins shared library
+### Testing Jenkins shared library (WIP)
 
 ```groovy buildWrapper.groovy
 def call(Closure body) {
