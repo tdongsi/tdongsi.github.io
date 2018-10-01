@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-09-30T16:02:55-07:00</updated>
+  <updated>2018-09-30T22:11:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,170 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Pipeline Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing/"/>
+    <updated>2018-06-07T22:33:46-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing</id>
+    <content type="html"><![CDATA[<p><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Jenkins shared library</a> is a powerful way for sharing Groovy code between multiple Jenkins pipelines.
+However, when many Jenkins pipelines, including mission-critical deployment pipelines, depend on such shared libraries, automated testing becomes necessary to prevent regressions whenever new changes are introduced into shared librariers.
+Despite its drawbacks, the third-party <a href="https://github.com/jenkinsci/JenkinsPipelineUnit">Pipeline Unit Testing framework</a> satisfies some of automated testing needs.
+It would allow you to do mock execution of pipeline steps and checking for expected behaviors before actually running in Jenkins.
+However, documentation for this third-party framework is severely lacking (mentioned briefly <a href="https://jenkins.io/doc/book/pipeline/development/#unit-test">here</a>) and it is one of many reasons that unit testing for Jenkins shared libraries is usually an after-thought, instead of being integrated early.
+In this blog post, we will see how to do unit testing for Jenkins shared library with the Pipeline Unit Testing framework.</p>
+
+<!--more-->
+
+
+<h3>Testing Jenkins shared library (WIP)</h3>
+
+<figure class='code'><figcaption><span>buildWrapper.groovy</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">call</span><span class="o">(</span><span class="n">Closure</span> <span class="n">body</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">config</span> <span class="o">=</span> <span class="o">[:]</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">if</span> <span class="o">(</span><span class="n">body</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">body</span><span class="o">.</span><span class="na">resolveStrategy</span> <span class="o">=</span> <span class="n">Closure</span><span class="o">.</span><span class="na">DELEGATE_FIRST</span>
+</span><span class='line'>    <span class="n">body</span><span class="o">.</span><span class="na">delegate</span> <span class="o">=</span> <span class="n">config</span>
+</span><span class='line'>    <span class="n">body</span><span class="o">()</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">settings</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="na">settings</span> <span class="o">?:</span> <span class="s2">&quot;settings.xml&quot;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">node</span><span class="o">(</span><span class="s1">&#39;java-agent&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Main&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="c1">// Test Python setup</span>
+</span><span class='line'>      <span class="n">sh</span><span class="o">(</span><span class="nl">script:</span> <span class="s1">&#39;python -c &quot;import requests&quot;&#39;</span><span class="o">,</span> <span class="nl">returnStatus:</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'>      <span class="c1">// Test Docker setup</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;docker version&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Post&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="c1">// Print info of standard tools</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;ls -al&#39;</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;java -version&#39;</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s2">&quot;mvn -s $settings -version&quot;</span>
+</span><span class='line'>      <span class="n">sh</span> <span class="s1">&#39;python -V&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In Jenkinsfile, you can call it as follows to use default parameters:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">buildWrapper</span> <span class="o">{</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>or you can set the parameters in the wrapper&rsquo;s body:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">buildWrapper</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">settings</span> <span class="o">=</span> <span class="s2">&quot;dummy.xml&quot;</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can test that using PipelineUnitTests.</p>
+
+<p>Need to mock some function and variables</p>
+
+<p>You need to printCallStack().</p>
+
+<p>Create a text file. The file name matches the class name.</p>
+
+<p><code>testNonRegression("default")</code> to run regression tests.</p>
+
+<p>Show diff in IntelliJ.</p>
+
+<h3>Other usage</h3>
+
+<p>You can also use PipelineUnitTests to test Jenkinsfile.
+In most cases, testing Jenkinsfile will be similar to testing Groovy files in <code>vars</code> folder, as explained above, since they are quite similar.</p>
+
+<figure class='code'><figcaption><span>Example Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">node</span><span class="o">()</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Checkout&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">checkout</span> <span class="n">scm</span>
+</span><span class='line'>    <span class="n">sh</span> <span class="s1">&#39;git clean -xdf&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Build and test&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">sh</span> <span class="s1">&#39;./gradlew build&#39;</span>
+</span><span class='line'>    <span class="n">junit</span> <span class="s1">&#39;build/test-results/test/*.xml&#39;</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The process is very similar: you need to mock out some global variables and functions corresponding to Jenkins pipeline steps.
+You will need to <code>printCallStack</code> to obtain the expected output and save it into some text file.
+Then, you can use <code>testNonRegression</code> for automated verification of no-regression in Jenkinsfile.</p>
+
+<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jenkinsci/JenkinsPipelineUnit">JenkinsPipelineUnit</a></li>
+<li><a href="https://www.youtube.com/watch?v=RmrpUtbVR7o">The talk at Jenkins World 17</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-steps-override">Example</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[IntelliJ Setup for Jenkins Development]]></title>
@@ -3209,13 +3373,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#105;&#108;&#x74;&#111;&#58;&#110;&#x6f;&#45;&#x72;&#101;&#x70;&#x6c;&#x79;&#64;&#103;&#x69;&#116;&#104;&#x75;&#98;&#46;&#99;&#x6f;&#109;">&#x6e;&#111;&#45;&#114;&#101;&#112;&#x6c;&#121;&#x40;&#103;&#x69;&#x74;&#x68;&#117;&#98;&#46;&#99;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#116;&#111;&#x3a;&#x6e;&#x6f;&#45;&#114;&#x65;&#x70;&#x6c;&#x79;&#64;&#103;&#x69;&#116;&#104;&#117;&#x62;&#x2e;&#x63;&#111;&#109;">&#110;&#111;&#45;&#x72;&#101;&#112;&#x6c;&#x79;&#64;&#x67;&#x69;&#116;&#104;&#117;&#98;&#46;&#99;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#105;&#108;&#x74;&#x6f;&#x3a;&#x6e;&#x6f;&#x2d;&#114;&#x65;&#112;&#x6c;&#121;&#x40;&#x67;&#105;&#116;&#x68;&#x75;&#98;&#46;&#x63;&#x6f;&#109;">&#x6e;&#111;&#45;&#114;&#101;&#x70;&#108;&#121;&#x40;&#x67;&#x69;&#x74;&#x68;&#x75;&#98;&#x2e;&#99;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#117;&#98;&#x2e;&#99;&#x6f;&#109;">&#110;&#x6f;&#45;&#x72;&#x65;&#x70;&#108;&#121;&#64;&#103;&#105;&#116;&#x68;&#117;&#98;&#46;&#x63;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -5642,130 +5806,6 @@ This <code>kube-router</code> project is one of them although I&rsquo;ve not get
 <li>Another related work is <a href="https://github.com/kubernetes/kubernetes/issues/44063">IPVS-based in-cluster service load balancing</a>.
 Huawei presented this work at Kubecon 2016.
 IIRC, it is implemented as a flag to kube-proxy and considerable performance improvement was reported.</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
-    <updated>2017-04-26T16:24:24-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker</id>
-    <content type="html"><![CDATA[<p>In this blog post, we are using <a href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a> to build Docker images in our containerized Jenkins slaves.
-We look into a problem usually encountered in that approach, especially when reusing a Docker image for another Kubernetes cluster.</p>
-
-<!--more-->
-
-
-<h3>Problem description</h3>
-
-<p>We got the following error when running Docker inside a Jenkins slave container.</p>
-
-<figure class='code'><figcaption><span>Error message when running Docker</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+ docker images
-</span><span class='line'>Cannot connect to the Docker daemon. Is the docker daemon running on this host?</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Discussion</h3>
-
-<p>In summary, for <a href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/">&ldquo;Docker out of Docker&rdquo; approach</a>, the basic requirements to enable building Docker images in a containerized Jenkins slave is:</p>
-
-<ol>
-<li>You&rsquo;ll need to mount &ldquo;/var/run/docker.sock&rdquo; as a volume at &ldquo;/var/run/docker.sock&rdquo;.</li>
-<li>Having <code>docker</code> CLI installed in the containerized Jenkins slave.</li>
-<li>Make sure &ldquo;/var/run/docker.sock&rdquo; has the right permission inside the Jenkins slave container: readable for the current user (e.g., user <code>jenkins</code>) or in &ldquo;docker&rdquo; group.</li>
-</ol>
-
-
-<p>The direct cause of the above error message &ldquo;Cannot connect to the Docker daemon&rdquo; is that the socket &ldquo;/var/run/docker.sock&rdquo; to <code>docker</code> daemon on that Jenkins slave does not have the right permission for the current user (<code>jenkins</code> in the example).
-By convention, the read permission to that Unix domain socket &ldquo;/var/run/docker.sock&rdquo; is given to <code>root</code> user or users in <code>docker</code> group.
-The following commands verify that it is not:</p>
-
-<figure class='code'><figcaption><span>Show GID of docker group</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+ ls -l /var/run/docker.sock
-</span><span class='line'> 
-</span><span class='line'>srw-rw----. 1 root 992 0 Mar 14 00:57 /var/run/docker.sock
-</span><span class='line'>+ cat /etc/group
-</span><span class='line'>...
-</span><span class='line'>docker:x:999:jenkins</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The expected output of the above <code>ls</code> command is as follows:</p>
-
-<figure class='code'><figcaption><span>Expected output</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>+ ls -l /var/run/docker.sock
-</span><span class='line'>srw-rw----. 1 root docker 0 Mar 14 00:57 /var/run/docker.sock</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The root cause of the problem is that the Docker image of Jenkins slave is built inside another Kubernetes cluster (see example Dockerfile below).
-The group <code>docker</code> happens to have the group ID 999 on that Kubernetes cluster.</p>
-
-<figure class='code'><figcaption><span>Dockerfile for installing Docker CLI in Jenkins slave</span><a href='http://stackoverflow.com/questions/31466812/access-docker-sock-from-inside-a-container'>link</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>FROM jenkins
-</span><span class='line'>
-</span><span class='line'>USER root
-</span><span class='line'>ENV DEBIAN_FRONTEND=noninteractive
-</span><span class='line'>ENV HOME /home/jenkins
-</span><span class='line'>ENV DOCKER_VERSION=1.9.1-0~trusty
-</span><span class='line'>
-</span><span class='line'>RUN apt-get update \
-</span><span class='line'>  && apt-get install -y docker-engine=$DOCKER_VERSION \
-</span><span class='line'>  && rm -rf /var/lib/apt/lists/*
-</span><span class='line'>
-</span><span class='line'>RUN usermod -a -G docker jenkins</span></code></pre></td></tr></table></div></figure>
-
-
-<p>For illustration, the Docker installation steps in Ubuntu are similar:</p>
-
-<figure class='code'><figcaption><span>Installing Docker CLI</span><a href='https://docs.docker.com/engine/installation/linux/linux-postinstall/'>link</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'># Install from Web
-</span><span class='line'>sudo curl -sSL https://get.docker.com/ | sh
-</span><span class='line'>sudo usermod -aG docker jenkins
-</span><span class='line'>
-</span><span class='line'># Install from apt
-</span><span class='line'>sudo apt-get update
-</span><span class='line'>sudo apt-get install -y docker-engine
-</span><span class='line'>sudo usermod -aG docker jenkins</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The last step <code>usermod</code> comes from Docker documentation itself: &ldquo;If you would like to use Docker as a non-root user, you should now consider adding your user to the "docker&rdquo; group".</p>
-
-<h3>Resolving problem</h3>
-
-<p>To resolve the problem, simply entering the Docker image, update its <code>/etc/group</code> file with the correct GID for <code>docker</code> group.
-In the example above, the line &ldquo;docker:x:999:jenkins&rdquo; should be updated to &ldquo;docker:x:992:jenkins&rdquo; to make it work.
-It&rsquo;s recommended to run <code>docker commit</code> to save the modified container as a new Docker image and push it to Docker registry (similar process in <a href="http://localhost:4000/blog/2017/01/25/docker-root-user-in-a-pod/">this post</a>).</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
 </ul>
 
 ]]></content>

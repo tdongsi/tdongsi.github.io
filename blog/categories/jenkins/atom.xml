@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-09-30T16:02:55-07:00</updated>
+  <updated>2018-09-30T22:11:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,118 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Pipeline Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing/"/>
+    <updated>2018-06-07T22:33:46-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing</id>
+    <content type="html"><![CDATA[<p><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Jenkins shared library</a> is a powerful way for sharing Groovy code between multiple Jenkins pipelines.
+However, when many Jenkins pipelines, including mission-critical deployment pipelines, depend on such shared libraries, automated testing becomes necessary to prevent regressions whenever new changes are introduced into shared librariers.
+Despite its drawbacks, the third-party <a href="https://github.com/jenkinsci/JenkinsPipelineUnit">Pipeline Unit Testing framework</a> satisfies some of automated testing needs.
+It would allow you to do mock execution of pipeline steps and checking for expected behaviors before actually running in Jenkins.
+However, documentation for this third-party framework is severely lacking (mentioned briefly <a href="https://jenkins.io/doc/book/pipeline/development/#unit-test">here</a>) and it is one of many reasons that unit testing for Jenkins shared libraries is usually an after-thought, instead of being integrated early.
+In this blog post, we will see how to do unit testing for Jenkins shared library with the Pipeline Unit Testing framework.</p>
+
+<!--more-->
+
+
+<h3>Testing Jenkins shared library (WIP)</h3>
+
+<pre><code class="groovy buildWrapper.groovy">def call(Closure body) {
+  def config = [:]
+
+  if (body != null) {
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+  }
+
+  def settings = config.settings ?: "settings.xml"
+
+  node('java-agent') {
+    stage('Checkout') {
+      checkout scm
+    }
+
+    stage('Main') {
+      // Test Python setup
+      sh(script: 'python -c "import requests"', returnStatus: true)
+      // Test Docker setup
+      sh 'docker version'
+    }
+
+    stage('Post') {
+      // Print info of standard tools
+      sh 'ls -al'
+      sh 'java -version'
+      sh "mvn -s $settings -version"
+      sh 'python -V'
+    }
+  }
+}
+</code></pre>
+
+<p>In Jenkinsfile, you can call it as follows to use default parameters:</p>
+
+<pre><code class="groovy">buildWrapper {
+}
+</code></pre>
+
+<p>or you can set the parameters in the wrapper&rsquo;s body:</p>
+
+<pre><code class="groovy">buildWrapper {
+  settings = "dummy.xml"
+}
+</code></pre>
+
+<p>You can test that using PipelineUnitTests.</p>
+
+<p>Need to mock some function and variables</p>
+
+<p>You need to printCallStack().</p>
+
+<p>Create a text file. The file name matches the class name.</p>
+
+<p><code>testNonRegression("default")</code> to run regression tests.</p>
+
+<p>Show diff in IntelliJ.</p>
+
+<h3>Other usage</h3>
+
+<p>You can also use PipelineUnitTests to test Jenkinsfile.
+In most cases, testing Jenkinsfile will be similar to testing Groovy files in <code>vars</code> folder, as explained above, since they are quite similar.</p>
+
+<pre><code class="groovy Example Jenkinsfile">node() {
+  stage('Checkout') {
+    checkout scm
+    sh 'git clean -xdf'
+  }
+
+  stage('Build and test') {
+    sh './gradlew build'
+    junit 'build/test-results/test/*.xml'
+  }
+}
+</code></pre>
+
+<p>The process is very similar: you need to mock out some global variables and functions corresponding to Jenkins pipeline steps.
+You will need to <code>printCallStack</code> to obtain the expected output and save it into some text file.
+Then, you can use <code>testNonRegression</code> for automated verification of no-regression in Jenkinsfile.</p>
+
+<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jenkinsci/JenkinsPipelineUnit">JenkinsPipelineUnit</a></li>
+<li><a href="https://www.youtube.com/watch?v=RmrpUtbVR7o">The talk at Jenkins World 17</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-steps-override">Example</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[IntelliJ Setup for Jenkins Development]]></title>
@@ -902,256 +1014,6 @@ $ sudo ufw deny 8080
 </code></pre>
 
 <p>If your Jenkins is hosted in AWS/Google Cloud, you should consider setting this up.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[DSL Implementation in Groovy]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/13/groovy-dsl/"/>
-    <updated>2017-08-13T15:18:30-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/13/groovy-dsl</id>
-    <content type="html"><![CDATA[<p>Domain-Specific Language is a mini language for a specific problem and/or in a narrow context.
-For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
-
-<p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
-It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
-This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
-There are probably more advanced methods/frameworks for creating DSL.
-However, those are not in the scope of this post.</p>
-
-<!--more-->
-
-
-<h3>Example DSL</h3>
-
-<p>We want to implement a simple DSL that is similar to <a href="https://jenkins.io/doc/pipeline/steps/">Pipeline steps in Jenkinsfile</a>.</p>
-
-<pre><code class="plain DSL in Jenkinsfile">{
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-</code></pre>
-
-<p>In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as <code>echo</code> and <code>sh</code> above.
-For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
-For simplicity, <code>println</code> statements will be used in the following examples.</p>
-
-<p>The advantage of DSL is that the <strong>developers</strong> can implement the backend in some fully-featured language such as Java but the <strong>users</strong> don&rsquo;t need to know such language to use it.
-Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don&rsquo;t want to get exposed to the implementation details (which are usually ugly and compplicated).
-Instead, the <strong>users</strong> only need to learn the DSL to use it while still have the flexibility to do what they want.
-One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.</p>
-
-<h3>Version 1: Java-like standard implementation</h3>
-
-<p>First, we show a standard implementation in Java to show how backend execution can be implemented.
-In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.</p>
-
-<pre><code class="groovy Standard Java implementation">/**
- * Java code with standard implementation
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class JavaDsl {
-
-    void echo(String message) {
-        println "Echo: $message";
-    }
-
-    void sh(String script) {
-        println "Shell: $script";
-    }
-
-    void error(String message) {
-        println "Error here: $message";
-    }
-
-    // A more advanced DSL
-    void withEnv(String var) {
-        println "Using: $var";
-    }
-
-    void execute() {
-        println "Executing ...";
-    }
-
-}
-
-println "1) Standard Java implementation";
-JavaDsl javaDsl = new JavaDsl();
-javaDsl.withEnv("PATH=/usr/bin");
-javaDsl.echo("Starting pipeline");
-javaDsl.sh("ls .");
-javaDsl.error("Error here");
-javaDsl.execute();
-println "";
-</code></pre>
-
-<p>The problem of this approach is that users have to write Java (or Groovy) code directly to use it.</p>
-
-<h3>Version 2: Fluent interface with Builder pattern</h3>
-
-<pre><code class="groovy Fluent Java implementation">/**
- * Java code with Builder pattern
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class JavaBuilderDsl {
-
-    JavaBuilderDsl echo(String message) {
-        println "Echo: $message"
-        return this
-    }
-
-    JavaBuilderDsl sh(String script) {
-        println "Shell: $script"
-        return this
-    }
-
-    JavaBuilderDsl error(String message) {
-        println "Error here: $message"
-        return this
-    }
-
-    // A more advanced DSL
-    JavaBuilderDsl withEnv(String var) {
-        println "Using: $var"
-        return this
-    }
-
-    void execute() {
-        println "Executing ..."
-    }
-}
-
-println "2) Fluent Java implementation (Builder)"
-JavaBuilderDsl builderDsl = new JavaBuilderDsl()
-builderDsl.withEnv("PATH=/usr/bin")
-        .echo("Starting pipeline")
-        .sh("ls .")
-        .error("Error here")
-        .execute()
-println ""
-</code></pre>
-
-<p>In this version, <a href="https://en.wikipedia.org/wiki/Builder_pattern#Java">the Build design pattern</a> is used in the implementation.
-As shown above, the code is much more fluent with the object name <code>builderDsl</code> not being repeated every single line.
-As a result, the code is less verbose and much more user-friendly.</p>
-
-<h3>Version 3: DSL with Groovy closure</h3>
-
-<pre><code class="groovy Standard Groovy implementation">/**
- * Groovy code with standard implementation
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class GroovyDsl {
-
-    def echo(String message) {
-        println "Echo: $message"
-    }
-
-    def sh(String script) {
-        println "Shell: $script"
-    }
-
-    def error(String message) {
-        println "Error here: $message"
-    }
-
-    // A more advanced DSL
-    def withEnv(String var) {
-        println "Using: $var"
-    }
-
-    static void execute(closure) {
-        GroovyDsl body = new GroovyDsl()
-        closure(body)
-        println "Executing ..."
-    }
-
-}
-
-println "3) Standard Groovy implementation"
-GroovyDsl.execute { dsl -&gt;
-    dsl.withEnv("PATH=/usr/bin")
-    dsl.echo("Starting pipeline")
-    dsl.sh("ls .")
-    dsl.error("Error here")
-}
-println ""
-</code></pre>
-
-<p>This first version of Groovy implementation is presented here to show connection with its Java counterparts.
-As shown below, the input variable <code>dsl</code> in the closure can be abstracted away using delegate.</p>
-
-<pre><code class="groovy Transparent DSL with delegate">class GroovyDsl {
-
-    def echo(String message) {
-        println "Echo: $message"
-    }
-
-    def sh(String script) {
-        println "Shell: $script"
-    }
-
-    def error(String message) {
-        println "Error here: $message"
-    }
-
-    // A more advanced DSL
-    def withEnv(String var) {
-        println "Using: $var"
-    }
-
-    static void execute(Closure closure) {
-        GroovyDsl body = new GroovyDsl()
-        // TRICKY: Modify the input var? Hmmm.
-        closure.delegate = body
-        closure()
-        println "Executing ..."
-    }
-
-    static void executeBest(Closure closure) {
-        GroovyDsl body = new GroovyDsl()
-        body.with(closure)
-        println "Executing ..."
-    }
-
-}
-
-println "4) DSL-style Groovy implementation"
-GroovyDsl.execute {
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-println ""
-
-println "4b) DSL-style Groovy (better) implementation"
-GroovyDsl.executeBest {
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-println ""
-</code></pre>
-
-<p>In this final version, only a very small boiler-plate code <code>GroovyDsl.executeBest</code> remains.
-The following lines form a mini language (i.e., DSL) that can be exposed to users.
-The users can start using the DSL without having to learn Groovy or Java.</p>
-
-<p>Note that the <code>executeBest</code> is the equivalent but less straight-forward way to do the same thing with delegate.
-Compared with <code>execute</code>, it has the benefit of NOT modifying the input reference <code>closure</code>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
-<li><a href="https://dzone.com/articles/groovy-dsl-simple-example">Another example Groovy implementation</a></li>
-</ul>
-
 ]]></content>
   </entry>
   

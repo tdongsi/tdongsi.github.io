@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Java | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/java/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-09-30T16:02:55-07:00</updated>
+  <updated>2018-09-30T22:11:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,118 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Pipeline Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing/"/>
+    <updated>2018-06-07T22:33:46-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing</id>
+    <content type="html"><![CDATA[<p><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Jenkins shared library</a> is a powerful way for sharing Groovy code between multiple Jenkins pipelines.
+However, when many Jenkins pipelines, including mission-critical deployment pipelines, depend on such shared libraries, automated testing becomes necessary to prevent regressions whenever new changes are introduced into shared librariers.
+Despite its drawbacks, the third-party <a href="https://github.com/jenkinsci/JenkinsPipelineUnit">Pipeline Unit Testing framework</a> satisfies some of automated testing needs.
+It would allow you to do mock execution of pipeline steps and checking for expected behaviors before actually running in Jenkins.
+However, documentation for this third-party framework is severely lacking (mentioned briefly <a href="https://jenkins.io/doc/book/pipeline/development/#unit-test">here</a>) and it is one of many reasons that unit testing for Jenkins shared libraries is usually an after-thought, instead of being integrated early.
+In this blog post, we will see how to do unit testing for Jenkins shared library with the Pipeline Unit Testing framework.</p>
+
+<!--more-->
+
+
+<h3>Testing Jenkins shared library (WIP)</h3>
+
+<pre><code class="groovy buildWrapper.groovy">def call(Closure body) {
+  def config = [:]
+
+  if (body != null) {
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+  }
+
+  def settings = config.settings ?: "settings.xml"
+
+  node('java-agent') {
+    stage('Checkout') {
+      checkout scm
+    }
+
+    stage('Main') {
+      // Test Python setup
+      sh(script: 'python -c "import requests"', returnStatus: true)
+      // Test Docker setup
+      sh 'docker version'
+    }
+
+    stage('Post') {
+      // Print info of standard tools
+      sh 'ls -al'
+      sh 'java -version'
+      sh "mvn -s $settings -version"
+      sh 'python -V'
+    }
+  }
+}
+</code></pre>
+
+<p>In Jenkinsfile, you can call it as follows to use default parameters:</p>
+
+<pre><code class="groovy">buildWrapper {
+}
+</code></pre>
+
+<p>or you can set the parameters in the wrapper&rsquo;s body:</p>
+
+<pre><code class="groovy">buildWrapper {
+  settings = "dummy.xml"
+}
+</code></pre>
+
+<p>You can test that using PipelineUnitTests.</p>
+
+<p>Need to mock some function and variables</p>
+
+<p>You need to printCallStack().</p>
+
+<p>Create a text file. The file name matches the class name.</p>
+
+<p><code>testNonRegression("default")</code> to run regression tests.</p>
+
+<p>Show diff in IntelliJ.</p>
+
+<h3>Other usage</h3>
+
+<p>You can also use PipelineUnitTests to test Jenkinsfile.
+In most cases, testing Jenkinsfile will be similar to testing Groovy files in <code>vars</code> folder, as explained above, since they are quite similar.</p>
+
+<pre><code class="groovy Example Jenkinsfile">node() {
+  stage('Checkout') {
+    checkout scm
+    sh 'git clean -xdf'
+  }
+
+  stage('Build and test') {
+    sh './gradlew build'
+    junit 'build/test-results/test/*.xml'
+  }
+}
+</code></pre>
+
+<p>The process is very similar: you need to mock out some global variables and functions corresponding to Jenkins pipeline steps.
+You will need to <code>printCallStack</code> to obtain the expected output and save it into some text file.
+Then, you can use <code>testNonRegression</code> for automated verification of no-regression in Jenkinsfile.</p>
+
+<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jenkinsci/JenkinsPipelineUnit">JenkinsPipelineUnit</a></li>
+<li><a href="https://www.youtube.com/watch?v=RmrpUtbVR7o">The talk at Jenkins World 17</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-steps-override">Example</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[IntelliJ Setup for Jenkins Development]]></title>
@@ -756,48 +868,6 @@ The answer is when we mock the class in JMockit using the <code>@Mocked</code> a
 
 <p>That will prevent the static code in the class <code>DbQueue</code> from running in Jenkins unit test builds.
 The additional benefit of doing this <em>correctly</em> and <em>completely</em> is that we’ll be able to run our unit tests from inside Eclipse WITHOUT setting the <code>–DSBNHOME=</code> environment variable and the test will still complete as desired.</p>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Java: Unit Test Performance]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance/"/>
-    <updated>2016-06-06T22:47:42-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/06/06/java-unit-test-performance</id>
-    <content type="html"><![CDATA[<p>According to <a href="https://www.youtube.com/watch?v=wEhu57pih5w">this</a>, the right way of automated testing is that we have lots of unit tests as majority of our overall automated tests, supplemented by a smaller set of functional tests and even fewer sets of integration tests (a.k.a., Test Automation Pyramid).
-However, for that strategy to work, we should pay attention to unit test performance.
-It is not productive for us developers to wait 30+ minutes to run unit tests locally, especially when we have multiple check-ins per day.
-In addition, the runtime will get compounded as we add more unit tests.
-Here, I list out few commonly observed mistakes to avoid and suggestions that frequently improve Java unit test performance.</p>
-
-<!--more-->
-
-
-<p>1) Do NOT add loggings/printing to your tests.
-Use TestNG assertions instead of checking screen output.
-Remove from the test classes all the <code>System.out.println</code> statements (that we might add when we start writing unit tests).
-The logs don&rsquo;t matter when we&rsquo;re running in parallel.
-Moreover, it could add 5-10 minutes to the build time, regardless of running in sequential or parallel.</p>
-
-<p>2) Another common mistake is to override the default <code>System.out</code> by calling <code>System.setOut(PrintStream)</code> and verify by asserting against log statements.
-This tactic is often used to verify expected method invocations, which will subsequently generate some specific log entries.
-For such behavior testing, consider using <a href="https://jmockit.googlecode.com/svn-history/r2056/trunk/www/tutorial/BehaviorBasedTesting.html">Jmockit Verifications</a> instead of depending on output of logs generated.</p>
-
-<p>3) Mock logging and config classes if applicable.
-Otherwise, we might encountered errors like &ldquo;Exception encountered, logging will be disabled&rdquo;, probably thrown by JMockit.
-If there is any static initialization block in the mocked class for logging and configuration purposes, consider using <code>(stubOutClassInitialization = true)</code> (see <a href="/blog/2016/06/30/java-intermittent-test-failures/">this</a>).</p>
-
-<p>4) Choosing the right parallel execution settings can substantially improve the execution time.
-However, for parallel test runs, consider splitting big test classes (> 100 tests) that are taking much longer than others.
-As we are running test classes in parallel across multiple JVMs, it is often the case that all JVMs are shut down except for one or two which are running some big test classes.
-Splitting those classes into multiple smaller classes will distribute the load equally across multiple JVMs.</p>
-
-<p>5) Out of all the <code>maven-surefire</code> options for running tests in parallel, the one that worked considering JMockit limitations with parallel execution (and our test structure) are as below:</p>
-
-<pre><code class="xml Maven-surefire options">&lt;parallel&gt;classes&lt;/parallel&gt;
-&lt;forkCount&gt;${forkCount}&lt;/forkCount&gt;
-&lt;reuseForks&gt;false&lt;/resuseForks&gt;
-</code></pre>
 ]]></content>
   </entry>
   

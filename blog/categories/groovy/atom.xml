@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Groovy | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/groovy/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-09-30T16:02:55-07:00</updated>
+  <updated>2018-09-30T22:11:29-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,118 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Jenkins Pipeline Unit Testing]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing/"/>
+    <updated>2018-06-07T22:33:46-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/06/07/jenkins-pipeline-unit-testing</id>
+    <content type="html"><![CDATA[<p><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Jenkins shared library</a> is a powerful way for sharing Groovy code between multiple Jenkins pipelines.
+However, when many Jenkins pipelines, including mission-critical deployment pipelines, depend on such shared libraries, automated testing becomes necessary to prevent regressions whenever new changes are introduced into shared librariers.
+Despite its drawbacks, the third-party <a href="https://github.com/jenkinsci/JenkinsPipelineUnit">Pipeline Unit Testing framework</a> satisfies some of automated testing needs.
+It would allow you to do mock execution of pipeline steps and checking for expected behaviors before actually running in Jenkins.
+However, documentation for this third-party framework is severely lacking (mentioned briefly <a href="https://jenkins.io/doc/book/pipeline/development/#unit-test">here</a>) and it is one of many reasons that unit testing for Jenkins shared libraries is usually an after-thought, instead of being integrated early.
+In this blog post, we will see how to do unit testing for Jenkins shared library with the Pipeline Unit Testing framework.</p>
+
+<!--more-->
+
+
+<h3>Testing Jenkins shared library (WIP)</h3>
+
+<pre><code class="groovy buildWrapper.groovy">def call(Closure body) {
+  def config = [:]
+
+  if (body != null) {
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+  }
+
+  def settings = config.settings ?: "settings.xml"
+
+  node('java-agent') {
+    stage('Checkout') {
+      checkout scm
+    }
+
+    stage('Main') {
+      // Test Python setup
+      sh(script: 'python -c "import requests"', returnStatus: true)
+      // Test Docker setup
+      sh 'docker version'
+    }
+
+    stage('Post') {
+      // Print info of standard tools
+      sh 'ls -al'
+      sh 'java -version'
+      sh "mvn -s $settings -version"
+      sh 'python -V'
+    }
+  }
+}
+</code></pre>
+
+<p>In Jenkinsfile, you can call it as follows to use default parameters:</p>
+
+<pre><code class="groovy">buildWrapper {
+}
+</code></pre>
+
+<p>or you can set the parameters in the wrapper&rsquo;s body:</p>
+
+<pre><code class="groovy">buildWrapper {
+  settings = "dummy.xml"
+}
+</code></pre>
+
+<p>You can test that using PipelineUnitTests.</p>
+
+<p>Need to mock some function and variables</p>
+
+<p>You need to printCallStack().</p>
+
+<p>Create a text file. The file name matches the class name.</p>
+
+<p><code>testNonRegression("default")</code> to run regression tests.</p>
+
+<p>Show diff in IntelliJ.</p>
+
+<h3>Other usage</h3>
+
+<p>You can also use PipelineUnitTests to test Jenkinsfile.
+In most cases, testing Jenkinsfile will be similar to testing Groovy files in <code>vars</code> folder, as explained above, since they are quite similar.</p>
+
+<pre><code class="groovy Example Jenkinsfile">node() {
+  stage('Checkout') {
+    checkout scm
+    sh 'git clean -xdf'
+  }
+
+  stage('Build and test') {
+    sh './gradlew build'
+    junit 'build/test-results/test/*.xml'
+  }
+}
+</code></pre>
+
+<p>The process is very similar: you need to mock out some global variables and functions corresponding to Jenkins pipeline steps.
+You will need to <code>printCallStack</code> to obtain the expected output and save it into some text file.
+Then, you can use <code>testNonRegression</code> for automated verification of no-regression in Jenkinsfile.</p>
+
+<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://github.com/jenkinsci/JenkinsPipelineUnit">JenkinsPipelineUnit</a></li>
+<li><a href="https://www.youtube.com/watch?v=RmrpUtbVR7o">The talk at Jenkins World 17</a></li>
+<li><a href="https://github.com/tdongsi/jenkins-steps-override">Example</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[IntelliJ Setup for Jenkins Development]]></title>
@@ -828,210 +940,6 @@ Compared with <code>execute</code>, it has the benefit of NOT modifying the inpu
 <li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
 <li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
 <li><a href="https://dzone.com/articles/groovy-dsl-simple-example">Another example Groovy implementation</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/"/>
-    <updated>2017-08-06T21:37:20-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/06/github-rest-api</id>
-    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
-Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
-For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
-
-<!--more-->
-
-
-<h3>Working with Pull Requests</h3>
-
-<h4>Extracting Pull Request details</h4>
-
-<pre><code class="groovy Get PR body text">import groovy.json.JsonSlurper
-
-def getPrBody(String githubUsername, String githubToken, String repo, String id) {
-  String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
-
-  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
-  println "Querying ${url}"
-  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
-  def json = new JsonSlurper().parseText(text)
-  def bodyText = json.body
-
-  return bodyText
-}
-</code></pre>
-
-<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
-
-<pre><code class="groovy Equivalent curl | jq command in Jenkisfile">sh """
-curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq '.body' -r &gt; pr_body.txt
-"""
-</code></pre>
-
-<h4>Posting comment on the Pull Request</h4>
-
-<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
-
-<pre><code class="groovy Equivalent curl in Jenkinsfile">sh """
-curl -s -X POST -H "Authorization: token ${env.GITHUB_TOKEN}" --data '{"body": "${comment}"}' ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments
-"""
-</code></pre>
-
-<h4>Merge Pull Request</h4>
-
-<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
-
-<pre><code class="groovy Merge pull request">stage ("Merge PR") {
-    steps { 
-        withCredentials([usernamePassword(credentialsId: 'credential-value', usernameVariable: 'ACCESS_TOKEN_USERNAME', passwordVariable: 'ACCESS_TOKEN_PASSWORD',)]) {
-            def GITHUB = 'https://github.ibm.com/api/v3/repos'
-            sh "curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}"
-        }
-    }
-}
-</code></pre>
-
-<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
-
-<h3>Working with Branches</h3>
-
-<h4>Getting email of branch maintainer</h4>
-
-<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
-Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
-Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
-
-<!--
-Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
-That person may be not active or leave the project entirely.
--->
-
-
-<pre><code class="groovy Get email of branch maintainer.">def getBranchCreator(String githubUsername, String githubToken, String repo, String branch) {
-    String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
-
-    String url = "${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}"
-    println "Querying ${url}"
-    def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
-    def json = new JsonSlurper().parseText(text)
-
-    // Get last committer.
-    def creator = json.commit.commit.committer.email
-    // TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.
-    // In the case, committer name is 'GitHub Enterprise'.
-    if (json.commit.commit.committer.name == 'GitHub Enterprise') {
-    // Use author's email instead
-    creator = json.commit.commit.author.email
-    }
-    // TRICKY: the following can return inconsistent data, including "null".
-    // def author = json.author
-    return creator
-}
-
-// Calling from Jenkinsfile
-withCredentials([
-    [$class: 'UsernamePasswordMultiBinding', credentialsId: 'my-credentials', 
-        passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
-]) {
-    if (env.BRANCH_NAME ==~ /PR-\d+/ ) {
-        // If it is a PR build, use some distribution list
-        email = 'someemail@enterprise.com'
-    } else {
-        // NOTE: Replace env.GITHUB_USERNAME with the correct Github org name.
-        email = getBranchCreator(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'my_repo', env.BRANCH_NAME)
-    }
-}  
-</code></pre>
-
-<h4>Deleting a branch</h4>
-
-<p>Searching how to delete a branch in Github API&rsquo;s <a href="https://developer.github.com/v3/repos/branches/">Branches reference</a> does not return anything.
-In fact, to delete a branch, we have to delete its HEAD reference as shown <a href="https://developer.github.com/v3/git/refs/#delete-a-reference">here</a>.</p>
-
-<pre><code class="plain Deleting a branch">DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a
-</code></pre>
-
-<h3>More tips on Github API</h3>
-
-<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
-
-<pre><code class="json Example commit data">        "commit": {
-            "author": {
-                "name": "Cuong Dong-Si",
-                "email": "tdongsi@example.com",
-                "date": "2017-08-17T05:33:46Z"
-            },
-            "committer": {
-                "name": "Tue-Cuong Dong-Si",
-                "email": "tdongsi@example.com",
-                "date": "2017-08-17T05:33:46Z"
-            },
-            "message": "@JIRA-4214772@: Add function.",
-            "tree": {
-                "sha": "xxx",
-                "url": "xxx"
-            },
-            "url": "xxx",
-            "comment_count": 0
-        },
-</code></pre>
-
-<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
-In summary, the author is the one who created the content, and the committer is the one who committed it.
-The two fields can be different in some common Github workflows:</p>
-
-<ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#110;&#111;&#x2d;&#x72;&#x65;&#112;&#108;&#x79;&#64;&#103;&#x69;&#116;&#x68;&#x75;&#x62;&#x2e;&#99;&#x6f;&#x6d;">&#110;&#x6f;&#45;&#114;&#x65;&#x70;&#108;&#x79;&#x40;&#103;&#105;&#116;&#104;&#117;&#x62;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo;.</li>
-<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
-</ul>
-
-
-<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#116;&#111;&#58;&#x6e;&#x6f;&#45;&#114;&#x65;&#112;&#108;&#x79;&#x40;&#x67;&#105;&#x74;&#104;&#117;&#x62;&#46;&#99;&#x6f;&#x6d;">&#x6e;&#111;&#x2d;&#114;&#x65;&#112;&#108;&#121;&#64;&#103;&#105;&#116;&#x68;&#x75;&#x62;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo; which is not helpful).</p>
-
-<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
-
-<pre><code class="plain Github API limit">tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
-HTTP/1.1 200 OK
-Date: Fri, 09 Jun 2017 16:16:49 GMT
-Content-Type: application/json; charset=utf-8
-Content-Length: 1236
-Server: GitHub.com
-Status: 200 OK
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 55
-X-RateLimit-Reset: 1497025098
-Cache-Control: public, max-age=60, s-maxage=60
-Vary: Accept
-ETag: "4d7770cf5c2478bf64d23bc908494172"
-Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
-X-GitHub-Media-Type: github.v3; format=json
-Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
-Access-Control-Allow-Origin: *
-Content-Security-Policy: default-src 'none'
-Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
-X-Content-Type-Options: nosniff
-X-Frame-Options: deny
-X-XSS-Protection: 1; mode=block
-X-Runtime-rack: 0.030687
-Vary: Accept-Encoding
-X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
-Vary: Accept-Encoding
-X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
-
-...
-</code></pre>
-
-<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
-Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
 </ul>
 
 ]]></content>
