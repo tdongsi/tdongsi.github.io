@@ -216,9 +216,15 @@ Similarly, you can also have another unit test for the other use case of `buildW
   }
 ```
 
-This [example class](https://github.com/tdongsi/jenkins-steps-override/blob/master/test/vars/BuildWrapperTest.groovy) shows a complete example, together with [files of expected call stacks](https://github.com/tdongsi/jenkins-steps-override/tree/master/test/vars/callstacks).
+Any change in `buildWrapper.groovy` will be detected as test failures, as shown in the screen shot below.
 
-TODO: View diff in IntelliJ.
+![Screeshot](/images/idea/screen09.png "Difference")
+
+In IntelliJ, we can click on *Click to see difference* link to compare the actual call stack versus the expected one that was saved in the text file.
+
+![Screeshot](/images/idea/screen10.png "Compare")
+
+This [test class](https://github.com/tdongsi/jenkins-steps-override/blob/master/test/vars/BuildWrapperTest.groovy) shows a complete example, together with [files of expected call stacks](https://github.com/tdongsi/jenkins-steps-override/tree/master/test/vars/callstacks).
 
 ### Other usage
 
@@ -242,8 +248,9 @@ node() {
 The process is very similar: you need to mock out some global variables and functions corresponding to Jenkins pipeline steps.
 You will need to `printCallStack` to obtain the expected output and save it into some text file.
 Then, you can use `testNonRegression` for automated verification of no-regression in Jenkinsfile.
+[This test class](https://github.com/tdongsi/jenkins-steps-override/blob/master/test/vars/JenkinsfileTest.groovy) shows an example of testing Jenkinsfile using PipelineUnitTests.
 
-However, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT used by any other codes.
+Note that, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT used by any other codes.
 Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.
 
 ### References
