@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2018-09-30T22:27:31-07:00</updated>
+  <updated>2018-10-01T23:53:32-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -83,19 +83,140 @@ In this blog post, we will see how to do unit testing for Jenkins shared library
 
 <p>In the next section, we will look into automated testing of both use cases using JenkinsPipelineUnit.</p>
 
-<h4>Using JenkinsPipelineUnit (WIP)</h4>
+<h4>Using JenkinsPipelineUnit</h4>
 
-<p>To use JenkinsPipelineUnit, it is recommended to set up in IntelliJ following <a href="/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/">this tutorial</a>.</p>
+<p>To use JenkinsPipelineUnit, it is recommended to set up IntelliJ following <a href="/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/">this tutorial</a>.</p>
 
-<p>Need to mock some function and variables</p>
+<p>To test the above <code>buildWrapper.groovy</code> using the Jenkins Pipeline Unit, you can start with a unit test for the second use case as follows:</p>
 
-<p>You need to printCallStack().</p>
+<pre><code class="groovy">  /**
+   * Represent the call:
+   *     buildWrapper {
+   *       settings = "dummy.xml"
+   *     }
+   *
+   * @throws Exception
+   */
+  @Test
+  public void configured() throws Exception {
+    def script = loadScript('vars/buildWrapper.groovy')
+    script.call({
+      settings = "dummy.xml"
+    })
 
-<p>Create a text file. The file name matches the class name.</p>
+    printCallStack()
+  }
+</code></pre>
 
-<p><code>testNonRegression("default")</code> to run regression tests.</p>
+<p>Unfortunately, when executing that unit test, it is very likely that you will get various errors that are not well-explained by JenkinsPipelineUnit documentation.</p>
 
-<p>Show diff in IntelliJ.</p>
+<pre><code class="plain Stack trace">groovy.lang.MissingPropertyException: No such property: scm for class: demoWrapper
+
+    at org.codehaus.groovy.runtime.ScriptBytecodeAdapter.unwrap(ScriptBytecodeAdapter.java:66)
+    at org.codehaus.groovy.runtime.callsite.PogoGetPropertySite.getProperty(PogoGetPropertySite.java:51)
+    at org.codehaus.groovy.runtime.callsite.AbstractCallSite.callGroovyObjectGetProperty(AbstractCallSite.java:310)
+    at demoWrapper$_call_closure1$_closure2.doCall(demoWrapper.groovy:19)
+</code></pre>
+
+<p>The short explanation is that the mock execution environment is not properly set up.
+First, we need to call <code>setUp()</code> from the base class BaseRegressionTest of JenkinsPipelineUnit to set up the mock execution environment.
+In addition, since most Groovy scripts will have this statement <code>checkout scm</code>, we need to <a href="https://github.com/jenkinsci/JenkinsPipelineUnit#mock-jenkins-variables">mock the Jenkins global variable</a> <code>scm</code>, which represents the SCM state (e.g., Git commit) associated with the current Jenkinsfile.
+The most simple way to mock it is to set it to empty state as follows:</p>
+
+<pre><code class="groovy Mocking Jenkins variable scm">binding.setVariable('scm', [:])
+</code></pre>
+
+<p>We can also set it to a more meaningful value such as a Git branch as follows:</p>
+
+<pre><code class="groovy Mocking Jenkins variable scm">    binding.setVariable('scm', [
+        $class: 'GitSCM',
+        branches: [[name: 'master']],
+        doGenerateSubmoduleConfigruations: false,
+        extensions: [],
+        submoduleCfg: [],
+        userRemoteConfigs: [[url: "/var/git-repo"]]
+    ])
+</code></pre>
+
+<p>However, an empty <code>scm</code> will usually suffice.
+Besides Jenkins variables, we can also <a href="https://github.com/jenkinsci/JenkinsPipelineUnit#mock-jenkins-commands">register different Jenkins steps/commands</a> as follows:</p>
+
+<pre><code class="groovy Mocking Jenkins step library">helper.registerAllowedMethod('library', [String.class], null)
+</code></pre>
+
+<p>After going through the setup steps above, you should have the following setup method like this:</p>
+
+<pre><code class="groovy Minimum setup method">import com.lesfurets.jenkins.unit.BaseRegressionTest
+
+class DemoTest extends BaseRegressionTest {
+
+  @Override
+  @Before
+  public void setUp() throws Exception {
+    super.setUp();
+    binding.setVariable('scm', [:])
+    helper.registerAllowedMethod('library', [String.class], null)
+  }
+...
+}
+</code></pre>
+
+<p>Rerunning the above unit test will show the full stack of execution:</p>
+
+<pre><code class="plain">   buildWrapper.call(groovy.lang.Closure)
+      buildWrapper.node(java-agent, groovy.lang.Closure)
+         buildWrapper.stage(Checkout, groovy.lang.Closure)
+            buildWrapper.checkout({})
+         buildWrapper.stage(Main, groovy.lang.Closure)
+            buildWrapper.sh({script=python -c "import requests", returnStatus=true})
+            buildWrapper.sh(docker version)
+         buildWrapper.stage(Post, groovy.lang.Closure)
+            buildWrapper.sh(ls -al)
+            buildWrapper.sh(java -version)
+            buildWrapper.sh(mvn -s dummy.xml -version)
+            buildWrapper.sh(python -V)
+</code></pre>
+
+<p>For automated detection of regression, we need to save the expected call stack above into a file into a location known to JenkinsPipelineUnit.
+You can specify the location of such call stacks by overriding the field <code>callStackPath</code> of BaseRegressionTest in <code>setUp</code> method.
+The file name should follow the convention <code>${ClassName}_${subname}.txt</code> where <code>subname</code> is specified by <code>testNonRegression</code> method in each test case.
+Then, you can update the above test case to perform regression check as follows:</p>
+
+<pre><code class="groovy">  @Test
+  public void configured() throws Exception {
+    def script = loadScript('vars/demoWrapper.groovy')
+    script.call({
+      settings = "dummy.xml"
+    })
+
+    // printCallStack()
+    testNonRegression("configured")
+  }
+</code></pre>
+
+<p>In this example, the above call stack should be saved into <code>DemoTest_configured.txt</code> file at the location specified by <code>callStackPath</code>.
+Similarly, you can also have another unit test for the other use case of <code>buildWrapper</code>.</p>
+
+<pre><code class="groovy">  /**
+   * Represent the call:
+   * buildWrapper {
+   * }
+   *
+   * @throws Exception
+   */
+  @Test
+  public void default_value() throws Exception {
+    def script = loadScript('vars/buildWrapper.groovy')
+    script.call({})
+
+    // printCallStack()
+    testNonRegression("default")
+  }
+</code></pre>
+
+<p>This <a href="https://github.com/tdongsi/jenkins-steps-override/blob/master/test/vars/BuildWrapperTest.groovy">example class</a> shows a complete example, together with <a href="https://github.com/tdongsi/jenkins-steps-override/tree/master/test/vars/callstacks">files of expected call stacks</a>.</p>
+
+<p>TODO: View diff in IntelliJ.</p>
 
 <h3>Other usage</h3>
 
@@ -119,7 +240,7 @@ In most cases, testing Jenkinsfile will be similar to testing Groovy files in <c
 You will need to <code>printCallStack</code> to obtain the expected output and save it into some text file.
 Then, you can use <code>testNonRegression</code> for automated verification of no-regression in Jenkinsfile.</p>
 
-<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT depended on by any other codes.
+<p>However, unlike Groovy files in <code>vars</code> folder, Jenkinsfiles are regularly updated and usually NOT used by any other codes.
 Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.</p>
 
 <h3>References</h3>
