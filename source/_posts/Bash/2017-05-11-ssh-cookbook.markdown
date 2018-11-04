@@ -63,6 +63,17 @@ keytool -list -v -keystore kstore
 keytool -import -alias "sfdc root" -keystore $JAVA_HOME/jre/lib/security/cacerts -file ~/Downloads/sfdc_root.cert 
 ```
 
+Recipe 5: How to check if a private key file matches a public key file (both in PEM format).
+
+``` plain Recipe 5: Check if public and private key match
+# openssl x509 -noout -modulus -in chain.pem | openssl md5
+(stdin)= c416781461f0c1c5c59489e658e4b4c5
+
+# openssl rsa -noout -modulus -in key.pem | openssl md5
+Enter pass phrase for key.pem:
+(stdin)= c416781461f0c1c5c59489e658e4b4c5
+```
+
 ### `-R` and `-L` of `ssh`
 
 Those options stands for remote and local port forwarding.
