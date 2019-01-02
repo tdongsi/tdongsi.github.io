@@ -15,6 +15,7 @@ This post shows how to customize standard Pipeline "steps" in Jenkinsfile beside
 List of basic Jenkinsfile steps in this post:
 
 * `checkout`/`git`
+* `emailext`
 * `findFiles`
 * `input`
 * `junit`
@@ -49,6 +50,28 @@ Reference:
 * [`git` example](https://stackoverflow.com/questions/14843696/checkout-multiple-git-repos-into-same-jenkins-workspace)
 * [`checkout` step](https://jenkins.io/doc/pipeline/steps/workflow-scm-step/#checkout-general-scm)
 * [`checkout` README](https://github.com/jenkinsci/workflow-scm-step-plugin/blob/master/README.md)
+
+### `emailext` step
+
+To send email as HTML page, set content type to HTML and use content as `${FILE,path="email.html"}`.
+In Jenkinsfile, the code should look like this:
+
+``` groovy Send HTML report as email
+emailext(
+    subject: 'Deploy Notice',
+    to: EMAIL_AUDIENCE,
+    body: '${FILE,path="deploy_email.html"}',
+    presendScript: '$DEFAULT_PRESEND_SCRIPT',
+    replyTo: 'devops@my.company.com',
+    mimeType: 'text/html'   // email as HTML
+)
+```
+
+Note that it's single-quoted strings, not double-quoted, being used for `body` and `presendScript` parameters in the example code above.
+
+Reference:
+
+* [How to embed HTML report?](https://support.cloudbees.com/hc/en-us/articles/226237768-How-to-embed-html-report-in-email-body-using-Email-ext-plugin-)
 
 ### `findFiles` step
 

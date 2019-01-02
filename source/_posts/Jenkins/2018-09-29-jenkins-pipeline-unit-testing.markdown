@@ -250,7 +250,7 @@ You will need to `printCallStack` to obtain the expected output and save it into
 Then, you can use `testNonRegression` for automated verification of no-regression in Jenkinsfile.
 [This test class](https://github.com/tdongsi/jenkins-steps-override/blob/master/test/vars/JenkinsfileTest.groovy) shows an example of testing Jenkinsfile using PipelineUnitTests.
 
-Note that, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT used by any other codes.
+Note that, unlike Groovy files in `vars` folder, Jenkinsfiles are regularly updated and usually NOT depended/used by any other codes.
 Therefore, automated tests for Jenkinsfile are not very common because of the cost/effort required.
 
 ### References
