@@ -1,0 +1,746 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Job DSL Plugin in Jenkins - Personal Programming Notes</title>
+  <meta name="author" content="Cuong Dong-Si">
+
+  
+  <meta name="description" content="How Job DSL plugin works and why it is losing its dominance to Jenkins Pipeline. Job DSL Minimal Job DSL1
+2
+3
+4
+5
+6
+7
+8
+9
+job(&#39;Demo&#39;) { &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://tdongsi.github.io/blog/2016/10/30/job-dsl-plugin-in-jenkins/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Personal Programming Notes" type="application/atom+xml">
+  <link href="/stylesheets/data-table.css" media="screen, projection" rel="stylesheet" type="text/css" />
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+<!-- MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript"
+   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Personal Programming Notes</a></h1>
+  
+    <h2>To err is human; to debug, divine.</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="sitesearch" value="tdongsi.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/disclaimer">Disclaimer</a></li>
+  <li><a href="/resume">Resume</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Job DSL Plugin in Jenkins</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-10-30T18:27:07-07:00'><span class='date'><span class='date-month'>Oct</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:27 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>How Job DSL plugin works and why it is losing its dominance to Jenkins Pipeline.</p>
+
+<!--more-->
+
+
+<h3>Job DSL</h3>
+
+<figure class='code'><figcaption><span>Minimal Job DSL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">job</span><span class="o">(</span><span class="s1">&#39;Demo&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">description</span><span class="o">(</span><span class="s2">&quot;Starting pipeline&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">logRotator</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">daysToKeep</span><span class="o">(</span><span class="mi">15</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">shell</span><span class="o">(</span><span class="s1">&#39;echo &quot;Hello World&quot;&#39;</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To illustrate the idea.
+Obviously, lots of work need to be done to make sure the final generated <code>config.xml</code> is valid, including escaping special characters.</p>
+
+<figure class='code'><figcaption><span>Simple implementation of Job DSL</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kd">class</span> <span class="nc">GroovyDsl</span> <span class="o">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="nf">description</span><span class="o">(</span><span class="n">String</span> <span class="n">description</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">print</span> <span class="s1">&#39;&lt;description&gt;&#39;</span>
+</span><span class='line'>        <span class="n">print</span> <span class="n">description</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;/description&gt;&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="nf">logRotator</span><span class="o">(</span><span class="n">Closure</span> <span class="n">inner</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;logRotator&gt;&#39;</span>
+</span><span class='line'>        <span class="n">inner</span><span class="o">()</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;/logRotator&gt;&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kt">def</span> <span class="nf">steps</span><span class="o">(</span><span class="n">Closure</span> <span class="n">inner</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;builders&gt;&#39;</span>
+</span><span class='line'>        <span class="n">inner</span><span class="o">()</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;/builders&gt;&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">static</span> <span class="kt">void</span> <span class="nf">job</span><span class="o">(</span><span class="n">String</span> <span class="n">name</span><span class="o">,</span> <span class="n">Closure</span> <span class="n">closure</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">GroovyDsl</span> <span class="n">body</span> <span class="o">=</span> <span class="k">new</span> <span class="n">GroovyDsl</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Generating a Freestyle job $name&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s2">&quot;Save the following into config.xml file&quot;</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;project&gt;&#39;</span>
+</span><span class='line'>        <span class="n">body</span><span class="o">.</span><span class="na">with</span><span class="o">(</span><span class="n">closure</span><span class="o">)</span>
+</span><span class='line'>        <span class="n">println</span> <span class="s1">&#39;&lt;/project&gt;&#39;</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">daysToKeep</span><span class="o">(</span><span class="kt">int</span> <span class="n">num</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s2">&quot;&lt;daysToKeep&gt;$num&lt;/daysToKeep&gt;&quot;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;numToKeep&gt;-1&lt;/numToKeep&gt;&#39;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;artifactDaysToKeep&gt;-1&lt;/artifactDaysToKeep&gt;&#39;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;artifactNumToKeep&gt;-1&lt;/artifactNumToKeep&gt;&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">shell</span><span class="o">(</span><span class="n">String</span> <span class="n">cmd</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;hudson.tasks.Shell&gt;&#39;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;command&gt;&#39;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="n">cmd</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;/command&gt;&#39;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s1">&#39;&lt;/hudson.tasks.Shell&gt;&#39;</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">GroovyDsl</span><span class="o">.</span><span class="na">job</span><span class="o">(</span><span class="s1">&#39;Demo&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">description</span><span class="o">(</span><span class="s2">&quot;Starting pipeline&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">logRotator</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">daysToKeep</span><span class="o">(</span><span class="mi">15</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">shell</span><span class="o">(</span><span class="s1">&#39;echo &quot;Hello World&quot;&#39;</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<figure class='code'><figcaption><span>Output of the above script</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'>Generating a Freestyle job Demo
+</span><span class='line'>Save the following into config.xml file
+</span><span class='line'><span class="nt">&lt;project&gt;</span>
+</span><span class='line'><span class="nt">&lt;description&gt;</span>Starting pipeline<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'><span class="nt">&lt;logRotator&gt;</span>
+</span><span class='line'><span class="nt">&lt;daysToKeep&gt;</span>15<span class="nt">&lt;/daysToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;numToKeep&gt;</span>-1<span class="nt">&lt;/numToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;artifactDaysToKeep&gt;</span>-1<span class="nt">&lt;/artifactDaysToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;artifactNumToKeep&gt;</span>-1<span class="nt">&lt;/artifactNumToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;/logRotator&gt;</span>
+</span><span class='line'><span class="nt">&lt;builders&gt;</span>
+</span><span class='line'><span class="nt">&lt;hudson.tasks.Shell&gt;</span>
+</span><span class='line'><span class="nt">&lt;command&gt;</span>
+</span><span class='line'>echo &quot;Hello World&quot;
+</span><span class='line'><span class="nt">&lt;/command&gt;</span>
+</span><span class='line'><span class="nt">&lt;/hudson.tasks.Shell&gt;</span>
+</span><span class='line'><span class="nt">&lt;/builders&gt;</span>
+</span><span class='line'><span class="nt">&lt;/project&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Compared with the Jenkins config.xml of the Freestyle job generated by the same Job DSL, we can see that there is not much different.</p>
+
+<figure class='code'><figcaption><span>Output of config.xml in Jenkins</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='xml'><span class='line'><span class="nt">&lt;project&gt;</span>
+</span><span class='line'><span class="nt">&lt;actions/&gt;</span>
+</span><span class='line'><span class="nt">&lt;description&gt;</span>Starting pipeline<span class="nt">&lt;/description&gt;</span>
+</span><span class='line'><span class="nt">&lt;keepDependencies&gt;</span>false<span class="nt">&lt;/keepDependencies&gt;</span>
+</span><span class='line'><span class="nt">&lt;properties/&gt;</span>
+</span><span class='line'><span class="nt">&lt;scm</span> <span class="na">class=</span><span class="s">&quot;hudson.scm.NullSCM&quot;</span><span class="nt">/&gt;</span>
+</span><span class='line'><span class="nt">&lt;canRoam&gt;</span>true<span class="nt">&lt;/canRoam&gt;</span>
+</span><span class='line'><span class="nt">&lt;disabled&gt;</span>false<span class="nt">&lt;/disabled&gt;</span>
+</span><span class='line'><span class="nt">&lt;blockBuildWhenDownstreamBuilding&gt;</span>false<span class="nt">&lt;/blockBuildWhenDownstreamBuilding&gt;</span>
+</span><span class='line'><span class="nt">&lt;blockBuildWhenUpstreamBuilding&gt;</span>false<span class="nt">&lt;/blockBuildWhenUpstreamBuilding&gt;</span>
+</span><span class='line'><span class="nt">&lt;triggers/&gt;</span>
+</span><span class='line'><span class="nt">&lt;concurrentBuild&gt;</span>false<span class="nt">&lt;/concurrentBuild&gt;</span>
+</span><span class='line'><span class="nt">&lt;builders&gt;</span>
+</span><span class='line'><span class="nt">&lt;hudson.tasks.Shell&gt;</span>
+</span><span class='line'><span class="nt">&lt;command&gt;</span>echo &quot;Hello World&quot;<span class="nt">&lt;/command&gt;</span>
+</span><span class='line'><span class="nt">&lt;/hudson.tasks.Shell&gt;</span>
+</span><span class='line'><span class="nt">&lt;/builders&gt;</span>
+</span><span class='line'><span class="nt">&lt;publishers/&gt;</span>
+</span><span class='line'><span class="nt">&lt;buildWrappers/&gt;</span>
+</span><span class='line'><span class="nt">&lt;logRotator&gt;</span>
+</span><span class='line'><span class="nt">&lt;daysToKeep&gt;</span>15<span class="nt">&lt;/daysToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;numToKeep&gt;</span>-1<span class="nt">&lt;/numToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;artifactDaysToKeep&gt;</span>-1<span class="nt">&lt;/artifactDaysToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;artifactNumToKeep&gt;</span>-1<span class="nt">&lt;/artifactNumToKeep&gt;</span>
+</span><span class='line'><span class="nt">&lt;/logRotator&gt;</span>
+</span><span class='line'><span class="nt">&lt;/project&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Cuong Dong-Si</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2016-10-30T18:27:07-07:00'><span class='date'><span class='date-month'>Oct</span> <span class='date-day'>30</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>6:27 pm</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/groovy/'>groovy</a>, <a class='category' href='/blog/categories/jenkins/'>jenkins</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://tdongsi.github.io/blog/2016/10/30/job-dsl-plugin-in-jenkins/" data-via="" data-counturl="http://tdongsi.github.io/blog/2016/10/30/job-dsl-plugin-in-jenkins/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2016/10/30/automated-downloading-bart-parking-permits/" title="Previous Post: Automated downloading BART parking permits">&laquo; Automated downloading BART parking permits</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2017/01/16/kubernetes-pulling-from-private-image-repository/" title="Next Post: Kubernetes: pause container and private Docker registry">Kubernetes: pause container and private Docker registry &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+    <h1>About Me</h1>
+    <p>I write about random things that come to mind, mostly for my future self and any visitor who might find useful.</p>
+</section><section>
+<h1>Featured Posts</h1>
+<ul id="featured_posts">
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/">IntelliJ setup for Jenkins development</a>
+                </li>
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2017/12/31/minikube-in-corporate-vpn/">Minikube in corporate VPN</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2017/04/23/docker-out-of-docker/">Docker-in-Docker vs Docker-out-of-Docker</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2016/10/30/automated-downloading-bart-parking-permits/">Automated downloading BART parking permits</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2016/07/14/priority-queue-recipe-in-python/">Improved Priority Queue recipe in Python</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2016/04/20/rabin-miller-primality-test/">Rabin-Miller primality test</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+                <li class="post">
+                <a href="/blog/2016/02/03/vertica-6-with-clause/">WITH clause in SQL</a>
+                </li>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+</ul>
+</section><section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2018/06/07/jenkins-pipeline-unit-testing/">Jenkins Pipeline Unit Testing</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2018/02/09/intellij-setup-for-jenkins-shared-library-development/">IntelliJ Setup for Jenkins Development</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2018/01/14/design-patterns-for-container-based-distributed-systems/">Design Patterns for Container-based Distributed Systems</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/12/31/minikube-in-corporate-vpn/">Minikube in Corporate VPN</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/12/30/groovy-hook-script-and-jenkins-configuration-as-code/">Groovy Hook Script and Jenkins Configuration as Code</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/12/26/class-in-jenkins-shared-library/">`src` Folder in Jenkins Shared Library</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2017/10/09/tcp-ping/">TCP Ping</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/tdongsi">@tdongsi</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'tdongsi',
+            count: 5,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+<section>
+  <h1>Categories</h1>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (11)</a></li><li><a href='/blog/categories/book/'>book (9)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (11)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (2)</a></li><li><a href='/blog/categories/groovy/'>groovy (14)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (10)</a></li><li><a href='/blog/categories/hive/'>hive (8)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (2)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (18)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (9)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (5)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (12)</a></li><li><a href='/blog/categories/testing/'>testing (7)</a></li><li><a href='/blog/categories/testng/'>testng (3)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2019 - Cuong Dong-Si -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id; js.async = true;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
