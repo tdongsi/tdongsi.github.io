@@ -126,7 +126,7 @@ SunOS, HP-UX
 
 ### Work Experience
 
-**Software Development Engineer 4**, <a name="Apple">Apple</a> (7/2018 - present)
+**Senior SDE**, <a name="Apple">Apple</a> (7/2018 - present)
 
 * [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 
