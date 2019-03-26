@@ -161,8 +161,8 @@ SunOS, HP-UX
 
 * Designed and implemented automation frameworks to facilitate scalable testing for company’s database products, Objectivity and InfiniteGraph.
 * Selected Projects and Achievements:
-    * Designed and implemented test plans for measuring data ingestion performance of graph database InfiniteGraph in distributed multi-client settings. 
-      Fully automated performance tests using Python, in which multiple Java-based clients are compiled and ingest data simultaneously from multiple remote Windows and Linux hosts.
+    * Designed and implemented performance benchmark for measuring data ingestion performance of graph database InfiniteGraph in distributed settings, 
+      including automated performance test framework in Python that orchestrate Java-based clients ingesting data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
     * Developed functional tests for Talend data connectors in ETL pipelines for transforming data from MySQL and Cassandra databases to Objectivity databases.
     * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
