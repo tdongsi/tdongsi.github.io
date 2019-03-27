@@ -48,6 +48,14 @@ Want to do: Javascript, Go
   SLF4J, JCommander, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
   Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+* **Python stack**:
+  PyPI, virtualenv, 
+  Jupyter, numpy, scipy,
+  Flake.
+* **Ruby stack**:
+  rake,
+  Gem/Bundle,
+  Rails.
 * **JavaScript stack**:
   NodeJS, <!-- ExpressJS, MongoDB -->
   Grunt, npm, <!-- Build -->
