@@ -139,20 +139,24 @@ SunOS, HP-UX
 * [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 
 <!--
-* Became Okehee’s personsal “Stackoverflow" on Orca-Jenkins and supporting services (AppleConnect, Splunk). Created Jenkins libraries (orca-jenkins-shared-library) and pipelines for Job-DSL and Jenkinsfile-based jobs.
-* Modernized Jenkins-based deployment pipelines for DEVEL/TEST/QA/STAGING: from separate, divergent, GUI-based Jenkins pipelines to unified, code-based pipelines. Use Jenkins shared library for additional abstraction to keep shared codes into single location. TODO: Consistent deployment codes 
-* Various improvements to deployment systems: less parameter input, less manual update, various bug fixes in Python deployment scripts.
-* Set up a Jenkins-beta box (fs06) for different risky executions (multiple Jenkins upgrade exercises, AppleConnect) without impacting production devops-jenkins. 
+What were your key achievements?
+
+* Modernized Jenkins-based deployment pipelines for DEVEL/TEST/QA/STAGING: from separate, divergent, GUI-based Jenkins pipelines to unified, code-based pipelines.
+  * Consistent deployment codes improve productivity in investigating deployment issues and help experiences carried from deploying in lower environments to higher ones.
+  * Use Jenkins shared library for additional abstraction to keep shared codes into single location.
+  * Various improvements to deployment systems: less parameter input, less manual update, various bug fixes in Python deployment scripts.
 * Advocated for notifications on HipChat instead of emails for better experience (i.e., mailbox too noisy). Successfully implemented on devops-jenkins. 
-    * Slack migration: successfully investigated for similar integration with Slack (commonly believed impossible due to devops-jenkins in DCVPN) and adjusted devops-jenkins implementation accordingly for Slack. 
+  * Slack migration: successfully investigated for similar integration with Slack (commonly believed impossible due to devops-jenkins in DCVPN) and adjusted devops-jenkins implementation accordingly for Slack. 
 * Improved secret management practices for DevOps tools and code: using Jenkins secret files instead of direct file handling on Jenkins VM (PIE Secrets), using Jenkins secret environment variables instead of checking secrets/tokens into Github.
 * Security tasks: 
-    * secrets/tokens cleaned up from DevOps repos.
+    * cleaned up secrets/tokens from DevOps repos.
     * implemented HTTPS and AppleConnect (SAML) on DevOps and Orca Jenkins.
     * addressed Splunk logging requirements from ISG for devops-jenkins and orca-jenkins (PV and MR).
     * addressed Project Hogwarts audits, ASO-Security audits. 
-    * checked and updated Apple root CA/trust store settings for devops-jenkins, news-orca (PV and MR), Python clients. Helped developers (esp. Data-Engineering team) to resolve related Gradle issues on their local machines.
+    * checked and updated Apple root CA/trust store settings for devops-jenkins, news-orca (PV and MR), Python clients. Helped developers (esp. Data-Engineering team) to resolve related Gradle issues on their machines.
 * Jenkins Splunk dashboards for DevOps-Jenkins and News-Orca. Presentation for Data Engineering team on what queries Splunk can answer for Jenkins operations.
+* Became Okehee’s personsal “Stackoverflow" on Orca-Jenkins and supporting services (AppleConnect, Splunk). Created Jenkins libraries (orca-jenkins-shared-library) and pipelines for Job-DSL and Jenkinsfile-based jobs.
+* Set up a Jenkins-beta box (fs06) for different risky executions (multiple Jenkins upgrade exercises, AppleConnect) without impacting production devops-jenkins. 
 * PIE CLI, Secrets CLI: maintenance, bug fixing. Inherited the code base from Girish, fixed bugs despite little knowledge sharing, added functional & unit tests to improve code quality.
 * Secrets v2: 
     * HTML files showing two-way mapping for applications and secret keys (in v1) to help team with Secrets migration.
