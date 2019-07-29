@@ -145,7 +145,9 @@ What were your key achievements?
   * Consistent deployment codes improve team productivity in investigating deployment issues and help experiences carried from deploying in lower environments to higher ones.
   * Used Jenkins shared library for additional abstraction to keep large code sections shared by 4 pipelines into single location (i.e., Don't Repeat Yourself principle).
   * Various improvements to deployment systems: less parameter input, less manual update, various bug fixes in Python deployment scripts.
-* PIE CLI, Secrets CLI: maintenance, bug fixing. Inherited the code base from Girish, fixed bugs despite little knowledge sharing. Introduced mocking and added numerous functional & unit tests as proof of funtionality in cases of exceptional scenarios (e.g., 4xx/5xx from PIE APIs) and to prevent regressions.
+* PIE CLI, Secrets CLI: maintenance, bug fixing. Inherited the code base from Girish, fixed bugs despite little knowledge transfer. 
+  * Made the tools more resilient against exceptional scenarios (e.g., 4xx/5xx from PIE APIs). Introduced mocking as proof of functionality.
+  * Added numerous functional & unit tests to prevent regressions.
 * Improved secret management practices for DevOps tools and code: using Jenkins secret files instead of direct file handling on Jenkins VM (PIE Secrets), using Jenkins secret environment variables instead of checking secrets/tokens into Github.
 * Security tasks: 
   * cleaned up secrets/tokens from DevOps repos.
