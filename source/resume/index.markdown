@@ -27,27 +27,33 @@ Checklist:
 <!--
 Want to do: Javascript, Go
 -->
+<!-- SKIPPED:
+* Languages: Matlab, [Perl](/blog/categories/perl/).
+* Database: XPath, XQuery.
+* Java stack: 
+  * Libraries: Guava, SLF4J, JCommander.
+  * Build: Ant.
+  * Test: Gatling, JMeter, JMockit, RestAssured.
+-->
 * **Languages**: 
   [Java](/blog/categories/java/), 
   C/C++, 
   [Python](/blog/categories/python/), 
-  Scala, Groovy, Javascript,
-  [Perl](/blog/categories/perl/),
-  [bash](/blog/categories/bash/). <!-- Matlab, Ruby -->
+  Scala, Groovy, Javascript, 
+  Go, Ruby,
+  [bash](/blog/categories/bash/). 
 * [**Database**](/blog/categories/database/): 
+  [Cassandra](/blog/categories/cassandra/),
   [SQLite](/blog/categories/sqlite/), 
   [MySQL](/blog/categories/mysql/),
-  [SQL](/blog/categories/sql/), 
-  XPath, 
-  XQuery,
+  [SQL](/blog/categories/sql/),
   Data Warehouse.
 * **Java stack**: 
-  Guava, 
   Spring, 
-  [JDBC](/blog/categories/jdbc/),
-  SLF4J, JCommander, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
-  [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
-  Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+  [JDBC](/blog/categories/jdbc/),  <!-- Libraries -->
+  [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
+  [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
+  [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **Python stack**:
   PyPI, virtualenv, 
   Jupyter, numpy, scipy,
@@ -57,7 +63,7 @@ Want to do: Javascript, Go
   Gem/Bundle,
   Rails.
 * **JavaScript stack**:
-  NodeJS, <!-- ExpressJS, MongoDB -->
+  NodeJS, React, jQuery <!-- ExpressJS, MongoDB -->
   Grunt, npm, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
   HTML, CSS.
@@ -75,8 +81,7 @@ Want to do: Javascript, Go
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
   HBase,
   Kafka,
-  [Vertica](/blog/categories/vertica/), 
-  [Cassandra](/blog/categories/cassandra/).
+  [Vertica](/blog/categories/vertica/).
 * **Tools**:
   * DevOps:
     [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
