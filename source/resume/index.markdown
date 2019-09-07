@@ -31,90 +31,80 @@ Want to do: Javascript, Go
 * Languages: Matlab, [Perl](/blog/categories/perl/).
 * Database: XPath, XQuery.
 * Java stack: 
-  * Libraries: Guava, SLF4J, JCommander.
-  * Build: Ant.
+  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets)
+  * Build: Ant, sbt (Scala)
   * Test: Gatling, JMeter, JMockit, RestAssured.
+* Python stack: PyPI, virtualenv.
+* **Ruby stack**: rake, Gem/Bundle, Rails.
+* JavaScript stack: ExpressJS, MongoDB.
+* Others: ANTLR, Boost, OpenCV, Eigen
+* Platform: SunOS, HP-UX
+* Big Data:
+Dimensional Modeling (Kimball)
+Netezza
+Tableau
+* Tools:
+  * DevOps: Datadog, SonarQube, Nexus
+  * Teamware: MediaWiki, Confluence
+  * Version control: Subversion
+  * IDE: Visual Studio
 -->
-* **Languages**: 
-  [Java](/blog/categories/java/), 
-  C/C++, 
+* **Language**: 
+  [Java](/blog/categories/java/),
   [Python](/blog/categories/python/), 
   Scala, Groovy, Javascript, 
-  Go, Ruby,
+  Go, C/C++,
+  Ruby,
   [bash](/blog/categories/bash/). 
 * [**Database**](/blog/categories/database/): 
   [Cassandra](/blog/categories/cassandra/),
+  HBase,
   [SQLite](/blog/categories/sqlite/), 
   [MySQL](/blog/categories/mysql/),
-  [SQL](/blog/categories/sql/),
-  Data Warehouse.
+  [SQL](/blog/categories/sql/).
 * **Java stack**: 
-  Spring, 
+  IntelliJ, Eclipse, Spring, 
   [JDBC](/blog/categories/jdbc/),  <!-- Libraries -->
   [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
   [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **Python stack**:
-  PyPI, virtualenv, 
-  Jupyter, numpy, scipy,
-  Flake.
-* **Ruby stack**:
-  rake,
-  Gem/Bundle,
-  Rails.
-* **JavaScript stack**:
-  NodeJS, React, jQuery <!-- ExpressJS, MongoDB -->
+  PyCharm, Jupyter, Pandas,
+  [Numpy](/blog/categories/numpy/), 
+  [Matplotlib](/blog/categories/matplotlib/),
+  Flask.
+* **JavaScript/Web stack**:
+  Node.js, React.js, jQuery, <!-- Framework -->
   Grunt, npm, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
-  HTML, CSS.
-* **Other libraries**: 
-  ANTLR, Boost, OpenCV, Eigen, 
-  [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/matplotlib/).
-* **OS & Platforms**: 
+  HTML/CSS.
+* **Platform**: 
   [Windows](/blog/categories/windows/), 
   [Mac OS](/blog/categories/macosx/), 
   [CentOS](/blog/categories/centos/),
-  Ubuntu, 
-  [Amazon Web Services](/blog/categories/aws/).
+  Ubuntu,
+  [Docker](/blog/categories/docker/), Kubernetes, <!-- Container -->
+  [AWS](/blog/categories/aws/), GCP,
+  Heroku.
 * **Big Data**:
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
-  HBase,
+  Spark,
   Kafka,
-  [Vertica](/blog/categories/vertica/).
+  [Vertica](/blog/categories/vertica/),
+  Data Warehouse.
 * **Tools**:
   * DevOps:
-    [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
+    [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
+    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
     Chef, <!-- Configuration: Puppet, Ansible --> 
-    Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
-    [Docker](/blog/categories/docker/), Kubernetes. <!-- Container -->
+    Vagrant. <!-- Virtualization: VMWare, VirtualBox --> 
   * Version control:
     [Git](/blog/categories/git/), 
     [Github](https://github.com/tdongsi), 
     SourceTree, 
-    Perforce, Subversion.
+    Perforce.
   * Teamware:
-    MediaWiki, Confluence, JIRA, Trello, Slack.
-  * IDE:
-    IntelliJ, PyCharm,
-    [Eclipse](/blog/categories/eclipse/), 
-    Visual Studio.
-<!--
-SKIPPED: in section, then alphabet order
-
-Dimensional Modeling (Kimball)
-Netezza
-Tableau
-
-Make
-PowerShell
-Rake (Ruby)
-sbt (Scala)
-Spinnaker
-SunOS, HP-UX
-[Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
--->
+    JIRA, Trello, Slack.
  
 ### Honor & Awards
 
