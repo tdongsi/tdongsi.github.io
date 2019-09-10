@@ -25,7 +25,7 @@ Checklist:
 ### Skills
 
 <!--
-Want to do: Javascript, Go
+Want to do: 
 -->
 <!-- SKIPPED:
 * Languages: Matlab, [Perl](/blog/categories/perl/).
@@ -44,7 +44,7 @@ Dimensional Modeling (Kimball)
 Netezza
 Tableau
 * Tools:
-  * DevOps: Datadog, SonarQube, Nexus
+  * DevOps: Datadog, SonarQube, Nexus, Puppet, Ansible, VMWare, VirtualBox
   * Teamware: MediaWiki, Confluence
   * Version control: Subversion
   * IDE: Visual Studio
@@ -56,12 +56,6 @@ Tableau
   Go, C/C++,
   Ruby,
   [bash](/blog/categories/bash/). 
-* [**Database**](/blog/categories/database/): 
-  [Cassandra](/blog/categories/cassandra/),
-  HBase,
-  [SQLite](/blog/categories/sqlite/), 
-  [MySQL](/blog/categories/mysql/),
-  [SQL](/blog/categories/sql/).
 * **Java stack**: 
   IntelliJ, Eclipse, Spring, 
   [JDBC](/blog/categories/jdbc/),  <!-- Libraries -->
@@ -73,7 +67,7 @@ Tableau
   [Numpy](/blog/categories/numpy/), 
   [Matplotlib](/blog/categories/matplotlib/),
   Flask.
-* **JavaScript/Web stack**:
+* **Web stack**:
   Node.js, React.js, jQuery, <!-- Framework -->
   Grunt, npm, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
@@ -86,6 +80,12 @@ Tableau
   [Docker](/blog/categories/docker/), Kubernetes, <!-- Container -->
   [AWS](/blog/categories/aws/), GCP,
   Heroku.
+* [**Database**](/blog/categories/database/): 
+  [Cassandra](/blog/categories/cassandra/),
+  HBase,
+  [SQLite](/blog/categories/sqlite/), 
+  [MySQL](/blog/categories/mysql/),
+  [SQL](/blog/categories/sql/).
 * **Big Data**:
   [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
   Spark,
@@ -93,18 +93,15 @@ Tableau
   [Vertica](/blog/categories/vertica/),
   Data Warehouse.
 * **Tools**:
-  * DevOps:
-    [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
-    Chef, <!-- Configuration: Puppet, Ansible --> 
-    Vagrant. <!-- Virtualization: VMWare, VirtualBox --> 
-  * Version control:
-    [Git](/blog/categories/git/), 
-    [Github](https://github.com/tdongsi), 
-    SourceTree, 
-    Perforce.
-  * Teamware:
-    JIRA, Trello, Slack.
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
+  Chef, <!-- Configuration  --> 
+  Vagrant, <!-- Virtualization --> 
+  [Git](/blog/categories/git/), 
+  [Github](https://github.com/tdongsi), 
+  SourceTree, 
+  Perforce, <!-- Version Control --> 
+  JIRA, Trello, Slack. <!-- Teamware --> 
  
 ### Honor & Awards
 
