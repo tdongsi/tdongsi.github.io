@@ -25,91 +25,83 @@ Checklist:
 ### Skills
 
 <!--
-Want to do: Javascript, Go
+Want to do: 
 -->
-* **Languages**: 
-  [Java](/blog/categories/java/), 
-  C/C++, 
-  [Python](/blog/categories/python/), 
-  Scala, Groovy, Javascript,
-  [Perl](/blog/categories/perl/),
-  [bash](/blog/categories/bash/). <!-- Matlab, Ruby -->
-* [**Database**](/blog/categories/database/): 
-  [SQLite](/blog/categories/sqlite/), 
-  [MySQL](/blog/categories/mysql/),
-  [SQL](/blog/categories/sql/), 
-  XPath, 
-  XQuery,
-  Data Warehouse.
-* **Java stack**: 
-  Guava, 
-  Spring, 
-  [JDBC](/blog/categories/jdbc/),
-  SLF4J, JCommander, [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
-  [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test: JMockit, RestAssured, JMeter, Gatling -->
-  Ant, [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
-* **Python stack**:
-  PyPI, virtualenv, 
-  Jupyter, numpy, scipy,
-  Flake.
-* **Ruby stack**:
-  rake,
-  Gem/Bundle,
-  Rails.
-* **JavaScript stack**:
-  NodeJS, <!-- ExpressJS, MongoDB -->
-  Grunt, npm, <!-- Build -->
-  Jasmine, Mocha, <!-- Test -->
-  HTML, CSS.
-* **Other libraries**: 
-  ANTLR, Boost, OpenCV, Eigen, 
-  [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/matplotlib/).
-* **OS & Platforms**: 
-  [Windows](/blog/categories/windows/), 
-  [Mac OS](/blog/categories/macosx/), 
-  [CentOS](/blog/categories/centos/),
-  Ubuntu, 
-  [Amazon Web Services](/blog/categories/aws/).
-* **Big Data**:
-  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
-  HBase,
-  Kafka,
-  [Vertica](/blog/categories/vertica/), 
-  [Cassandra](/blog/categories/cassandra/).
-* **Tools**:
-  * DevOps:
-    [Jenkins](/blog/categories/jenkins/), SonarQube, Nexus, <!-- CI/CD --> 
-    [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Datadog, <!-- Monitoring --> 
-    Chef, <!-- Configuration: Puppet, Ansible --> 
-    Vagrant, <!-- Virtualization: VMWare, VirtualBox --> 
-    [Docker](/blog/categories/docker/), Kubernetes. <!-- Container -->
-  * Version control:
-    [Git](/blog/categories/git/), 
-    [Github](https://github.com/tdongsi), 
-    SourceTree, 
-    Perforce, Subversion.
-  * Teamware:
-    MediaWiki, Confluence, JIRA, Trello, Slack.
-  * IDE:
-    IntelliJ, PyCharm,
-    [Eclipse](/blog/categories/eclipse/), 
-    Visual Studio.
-<!--
-SKIPPED: in section, then alphabet order
-
+<!-- SKIPPED:
+* Languages: Matlab, [Perl](/blog/categories/perl/).
+* Database: XPath, XQuery.
+* Java stack: 
+  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets)
+  * Build: Ant, sbt (Scala)
+  * Test: Gatling, JMeter, JMockit, RestAssured.
+* Python stack: PyPI, virtualenv.
+* **Ruby stack**: rake, Gem/Bundle, Rails.
+* JavaScript stack: ExpressJS, MongoDB.
+* Others: ANTLR, Boost, OpenCV, Eigen
+* Platform: SunOS, HP-UX
+* Big Data:
 Dimensional Modeling (Kimball)
 Netezza
 Tableau
-
-Make
-PowerShell
-Rake (Ruby)
-sbt (Scala)
-Spinnaker
-SunOS, HP-UX
-[Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), 
+* Tools:
+  * DevOps: Datadog, SonarQube, Nexus, Puppet, Ansible, VMWare, VirtualBox
+  * Teamware: MediaWiki, Confluence
+  * Version control: Subversion
+  * IDE: Visual Studio
 -->
+* **Language**: 
+  [Java](/blog/categories/java/),
+  [Python](/blog/categories/python/), 
+  Scala, Groovy, Javascript, 
+  Go, C/C++,
+  Ruby,
+  [bash](/blog/categories/bash/). 
+* **Java stack**: 
+  IntelliJ, Eclipse, Spring, 
+  [JDBC](/blog/categories/jdbc/),  <!-- Libraries -->
+  [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
+  [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
+  [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+* **Python stack**:
+  PyCharm, Jupyter, Pandas,
+  [Numpy](/blog/categories/numpy/), 
+  [Matplotlib](/blog/categories/matplotlib/),
+  Flask.
+* **Web stack**:
+  Node.js, React.js, jQuery, <!-- Framework -->
+  Grunt, npm, <!-- Build -->
+  Jasmine, Mocha, <!-- Test -->
+  HTML/CSS.
+* **Platform**: 
+  [Windows](/blog/categories/windows/), 
+  [Mac OS](/blog/categories/macosx/), 
+  [CentOS](/blog/categories/centos/),
+  Ubuntu,
+  [Docker](/blog/categories/docker/), Kubernetes, <!-- Container -->
+  [AWS](/blog/categories/aws/), GCP,
+  Heroku.
+* [**Database**](/blog/categories/database/): 
+  [Cassandra](/blog/categories/cassandra/),
+  HBase,
+  [SQLite](/blog/categories/sqlite/), 
+  [MySQL](/blog/categories/mysql/),
+  [SQL](/blog/categories/sql/).
+* **Big Data**:
+  [Hive](/blog/categories/hive/)/[Hadoop](/blog/categories/hadoop/),
+  Spark,
+  Kafka,
+  [Vertica](/blog/categories/vertica/),
+  Data Warehouse.
+* **Tools**:
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
+  Chef, <!-- Configuration  --> 
+  Vagrant, <!-- Virtualization --> 
+  [Git](/blog/categories/git/), 
+  [Github](https://github.com/tdongsi), 
+  SourceTree, 
+  Perforce, <!-- Version Control --> 
+  JIRA, Trello, Slack. <!-- Teamware --> 
  
 ### Honor & Awards
 
