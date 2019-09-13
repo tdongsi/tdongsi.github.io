@@ -9,6 +9,6 @@ categories:
 
 {% youtube ysGM3CfBVpU %}
 
-This is my only presence on Youtube.
+[This](https://www.youtube.com/watch?v=ysGM3CfBVpU) is my only presence on Youtube.
 The demo is done for a presentation in the course "EE 243: Advanced Computer Vision" at UCR.
 It implements Lucas-Kanade method for optical flow tracking, using a very old version (1.0) of OpenCV.
