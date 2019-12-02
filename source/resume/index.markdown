@@ -8,7 +8,7 @@ footer: true
 published: true
 ---
 
-My resume in hyperlinked format.
+My resume in HTML format.
 
 * Email: dongsi.tuecuong@gmail.com
 * [LinkedIn](https://www.linkedin.com/in/cuong-dong-si-479b326)
@@ -31,7 +31,7 @@ Want to do:
 * Languages: Matlab, [Perl](/blog/categories/perl/).
 * Database: XPath, XQuery.
 * Java stack: 
-  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets)
+  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), [JDBC](/blog/categories/jdbc/)
   * Build: Ant, sbt (Scala)
   * Test: Gatling, JMeter, JMockit, RestAssured.
 * Python stack: PyPI, virtualenv.
@@ -39,10 +39,7 @@ Want to do:
 * JavaScript stack: ExpressJS, MongoDB.
 * Others: ANTLR, Boost, OpenCV, Eigen
 * Platform: SunOS, HP-UX
-* Big Data:
-Dimensional Modeling (Kimball)
-Netezza
-Tableau
+* Big Data: Dimensional Modeling (Kimball), Netezza, Tableau
 * Tools:
   * DevOps: Datadog, SonarQube, Nexus, Puppet, Ansible, VMWare, VirtualBox
   * Teamware: MediaWiki, Confluence
@@ -57,8 +54,9 @@ Tableau
   Ruby,
   [bash](/blog/categories/bash/). 
 * **Java stack**: 
-  IntelliJ, Eclipse, Spring, 
-  [JDBC](/blog/categories/jdbc/),  <!-- Libraries -->
+  IntelliJ, Eclipse, 
+  Spring, Grails,   <!-- Frameworks -->
+  Swagger,  <!-- Libraries -->
   [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
   [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
