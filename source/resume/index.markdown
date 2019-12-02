@@ -67,7 +67,7 @@ Want to do:
   Flask.
 * **Web stack**:
   Node.js, React.js, jQuery, <!-- Framework -->
-  Grunt, npm, <!-- Build -->
+  Grunt, npm, Webpack, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
   HTML/CSS.
 * **Platform**: 
