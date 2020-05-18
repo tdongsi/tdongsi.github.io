@@ -183,7 +183,8 @@ What goals would you like to establish for the coming year?
 * Achievements:
   * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) from scratch as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
   * Built a robust, highly-available **Kubernetes** infrastructure on top of internal Compute services at Salesforce (similar to AWS EC2 & S3).
-    Integrated with **Prometheus** and **Heapster**-enabled Dashboard for monitoring.
+  * Designed and implemented highly-available **Prometheus** and **AlertManager** stack for monitoring Kubernetes infrastructure.
+    Integrated with PagerDuty and Slack for notification and **Grafana** for visualization and dashboards.
   * Designed and implemented **fully containerized Jenkins systems** (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as Github/GHE, DockerHub, Artifactory, Nexus, Slack, PagerDuty. 
   * Implemented various key features such as Docker images, access control, Jacoco-based code coverage gates, Slack/email notifications.
     Contributed extensively to the shared global Groovy library for Jenkins to reduce code duplication and ease Jenkins pipeline configuration for developers.
