@@ -128,7 +128,44 @@ Want to do:
 
 * [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 
-<!--
+<!-- 2020
+What were your key achievements?
+
+* Lead the DevOps initiative to migrate from error-prone Quip runbooks to Jupyter-based runbooks. 
+  Designed and implemented the first version of Jupyter runbook and used it for 1.39 release as its DRI.
+  Laid down some deployment-day's best practices: single driver controlling the runbook, explicit monitoring assingments among the DevOps team.
+* Blazing the trails for ACI Kube (v1/v2) migration and News-Solr in Kube projects.
+  * Various PoCs: ops-webapp, acb-service. 
+  * Various tools in Kube: Kubernetes dashboard, Grafana
+  * Documentation on various implementations in ACI Kube. 
+* Provide architecture and documentations
+  * Recommended DevOps team on general strategy to take in ACI Kube in various aspects: YAML templating (Helm vs. Kustomize vs. Terraform), secret management (Vault vs. SealedSecrets), access managment (RBAC), Monitoring (HA setup for Prometheus/AlertManager), CLI/cron migration (Job/CronJob). 
+  * Looked into potential scalability blockers that might block ACI Kube migration.
+  * Conducted regular demos and tech talks with DevOps team to explain various features and best practices in Kubernetes/ACI Kube.
+  * Worked with various external teams on their Kubernetes journeys: DataEng, ACB service team. Lots of demos and presentation.
+  * Worked with News-SRE to onboard them with ACI Kube. Listened to their feedback and improved ACL implementation.
+* ACI Kube migration
+  * Architected YAML templating approach using Kustomize. Implemented Kustomize plugins for YAML templating.
+  * Designed and implemented various features required for migration: secrets management, access management. 
+* Spark deployment through pie-cli.
+* Optimized nightly deployments to DEVEL/TEST/QA. Reduced average deployment times from 3 hours to under 2 hours.
+* DataEng collaboration:
+  * Secret management for DataEng use cases.
+  * Helped troubleshooting Orca-Jenkins during its OpenJDK/AppleJDK migration.
+* Took over ownership of News-Jenkins PRBs and their branching. 
+
+In what areas could you improve or develop?
+
+* Technical leadership.
+* More proficient on how services in News work together, through monthly on-calls.
+
+What goals would you like to establish for the coming year?
+
+* Migration of Apple News services from PIE Compute to ACI Kube.
+* Onboarding developers to ACI Kube. Add developer productivity tools.
+-->
+
+<!-- 2019
 What were your key achievements?
 
 * Modernized Jenkins-based deployment pipelines for DEVEL/TEST/QA/STAGING: from separate, divergent, GUI-based Jenkins pipelines to unified, code-based pipelines.
