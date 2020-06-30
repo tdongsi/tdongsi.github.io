@@ -132,27 +132,29 @@ Want to do:
 What were your key achievements?
 
 * Lead the DevOps initiative to migrate from error-prone Quip runbooks to Jupyter-based runbooks. 
-  Designed and implemented the first version of Jupyter runbook and used it for 1.39 release as its DRI.
-  Laid down some deployment-day's best practices: single driver controlling the runbook, explicit monitoring assingments among the DevOps team.
-* Blazing the trails for ACI Kube (v1/v2) migration and News-Solr in Kube projects.
-  * Various PoCs: ops-webapp, acb-service. 
-  * Various tools in Kube: Kubernetes dashboard, Grafana
-  * Documentation on various implementations in ACI Kube. 
-* Provide architecture and documentations
-  * Recommended DevOps team on general strategy to take in ACI Kube in various aspects: YAML templating (Helm vs. Kustomize vs. Terraform), secret management (Vault vs. SealedSecrets), access managment (RBAC), Monitoring (HA setup for Prometheus/AlertManager), CLI/cron migration (Job/CronJob). 
-  * Looked into potential scalability blockers that might block ACI Kube migration.
-  * Conducted regular demos and tech talks with DevOps team to explain various features and best practices in Kubernetes/ACI Kube.
-  * Worked with various external teams on their Kubernetes journeys: DataEng, ACB service team. Lots of demos and presentation.
-  * Worked with News-SRE to onboard them with ACI Kube. Listened to their feedback and improved ACL implementation.
-* ACI Kube migration
-  * Architected YAML templating approach using Kustomize. Implemented Kustomize plugins for YAML templating.
-  * Designed and implemented various features required for migration: secrets management, access management. 
-* Spark deployment through pie-cli.
-* Optimized nightly deployments to DEVEL/TEST/QA. Reduced average deployment times from 3 hours to under 2 hours.
-* DataEng collaboration:
-  * Secret management for DataEng use cases.
-  * Helped troubleshooting Orca-Jenkins during its OpenJDK/AppleJDK migration.
-* Took over ownership of News-Jenkins PRBs and their branching. 
+  Designed and implemented the first version of Jupyter runbook and used it for 1.39 release as the release DRI.
+  Started some of deployment-day's best practices: single driver controlling the runbook, explicit monitoring assingments among the DevOps team.
+* CI/CD: Optimized nightly deployments to DEVEL/TEST/QA and reduced average deployment times from 3 hours to 1h45+ mins. 
+  Investigated and restored PRBs for Algorithms and Authoring repos, generalized the PRBs with regex to reduce tasks on branching days. 
+* Blazing the trails for APC/ACI Kube migration:
+  * Brought up ops-webapp and acb-service in APC and ACI Kube as the sample applications for others to follow. 
+    Designed and implemented general strategy for YAML templating with Kustomize and Kustomize plugins. 
+    Implemented various integration with Apple’s other internal services: Splunk logging, Hubble metrics, ACI services, credentials management, ACL management, etc.
+  * Recommended DevOps team on general architecture/strategy in ACI Kube in various aspects: YAML templating (Helm vs. Kustomize vs. Terraform), secret management (Vault vs. k8s Secrets), access management (RBAC), namespace (Mega namespace vs team namespace), general News conventions in Kube (e.g., container name, labels).
+  * Identified and resolved early issues in APC/Kube (networking in APC, DNS issue in ACI Kube us-west-2a). Identified and documented differences between APC v1 vs ACI Kube v2.
+  * Worked with external teams: 
+    Worked with ACI Kube to identify the potential scalability blockers for ACI Kube migration and created radars for ACI Kube Scale team to request further testing. 
+    Work with News-SRE, bring Sharan up to speed with Kubernetes and improved ACL based on their feedback.
+  * Regularly demoed and presented various Kube and/or Kubernetes features with DevOps team as well as external teams (DataEng, ACB team) to help with Kube onboarding. 
+* Contributed and provided Kubernetes consultation/feedback for News-Solr in Kube project:
+  * Implemented Grafana in APC (integrated with Apple LDAP for authentication, Apple Directory ACL groups for authorization). 
+    Sample dashboard to show how to integrate with Prometheus for monitoring when Mosaic is not yet available.
+  * General advices on architecture: Job/CronJob for running CLIs, advices on HA setup for Prometheus/AlertManager stack.
+* Provided support to teams in Apple News: 
+  * DataEng support: Extended pie-cli to add Spark deployment functionality for Data Engineering. 
+    Laid out the framework so that Okehee/Liang can further contribute from DataEng side. 
+    Took consultation role for general Orca-Jenkins troubleshooting, advised DataEng team on general architecture of Jenkins in Kubernetes and their general migration journey to ACI Kube.
+  * Maintainer of Newspublisher-in-a-Pod: updated its deployment code to account for various migrations, SpringBoot upgrade.
 
 In what areas could you improve or develop?
 
