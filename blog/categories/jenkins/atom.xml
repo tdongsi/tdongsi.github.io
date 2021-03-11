@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-11T14:53:15-08:00</updated>
+  <updated>2021-03-11T15:03:30-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -832,324 +832,252 @@ mvn this, 'clean package'
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Jenkins World 2017]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/29/jenkins-world-2017/"/>
-    <updated>2017-08-29T08:47:04-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/29/jenkins-world-2017</id>
-    <content type="html"><![CDATA[<p>Some interesting talks in <a href="https://www.cloudbees.com/jenkinsworld/schedule">Jenkins World 2017</a> are summarized in this blog post.</p>
+    <title type="html"><![CDATA[DSL Implementation in Groovy]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/08/13/groovy-dsl/"/>
+    <updated>2017-08-13T15:18:30-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/08/13/groovy-dsl</id>
+    <content type="html"><![CDATA[<p>Domain-Specific Language is a mini language for a specific problem and/or in a narrow context.
+For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
+
+<p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
+It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
+This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
+There are probably more advanced methods/frameworks for creating DSL.
+However, those are not in the scope of this post.</p>
 
 <!--more-->
 
 
-<h3>Jenkins Pipeline on your Local Box to Reduce Cycle Time</h3>
+<h3>Example DSL</h3>
 
-<p>Interesting proposal (with <strong>demo</strong>, a big plus) to resolve the following problems (added my own experience):</p>
+<p>We want to implement a simple DSL that is similar to <a href="https://jenkins.io/doc/pipeline/steps/">Pipeline steps in Jenkinsfile</a>.</p>
 
-<ul>
-<li>Non repeatble builds due to allocated physical slaves with reused workspaces.
-
-<ul>
-<li>The idea is equivalent to use Dockerized Jenkins for local job runs before running on central Jenkins.</li>
-<li>My current alternative is to use containerized Jenkins slaves using Kubernetes plugin.</li>
-</ul>
-</li>
-<li>Merging of two companies (YNAP + GerritForge)
-
-<ul>
-<li>Not applicable. However, for large corporates, two product teams can feel like two companies.</li>
-</ul>
-</li>
-<li>Need for fast feedback
-
-<ul>
-<li>Same</li>
-</ul>
-</li>
-<li>One master cannot suit all: central CI not flexible to local team needs.
-
-<ul>
-<li>Maybe applicable for team CI and company-wide CI.</li>
-</ul>
-</li>
-<li>Scalability: central CI only handle <code>master</code> job runs instead of multiple feature job runs.</li>
-</ul>
-
-
-<p>Reference:</p>
-
-<ul>
-<li><a href="https://github.com/NET-A-PORTER/jenkinsworld-2017-sample-app">Code repo</a></li>
-</ul>
-
-
-<pre><code class="groovy default Jenkinsfile">#!/bin/env groovy
-
-node {
-    checkout scm
-
-    echo env.JENKINS_URL
-    if(env.JENKINS_URL ==~ /.*central-pipeline.*/) {
-        echo "loading central"
-        load "central/Jenkinsfile"
-    } else {
-        echo "loading local"
-        load "local/Jenkinsfile"
-    }
-}()
-</code></pre>
-
-<pre><code class="groovy local Jenkinsfile">{ -&gt; docker.image('slave-sbt').inside 
-    {
-        stage('Build') {
-            sh sbt('compile')
-        }
-        stage('Test') {
-            sh sbt('test')
-        }
-        stage('Deploy Locally') {
-            sh sbt('docker:publishLocal')
-
-            def dockerTag = (sh(script: "git describe --tags HEAD", returnStdout: true)).trim()
-            cleanUpOldContainers(dockerTag)
-            runContainer(dockerTag)
-
-            def containerUrl = getRunningContainerURL(dockerTag)
-
-            echo "Running on $containerUrl"
-            currentBuild.setDescription("$containerUrl")
-
-
-        }
-
-        stage('Push to GitHub') {
-            withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                              credentialsId: 'github',
-                              usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
-                sh "git branch --list ${env.BRANCH_NAME} || git checkout -b ${env.BRANCH_NAME}"
-                sh "git push -f https://$USERNAME:$PASSWORD@github.com/NET-A-PORTER/jenkinsworld-2017-sample-app HEAD:refs/heads/${env.BRANCH_NAME}"
-            }
-        }
-    }
-}
-
-...
-</code></pre>
-
-<pre><code class="groovy central Jenkinsfile">{ -&gt; docker.image('slave-sbt').inside
-    {
-        stage('Build') {
-                sh sbt('compile')
-        }
-        stage('Creating Docker container') {
-                sh sbt('docker:stage')
-        }
-        if (env.BRANCH_NAME == "master") {
-            stage('Deploy to Heroku') {
-                withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                                  credentialsId: 'heroku',
-                                  usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
-                    sh "echo 'machine git.heroku.com login $USERNAME password $PASSWORD' &gt; ~/.netrc"
-                    sh "chmod 600 ~/.netrc"
-                    sh "git push -f https://git.heroku.com/jenkinsworld-2017-sample-app.git HEAD:master"
-                }
-            }
-        }
-    }
-}
-
-def sbt(target) {
-    return "sbt -no-colors $target"
+<pre><code class="plain DSL in Jenkinsfile">{
+    withEnv("PATH=/usr/bin")
+    echo("Starting pipeline")
+    sh("ls .")
+    error("Error here")
 }
 </code></pre>
 
-<h3>Managing Jenkins with CloudBees Jenkins Team</h3>
+<p>In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as <code>echo</code> and <code>sh</code> above.
+For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
+For simplicity, <code>println</code> statements will be used in the following examples.</p>
 
-<p>CloudBees Jenkins is the Enterprise version of Jenkins, as opposed to Open-Source Jenkins.
-This enterprise version offers the following features:</p>
+<p>The advantage of DSL is that the <strong>developers</strong> can implement the backend in some fully-featured language such as Java but the <strong>users</strong> don&rsquo;t need to know such language to use it.
+Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don&rsquo;t want to get exposed to the implementation details (which are usually ugly and compplicated).
+Instead, the <strong>users</strong> only need to learn the DSL to use it while still have the flexibility to do what they want.
+One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.</p>
 
-<ul>
-<li>Beekeeper Upgrade Assistant: Plugin upgrade compatibility, Compliance report.</li>
-<li>Upgrade simulations to make sure the upgrade is compatible with current jobs/plugins.</li>
-</ul>
+<h3>Version 1: Java-like standard implementation</h3>
 
+<p>First, we show a standard implementation in Java to show how backend execution can be implemented.
+In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.</p>
 
-<p>Like many other tools presented in the conference, you can do many &ldquo;awesome&rdquo; things <strong>IF</strong> you pay for it.
-The only problem is if you have the budget to pay for it.</p>
+<pre><code class="groovy Standard Java implementation">/**
+ * Java code with standard implementation
+ * Try to simulate some kind of DSL like Pipeline steps in Jenkins
+ */
+class JavaDsl {
 
-<h3>Let&rsquo;s build a Jenkins Pipeline</h3>
-
-<p>Basic tutorial on Jenkinsfile with Declarative syntax.
-Not that interesting if you are already familiar with Jenkinsfile.</p>
-
-<ul>
-<li><a href="https://www.slideshare.net/secret/5d85kTqLfjOgdC">Slides</a></li>
-<li><a href="https://gist.github.com/ericlong/25fd60f197f6c4c7b8f265af7a351e75">Code snippets</a></li>
-</ul>
-
-
-<h3>Developing Pipeline Libraries Locally</h3>
-
-<p>If you have ever tried developing Pipeline Libraries, you may have noticed how long it takes to deploy a new version to server to discover just another syntax error. Oleg will show how to edit and test Pipeline libraries locally before committing to the repository (with Configuration-as-Code and Docker).</p>
-
-<ul>
-<li><a href="https://hub.docker.com/r/onenashev/demo-jenkins-config-as-code/">DockerHub repo</a></li>
-<li><a href="https://github.com/oleg-nenashev/demo-jenkins-config-as-code">Github repo</a></li>
-</ul>
-
-
-<!-- Photos:
-IMG_1097
-IMG_1098
-IMG_1099
--->
-
-
-<h3>Securing a Jenkins Instance</h3>
-
-<p>See <a href="/blog/2017/09/05/securing-jenkins-with-nginx/">this post</a>.</p>
-
-<!-- Photos:
-IMG_[1100..1107]
--->
-
-
-<h3>Scaling Jenkins with Kubernetes</h3>
-
-<p>We are already using Kubernetes plugin in production.
-The talk mostly recaps how to use the plugin.</p>
-
-<ul>
-<li><a href="https://github.com/jenkinsci/kubernetes-plugin/tree/master/examples">Examples</a>
-
-<ul>
-<li>Interesting examples include <a href="https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/multi-container.groovy">multi-container</a>, <a href="https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/selenium.groovy">selenium</a>.</li>
-</ul>
-</li>
-</ul>
-
-
-<!-- Photos:
-IMG_[1117..1121]
--->
-
-
-<h3>Declarative Pipelines in Jenkins</h3>
-
-<p>New features and improvements in Declarative Jenkinsfile are announced.
-Those include:</p>
-
-<ul>
-<li><code>changelog</code>: examines the commit log messages with a regular expression.</li>
-<li><code>changeset</code>: the affected file paths in the changelog.</li>
-</ul>
-
-
-<!-- Photos:
-IMG_[1123..1134]
--->
-
-
-<h3>Codifying the Build and Release Process with a Jenkins Pipeline Shared Library</h3>
-
-<p>Almost all of the Jenkins workflows practiced at FireEye are already implemented in our Jenkins.
-It&rsquo;s assuring to know that we are using the best practices and not way behind the pack.
-However, I got a glimpse of potential struggles (mostly from inertia) migrating from a legacy Jenkins system (1.x) to Jenkinsfile-based system (2.x).</p>
-
-<!-- Photos:
-IMG_[1135..1138]
--->
-
-
-
-
-<!-- Pimp my Blue Ocean
-Photos:
-IMG_[1139..1144]
--->
-
-
-<h3>Mozilla’s Declarative + Shared Libraries Setup</h3>
-
-<p>How Mozilla is using <strong>Declarative</strong> Pipelines and shared libraries together.</p>
-
-<ul>
-<li><a href="https://github.com/mozilla/fxtest-jenkins-pipeline">Github repo</a></li>
-<li><a href="https://github.com/mozilla/mozillians-tests/blob/master/Jenkinsfile">Example Jenkinsfile</a></li>
-</ul>
-
-
-<!-- Photos:
-IMG_[1145..1150]
--->
-
-
-<h3>Pipelines At Scale: How Big, How Fast, How Many?</h3>
-
-<p>Interesting point: Each pipeline step is similar to a database transaction: each step requires an atomic record in case of Jenkins restart.
-Therefore, it is better to have a large enough transaction than multiple small transactions (e.g., <code>sh</code> step).</p>
-
-<p>For comprehensive study of this topic (Jenkins performance), there are many articles/blog posts written by same author (Sam Van Oort).</p>
-
-<!-- Photos:
-IMG_[1151..1163]
--->
-
-
-<h3>JenkinsPipelineUnit: Test your Continuous Delivery Pipeline</h3>
-
-<p>JenkinsPipelineUnit allows unit testing the Jenkinsfile locally by mocking the Pipeline steps.
-In my opinion, it seems only useful for reducing the <strong>syntax</strong> mistakes when developing Jenkinsfile OR global shared library.
-You still have to verify functionality in a real Jenkins system.
-Its compatibility with Declarative syntax is also questionable, admitted by the speakers/authors.
-In addition, it is NOT for developling a Jenkins plugin. In that case, use JenkinsRule.</p>
-
-<ul>
-<li><a href="https://github.com/lesfurets/JenkinsPipelineUnit">Github repo</a></li>
-</ul>
-
-
-<!-- Photos:
-IMG_[1164..1170]
--->
-
-
-<h3>Securing a Jenkins Instance</h3>
-
-<p>Demo &ldquo;Securing a Jenkins Instance&rdquo; at Jenkins Booth in Jenkins World 2017 by Claudiu Guiman.</p>
-
-<p><blockquote><p>A set of minimum steps every Jenkins Admin should follow so his public-facing Jenkins instance doesn’t turn into a Bitcoin mine.</p></blockquote></p>
-
-<pre><code class="plain nginx configuration">server {
-    listen 80;
-    server_name demo-001.eastus.cloudapp.azure.com;
-    location / {
-        proxy_set_header        Host $host:$server_port;
-        proxy_set_header        X-Real-IP $remote_addr;
-        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header        X-Forwarded-Proto $scheme;
-        proxy_pass              http://localhost:8080;
-        proxy_redirect          http://localhost:8080 http://demo-001.eastus.cloudapp.azure.com;
-        proxy_read_timeout      90;
+    void echo(String message) {
+        println "Echo: $message";
     }
 
-    # block requests to /cli
-    location /cli {
-        deny all;
+    void sh(String script) {
+        println "Shell: $script";
     }
 
-    # block requests to /login
-    location ~ /login* {
-        deny all;
+    void error(String message) {
+        println "Error here: $message";
+    }
+
+    // A more advanced DSL
+    void withEnv(String var) {
+        println "Using: $var";
+    }
+
+    void execute() {
+        println "Executing ...";
+    }
+
+}
+
+println "1) Standard Java implementation";
+JavaDsl javaDsl = new JavaDsl();
+javaDsl.withEnv("PATH=/usr/bin");
+javaDsl.echo("Starting pipeline");
+javaDsl.sh("ls .");
+javaDsl.error("Error here");
+javaDsl.execute();
+println "";
+</code></pre>
+
+<p>The problem of this approach is that users have to write Java (or Groovy) code directly to use it.</p>
+
+<h3>Version 2: Fluent interface with Builder pattern</h3>
+
+<pre><code class="groovy Fluent Java implementation">/**
+ * Java code with Builder pattern
+ * Try to simulate some kind of DSL like Pipeline steps in Jenkins
+ */
+class JavaBuilderDsl {
+
+    JavaBuilderDsl echo(String message) {
+        println "Echo: $message"
+        return this
+    }
+
+    JavaBuilderDsl sh(String script) {
+        println "Shell: $script"
+        return this
+    }
+
+    JavaBuilderDsl error(String message) {
+        println "Error here: $message"
+        return this
+    }
+
+    // A more advanced DSL
+    JavaBuilderDsl withEnv(String var) {
+        println "Using: $var"
+        return this
+    }
+
+    void execute() {
+        println "Executing ..."
     }
 }
+
+println "2) Fluent Java implementation (Builder)"
+JavaBuilderDsl builderDsl = new JavaBuilderDsl()
+builderDsl.withEnv("PATH=/usr/bin")
+        .echo("Starting pipeline")
+        .sh("ls .")
+        .error("Error here")
+        .execute()
+println ""
 </code></pre>
 
-<pre><code class="plain Running nginx">$ cp ~/demo/default /etc/nginx/sites-enabled/default
-$ sudo service nginx restart
-$ sudo ufw deny 8080
+<p>In this version, <a href="https://en.wikipedia.org/wiki/Builder_pattern#Java">the Build design pattern</a> is used in the implementation.
+As shown above, the code is much more fluent with the object name <code>builderDsl</code> not being repeated every single line.
+As a result, the code is less verbose and much more user-friendly.</p>
+
+<h3>Version 3: DSL with Groovy closure</h3>
+
+<pre><code class="groovy Standard Groovy implementation">/**
+ * Groovy code with standard implementation
+ * Try to simulate some kind of DSL like Pipeline steps in Jenkins
+ */
+class GroovyDsl {
+
+    def echo(String message) {
+        println "Echo: $message"
+    }
+
+    def sh(String script) {
+        println "Shell: $script"
+    }
+
+    def error(String message) {
+        println "Error here: $message"
+    }
+
+    // A more advanced DSL
+    def withEnv(String var) {
+        println "Using: $var"
+    }
+
+    static void execute(closure) {
+        GroovyDsl body = new GroovyDsl()
+        closure(body)
+        println "Executing ..."
+    }
+
+}
+
+println "3) Standard Groovy implementation"
+GroovyDsl.execute { dsl -&gt;
+    dsl.withEnv("PATH=/usr/bin")
+    dsl.echo("Starting pipeline")
+    dsl.sh("ls .")
+    dsl.error("Error here")
+}
+println ""
 </code></pre>
 
-<p>If your Jenkins is hosted in AWS/Google Cloud, you should consider setting this up.</p>
+<p>This first version of Groovy implementation is presented here to show connection with its Java counterparts.
+As shown below, the input variable <code>dsl</code> in the closure can be abstracted away using delegate.</p>
+
+<pre><code class="groovy Transparent DSL with delegate">class GroovyDsl {
+
+    def echo(String message) {
+        println "Echo: $message"
+    }
+
+    def sh(String script) {
+        println "Shell: $script"
+    }
+
+    def error(String message) {
+        println "Error here: $message"
+    }
+
+    // A more advanced DSL
+    def withEnv(String var) {
+        println "Using: $var"
+    }
+
+    static void execute(Closure closure) {
+        GroovyDsl body = new GroovyDsl()
+        // TRICKY: Modify the input var? Hmmm.
+        closure.delegate = body
+        closure()
+        println "Executing ..."
+    }
+
+    static void executeBest(Closure closure) {
+        GroovyDsl body = new GroovyDsl()
+        body.with(closure)
+        println "Executing ..."
+    }
+
+}
+
+println "4) DSL-style Groovy implementation"
+GroovyDsl.execute {
+    withEnv("PATH=/usr/bin")
+    echo("Starting pipeline")
+    sh("ls .")
+    error("Error here")
+}
+println ""
+
+println "4b) DSL-style Groovy (better) implementation"
+GroovyDsl.executeBest {
+    withEnv("PATH=/usr/bin")
+    echo("Starting pipeline")
+    sh("ls .")
+    error("Error here")
+}
+println ""
+</code></pre>
+
+<p>In this final version, only a very small boiler-plate code <code>GroovyDsl.executeBest</code> remains.
+The following lines form a mini language (i.e., DSL) that can be exposed to users.
+The users can start using the DSL without having to learn Groovy or Java.</p>
+
+<p>Note that the <code>executeBest</code> is the equivalent but less straight-forward way to do the same thing with delegate.
+Compared with <code>execute</code>, it has the benefit of NOT modifying the input reference <code>closure</code>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
+<li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
+<li><a href="https://dzone.com/articles/groovy-dsl-simple-example">Another example Groovy implementation</a></li>
+</ul>
+
 ]]></content>
   </entry>
   

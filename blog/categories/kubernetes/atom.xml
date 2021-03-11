@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-11T14:53:15-08:00</updated>
+  <updated>2021-03-11T15:03:30-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -474,32 +474,6 @@ mail_version = 2.10.1
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Kubernetes: Kube-router]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/05/15/kubernetes-kube-router/"/>
-    <updated>2017-05-15T10:52:34-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/05/15/kubernetes-kube-router</id>
-    <content type="html"><![CDATA[<p>Kubernetes is one of the <a href="http://www.infoworld.com/article/3118345/cloud-computing/why-kubernetes-is-winning-the-container-war.html">most active open-source project</a> right now.
-I&rsquo;m trying to keep up with interesting updates from the Kubernetes community.
-This <code>kube-router</code> project is one of them although I&rsquo;ve not get an idea how stable or useful it is.</p>
-
-<p><blockquote><p>Kube-router is a distributed load balancer, firewall and router for Kubernetes. Kube-router can be configured to provide on each cluster node:<br/>* IPVS/LVS based service proxy on each node for ClusterIP and NodePort service types, providing service discovery and load balancing<br/>* an ingress firewall for the pods running on the node as per the defined Kubernetes network policies using iptables and ipset<br/>* a BGP router to advertise and learn the routes to the pod IP&rsquo;s for cross-node pod-to-pod connectivity</p></blockquote></p>
-
-<!--more-->
-
-
-<p>A few notes on related works in Kubernetes community:</p>
-
-<ul>
-<li>The most obvious one is <code>kube-proxy</code> service, which is included in the standard Kubernetes installations. This <code>kube-router</code> can be a replacement for <code>kube-proxy</code> in the future.</li>
-<li>Another related work is <a href="https://github.com/kubernetes/kubernetes/issues/44063">IPVS-based in-cluster service load balancing</a>.
-Huawei presented this work at Kubecon 2016.
-IIRC, it is implemented as a flag to kube-proxy and considerable performance improvement was reported.</li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
     <title type="html"><![CDATA[Troubleshooting Docker-out-of-Docker]]></title>
     <link href="http://tdongsi.github.io/blog/2017/04/26/troubleshooting-docker-out-of-docker/"/>
     <updated>2017-04-26T16:24:24-07:00</updated>
@@ -588,6 +562,77 @@ It&rsquo;s recommended to run <code>docker commit</code> to save the modified co
 
 <ul>
 <li><a href="https://docs.docker.com/engine/reference/commandline/dockerd/">dockerd</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Docker-in-Docker vs Docker-out-of-Docker]]></title>
+    <link href="http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/"/>
+    <updated>2017-04-23T10:42:04-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker</id>
+    <content type="html"><![CDATA[<p>In this post, we look into two different approaches to solving the problem of building/pushing Docker images from a containerized Jenkins system.
+From that understanding, we will discuss the pros and cons of each approach in production Continuous Integration (CI) systems and how one should be used in practice.</p>
+
+<!--more-->
+
+
+<h3>Docker-in-Docker &amp; Docker-out-of-Docker</h3>
+
+<p>Jenkins as a CI system has been increasingly containerized and ran as a Docker container in production.
+An example setup is to run Jenkins on top of a Kubernetes cluster with Jenkins slaves are created on demand as containers, using <a href="https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin">Kubernetes plugin</a>.
+The problem in this post arises from how to build/run/push the Docker images insides a Jenkins system that run as a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; refers to the approach of installing and running another Docker engine (daemon) inside Docker containers.
+Since Docker 0.6, a &ldquo;privileged&rdquo; option is added to allow running containers in a special mode with almost all capabilities of the host machine, including kernel features and devices acccess.
+As a consequence, Docker engine, as a privileged application, can run inside a Docker container itself.</p>
+
+<p>&ldquo;Docker-in-Docker&rdquo; is first discussed by Jerome Petazzoni in <a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">this blog post</a> with example codes.
+However, in <a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">another following blog post</a>, Jerome cautioned against using his &ldquo;dind&rdquo; approach in containerized Jenkins.
+He pointed out potential problems with his &ldquo;Docker-in-Docker&rdquo; approach and how to avoid those by simply bind-mounting the Docker socket into the Jenkins container.
+The approach of bind-mounting the Docker socket is later referred as &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
+
+<h3>Which one should we use?</h3>
+
+<p>As spelled out clearly by &ldquo;Docker-in-Docker&rdquo; creator Jerome Petazzoni himself, we should not use Docker-in-Docker, especially in containerized Jenkins systems.
+Potential problems include 1) security profile of inner Docker will conflict with one of outer Docker 2) Incompatible file systems (e.g. AUFS inside Docker container).</p>
+
+<p>Instead of trying to run Docker engine inside containers, it is advised to just expose the Docker socket to those containers.
+This can be done by bind-mounting with the <code>-v</code> flag:</p>
+
+<pre><code class="plain Docker out of Docker">docker run -v /var/run/docker.sock:/var/run/docker.sock ...
+</code></pre>
+
+<p>By using the above command, we can access the Docker daemon (running on the host machine) from inside the Docker container, and able to start/build/push containers.
+The containers that are started inside the Docker container above are effectively &ldquo;sibling&rdquo; containers instead of &ldquo;child&rdquo; containers since the outer and inner containers are all running on the same host machine.
+However, it is important to note that this feels like &ldquo;Docker-in-Docker&rdquo; but without any tricky problems associated with this.
+And for the purpose of building/running/pushing Docker images in containerized Jenkins systems, this &ldquo;Docker-out-of-Docker&rdquo; is exactly all we need.</p>
+
+<h3>Further discussion</h3>
+
+<p>The potential issues of &ldquo;Docker-in-Docker&rdquo; is extensively discussed by Jerome Petazzoni in his blog post.
+However, what&rsquo;s not mentioned is any potential problem of &ldquo;Docker-out-of-Docker&rdquo; approach.</p>
+
+<p>In my opinion, one potential issue of &ldquo;Docker-out-of-Docker&rdquo; approach is one can access the outer Docker container from the inner container through &ldquo;/var/run/docker.sock&rdquo;.
+In the context of containerized Jenkins system, the outer Docker container is usually Jenkins master with sensitive information.
+The inside Docker containers are usually Jenkins slaves that are subject to running all kinds of code which might be malicious.
+This means that a containerized Jenkins system can be easily compromised if there is no limit on what&rsquo;s running in Jenkins slaves.</p>
+
+<p>It should be noted that, despite of problems listed by Jerome, &ldquo;Docker-in-Docker&rdquo; approach is still a possible choice *IF* you know what you are doing.
+Conflict of security profiles can be resolved with the right, careful setup.
+There are work-arounds for incompatible file systems between the containers.
+With the right setup, &ldquo;Docker-in-Docker&rdquo; can provide essentially free build isolation and security, which is a must for many, especially in corporates.
+However, the ever-present disadvantage of this apporach is long build time for large Docker images since Docker image cache has to be re-populated every run.
+As noted by Jerome, this cache is designed for exclusive access by one single Docker daemon at once.
+Trying to link this cache in each container to some common, pre-populated Docker image cache will lead to corrupt image data.</p>
+
+<h3>References</h3>
+
+<ul>
+<li><a href="https://blog.docker.com/2013/09/docker-can-now-run-within-docker/">Docker-in-Docker</a></li>
+<li><a href="https://github.com/jpetazzo/dind">dind</a></li>
+<li><a href="https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/">Docker-out-of-Docker</a></li>
 </ul>
 
 ]]></content>
