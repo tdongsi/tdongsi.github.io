@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Learning Hive (Pt. 1): Introduction"
+title: "Hive: Introduction"
 date: 2015-11-22 17:22:51 -0800
 comments: true
 categories: 
@@ -14,10 +14,7 @@ categories:
 "Chapter 1: Introduction" of the "Programming Hive" book.
 -->
 
-This post is the first of many Hive review posts. 
-Most of these posts are based on the **Programming Hive** book, with some observations from my own experience with [Cloudera Quickstart VM](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/).
-
-{% img center /images/hive/cat.gif Cover %}
+Experimenting Hive with [Cloudera Quickstart VM](/blog/2015/11/20/wordcount-sample-in-cloudera-quickstart-vm/).
 
 <!--more-->
 
