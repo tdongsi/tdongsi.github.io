@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Vertica | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/vertica/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-11T07:12:22-08:00</updated>
+  <updated>2021-03-11T07:26:03-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -420,242 +420,138 @@ trap "echo VARIABLE is being used here." DEBUG
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Vertica: Refresh Your Projections]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections/"/>
-    <updated>2016-02-29T00:54:02-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/29/vertica-9-refresh-projections</id>
-    <content type="html"><![CDATA[<p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
+    <title type="html"><![CDATA[WITH Clause in SQL]]></title>
+    <link href="http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause/"/>
+    <updated>2016-02-03T00:50:48-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2016/02/03/vertica-6-with-clause</id>
+    <content type="html"><![CDATA[<p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
+<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
+Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
+For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
 
-<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
-The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
-The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
-
-<pre><code class="plain epochs table">=&gt; select * from epochs;
-
-epoch_close_time              epoch_number
-2016-03-04 21:44:24.192495  610131
-</code></pre>
-
-<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
-The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
-You cannot run any historical queries prior to the AHM.
-By default, Vertica advances the AHM at an interval of 5 minutes.</p>
-
-<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
-To find about the unrefreshed projection, use the following command:</p>
-
-<pre><code class="plain">SELECT * FROM projections where is_up_to_date = 'f';
-</code></pre>
-
-<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
-However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
-AHM could lag behind at the create epoch of some unrefreshed projection.
-Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
-
-<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
-
-<pre><code class="plain">select START_REFRESH();
-</code></pre>
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
-</ol>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Vertica: Performance Optimization Notes]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning/"/>
-    <updated>2016-02-13T23:52:44-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/02/13/vertica-8-performance-tuning</id>
-    <content type="html"><![CDATA[<p>In this post, most of optimization notes for Vertica performance are from our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
+This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
 
 <!--more-->
 
 
-<h3><code>NOT IN</code> better than <code>NOT EXISTS</code></h3>
+<p>For example, we can look into the following <code>SELECT</code> query:</p>
 
-<p>When we want to insert a row into a dimension table AND check for duplicates at the same time, we usually do this in DML scripts:</p>
-
-<pre><code class="sql BAD">SELECT 'United States', 'English' 
-WHERE NOT EXISTS (SELECT 'x' FROM dim_country WHERE country_name = 'United States')
+<pre><code class="sql Hard to read">SELECT * FROM (
+  SELECT *,
+  row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
+  FROM stg_customer
+) sorted_by_modify_date where sorted_by_modify_date.rank =1
 </code></pre>
 
-<p>However, for all such inserts, we were recently informed that it is better <strong>in Vertica</strong> to do <code>NOT IN</code> instead of <code>NOT EXISTS</code>.
-So, for example above:</p>
+<p>Before <code>WITH</code> clause, SQL scripts are usually hard to read due to nesting of sub-queries.
+To understand a SQL statement, we have to find and understand the innermost sub-query first and start working from inside out.
+In addition, as shown in the first example, name <code>sorted_by_modify_date</code> following the sub-query makes reading harder, even with meaningful names.
+The longer the inner query gets, the more likely the name for that query is pushed out of sight despite the fact that it is important to see an intention revealing name before reading such inner query.</p>
 
-<pre><code class="sql GOOD">SELECT 'United States', 'English' 
-WHERE 'United States' NOT IN (select country_name from dim_country)
-</code></pre>
+<p>The above example can be made easier to read using <code>WITH</code> clause as follows:</p>
 
-<h3>Avoid using <code>LEFT JOIN</code> to check existence</h3>
-
-<p>Let&rsquo;s say we have an ETL that regularly inserts new data into an existing dimension table.</p>
-
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on dc.country_id=ssp.country_id
-WHERE dc.country_id is NULL;
-</code></pre>
-
-<p>We are sometimes doing <code>LEFT JOIN</code> like this only to determine whether or not an entry already exists in the table.
-It would be faster to use a <code>WHERE</code> clause instead to perform that existence check.
-Although it might sound counter-intuitive, but reducing <code>JOIN</code> operations like this has been regularly recommended.</p>
-
-<pre><code class="sql GOOD">INSERT INTO dim_country                    
-(
-    country_id,
-    country_name,
-    country_language,
-) 
-SELECT ssp.country_id,
-    ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE ssp.country_id NOT IN (SELECT country_id FROM dim_country);
-</code></pre>
-
-<h3>Avoid function calls in <code>WHERE</code> and <code>JOIN</code> clauses</h3>
-
-<p>For this performance tip, we make a slight change to the example ETL in the last section above where <code>country_id</code> column is removed. In this case, we can use a normalized <code>country_name</code> as the ID to check for existing entries in the table:</p>
-
-<pre><code class="sql BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-LEFT JOIN dim_country dc on lower(dc.country_name)=lower(ssp.country_name)
-WHERE dc.country_name is NULL;
-</code></pre>
-
-<p>In this example, we normalize <code>country_name</code> to lower case. Note that <code>WHERE</code> clause should be used instead of <code>LEFT JOIN</code> as discussed above.</p>
-
-<pre><code class="sql BETTER, but still BAD">INSERT INTO dim_country                    
-(
-    country_name,
-    country_language,
-) SELECT ssp.country_name,
-    ssp.country_language,
-FROM staging_table ssp
-WHERE lower(ssp.country_name) NOT IN (SELECT lower(country_name) FROM dim_country);;
-</code></pre>
-
-<p>However, such change still has bad performance because, in general, function calls in <code>WHERE</code> and <code>JOIN</code> clauses should be avoided in Vertica.
-In both examples above, calling functions like <code>LOWER</code> in <code>WHERE</code> and <code>JOIN</code> clauses will affect the performance of the ETLs.</p>
-
-<p>The solution for this scenario is that, since we control what goes into dimension tables, we can ensure that columns like <code>country_name</code> are always stored in lower-case.
-Then, we can do the same when creating the temporary table such as <code>staging_table</code> that we are comparing to for checking existence.</p>
-
-<h3>Use  <a href="https://my.vertica.com/docs/7.1.x/HTML/Content/Authoring/SQLReferenceManual/Functions/VerticaFunctions/ANALYZE_STATISTICS.htm">ANALYZE_STATISTICS</a></h3>
-
-<p>Make sure to run <code>ANALYZE_STATISTICS</code> after all data loads.
-Using this function, tables are analyzed for best performance in subsequent queries ran against it.
-Without information from <code>ANALYZE_STATISTICS</code>, the query optimizer assumes uniform distribution of data values and equal storage usage for all projections.</p>
-
-<p>Note that <code>ANALYZE_STATISTICS</code> is only supported on <em>local</em> temporary tables, but not on <em>global</em> temporary tables.
-In addition, when we add <code>ANALYZE_STATISTICS</code> function calls into our ETL scripts, errors might be thrown when a second <code>ANALYZE_STATISTICS</code> call is made while the first is still running.
-Those errors can be ignored but they must be caught accordingly to separate with other Vertica error messages.</p>
-
-<h3>Avoid creating temporary tables using <code>SELECT</code></h3>
-
-<p>Instead of creating temporary tables using <code>SELECT</code>, it is recommended to:</p>
-
-<ol>
-<li>Create the temporary table first without a projection.</li>
-<li>Create a super <a href="/blog/2016/02/07/vertica-post-7/">projection</a> with the correct column encodings and <code>ORDER BY</code> clause</li>
-<li>Populate it using <code>INSERT /*+ direct */ INTO</code>. Note the <code>/*+ direct */</code> hint to write data directly to disk, bypassing memory.</li>
-<li>Run <code>ANALYZE_STATISTICS</code>. See the last section.</li>
-</ol>
-
-
-<p>For example, in a Vertica ETL script that runs daily, we usually create a temporary table to retrieve the latest records from a source table like this:</p>
-
-<pre><code class="sql BAD">CREATE TEMPORARY TABLE customer_last_temp 
-ON COMMIT PRESERVE ROWS
-AS(
-  select * from (
-    select *,
-    row_number() OVER (PARTITION BY customer_id ORDER BY last_modify_date DESC) AS rank 
-    from  stg_customer rpt 
-  ) t1 where t1.rank =1
-);
-</code></pre>
-
-<p>In this example, <code>last_modify_date</code> is the <a href="https://en.wikipedia.org/wiki/Change_data_capture">CDC</a> column and <code>customer_id</code> is the primary key column.
-Although this SQL statement is simple and easy to understand, it is really slow for a large and growing <code>stg_customer</code> table that contains updates to all customers on multiple dates, with millions of <em>new</em> customer entries each day.
-Instead, the recommended coding pattern is to create a temporary table first without a projection:</p>
-
-<pre><code class="sql Create a temporary table without projection">CREATE LOCAL TEMPORARY TABLE customer_last_temp  ( 
-        customer_id                     int,
-        subscribe_date                  timestamp,
-        cancel_date                     timestamp,
-        last_modify_date                timestamp,
-)
-ON COMMIT PRESERVE ROWS NO PROJECTION;
-</code></pre>
-
-<p>It is also recommended that the column names are explicitly specified, so that only required columns are created in the temporary table.
-A <code>LOCAL</code> temporary table is created, instead of <code>GLOBAL</code>, so that we can use <code>ANALYZE_STATISTICS</code> functions as discussed above.
-Next, create a super projection with the correct column encodings and <code>ORDER BY</code> clause:</p>
-
-<pre><code class="sql Create a super projection">CREATE PROJECTION customer_last_temp_super (
-      customer_id ENCODING DELTARANGE_COMP 
-    , subscribe_date ENCODING GCDDELTA
-    , cancel_date ENCODING BLOCKDICT_COMP     
-    , last_modify_date ENCODING BLOCKDICT_COMP 
-)
-AS 
-SELECT customer_id 
-     , subscribe_date
-     , cancel_date
-     , last_modify_date
-  FROM customer_last_temp 
- ORDER BY customer_id
-SEGMENTED BY HASH (customer_id) ALL NODES;
-</code></pre>
-
-<p>Finally, insert &ldquo;directly&rdquo; into the temporary table:</p>
-
-<pre><code class="sql Populate the table">INSERT /*+ direct */ INTO customer_last_temp (
-      customer_id 
-    , subscribe_date 
-    , cancel_date 
-    , last_modify_date 
-)
-WITH t1 AS (
-    SELECT company_id 
-         , subscribe_date 
-         , cancel_date 
-         , last_modify_date 
-         , ROW_NUMBER() OVER (PARTITION BY customer_id 
+<pre><code class="sql Easy to read">WITH sorted_by_modify_date AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id 
                                   ORDER BY last_modify_date DESC) AS rank 
-      FROM stg_customer AS rpt 
+    FROM stg_customer
 )
-SELECT company_id 
-     , subscribe_date 
-     , cancel_date 
-     , last_modify_date 
-FROM t1
-WHERE t1.rank = 1;  
+SELECT * FROM sorted_by_modify_date
+WHERE sorted_by_modify_date.rank = 1;  
 </code></pre>
 
-<p>The <code>WITH</code> clause is just a more readable way to write the sub-query in the original SQL statement (see <a href="/blog/2016/02/03/vertica-post-8/">WITH clause</a>).
-In addition, the wildcard <code>*</code> in the original SQL query is also avoided, in case the table <code>stg_customer</code> is a very wide table.</p>
+<p>As the second example demonstrates, <code>WITH</code> clause solves two problems: 1) names come first, 2) sub-queries are un-nested.
+The <code>WITH</code> clause puts the name above the code, like declaring a function with code in the sub-query.
+We can pick a meaningful, intention revealing name for it and we can refer to that &ldquo;function&rdquo; in the following sub-queries in the same <code>WITH</code> clause.
+Moreover, the most powerful impact of <code>WITH</code> clause is that sub-queries can be un-nested to follow the order and flow of developers' thoughts.
+We can define multiple queries for multiple steps, and each of them can refer to the <em>previously</em> defined queries in the same <code>WITH</code> clause.</p>
+
+<p>The following example demonstrates the power of <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a> in SQL, enabled by <code>WITH</code> clause:</p>
+
+<pre><code class="sql Traffic classification of a Music website">WITH Total_Traffic AS
+(
+    SELECT temp.* from temp as clickstream_data
+    where .... -- filtering
+)
+, Rock_Music as
+(
+    select * from Total_Traffic
+    WHERE lower(evar28) LIKE 'rock_mus%'
+)
+, Instrumental_Music as
+(
+    select * from Total
+    WHERE evar28 LIKE '%[ins_mus]%'
+)
+, Defined_Traffic as
+(
+    select * from Rock_Music
+    UNION
+    select * from Instrumental_Music
+)
+select traffic_date_key
+, count(distinct visitor_id) as unique_visitor
+from Defined_Traffic 
+group by traffic_date_key
+</code></pre>
+
+<p>The purpose of this query is to find the daily number of &ldquo;Defined&rdquo; unique visitors from clickstream data.
+Finding daily total unique visitors from Clickstream data is easy and, by subtracting &ldquo;Defined&rdquo; numbers from &ldquo;Total&rdquo; numbers, we can find the &ldquo;Unknown&rdquo; traffic numbers that help determine marketing decisions.
+Note that the total &ldquo;defined&rdquo; unique visitor count is NOT equal to sum of all unique visitor counts from each classification (e.g., &ldquo;Rock&rdquo; + &ldquo;Instrumental&rdquo;) since some visitors will listen to both Rock and Instrumental music on the website.</p>
+
+<p>It would be hard, if not impossible, to write such query using only nested sub-queries and achieve the same readability.
+The ease of reading is from a combination of top-down code structure and meaningful block names before code blocks, both are properties of <code>WITH</code> clause.</p>
+
+<p>In the past, without <code>WITH</code> clause, we used to create <code>TEMPORARY TABLES</code> in Vertica to save the immediate steps.
+Now, we have a native SQL solution in <code>WITH</code> clause and a more powerful technique to create sub-queries.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Pushing Local Jar File Into Your Local Maven (M2) Repository]]></title>
+    <link href="http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository/"/>
+    <updated>2015-11-17T16:46:49-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2015/11/17/pushing-local-jar-file-into-your-local-maven-m2-repository</id>
+    <content type="html"><![CDATA[<h4>Problem:</h4>
+
+<p>I want to use Vertica JDBC driver in my Eclipse Maven project. I have the jar file from the vendor (i.e., downloaded from HP-Vertica support website) but, obviously, that file is not in Maven central repository. My Maven build will not work without that dependency.</p>
+
+<p>This post will also apply if you are behind a firewall and/or do not have external access for some reason.</p>
+
+<!--more-->
+
+
+<h4>Solution:</h4>
+
+<ul>
+<li>Download the jar file (e.g., the Vertica JDBC jar file).</li>
+<li>At the same directory as the jar file, run the following command to install the jar to the local Maven repository (running in a different directory seems not work).</li>
+</ul>
+
+
+<pre><code class="bash General Maven command">$ mvn install:install-file -DgroupId=&lt;GROUP_ID&gt; -DartifactId=&lt;ARTIFACT_ID&gt; -Dversion=&lt;VERSION&gt; -Dpackaging=jar -Dfile=&lt;LOCAL_PATH_FOR_JAR&gt; -DgeneratePom=true
+</code></pre>
+
+<p>Example:</p>
+
+<pre><code class="bash Example Maven command for Vertica JDBC">$ mvn install:install-file -DgroupId=com.vertica -DartifactId=vertica-jdbc -Dversion=7.0.1 -Dpackaging=jar -Dfile=~/Downloads/vertica/vertica-jdbc-7.0.1.jar -DgeneratePom=true
+</code></pre>
+
+<ul>
+<li>Now when you run your maven goals, it will not look for this particular jar file in any external repository such as Maven Central Repository since Maven checks and perceives that it is already in your local repository (your ~/.m2 directory).</li>
+</ul>
+
+
+<p>If you want your Eclipse to start using this jar from your local repository:</p>
+
+<ul>
+<li>In Eclipse Luna on a Mac/Windows, go to Window > Show View > Other > Maven > Maven Repository.</li>
+<li>Open Local Repositories > Local Repository.</li>
+<li>Right click for the context menu > Rebuild Index.</li>
+</ul>
+
+
+<p>Now it should show up in “Add…” dialog in pom.xml edit.</p>
 ]]></content>
   </entry>
   

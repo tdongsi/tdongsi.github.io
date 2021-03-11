@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Centos | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/centos/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-11T07:12:22-08:00</updated>
+  <updated>2021-03-11T07:26:03-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,77 +12,6 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
-  
-  <entry>
-    <title type="html"><![CDATA[Using Virtual Machine for ETL Testing]]></title>
-    <link href="http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files/"/>
-    <updated>2016-01-10T23:49:15-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2016/01/10/find-and-replace-a-string-in-multiple-files</id>
-    <content type="html"><![CDATA[<p>When developing data-warehouse solutions in Vertica, you want to set up some test environment.
-Ideally, you should have separate schema for each developer.
-However, it is usually NOT possible in my experience: developers and test engineers have to share very few schemas in development environment.
-The explanation that I usually get is that having a schema for each developer will not scale in database maintenance and administration, and there are likely some limits in Vertica&rsquo;s commercial license.
-If that is the case, I recommend that we look into using Vertica Community Edition on <strong>Virtual Machines (VMs)</strong> for sandbox test environment, as a cheap alternative.</p>
-
-<!--more-->
-
-
-<h3>Vertica Virtual Machine as sandbox test environment</h3>
-
-<p>Are VMs really necessary in data-warehouse testing? When testing Extract-Transform-Load (ETL) processes, I find that many of test cases require regular set-up and tear-down, adding mock records to force rare logical branches and corner cases, and/or running ETLs multiple times to simulate daily runs of those processes.
-Regular tear-down requires dropping multiple tables regularly, which requires much greater care and drains much mental energy when working with others' data and tables.
-Similarly, adding mock records into some commonly shared tables might affect others when they assume the data is production-like.
-Running ETL scripts regularly, which could be computationally intensive, on a shared Vertica cluster might affect the performance or get affected by others' processes.
-In short, for these tests, I cannot use the common schema that is shared with others since it might interfere others and/or destroy valuable common data.
-Using a Vertica VM as the sandbox test environment helps us minimize interference to and from others' data and activities.</p>
-
-<h3>Single-node VM and KSAFE clause</h3>
-
-<p>I have been using a <strong>single-node</strong> Vertica VM to run tests for sometime. And it works wonderfully for testing purpose, especially when you want to isolate issues, for example, a corner case. The Vertica VM can be downloaded from HP Vertica&rsquo;s support website (NOTE: As of 2016 Jan 1st, the Vertica 7.1 VM is taken down while the Vertica 7.2 VM is not available).</p>
-
-<p>The only minor problem is when we add <code>KSAFE 1</code> in our DDL scripts (i.e., <code>CREATE TABLE</code> statements) for production purposes. This gives error on single-node VM when running DDL scripts to set up schema.
-The reason is that Vertica database with one or two hosts cannot be <em>k-safe</em> (i.e., it may lose data if it crashes) and three-node cluster is the minimum requirement to have <code>KSAFE 1</code> in <code>CREATE TABLE</code> statements to work.</p>
-
-<p>Even then, the workaround for running those DDL scripts in tests is easy enough if all DDL scripts are all located in a single folder. The idea is that since <code>KSAFE 1</code> does not affect ETL processes' transform logics, we can remove those KSAFE clauses to set up the test schema and go ahead with our ETL testing. Specifically, in my project, my workflow for ETL testing with <strong>Git</strong> is as follows:</p>
-
-<ul>
-<li>Branch the latest code (<code>develop</code> branch) into a temporary branch (e.g., <code>local/develop</code> branch).</li>
-<li>Find and remove <code>KSAFE 1</code> in all DDL files (see subsection below).</li>
-<li>While still in <code>local/develop</code> branch, commit all these changes in a <strong>single</strong> commit with some unique description (e.g., &ldquo;KSAFE REMOVAL&rdquo;).</li>
-<li>Add unit and functional tests to ETL scripts in this branch.</li>
-<li>After tests are properly developed and checked-in, reverse the &ldquo;KSAFE REMOVAL&rdquo; commit above.
-
-<ul>
-<li>In SourceTree, it could be done by a simple right-click on that commit and selecting &ldquo;Reverse Commit&rdquo;.</li>
-</ul>
-</li>
-<li>Merge <code>local/develop</code> branch into <code>develop</code> branch (create a pull request if needed). You will now have your tests with the latest codes in <code>develop</code> branch.</li>
-</ul>
-
-
-<h4>Find and replace a string in multiple files</h4>
-
-<p>There are times and times again that you find that you have to replace every single occurrences of some string in multiple files with another string. Finding and removing <code>KSAFE 1</code> like the above workflow is an example where &ldquo;removing string&rdquo; is a special case of &ldquo;replacing string&rdquo; with nothing. This operation can be quickly done by the following bash command:</p>
-
-<pre><code>grep -rl match_string your_dir/ | xargs sed -i 's/old_string/new_string/g'
-</code></pre>
-
-<p>If you are familiar with bash scripting, the above command is straight forward. This quick explanation is for anyone who does not understand the command:</p>
-
-<ul>
-<li><code>grep</code> command finds all files in <code>your_dir</code> directory that contain <code>match_string</code>. <code>-l</code> option makes sure it will return a list of files</li>
-<li><code>sed</code> command then execute the replacement regex on all those files. A regex tip: the forward slash <code>/</code> delimiter could be another delimiter (e.g., <code>#</code>). This might be useful if you need to search HTML files.</li>
-</ul>
-
-
-<p>Example: In my case, all the DDL scripts are in multiple sub-directories under <code>tables</code> directory. To find and remove all <code>KSAFE 1</code> occurrences, the command is:</p>
-
-<pre><code>grep -rl 'KSAFE 1' tables | xargs sed -i 's/KSAFE 1//g'
-</code></pre>
-
-<p>This will search for the string <code>KSAFE 1</code> in all files in the <code>tables</code> directory and replace <code>KSAFE 1</code> with nothing <code>''</code> for each occurrence of the string in each file.</p>
-]]></content>
-  </entry>
   
   <entry>
     <title type="html"><![CDATA[Set Up Public-key SSH on Linux]]></title>

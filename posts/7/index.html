@@ -182,80 +182,6 @@ A simple test is provided to verify if such idiom is applicable in your current 
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/02/29/vertica-9-refresh-projections/">Vertica: Refresh Your Projections</a></h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-<time class='entry-date' datetime='2016-02-29T00:54:02-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>29</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:54 am</span></time>
-        
-      </p>
-    
-  </header>
-
-
-  <div class="entry-content"><p>Most information presented in this post is directly quoted from <a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">this page</a>.</p>
-
-<p><strong>Epoch</strong>: An epoch is 64-bit number that represents a logical time stamp for the data in Vertica.
-The epoch advances when the logical state of the system changes or when the data is committed with a DML operation (INSERT, UPDATE, MERGE, COPY, or DELETE).
-The <code>EPOCHS</code> system table contains the date and time of each closed epoch and the corresponding epoch number of the closed epoch.</p>
-
-<figure class='code'><figcaption><span>epochs table</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>=&gt; select * from epochs;
-</span><span class='line'>
-</span><span class='line'>epoch_close_time            epoch_number
-</span><span class='line'>2016-03-04 21:44:24.192495    610131</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>Ancient History Mark (AHM)</strong>: A large epoch map can increase the catalog size.
-The ancient history mark is the epoch prior to which historical data can be purged from physical storage.
-You cannot run any historical queries prior to the AHM.
-By default, Vertica advances the AHM at an interval of 5 minutes.</p>
-
-<p>There are scenarios that the ancient history marker does not advance: there is an unrefreshed <a href="/blog/2016/02/07/vertica-7-projections/">projection</a>.
-To find about the unrefreshed projection, use the following command:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>SELECT * FROM projections where is_up_to_date = 'f';</span></code></pre></td></tr></table></div></figure>
-
-
-<p>It was already mentioned in the HPE page that AHM will not advance if there’s any projection not up to date.
-However, it also means that AHM will also not advance if there’s no activity (data insert/update or delete) on a table.
-AHM could lag behind at the create epoch of some unrefreshed projection.
-Therefore, we need to make sure we are <strong>always</strong> refreshing projections after creating them.</p>
-
-<p>Generally, you can refresh a projection by executing the <code>START_REFRESH</code> meta-function, which is a background process, or the <code>REFRESH</code> meta-function, which is a foreground process.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>select START_REFRESH();</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Links</h3>
-
-<ol>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Knowledge-Base/Understanding-Vertica-Epochs/ta-p/233749">Epoch and AHM</a></li>
-<li><a href="https://community.dev.hpe.com/t5/Vertica-Blog/Best-Practices-for-Refreshing-Large-Projections/ba-p/229505">Best Practices</a></li>
-</ol>
-
-</div>
-  
-  
-
-
-    </article>
-  
-  
-    <article>
-      
-  <header>
-    
       <h1 class="entry-title"><a href="/blog/2016/02/21/java-1-single-mocking-framework/">Use One Mocking Framework ONLY</a></h1>
     
     
@@ -348,7 +274,7 @@ However, after some branch switches and code merges, the symlinks become actual 
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/02/13/vertica-8-performance-tuning/">Vertica: Performance Optimization Notes</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/02/03/vertica-6-with-clause/">WITH Clause in SQL</a></h1>
     
     
       <p class="meta">
@@ -357,21 +283,26 @@ However, after some branch switches and code merges, the symlinks become actual 
 
 
 
-<time class='entry-date' datetime='2016-02-13T23:52:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>13</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>11:52 pm</span></time>
+<time class='entry-date' datetime='2016-02-03T00:50:48-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>3</span><span class='date-suffix'>rd</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>In this post, most of optimization notes for Vertica performance are from our team&rsquo;s interaction with <a href="http://www.nexius.com/software-and-business-intelligence/">Nexius</a> consultants.
-Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Practices</a>.</p>
+  <div class="entry-content"><p>I am pleasantly surprised that Vertica SQL supports <code>WITH</code> clause, as documented <a href="https://my.vertica.com/docs/7.1.x/HTML/index.htm#Authoring/AnalyzingData/Queries/WITHClausesInSELECT.htm">here</a>.
+<code>WITH</code> syntax as a standard is only defined in <a href="https://en.wikipedia.org/wiki/SQL:1999">SQL-99</a>, also called <em>Common Table Expressions</em>.
+Therefore, I do not usually expect <code>WITH</code> clause since it is a fairly recent feature in most SQL dialects.
+For example: <code>WITH</code> clause support is only added into SQLite since Feb 2014.</p>
+
+<p>In summary, the <code>WITH</code> clause allows us to arrange sub-queries in a SQL query in order of human logic.
+This will make our query much easier to read: we can read from top to bottom like reading a story (i.e., <a href="https://en.wikipedia.org/wiki/Literate_programming">literate programming</a>).</p>
 
 </div>
   
   
     <footer>
-      <a rel="full-article" href="/blog/2016/02/13/vertica-8-performance-tuning/">Read on &rarr;</a>
+      <a rel="full-article" href="/blog/2016/02/03/vertica-6-with-clause/">Read on &rarr;</a>
     </footer>
   
 
@@ -383,7 +314,7 @@ Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Pra
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2016/02/07/vertica-7-projections/">Vertica Projections</a></h1>
+      <h1 class="entry-title"><a href="/blog/2016/01/27/python-1-mock-datetime-freezegun/">Mocking Current Date and Time in Python</a></h1>
     
     
       <p class="meta">
@@ -392,32 +323,56 @@ Also see <a href="/blog/2015/12/16/vertica-tip-best-practices/">Vertica Best Pra
 
 
 
-<time class='entry-date' datetime='2016-02-07T00:50:44-08:00'><span class='date'><span class='date-month'>Feb</span> <span class='date-day'>7</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:50 am</span></time>
+<time class='entry-date' datetime='2016-01-27T17:36:53-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>27</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>5:36 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>Projections are key in Vertica performance tuning.
-Details of Vertica projections are discussed in the following blog posts from HP-Vertica:</p>
+  <div class="entry-content"><p>In this post, we looks into unit testing some calendar utilities in Python.
+A requirement for unit testing those is to &ldquo;mock&rdquo; current date and time, i.e., overriding those returned by <code>today</code> and <code>now</code> methods with some specific date values (e.g., a date in future).</p>
 
-<ol>
-<li><a href="https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/">https://www.vertica.com/2011/09/01/the-power-of-projections-part-1/</a></li>
-<li><a href="https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/">https://www.vertica.com/2011/09/02/the-power-of-projections-part-2/</a></li>
-<li><a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/</a></li>
-</ol>
-
-
-<p>In summary, Vertica projections represent collections of columns (like table) but they are optimized for analytics at the physical storage structure level and they are not constrained by the logical schema.
-For each regular table, Vertica requires a minimum of one projection, called a “superprojection”.
-Vertica creates a default super-projection when running CREATE TABLE statement.
-<a href="https://www.vertica.com/2011/09/06/the-power-of-projections-part-3/">Part 3</a> also compares Vertica projections with &ldquo;Materialized Views&rdquo; and &ldquo;Indexes&rdquo; in traditional databases.</p>
-
-<p>For Vertica performance tuning, we create multiple projections, customize them and parameters of each projection to achieve the best performance.
-Database Designer is a tool provided by Vertica to help us find the optimal projections, based on data statistics and frequent queries.</p>
 </div>
   
+  
+    <footer>
+      <a rel="full-article" href="/blog/2016/01/27/python-1-mock-datetime-freezegun/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2016/01/22/aws-setup-MFA/">AWS: Setting Up Multi-Factor Authentication (MFA)</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-01-22T18:37:23-08:00'><span class='date'><span class='date-month'>Jan</span> <span class='date-day'>22</span><span class='date-suffix'>nd</span>, <span class='date-year'>2016</span></span> <span class='time'>6:37 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>This process is simple and most people should use MFA when developing a serious AWS application. Follow the following steps to enable MFA for AWS.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2016/01/22/aws-setup-MFA/">Read on &rarr;</a>
+    </footer>
   
 
 
@@ -559,27 +514,9 @@ Database Designer is a tool provided by Vertica to help us find the optimal proj
             
         
             
-        
-            
-        
-            
-        
-            
                 <li class="post">
                 <a href="/blog/2016/02/03/vertica-6-with-clause/">WITH clause in SQL</a>
                 </li>
-            
-        
-            
-        
-            
-        
-            
-        
-            
-        
-            
-        
             
         
             
@@ -689,7 +626,7 @@ Database Designer is a tool provided by Vertica to help us find the optimal proj
 
 <section>
   <h1>Categories</h1>
-    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (10)</a></li><li><a href='/blog/categories/book/'>book (2)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (2)</a></li><li><a href='/blog/categories/database/'>database (6)</a></li><li><a href='/blog/categories/docker/'>docker (11)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (7)</a></li><li><a href='/blog/categories/gradle/'>gradle (2)</a></li><li><a href='/blog/categories/groovy/'>groovy (14)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (3)</a></li><li><a href='/blog/categories/hive/'>hive (1)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (1)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (17)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (9)</a></li><li><a href='/blog/categories/macosx/'>macosx (3)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (5)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (7)</a></li><li><a href='/blog/categories/testing/'>testing (7)</a></li><li><a href='/blog/categories/testng/'>testng (2)</a></li><li><a href='/blog/categories/vertica/'>vertica (12)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
+    <ul id="category-list"><li><a href='/blog/categories/algorithm/'>algorithm (3)</a></li><li><a href='/blog/categories/automation/'>automation (6)</a></li><li><a href='/blog/categories/aws/'>aws (5)</a></li><li><a href='/blog/categories/bash/'>bash (9)</a></li><li><a href='/blog/categories/book/'>book (2)</a></li><li><a href='/blog/categories/cassandra/'>cassandra (1)</a></li><li><a href='/blog/categories/centos/'>centos (1)</a></li><li><a href='/blog/categories/database/'>database (1)</a></li><li><a href='/blog/categories/docker/'>docker (11)</a></li><li><a href='/blog/categories/eclipse/'>eclipse (1)</a></li><li><a href='/blog/categories/git/'>git (6)</a></li><li><a href='/blog/categories/gradle/'>gradle (2)</a></li><li><a href='/blog/categories/groovy/'>groovy (14)</a></li><li><a href='/blog/categories/grunt/'>grunt (1)</a></li><li><a href='/blog/categories/hadoop/'>hadoop (3)</a></li><li><a href='/blog/categories/hive/'>hive (1)</a></li><li><a href='/blog/categories/jacoco/'>jacoco (1)</a></li><li><a href='/blog/categories/java/'>java (13)</a></li><li><a href='/blog/categories/javascript/'>javascript (1)</a></li><li><a href='/blog/categories/jdbc/'>jdbc (1)</a></li><li><a href='/blog/categories/jenkins/'>jenkins (17)</a></li><li><a href='/blog/categories/junit/'>junit (2)</a></li><li><a href='/blog/categories/kubernetes/'>kubernetes (9)</a></li><li><a href='/blog/categories/macosx/'>macosx (2)</a></li><li><a href='/blog/categories/math/'>math (1)</a></li><li><a href='/blog/categories/matplotlib/'>matplotlib (2)</a></li><li><a href='/blog/categories/maven/'>maven (4)</a></li><li><a href='/blog/categories/mysql/'>mysql (1)</a></li><li><a href='/blog/categories/numpy/'>numpy (1)</a></li><li><a href='/blog/categories/opencv/'>opencv (1)</a></li><li><a href='/blog/categories/performance/'>performance (2)</a></li><li><a href='/blog/categories/perl/'>perl (1)</a></li><li><a href='/blog/categories/python/'>python (10)</a></li><li><a href='/blog/categories/ruby/'>ruby (1)</a></li><li><a href='/blog/categories/security/'>security (6)</a></li><li><a href='/blog/categories/sql/'>sql (3)</a></li><li><a href='/blog/categories/testing/'>testing (6)</a></li><li><a href='/blog/categories/testng/'>testng (2)</a></li><li><a href='/blog/categories/vertica/'>vertica (5)</a></li><li><a href='/blog/categories/windows/'>windows (2)</a></li></ul>
 </section>
 
 
