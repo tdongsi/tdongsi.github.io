@@ -4,7 +4,6 @@ title: "Overview of MapReduce: Explaining WordCount Example"
 date: 2015-11-21 02:37:20 -0800
 comments: true
 categories: 
-- Book
 - Hadoop
 - Java
 ---

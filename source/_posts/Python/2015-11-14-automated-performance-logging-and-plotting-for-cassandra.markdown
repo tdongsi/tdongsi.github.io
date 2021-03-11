@@ -4,12 +4,9 @@ title: "Automated Performance Logging and Plotting for Cassandra"
 date: 2015-11-14 19:57:43 -0800
 comments: false
 categories: 
-- Database 
 - Cassandra 
 - Python
 - Automation
-- Numpy
-- Matplotlib
 - Performance
 ---
 

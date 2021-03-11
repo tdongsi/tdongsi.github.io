@@ -4,7 +4,6 @@ title: "Hive: Introduction"
 date: 2015-11-22 17:22:51 -0800
 comments: true
 categories: 
-- Book
 - Hadoop
 - Hive
 - SQL
