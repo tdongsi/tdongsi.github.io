@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Git | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/git/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-13T02:40:58-08:00</updated>
+  <updated>2021-03-13T03:04:31-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -164,13 +164,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#105;&#108;&#x74;&#111;&#58;&#110;&#x6f;&#45;&#x72;&#x65;&#x70;&#x6c;&#x79;&#x40;&#x67;&#x69;&#x74;&#x68;&#117;&#x62;&#x2e;&#99;&#x6f;&#x6d;">&#x6e;&#111;&#45;&#x72;&#x65;&#x70;&#108;&#x79;&#64;&#103;&#x69;&#116;&#104;&#117;&#98;&#x2e;&#x63;&#111;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#116;&#x6f;&#58;&#110;&#111;&#45;&#x72;&#101;&#x70;&#x6c;&#121;&#x40;&#x67;&#105;&#116;&#x68;&#117;&#98;&#46;&#99;&#x6f;&#109;">&#110;&#x6f;&#45;&#x72;&#101;&#112;&#108;&#x79;&#x40;&#103;&#105;&#x74;&#104;&#117;&#98;&#x2e;&#x63;&#x6f;&#x6d;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#x61;&#105;&#108;&#116;&#x6f;&#58;&#x6e;&#x6f;&#45;&#x72;&#101;&#112;&#x6c;&#x79;&#x40;&#103;&#105;&#116;&#x68;&#117;&#98;&#46;&#x63;&#111;&#x6d;">&#x6e;&#x6f;&#45;&#x72;&#x65;&#x70;&#x6c;&#x79;&#x40;&#x67;&#x69;&#x74;&#x68;&#117;&#98;&#46;&#99;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#x74;&#x6f;&#58;&#x6e;&#x6f;&#45;&#114;&#x65;&#112;&#108;&#x79;&#64;&#103;&#105;&#116;&#104;&#x75;&#98;&#46;&#99;&#x6f;&#x6d;">&#110;&#111;&#45;&#x72;&#x65;&#x70;&#108;&#x79;&#x40;&#x67;&#105;&#x74;&#104;&#x75;&#x62;&#46;&#99;&#111;&#109;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -212,124 +212,6 @@ Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use
 
 <ul>
 <li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Updating Jenkins Pipeline Shared Libraries]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries/"/>
-    <updated>2017-03-17T15:38:14-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/03/17/jenkins-pipeline-shared-libraries</id>
-    <content type="html"><![CDATA[<p>When you have multiple Pipeline jobs, you often want to share some parts of the Jenkinsfiles between them to keep Jenkinfiles <a href="https://en.wikipedia.org/wiki/Don't_repeat_yourself">DRY</a>.
-A very common use case is that you have many projects that are built in the similar way, such as Nexus authentication step in Gradle build.
-One way is to use <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin">Workflow plugin</a>.
-Comprehensive user documentation can be found in <a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">this section</a> of Jenkins handbook.</p>
-
-<p>In the following sections, we review a couple <strong>older</strong>, but not necessarily worse, ways of updating shared Groovy code which are still used in some Jenkins system.</p>
-
-<!--more-->
-
-
-<h3>Simple copying</h3>
-
-<p>A quick and dirty way of updating shared Groovy codes in Jenkinsfile is to overwrite Groovy files on Jenkins in its <code>$JENKINS_HOME</code>.
-All such Groovy files are stored in <em>$JENKINS_HOME/workflow-libs</em> folder, following this directory structure:</p>
-
-<pre><code class="plain Directory structure of a Shared Library repository">(root)
-+- src                     # Groovy source files
-|   +- org
-|       +- foo
-|           +- Bar.groovy  # for org.foo.Bar class
-+- vars
-|   +- foo.groovy          # for global 'foo' variable
-|   +- foo.txt             # help for 'foo' variable
-+- resources               # resource files (external libraries only)
-|   +- org
-|       +- foo
-|           +- bar.json    # static helper data for org.foo.Bar
-</code></pre>
-
-<p>By manually modifying the Groovy files (e.g., <em>vars/foo.groovy</em>) and restarting Jenkins, you can update their behaviors accordingly.
-This method is dirty and definitely bad since it requires a Jenkins restart and modifications to Groovy codes are not tracked (and code-reviewed) anywhere.</p>
-
-<h3>Git-based update</h3>
-
-<p>A more scalable alternative for updating Groovy codes is to use <code>git push</code>, exposed by Jenkins.</p>
-
-<p>As a side note, this method is no longer mentioned in documentation, as of March 2017.
-In fact, you have to look into a <a href="https://github.com/jenkinsci/workflow-cps-global-lib-plugin/tree/ce1177278d4cb05ac6b01f723177cc4b2e0aec8d">very old commit</a>
-or <a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">outdated, unofficial fork</a> to find this method briefly mentioned at all.
-It is also occasionally mentioned in support articles such as <a href="https://support.cloudbees.com/hc/en-us/articles/218162277-Unable-to-Clone-workflowLibs">this</a>.</p>
-
-<p>In this method, the directory <em>$JENKINS_HOME/workflow-libs</em> is exposed by Jenkins as a Git repository.
-You can deploy new changes to this directory through <code>git push</code> and any such event will trigger Jenkins to recompile Groovy files.
-There is no Jenkins restart required for this method, which makes it much more suitable for production Jenkins.
-The Git repository is exposed in two endpoints:</p>
-
-<ul>
-<li><a href="http://server/jenkins/workflowLibs.git">http://server/jenkins/workflowLibs.git</a> (when your Jenkins is <code>http://server/jenkins/</code>).</li>
-<li>ssh://USERNAME@server:PORT/workflowLibs.git (when Jenkins acts as <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH">an SSH server</a>)</li>
-</ul>
-
-
-<p>This method also means that the shared Jenkins library scripts in Groovy are stored in another Git repository (e.g., &ldquo;shared-lib&rdquo; on Github) and only <code>git push</code> to the <code>workflowLibs.git</code> repository in the event of deployment.
-Having the shared scripts in Git allows you to track changes, perform tested deployments, and reuse the same shared library across a large number of instances.</p>
-
-<h4>Jenkinsfile to update global library</h4>
-
-<p>In this Git-based update approach, all Groovy files should be in some Git repository (e.g., &ldquo;shared-lib&rdquo;) with certain directory structure (shown in the last section).
-Since Jenkinsfile has been extensively used for creating CI/CD pipelines, it is only appropriate to add a Jenkinsfile for deploying Groovy files in this Git repository to update Jenkins.
-The Jenkinsfile for such workflow-libs should be as follows:</p>
-
-<pre><code class="plain Jenkinsfile for deployment">  stage 'Checkout'
-  checkout scm
-
-  if (env.BRANCH_NAME == 'master') {
-    stage 'Update'
-    println "Updating Jenkins workflow-libs"
-    sshagent(['jenkins_ssh_key']) {
-      sh """
-         git branch master
-         git checkout master
-         ssh-keyscan -H -p 12222 \${JENKINS_ADDR} &gt;&gt; ~/.ssh/known_hosts
-         git remote add jenkins ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git
-         git push --force jenkins master
-      """
-    }
-  }
-</code></pre>
-
-<p>Some comments on this Jenkinsfile:</p>
-
-<ul>
-<li><code>sshagent(['jenkins_ssh_key'])</code> indicates that the current node/slave is known as <a href="https://wiki.jenkins-ci.org/display/JENKINS/SSH+Agent+Plugin">an SSH agent</a> to Jenkins master, using Jenkins credentials with ID <code>jenkins_ssh_key</code>.</li>
-<li><code>git remote add</code> uses the currently checked out Git repo and branch as a remote branch (named &ldquo;jenkins&rdquo;) to the <code>workflowLibs</code> repository.</li>
-<li>The <code>workflowLibs</code> repository is managed by Jenkins, exposed at that location <em>ssh://tdongsi@\${JENKINS_ADDR}:12222/workflowLibs.git</em>.</li>
-<li>Then we force push any new changes to the Git repository on Jenkins.</li>
-</ul>
-
-
-<p>After the push, the Git repository <code>workflowLibs</code> on Jenkins should have latest change, same as the current &ldquo;shared-lib&rdquo; repository.
-Upon a <code>git push</code> event, the Jenkins will automatically update its global library with the latest changes, without the need of restarting.
-Note that for this SSH push to work, a public-private key pair must be generated and configured accordingly.</p>
-
-<pre><code class="plain Key pair generation">mymac:jenkins tdongsi$ kubectl --namespace=jenkins exec -ti jenkins-ideb4 -- bash
-
-jenkins@jenkins-4076880321-ideb4:~$ ssh-keygen -t rsa -b 4096 -C "example@gmail.com"
-Generating public/private rsa key pair.
-Enter file in which to save the key (/var/jenkins_home/.ssh/id_rsa):
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-</code></pre>
-
-<p>The generated public key should be added to the user via <em>jenkinsurl.com/user/tdongsi/configure</em> URL and private key should be added to the credentials ID <code>jenkins_ssh_key</code>.</p>
-
-<h3>References</h3>
-
-<ul>
-<li><a href="https://github.com/cloudbees/workflow-plugin/tree/master/cps-global-lib">Git-based update</a></li>
 </ul>
 
 ]]></content>
