@@ -53,7 +53,7 @@ SSTableCount,DataSize,c95thPercentile
 * Records in a Cassandra table
 * Performance plot as PNG file (automatically generated from CSV output file). Example:
 
-![Performance plot](https://dl.dropbox.com/s/0vy2u8b7hb7djjv/jmxMetrics.png?raw=1 "Performance Plot")
+![Performance plot](/images/python/jmxMetrics.png "Performance Plot")
 
 ### Python modules
 1. PerformanceLog.py: Main module to run the automated tasks. Please use "python PerformanceLog -h" for the required arguments. Example call for Windows is in the doc string.
