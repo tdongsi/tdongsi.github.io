@@ -111,7 +111,10 @@ In addition, we can also use a Slack channel (e.g., `#prod-deployments`) for dis
 
 It is recommended to have a single driver to take control of one instance of Jupyter runbook.
 
-TODO: "Scatterer-Gatherer" pattern. This single driver, usually the Release Manager/Launch Coordinator, will assign tasks (i.e., review services).
+TODO: Production Launch is usually completed in phases, such as schema update, data validation, deploy first batch of services, deploy second batch, etc.
+When moving between each phases, there must have some coordination between Release Manager/Launch Coordinator (now abbreviated as RM) and his supporting crew that may include service owners/developers, project managers, QA teams.
+"Scatterer-Gatherer" pattern: fans out the tasks, make sure those are completed before moving to the next stage/phase.
+This single driver, usually the Release Manager/Launch Coordinator, will assign tasks (i.e., review services).
 
 ### Disadvantages of Jupyter runbooks
 
