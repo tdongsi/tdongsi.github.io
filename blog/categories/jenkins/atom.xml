@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-13T03:10:19-08:00</updated>
+  <updated>2021-03-13T22:20:50-08:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -737,9 +737,13 @@ location_config.setAdminAddress("jenkins@skynet.net")
 <p><code>src</code> folder is intended to set up with <code>groovy</code> files in the standard directory structure, such as &ldquo;src/org/foo/bar.groovy&rdquo;.
 It will be added to the class path when the Jenkins pipelines are executed.</p>
 
-<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>.
-However, Groovy classes in shared Jenkins library cannot directly call those basic steps.
-They can however implement methods, outside of the scope of an enclosing class, which in turn invoke Pipeline steps, for example:</p>
+<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>, made available through various Jenkins plugins.
+However, Groovy classes in shared Jenkins library cannot simply call those basic steps directly.
+There are a few approaches on how to access those Pipeline steps indirectly.</p>
+
+<h3>Method 1: Methods in implicit class</h3>
+
+<p>Groovy scripts in <code>src</code> folder can implement methods that invoke Pipeline steps, like this:</p>
 
 <pre><code class="groovy Example 1">// src/org/demo/buildUtils.groovy
 package org.demo
@@ -749,13 +753,17 @@ def checkOutFrom(repo) {
 }
 </code></pre>
 
-<p>Which is stored implicitly in library and can then be invoked from a Scripted Pipeline:</p>
+<p>The method is stored implicitly in library and can then be invoked from a Scripted Pipeline like this:</p>
 
 <pre><code class="groovy Example 1 (continued)">def myUtils = new org.demo.buildUtils()
 myUtils.checkOutFrom(repo)
 </code></pre>
 
-<p>This approach has limitations; for example, it prevents the declaration of a superclass.</p>
+<p>However, the requirement of this approach is that those methods defined in <code>buildUtils.groovy</code> cannot be enclosed in any class.
+The &ldquo;implicit class&rdquo; mentioned in this approach refers to the fact that any Groovy script, such as <code>buildUtils.groovy</code>, has an implicit class (e.g., <code>org.demo.buildUtils</code>) that contains all the defined functions in it.
+This approach has limitations; for example, it prevents the declaration of a superclass.</p>
+
+<h3>Method 2: Explicit objects</h3>
 
 <p>In the following example, we create an enclosing class that would facilitate things like defining a superclass.
 In that case, to access standard DSL steps such as <code>sh</code> or <code>git</code>, we can explicitly pass special global variables <code>env</code> and <code>steps</code> into a constructor or a method of the class.
@@ -786,6 +794,8 @@ node {
 }
 </code></pre>
 
+<h3>Method 3: Static methods in explicit class</h3>
+
 <p>In the final example, we can also use static method and pass in the <code>script</code> object, which already has access to everything, including environment variables <code>script.env</code> and Pipeline steps such as <code>script.sh</code>.</p>
 
 <pre><code class="groovy Example 3">package org.demo
@@ -811,7 +821,7 @@ node {
 However, per <a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=2310">recommended</a> by <a href="https://www.slideshare.net/BrentLaster/2017-jenkins-world/36">CloudBees Inc.</a>, <code>src</code> folder is best for utility classes that contains a bunch of static Groovy methods.
 It is easier to use global variables in the <code>vars</code> directory instead of classes in the <code>src</code> directory, especially when you need to support <strong>declarative</strong> pipelines in your team.
 The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., &ldquo;myCustomFunction var1, var2&rdquo; format.
-As you can see in the examples above, only the last example, where custom functions are defined as static methods, the invocation of custom function is compatible with declarative pipeline syntax.</p>
+As you can see in the examples above, only in Method 3 (Static methods in explicit class), where custom functions are defined as static methods, the invocation of custom function is compatible with declarative pipeline syntax.</p>
 
 <p>When using <code>src</code> area&rsquo;s Groovy codes with <code>library</code> step, you should use a temporary variable to reduce its verbosity, as follows:</p>
 
