@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kubernetes | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/kubernetes/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-13T22:20:50-08:00</updated>
+  <updated>2021-03-21T05:53:02-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,140 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/12/31/minikube-in-corporate-vpn/"/>
+    <updated>2018-12-31T12:40:08-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/12/31/minikube-in-corporate-vpn</id>
+    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
+
+<pre><code>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
+Starting local Kubernetes v1.8.0 cluster...
+Starting VM...
+Downloading Minikube ISO
+ 140.01 MB / 140.01 MB [============================================] 100.00% 0s
+
+^C
+</code></pre>
+
+<!--more-->
+
+
+<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
+<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
+However, I&rsquo;m still occasionally seeing the issue.
+I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
+
+<ol>
+<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
+<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
+<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
+</ol>
+
+
+<p>In this post, we will look into each approach in more details.</p>
+
+<h3>Using OpenConnect</h3>
+
+<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
+Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
+
+<ol>
+<li><p>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</p>
+
+<pre><code class="` plain"> brew update
+ brew install openconnect
+</code></pre></li>
+<li>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</li>
+<li><p>Connect. The only thing you should be prompted for is your VPN password.</p>
+
+<pre><code class="` plain"> sudo openconnect --user=&lt;VPN username&gt; &lt;your vpn hostname&gt;
+</code></pre></li>
+<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
+</ol>
+
+
+<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
+
+<p>This approach is the more convenient and more reliable in my experience.
+All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
+
+<pre><code>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
+VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
+VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
+VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376
+</code></pre>
+
+<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
+
+<pre><code>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
+kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube
+</code></pre>
+
+<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
+
+<pre><code>kubectl config use-context minikube-vpn
+</code></pre>
+
+<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
+For example, the standard Kubernetes dashboard URL such as:</p>
+
+<pre><code>tdongsi$ minikube dashboard --url
+http://192.168.99.100:30000
+</code></pre>
+
+<p>must now be accessed via <code>localhost:30000</code>.
+Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
+
+<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
+
+<pre><code>tdongsi$ minikube docker-env
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://192.168.99.100:2376"
+export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
+export DOCKER_API_VERSION="1.23"
+# Run this command to configure your shell:
+# eval $(minikube docker-env)
+
+tdongsi$ echo $DOCKER_HOST
+tcp://192.168.99.100:2376
+tdongsi$ docker images
+Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?
+</code></pre>
+
+<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
+
+<pre><code>tdongsi$ export DOCKER_HOST="tcp://127.0.0.1:2376"
+tdongsi$ alias dockervpn="docker --tlsverify=false"
+
+tdongsi$ dockervpn images
+...
+</code></pre>
+
+<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
+
+<pre><code>kubectl config use-context minikube
+</code></pre>
+
+<h3>Use <code>--host-only-cidr</code> option</h3>
+
+<p>This approach is the most simple but it also has less success than I hoped.
+The idea of this approach is that AnyConnect VPN client likely routes <code>192.168.96.0/19</code> through its tunnel.
+This may conflict with the default Minikube network of <code>192.168.99.0/24</code>.
+Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
+It is worth a try but it often does not work in my experience.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
+<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
+<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Design Patterns for Container-based Distributed Systems]]></title>
@@ -142,140 +276,6 @@ There are several benefits to use separate containers:</p>
 <ul>
 <li><a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45406.pdf">Original Paper</a></li>
 <li><a href="http://blog.kubernetes.io/2015/06/the-distributed-system-toolkit-patterns.html">Single-node multi-container patterns</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn/"/>
-    <updated>2017-12-31T12:40:08-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn</id>
-    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
-
-<pre><code>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
-Starting local Kubernetes v1.8.0 cluster...
-Starting VM...
-Downloading Minikube ISO
- 140.01 MB / 140.01 MB [============================================] 100.00% 0s
-
-^C
-</code></pre>
-
-<!--more-->
-
-
-<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
-<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
-However, I&rsquo;m still occasionally seeing the issue.
-I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
-
-<ol>
-<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
-<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
-<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
-</ol>
-
-
-<p>In this post, we will look into each approach in more details.</p>
-
-<h3>Using OpenConnect</h3>
-
-<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
-Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
-
-<ol>
-<li><p>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</p>
-
-<pre><code class="` plain"> brew update
- brew install openconnect
-</code></pre></li>
-<li>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</li>
-<li><p>Connect. The only thing you should be prompted for is your VPN password.</p>
-
-<pre><code class="` plain"> sudo openconnect --user=&lt;VPN username&gt; &lt;your vpn hostname&gt;
-</code></pre></li>
-<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
-</ol>
-
-
-<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
-
-<p>This approach is the more convenient and more reliable in my experience.
-All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
-
-<pre><code>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
-VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
-VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
-VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376
-</code></pre>
-
-<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
-
-<pre><code>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
-kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube
-</code></pre>
-
-<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
-
-<pre><code>kubectl config use-context minikube-vpn
-</code></pre>
-
-<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
-For example, the standard Kubernetes dashboard URL such as:</p>
-
-<pre><code>tdongsi$ minikube dashboard --url
-http://192.168.99.100:30000
-</code></pre>
-
-<p>must now be accessed via <code>localhost:30000</code>.
-Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
-
-<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
-
-<pre><code>tdongsi$ minikube docker-env
-export DOCKER_TLS_VERIFY="1"
-export DOCKER_HOST="tcp://192.168.99.100:2376"
-export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
-export DOCKER_API_VERSION="1.23"
-# Run this command to configure your shell:
-# eval $(minikube docker-env)
-
-tdongsi$ echo $DOCKER_HOST
-tcp://192.168.99.100:2376
-tdongsi$ docker images
-Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?
-</code></pre>
-
-<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
-
-<pre><code>tdongsi$ export DOCKER_HOST="tcp://127.0.0.1:2376"
-tdongsi$ alias dockervpn="docker --tlsverify=false"
-
-tdongsi$ dockervpn images
-...
-</code></pre>
-
-<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
-
-<pre><code>kubectl config use-context minikube
-</code></pre>
-
-<h3>Use <code>--host-only-cidr</code> option</h3>
-
-<p>This approach is the most simple but it also has less success than I hoped.
-The idea of this approach is that AnyConnect VPN client likely routes <code>192.168.96.0/19</code> through its tunnel.
-This may conflict with the default Minikube network of <code>192.168.99.0/24</code>.
-Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
-It is worth a try but it often does not work in my experience.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
-<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
-<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
 </ul>
 
 ]]></content>

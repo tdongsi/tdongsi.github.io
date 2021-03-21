@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Jenkins | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/jenkins/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-13T22:20:50-08:00</updated>
+  <updated>2021-03-21T05:53:02-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,210 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/08/06/github-rest-api/"/>
+    <updated>2018-08-06T21:37:20-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/08/06/github-rest-api</id>
+    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
+For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
+
+<!--more-->
+
+
+<h3>Working with Pull Requests</h3>
+
+<h4>Extracting Pull Request details</h4>
+
+<pre><code class="groovy Get PR body text">import groovy.json.JsonSlurper
+
+def getPrBody(String githubUsername, String githubToken, String repo, String id) {
+  String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+  String url = "${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}"
+  println "Querying ${url}"
+  def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+  def json = new JsonSlurper().parseText(text)
+  def bodyText = json.body
+
+  return bodyText
+}
+</code></pre>
+
+<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
+
+<pre><code class="groovy Equivalent curl | jq command in Jenkisfile">sh """
+curl -s -H "Authorization: token ${env.GITHUB_TOKEN}" ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq '.body' -r &gt; pr_body.txt
+"""
+</code></pre>
+
+<h4>Posting comment on the Pull Request</h4>
+
+<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
+
+<pre><code class="groovy Equivalent curl in Jenkinsfile">sh """
+curl -s -X POST -H "Authorization: token ${env.GITHUB_TOKEN}" --data '{"body": "${comment}"}' ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments
+"""
+</code></pre>
+
+<h4>Merge Pull Request</h4>
+
+<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
+
+<pre><code class="groovy Merge pull request">stage ("Merge PR") {
+    steps { 
+        withCredentials([usernamePassword(credentialsId: 'credential-value', usernameVariable: 'ACCESS_TOKEN_USERNAME', passwordVariable: 'ACCESS_TOKEN_PASSWORD',)]) {
+            def GITHUB = 'https://github.ibm.com/api/v3/repos'
+            sh "curl -X PUT -d '{\"commit_title\": \"Merge pull request\"}' ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}"
+        }
+    }
+}
+</code></pre>
+
+<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
+
+<h3>Working with Branches</h3>
+
+<h4>Getting email of branch maintainer</h4>
+
+<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
+
+
+<pre><code class="groovy Get email of branch maintainer.">def getBranchCreator(String githubUsername, String githubToken, String repo, String branch) {
+    String GITHUB_API = 'https://git.enterprise.com/api/v3/repos'
+
+    String url = "${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}"
+    println "Querying ${url}"
+    def text = url.toURL().getText(requestProperties: ['Authorization': "token ${githubToken}"])
+    def json = new JsonSlurper().parseText(text)
+
+    // Get last committer.
+    def creator = json.commit.commit.committer.email
+    // TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.
+    // In the case, committer name is 'GitHub Enterprise'.
+    if (json.commit.commit.committer.name == 'GitHub Enterprise') {
+    // Use author's email instead
+    creator = json.commit.commit.author.email
+    }
+    // TRICKY: the following can return inconsistent data, including "null".
+    // def author = json.author
+    return creator
+}
+
+// Calling from Jenkinsfile
+withCredentials([
+    [$class: 'UsernamePasswordMultiBinding', credentialsId: 'my-credentials', 
+        passwordVariable: 'GITHUB_PASSWORD', usernameVariable: 'GITHUB_USERNAME']
+]) {
+    if (env.BRANCH_NAME ==~ /PR-\d+/ ) {
+        // If it is a PR build, use some distribution list
+        email = 'someemail@enterprise.com'
+    } else {
+        // NOTE: Replace env.GITHUB_USERNAME with the correct Github org name.
+        email = getBranchCreator(env.GITHUB_USERNAME, env.GITHUB_PASSWORD, 'my_repo', env.BRANCH_NAME)
+    }
+}  
+</code></pre>
+
+<h4>Deleting a branch</h4>
+
+<p>Searching how to delete a branch in Github API&rsquo;s <a href="https://developer.github.com/v3/repos/branches/">Branches reference</a> does not return anything.
+In fact, to delete a branch, we have to delete its HEAD reference as shown <a href="https://developer.github.com/v3/git/refs/#delete-a-reference">here</a>.</p>
+
+<pre><code class="plain Deleting a branch">DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a
+</code></pre>
+
+<h3>More tips on Github API</h3>
+
+<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
+
+<pre><code class="json Example commit data">        "commit": {
+            "author": {
+                "name": "Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "committer": {
+                "name": "Tue-Cuong Dong-Si",
+                "email": "tdongsi@example.com",
+                "date": "2017-08-17T05:33:46Z"
+            },
+            "message": "@JIRA-4214772@: Add function.",
+            "tree": {
+                "sha": "xxx",
+                "url": "xxx"
+            },
+            "url": "xxx",
+            "comment_count": 0
+        },
+</code></pre>
+
+<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:</p>
+
+<ul>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#108;&#x74;&#111;&#x3a;&#x6e;&#x6f;&#x2d;&#x72;&#101;&#112;&#108;&#121;&#64;&#x67;&#x69;&#x74;&#104;&#117;&#x62;&#46;&#99;&#x6f;&#x6d;">&#x6e;&#111;&#x2d;&#x72;&#x65;&#112;&#x6c;&#121;&#64;&#x67;&#x69;&#x74;&#104;&#117;&#98;&#x2e;&#99;&#x6f;&#x6d;</a>&rdquo;.</li>
+<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
+</ul>
+
+
+<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#x69;&#x6c;&#x74;&#x6f;&#58;&#110;&#111;&#45;&#x72;&#x65;&#x70;&#108;&#121;&#64;&#x67;&#105;&#116;&#104;&#117;&#x62;&#x2e;&#x63;&#x6f;&#x6d;">&#110;&#x6f;&#x2d;&#x72;&#101;&#x70;&#108;&#x79;&#x40;&#x67;&#x69;&#x74;&#104;&#x75;&#x62;&#x2e;&#99;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
+
+<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
+
+<pre><code class="plain Github API limit">tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
+HTTP/1.1 200 OK
+Date: Fri, 09 Jun 2017 16:16:49 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 1236
+Server: GitHub.com
+Status: 200 OK
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 55
+X-RateLimit-Reset: 1497025098
+Cache-Control: public, max-age=60, s-maxage=60
+Vary: Accept
+ETag: "4d7770cf5c2478bf64d23bc908494172"
+Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
+X-GitHub-Media-Type: github.v3; format=json
+Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
+Access-Control-Allow-Origin: *
+Content-Security-Policy: default-src 'none'
+Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+X-XSS-Protection: 1; mode=block
+X-Runtime-rack: 0.030687
+Vary: Accept-Encoding
+X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
+Vary: Accept-Encoding
+X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
+
+...
+</code></pre>
+
+<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
+Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Jenkins Pipeline Unit Testing]]></title>
@@ -836,256 +1040,6 @@ mvn this, 'clean package'
 <ul>
 <li><a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=1576">Great Talk at Jenkins World 2017</a></li>
 <li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[DSL Implementation in Groovy]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/13/groovy-dsl/"/>
-    <updated>2017-08-13T15:18:30-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/13/groovy-dsl</id>
-    <content type="html"><![CDATA[<p>Domain-Specific Language is a mini language for a specific problem and/or in a narrow context.
-For example, internally used automation tools usually define some small DSL for configuration and most users understand the context and what DSL offers.</p>
-
-<p>This blog post offers my simplistic view of how an internal DSL is implemented in Groovy via closure delegation.
-It shows the progression from standard Java-like implementation -> its fluent version -> final DSL form.
-This might help undrestanding the inner workings of a DSL such as Jenkins&rsquo;s Pipeline steps.
-There are probably more advanced methods/frameworks for creating DSL.
-However, those are not in the scope of this post.</p>
-
-<!--more-->
-
-
-<h3>Example DSL</h3>
-
-<p>We want to implement a simple DSL that is similar to <a href="https://jenkins.io/doc/pipeline/steps/">Pipeline steps in Jenkinsfile</a>.</p>
-
-<pre><code class="plain DSL in Jenkinsfile">{
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-</code></pre>
-
-<p>In this DSL example, users will write a sequence of steps using a small, pre-defined set of custom statements such as <code>echo</code> and <code>sh</code> above.
-For each step in the DSL, the backend classes and objects will perform some execution in the background, using the relevant context specific to the domain (e.g., Jenkins domain).
-For simplicity, <code>println</code> statements will be used in the following examples.</p>
-
-<p>The advantage of DSL is that the <strong>developers</strong> can implement the backend in some fully-featured language such as Java but the <strong>users</strong> don&rsquo;t need to know such language to use it.
-Such a separation is common in DevOps and automation frameworks where the users want the flexibility of configuring based on their needs but don&rsquo;t want to get exposed to the implementation details (which are usually ugly and compplicated).
-Instead, the <strong>users</strong> only need to learn the DSL to use it while still have the flexibility to do what they want.
-One example can be found in data science domain where data scientists are usually more comfortable developing in R or SQL but automated deployment frameworks or tools can be in another language such as Java.</p>
-
-<h3>Version 1: Java-like standard implementation</h3>
-
-<p>First, we show a standard implementation in Java to show how backend execution can be implemented.
-In the advanced versions, the difference is only in its public interface to make it more user-friendly but the backend execution will be similar.</p>
-
-<pre><code class="groovy Standard Java implementation">/**
- * Java code with standard implementation
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class JavaDsl {
-
-    void echo(String message) {
-        println "Echo: $message";
-    }
-
-    void sh(String script) {
-        println "Shell: $script";
-    }
-
-    void error(String message) {
-        println "Error here: $message";
-    }
-
-    // A more advanced DSL
-    void withEnv(String var) {
-        println "Using: $var";
-    }
-
-    void execute() {
-        println "Executing ...";
-    }
-
-}
-
-println "1) Standard Java implementation";
-JavaDsl javaDsl = new JavaDsl();
-javaDsl.withEnv("PATH=/usr/bin");
-javaDsl.echo("Starting pipeline");
-javaDsl.sh("ls .");
-javaDsl.error("Error here");
-javaDsl.execute();
-println "";
-</code></pre>
-
-<p>The problem of this approach is that users have to write Java (or Groovy) code directly to use it.</p>
-
-<h3>Version 2: Fluent interface with Builder pattern</h3>
-
-<pre><code class="groovy Fluent Java implementation">/**
- * Java code with Builder pattern
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class JavaBuilderDsl {
-
-    JavaBuilderDsl echo(String message) {
-        println "Echo: $message"
-        return this
-    }
-
-    JavaBuilderDsl sh(String script) {
-        println "Shell: $script"
-        return this
-    }
-
-    JavaBuilderDsl error(String message) {
-        println "Error here: $message"
-        return this
-    }
-
-    // A more advanced DSL
-    JavaBuilderDsl withEnv(String var) {
-        println "Using: $var"
-        return this
-    }
-
-    void execute() {
-        println "Executing ..."
-    }
-}
-
-println "2) Fluent Java implementation (Builder)"
-JavaBuilderDsl builderDsl = new JavaBuilderDsl()
-builderDsl.withEnv("PATH=/usr/bin")
-        .echo("Starting pipeline")
-        .sh("ls .")
-        .error("Error here")
-        .execute()
-println ""
-</code></pre>
-
-<p>In this version, <a href="https://en.wikipedia.org/wiki/Builder_pattern#Java">the Build design pattern</a> is used in the implementation.
-As shown above, the code is much more fluent with the object name <code>builderDsl</code> not being repeated every single line.
-As a result, the code is less verbose and much more user-friendly.</p>
-
-<h3>Version 3: DSL with Groovy closure</h3>
-
-<pre><code class="groovy Standard Groovy implementation">/**
- * Groovy code with standard implementation
- * Try to simulate some kind of DSL like Pipeline steps in Jenkins
- */
-class GroovyDsl {
-
-    def echo(String message) {
-        println "Echo: $message"
-    }
-
-    def sh(String script) {
-        println "Shell: $script"
-    }
-
-    def error(String message) {
-        println "Error here: $message"
-    }
-
-    // A more advanced DSL
-    def withEnv(String var) {
-        println "Using: $var"
-    }
-
-    static void execute(closure) {
-        GroovyDsl body = new GroovyDsl()
-        closure(body)
-        println "Executing ..."
-    }
-
-}
-
-println "3) Standard Groovy implementation"
-GroovyDsl.execute { dsl -&gt;
-    dsl.withEnv("PATH=/usr/bin")
-    dsl.echo("Starting pipeline")
-    dsl.sh("ls .")
-    dsl.error("Error here")
-}
-println ""
-</code></pre>
-
-<p>This first version of Groovy implementation is presented here to show connection with its Java counterparts.
-As shown below, the input variable <code>dsl</code> in the closure can be abstracted away using delegate.</p>
-
-<pre><code class="groovy Transparent DSL with delegate">class GroovyDsl {
-
-    def echo(String message) {
-        println "Echo: $message"
-    }
-
-    def sh(String script) {
-        println "Shell: $script"
-    }
-
-    def error(String message) {
-        println "Error here: $message"
-    }
-
-    // A more advanced DSL
-    def withEnv(String var) {
-        println "Using: $var"
-    }
-
-    static void execute(Closure closure) {
-        GroovyDsl body = new GroovyDsl()
-        // TRICKY: Modify the input var? Hmmm.
-        closure.delegate = body
-        closure()
-        println "Executing ..."
-    }
-
-    static void executeBest(Closure closure) {
-        GroovyDsl body = new GroovyDsl()
-        body.with(closure)
-        println "Executing ..."
-    }
-
-}
-
-println "4) DSL-style Groovy implementation"
-GroovyDsl.execute {
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-println ""
-
-println "4b) DSL-style Groovy (better) implementation"
-GroovyDsl.executeBest {
-    withEnv("PATH=/usr/bin")
-    echo("Starting pipeline")
-    sh("ls .")
-    error("Error here")
-}
-println ""
-</code></pre>
-
-<p>In this final version, only a very small boiler-plate code <code>GroovyDsl.executeBest</code> remains.
-The following lines form a mini language (i.e., DSL) that can be exposed to users.
-The users can start using the DSL without having to learn Groovy or Java.</p>
-
-<p>Note that the <code>executeBest</code> is the equivalent but less straight-forward way to do the same thing with delegate.
-Compared with <code>execute</code>, it has the benefit of NOT modifying the input reference <code>closure</code>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://groovy-lang.org/closures.html">Groovy closure</a></li>
-<li><a href="https://jenkins.io/doc/pipeline/steps/">Jenkins pipeline steps</a></li>
-<li><a href="https://dzone.com/articles/groovy-dsl-simple-example">Another example Groovy implementation</a></li>
 </ul>
 
 ]]></content>

@@ -4,7 +4,7 @@
   <title><![CDATA[Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-03-13T22:20:50-08:00</updated>
+  <updated>2021-03-21T05:53:02-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -34,11 +34,602 @@
 <p><img class="center" src="http://tdongsi.github.io/images/apple/News_2020_1.png" title="Feedback" ></p>
 
 <p>Twitter users generally like the clear, digestable format on Apple News.
-Others also start appreciating human-curated contents on Apple News, especially in the context of &ldquo;fake news&rdquo; and deeply divided 2020 election.
-It is <a href="https://www.cnn.com/videos/business/2020/12/06/what-does-bidens-news-diet-reveal-about-him.cnn/video/playlists/business-reliable-sources/">reported</a> that the President-elect Joe Biden “relies on Apple News to help him get headlines from other reputable media sources.”
+Others also start appreciating human-curated contents on Apple News, especially in the context of &ldquo;fake news&rdquo; and deeply divided 2020 election.</p>
+
+<p>After the election, it is <a href="https://www.cnn.com/videos/business/2020/12/06/what-does-bidens-news-diet-reveal-about-him.cnn/video/playlists/business-reliable-sources/">reported</a> that the President-elect Joe Biden “relies on Apple News to help him get headlines from other reputable media sources.”
 <a href="https://www.politico.com/newsletters/politico-nightly/2020/12/07/what-joe-biden-reads-and-watches-491081">Politico</a> also mentioned Biden’s media diet, noting he is a “devoted fan” of Apple News and has news app notifications on his iPhone on to keep up with stories throughout the day.</p>
 
 <p>P.S.: I&rsquo;m just a little proud of my work&rsquo;s impact. This post is not meant to express my political views.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/12/31/minikube-in-corporate-vpn/"/>
+    <updated>2018-12-31T12:40:08-08:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/12/31/minikube-in-corporate-vpn</id>
+    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
+</span><span class='line'>Starting local Kubernetes v1.8.0 cluster...
+</span><span class='line'>Starting VM...
+</span><span class='line'>Downloading Minikube ISO
+</span><span class='line'> 140.01 MB / 140.01 MB [============================================] 100.00% 0s
+</span><span class='line'>
+</span><span class='line'>^C</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!--more-->
+
+
+<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
+<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
+However, I&rsquo;m still occasionally seeing the issue.
+I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
+
+<ol>
+<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
+<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
+<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
+</ol>
+
+
+<p>In this post, we will look into each approach in more details.</p>
+
+<h3>Using OpenConnect</h3>
+
+<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
+Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
+
+<ol>
+<li><p>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</p>
+
+<pre><code class="` plain"> brew update
+ brew install openconnect
+</code></pre></li>
+<li>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</li>
+<li><p>Connect. The only thing you should be prompted for is your VPN password.</p>
+
+<pre><code class="` plain"> sudo openconnect --user=&lt;VPN username&gt; &lt;your vpn hostname&gt;
+</code></pre></li>
+<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
+</ol>
+
+
+<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
+
+<p>This approach is the more convenient and more reliable in my experience.
+All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
+</span><span class='line'>VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
+</span><span class='line'>VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
+</span><span class='line'>VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
+</span><span class='line'>kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube</span></code></pre></td></tr></table></div></figure>
+
+
+<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube-vpn</span></code></pre></td></tr></table></div></figure>
+
+
+<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
+For example, the standard Kubernetes dashboard URL such as:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube dashboard --url
+</span><span class='line'>http://192.168.99.100:30000</span></code></pre></td></tr></table></div></figure>
+
+
+<p>must now be accessed via <code>localhost:30000</code>.
+Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
+
+<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube docker-env
+</span><span class='line'>export DOCKER_TLS_VERIFY="1"
+</span><span class='line'>export DOCKER_HOST="tcp://192.168.99.100:2376"
+</span><span class='line'>export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
+</span><span class='line'>export DOCKER_API_VERSION="1.23"
+</span><span class='line'># Run this command to configure your shell:
+</span><span class='line'># eval $(minikube docker-env)
+</span><span class='line'>
+</span><span class='line'>tdongsi$ echo $DOCKER_HOST
+</span><span class='line'>tcp://192.168.99.100:2376
+</span><span class='line'>tdongsi$ docker images
+</span><span class='line'>Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ export DOCKER_HOST="tcp://127.0.0.1:2376"
+</span><span class='line'>tdongsi$ alias dockervpn="docker --tlsverify=false"
+</span><span class='line'>
+</span><span class='line'>tdongsi$ dockervpn images
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Use <code>--host-only-cidr</code> option</h3>
+
+<p>This approach is the most simple but it also has less success than I hoped.
+The idea of this approach is that AnyConnect VPN client likely routes <code>192.168.96.0/19</code> through its tunnel.
+This may conflict with the default Minikube network of <code>192.168.99.0/24</code>.
+Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
+It is worth a try but it often does not work in my experience.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
+<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
+<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/08/06/github-rest-api/"/>
+    <updated>2018-08-06T21:37:20-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/08/06/github-rest-api</id>
+    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
+Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
+For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
+
+<!--more-->
+
+
+<h3>Working with Pull Requests</h3>
+
+<h4>Extracting Pull Request details</h4>
+
+<figure class='code'><figcaption><span>Get PR body text</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
+</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
+
+<figure class='code'><figcaption><span>Equivalent curl | jq command in Jenkisfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s2">curl -s -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq &#39;.body&#39; -r &gt; pr_body.txt</span>
+</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Posting comment on the Pull Request</h4>
+
+<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
+
+<figure class='code'><figcaption><span>Equivalent curl in Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s2">curl -s -X POST -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; --data &#39;{&quot;</span><span class="n">body</span><span class="s2">&quot;: &quot;</span><span class="n">$</span><span class="o">{</span><span class="n">comment</span><span class="o">}</span><span class="s2">&quot;}&#39; ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments</span>
+</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Merge Pull Request</h4>
+
+<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
+
+<figure class='code'><figcaption><span>Merge pull request</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">stage</span> <span class="o">(</span><span class="s2">&quot;Merge PR&quot;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">steps</span> <span class="o">{</span>
+</span><span class='line'>        <span class="n">withCredentials</span><span class="o">([</span><span class="n">usernamePassword</span><span class="o">(</span><span class="nl">credentialsId:</span> <span class="s1">&#39;credential-value&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_USERNAME&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_PASSWORD&#39;</span><span class="o">,)])</span> <span class="o">{</span>
+</span><span class='line'>            <span class="kt">def</span> <span class="n">GITHUB</span> <span class="o">=</span> <span class="s1">&#39;https://github.ibm.com/api/v3/repos&#39;</span>
+</span><span class='line'>            <span class="n">sh</span> <span class="s2">&quot;curl -X PUT -d &#39;{\&quot;commit_title\&quot;: \&quot;Merge pull request\&quot;}&#39; ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}&quot;</span>
+</span><span class='line'>        <span class="o">}</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
+
+<h3>Working with Branches</h3>
+
+<h4>Getting email of branch maintainer</h4>
+
+<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
+Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
+Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
+
+<!--
+Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
+That person may be not active or leave the project entirely.
+-->
+
+
+
+
+<figure class='code'><figcaption><span>Get email of branch maintainer.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">getBranchCreator</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">branch</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}&quot;</span>
+</span><span class='line'>    <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Get last committer.</span>
+</span><span class='line'>    <span class="kt">def</span> <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">email</span>
+</span><span class='line'>    <span class="c1">// TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.</span>
+</span><span class='line'>    <span class="c1">// In the case, committer name is &#39;GitHub Enterprise&#39;.</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">name</span> <span class="o">==</span> <span class="s1">&#39;GitHub Enterprise&#39;</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>    <span class="c1">// Use author&#39;s email instead</span>
+</span><span class='line'>    <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">author</span><span class="o">.</span><span class="na">email</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>    <span class="c1">// TRICKY: the following can return inconsistent data, including &quot;null&quot;.</span>
+</span><span class='line'>    <span class="c1">// def author = json.author</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">creator</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// Calling from Jenkinsfile</span>
+</span><span class='line'><span class="n">withCredentials</span><span class="o">([</span>
+</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;my-credentials&#39;</span><span class="o">,</span>
+</span><span class='line'>        <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
+</span><span class='line'><span class="o">])</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span> <span class="o">==~</span> <span class="s">/PR-\d+/</span> <span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// If it is a PR build, use some distribution list</span>
+</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="s1">&#39;someemail@enterprise.com&#39;</span>
+</span><span class='line'>    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+</span><span class='line'>        <span class="c1">// NOTE: Replace env.GITHUB_USERNAME with the correct Github org name.</span>
+</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="n">getBranchCreator</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;my_repo&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h4>Deleting a branch</h4>
+
+<p>Searching how to delete a branch in Github API&rsquo;s <a href="https://developer.github.com/v3/repos/branches/">Branches reference</a> does not return anything.
+In fact, to delete a branch, we have to delete its HEAD reference as shown <a href="https://developer.github.com/v3/git/refs/#delete-a-reference">here</a>.</p>
+
+<figure class='code'><figcaption><span>Deleting a branch</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>More tips on Github API</h3>
+
+<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
+
+<figure class='code'><figcaption><span>Example commit data</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'>    <span class="s2">&quot;commit&quot;</span><span class="err">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nt">&quot;author&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Cuong Dong-Si&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;committer&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Tue-Cuong Dong-Si&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;@JIRA-4214772@: Add function.&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="nt">&quot;tree&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="nt">&quot;sha&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
+</span><span class='line'>            <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="nt">&quot;comment_count&quot;</span><span class="p">:</span> <span class="mi">0</span>
+</span><span class='line'>    <span class="p">}</span><span class="err">,</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
+In summary, the author is the one who created the content, and the committer is the one who committed it.
+The two fields can be different in some common Github workflows:</p>
+
+<ul>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#x69;&#x6c;&#116;&#x6f;&#x3a;&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#108;&#121;&#64;&#103;&#x69;&#116;&#104;&#117;&#98;&#x2e;&#x63;&#111;&#109;">&#110;&#x6f;&#45;&#114;&#x65;&#112;&#x6c;&#121;&#x40;&#x67;&#x69;&#x74;&#x68;&#x75;&#98;&#46;&#99;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
+</ul>
+
+
+<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#105;&#x6c;&#x74;&#111;&#58;&#x6e;&#x6f;&#x2d;&#x72;&#x65;&#112;&#x6c;&#x79;&#64;&#103;&#105;&#x74;&#104;&#x75;&#x62;&#x2e;&#99;&#111;&#109;">&#110;&#111;&#45;&#x72;&#101;&#112;&#108;&#121;&#x40;&#103;&#x69;&#x74;&#x68;&#117;&#x62;&#x2e;&#99;&#x6f;&#109;</a>&rdquo; which is not helpful).</p>
+
+<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
+
+<figure class='code'><figcaption><span>Github API limit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
+</span><span class='line'>HTTP/1.1 200 OK
+</span><span class='line'>Date: Fri, 09 Jun 2017 16:16:49 GMT
+</span><span class='line'>Content-Type: application/json; charset=utf-8
+</span><span class='line'>Content-Length: 1236
+</span><span class='line'>Server: GitHub.com
+</span><span class='line'>Status: 200 OK
+</span><span class='line'>X-RateLimit-Limit: 60
+</span><span class='line'>X-RateLimit-Remaining: 55
+</span><span class='line'>X-RateLimit-Reset: 1497025098
+</span><span class='line'>Cache-Control: public, max-age=60, s-maxage=60
+</span><span class='line'>Vary: Accept
+</span><span class='line'>ETag: "4d7770cf5c2478bf64d23bc908494172"
+</span><span class='line'>Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
+</span><span class='line'>X-GitHub-Media-Type: github.v3; format=json
+</span><span class='line'>Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
+</span><span class='line'>Access-Control-Allow-Origin: *
+</span><span class='line'>Content-Security-Policy: default-src 'none'
+</span><span class='line'>Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
+</span><span class='line'>X-Content-Type-Options: nosniff
+</span><span class='line'>X-Frame-Options: deny
+</span><span class='line'>X-XSS-Protection: 1; mode=block
+</span><span class='line'>X-Runtime-rack: 0.030687
+</span><span class='line'>Vary: Accept-Encoding
+</span><span class='line'>X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
+</span><span class='line'>Vary: Accept-Encoding
+</span><span class='line'>X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
+</span><span class='line'>
+</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
+Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
+
+<h3>Reference</h3>
+
+<ul>
+<li><a href="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Jsonnet Code Recipes]]></title>
+    <link href="http://tdongsi.github.io/blog/2018/07/12/jsonnet-snippets/"/>
+    <updated>2018-07-12T14:24:32-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2018/07/12/jsonnet-snippets</id>
+    <content type="html"><![CDATA[<p>If you are sending/working with lots of JSON data in files such as AWS CloudFormation templates, <a href="http://jsonnet.org/"><code>Jsonnet</code> tool</a> can help reducing the hassle of maintaining.
+Using Jsonnet templates, it is easier to organize data and reduce repeated code present in such JSON data.
+This post goes over a few common Jsonnet code recipes for generating JSON data.</p>
+
+<!--more-->
+
+
+<h3>Automated tests</h3>
+
+<p>At least, make sure your jsonnet template files can compile.
+The following example bash script will find all the manifest files and try to compile that:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Provide a superset of required parameters</span>
+</span><span class='line'><span class="k">for</span> i in <span class="sb">`</span>find Project1/manifests Project2/manifests   -name <span class="s2">&quot;*.jsonnet&quot;</span><span class="sb">`</span><span class="p">;</span>
+</span><span class='line'><span class="k">do</span>
+</span><span class='line'>  jsonnet -V <span class="nv">param1</span><span class="o">=</span><span class="m">1</span> -V <span class="nv">param2</span><span class="o">=</span>dummy -V <span class="nv">param3</span><span class="o">=</span><span class="m">1</span> <span class="s2">&quot;${i}&quot;</span> &gt;&gt; /dev/null
+</span><span class='line'><span class="k">done</span><span class="p">;</span>
+</span><span class='line'><span class="c"># This will lint-test the files, including libsonnet files.</span>
+</span><span class='line'><span class="k">for</span> i in <span class="sb">`</span>find Project1 Project2 -name <span class="s2">&quot;*.*sonnet&quot;</span><span class="sb">`</span><span class="p">;</span>
+</span><span class='line'><span class="k">do</span>
+</span><span class='line'>  jsonnet fmt -i -n <span class="m">2</span> <span class="s2">&quot;${i}&quot;</span> --test
+</span><span class='line'><span class="k">done</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Conditional add</h3>
+
+<p>Conditionally adding items to a list.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'>  <span class="err">ports:</span> <span class="p">[</span>
+</span><span class='line'>           <span class="p">{</span>
+</span><span class='line'>             <span class="err">port:</span> <span class="err">$.httpPort,</span>
+</span><span class='line'>             <span class="err">targetport:</span> <span class="err">$.httpTargetPort,</span>
+</span><span class='line'>           <span class="p">},</span>
+</span><span class='line'>           <span class="p">{</span>
+</span><span class='line'>             <span class="err">port:</span> <span class="err">$.jnlpPort,</span>
+</span><span class='line'>             <span class="err">targetport:</span> <span class="err">15372,</span>
+</span><span class='line'>           <span class="p">},</span>
+</span><span class='line'>         <span class="p">]</span> <span class="err">+</span>
+</span><span class='line'>         <span class="err">(if</span> <span class="err">$.sshEnabled</span> <span class="err">then</span>
+</span><span class='line'>            <span class="p">[{</span>
+</span><span class='line'>              <span class="err">port:</span> <span class="err">$.sshPort,</span>
+</span><span class='line'>              <span class="err">targetport:</span> <span class="err">15373,</span>
+</span><span class='line'>            <span class="p">}]</span> <span class="err">else</span> <span class="p">[]</span><span class="err">),</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Conditionally adding attributes to an object/map.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'>  <span class="err">defaultContainerEnv::</span> <span class="p">{</span>
+</span><span class='line'>    <span class="err">LOGGING_STDERR_LEVEL:</span> <span class="nt">&quot;ALL&quot;</span><span class="p">,</span>
+</span><span class='line'>    <span class="err">JENKINS_USER:</span> <span class="nt">&quot;jenkins&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="p">}</span> <span class="err">+</span> <span class="err">(if</span> <span class="err">$.sshEnabled</span> <span class="err">then</span> <span class="p">{</span>
+</span><span class='line'>          <span class="err">SSH_PORT:</span> <span class="err">7012,</span>
+</span><span class='line'>        <span class="p">}</span> <span class="err">else</span> <span class="p">{}</span>
+</span><span class='line'>      <span class="err">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
 ]]></content>
   </entry>
   
@@ -774,176 +1365,6 @@ There are several benefits to use separate containers:</p>
 <ul>
 <li><a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45406.pdf">Original Paper</a></li>
 <li><a href="http://blog.kubernetes.io/2015/06/the-distributed-system-toolkit-patterns.html">Single-node multi-container patterns</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Minikube in Corporate VPN]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn/"/>
-    <updated>2017-12-31T12:40:08-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/12/31/minikube-in-corporate-vpn</id>
-    <content type="html"><![CDATA[<p>If you are connected to corporate VPN via Cisco&rsquo;s AnyConnect client, you might have problem with starting Minikube.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube start --disk-size=50g --kubernetes-version=v1.8.0
-</span><span class='line'>Starting local Kubernetes v1.8.0 cluster...
-</span><span class='line'>Starting VM...
-</span><span class='line'>Downloading Minikube ISO
-</span><span class='line'> 140.01 MB / 140.01 MB [============================================] 100.00% 0s
-</span><span class='line'>
-</span><span class='line'>^C</span></code></pre></td></tr></table></div></figure>
-
-
-
-
-<!--more-->
-
-
-<p>The issue has been extensively discussed in <a href="https://github.com/kubernetes/minikube/issues/1099">this bug report</a>.
-<a href="https://github.com/kubernetes/minikube/pull/1329">This pull request</a> supposedly fixes the issue, in v0.19.0 release.
-However, I&rsquo;m still occasionally seeing the issue.
-I have attempted different approaches but they have different degrees of convenience and success in different networks.</p>
-
-<ol>
-<li>Use OpenConnect for VPN access rather than Cisco&rsquo;s AnyConnect client.</li>
-<li>Set port forwarding to forward port 8443 on 127.0.0.1 to port 8443 in the minikube VM.</li>
-<li>Use <code>--host-only-cidr</code> option in <code>minikube start</code>.</li>
-</ol>
-
-
-<p>In this post, we will look into each approach in more details.</p>
-
-<h3>Using OpenConnect</h3>
-
-<p><a href="http://www.infradead.org/openconnect/">OpenConnect</a> is a CLI client alternative for Cisco&rsquo;s AnyConnect VPN.
-Here&rsquo;s how you setup OpenConnect on Mac OSX:</p>
-
-<ol>
-<li><p>OpenConnect can be installed via <a href="http://mxcl.github.com/homebrew/">homebrew</a>:</p>
-
-<pre><code class="` plain"> brew update
- brew install openconnect
-</code></pre></li>
-<li>Install the <a href="http://tuntaposx.sourceforge.net/">Mac OS X TUN/TAP</a> driver</li>
-<li><p>Connect. The only thing you should be prompted for is your VPN password.</p>
-
-<pre><code class="` plain"> sudo openconnect --user=&lt;VPN username&gt; &lt;your vpn hostname&gt;
-</code></pre></li>
-<li>To disconnect, just Ctrl-C in the window where you started the VPN connection.</li>
-</ol>
-
-
-<h3>Port forwarding localhost:xxx -> minikube_IP:xxx</h3>
-
-<p>This approach is the more convenient and more reliable in my experience.
-All you need to do is to set up a list of port forwarding rules for minikube&rsquo;s VirtualBox:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>VBoxManage controlvm minikube natpf1 k8s-apiserver,tcp,127.0.0.1,8443,,8443
-</span><span class='line'>VBoxManage controlvm minikube natpf1 k8s-dashboard,tcp,127.0.0.1,30000,,30000
-</span><span class='line'>VBoxManage controlvm minikube natpf1 jenkins,tcp,127.0.0.1,30080,,30080
-</span><span class='line'>VBoxManage controlvm minikube natpf1 docker,tcp,127.0.0.1,2376,,2376</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Then, you can set up a new Kubernetes context for working with VPN:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config set-cluster minikube-vpn --server=https://127.0.0.1:8443 --insecure-skip-tls-verify
-</span><span class='line'>kubectl config set-context minikube-vpn --cluster=minikube-vpn --user=minikube</span></code></pre></td></tr></table></div></figure>
-
-
-<p>When working on VPN, you can set <code>kubectl</code> to switch to the new context:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube-vpn</span></code></pre></td></tr></table></div></figure>
-
-
-<p>All Minikube URLs now must be accessed through <code>localhost</code> in browser.
-For example, the standard Kubernetes dashboard URL such as:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube dashboard --url
-</span><span class='line'>http://192.168.99.100:30000</span></code></pre></td></tr></table></div></figure>
-
-
-<p>must now be accessed via <code>localhost:30000</code>.
-Similar applies to other services that are deployed to minikube, such as <code>jenkins</code> shown above.</p>
-
-<p>In addition, the <code>eval $(minikube docker-env)</code> standard pattern to reuse minikube&rsquo;s Docker deamon would not work anymore.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ minikube docker-env
-</span><span class='line'>export DOCKER_TLS_VERIFY="1"
-</span><span class='line'>export DOCKER_HOST="tcp://192.168.99.100:2376"
-</span><span class='line'>export DOCKER_CERT_PATH="/Users/tdongsi/.minikube/certs"
-</span><span class='line'>export DOCKER_API_VERSION="1.23"
-</span><span class='line'># Run this command to configure your shell:
-</span><span class='line'># eval $(minikube docker-env)
-</span><span class='line'>
-</span><span class='line'>tdongsi$ echo $DOCKER_HOST
-</span><span class='line'>tcp://192.168.99.100:2376
-</span><span class='line'>tdongsi$ docker images
-</span><span class='line'>Cannot connect to the Docker daemon at tcp://192.168.99.100:2376. Is the docker daemon running?</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Instead, you have to adjust DOCKER_HOST accordingly and use <code>docker --tlsverify=false ...</code>.</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi$ export DOCKER_HOST="tcp://127.0.0.1:2376"
-</span><span class='line'>tdongsi$ alias dockervpn="docker --tlsverify=false"
-</span><span class='line'>
-</span><span class='line'>tdongsi$ dockervpn images
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Finally, when not working on VPN, you can set <code>kubectl</code> to switch back to the old context:</p>
-
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>kubectl config use-context minikube</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Use <code>--host-only-cidr</code> option</h3>
-
-<p>This approach is the most simple but it also has less success than I hoped.
-The idea of this approach is that AnyConnect VPN client likely routes <code>192.168.96.0/19</code> through its tunnel.
-This may conflict with the default Minikube network of <code>192.168.99.0/24</code>.
-Therefore, we use <code>minikube start --host-only-cidr 10.254.254.1/24</code> to instruct minikube to use a different, unused arbitrary network.
-It is worth a try but it often does not work in my experience.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://github.com/kubernetes/minikube/issues/1099">Bug report &amp; discussion</a></li>
-<li><a href="https://gist.github.com/moklett/3170636">OpenConnect instructions</a></li>
-<li><a href="https://www.virtualbox.org/manual/ch08.html#vboxmanage-controlvm">VBoxManage</a></li>
 </ul>
 
 ]]></content>
@@ -2965,328 +3386,6 @@ Compared with <code>execute</code>, it has the benefit of NOT modifying the inpu
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[Github REST API Cookbook]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/08/06/github-rest-api/"/>
-    <updated>2017-08-06T21:37:20-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/08/06/github-rest-api</id>
-    <content type="html"><![CDATA[<p>The blog post shows some useful snippets for interacting with Github API.
-Jenkins pipelines regularly interacts with Github (public or Enterprise) API to perform some query/posting, for example, regarding the current pull request.
-For that reason, some of the following snippets are either in Groovy or <code>curl</code> commands embedded in Groovy-based Jenkinsfile code with some Jenkinsfile DSLs.</p>
-
-<!--more-->
-
-
-<h3>Working with Pull Requests</h3>
-
-<h4>Extracting Pull Request details</h4>
-
-<figure class='code'><figcaption><span>Get PR body text</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kn">import</span> <span class="nn">groovy.json.JsonSlurper</span>
-</span><span class='line'>
-</span><span class='line'><span class="kt">def</span> <span class="nf">getPrBody</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>  <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/pulls/${id}&quot;</span>
-</span><span class='line'>  <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
-</span><span class='line'>  <span class="kt">def</span> <span class="n">bodyText</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">body</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">return</span> <span class="n">bodyText</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The equivalent <code>curl</code> command is as follows, with JSON processing is done in <code>jq</code>:</p>
-
-<figure class='code'><figcaption><span>Equivalent curl | jq command in Jenkisfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="s2">curl -s -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; ${GITHUB_API}/${org}/${repo}/pulls/${env.CHANGE_ID} | jq &#39;.body&#39; -r &gt; pr_body.txt</span>
-</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>Posting comment on the Pull Request</h4>
-
-<p>Reference: <a href="https://developer.github.com/v3/issues/comments/#create-a-comment">Create a comment</a>.</p>
-
-<figure class='code'><figcaption><span>Equivalent curl in Jenkinsfile</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">sh</span> <span class="s2">&quot;&quot;&quot;</span>
-</span><span class='line'><span class="s2">curl -s -X POST -H &quot;</span><span class="nl">Authorization:</span> <span class="n">token</span> <span class="n">$</span><span class="o">{</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_TOKEN</span><span class="o">}</span><span class="s2">&quot; --data &#39;{&quot;</span><span class="n">body</span><span class="s2">&quot;: &quot;</span><span class="n">$</span><span class="o">{</span><span class="n">comment</span><span class="o">}</span><span class="s2">&quot;}&#39; ${GITHUB_API}/${org}/${repo}/issues/${env.CHANGE_ID}/comments</span>
-</span><span class='line'><span class="s2">&quot;&quot;&quot;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>Merge Pull Request</h4>
-
-<p>Based on <a href="http://www.cloudypoint.com/Tutorials/discussion/jenkins-solved-how-to-merge-a-successful-build-of-a-pull-request-using-a-jenkinsfile/">this article</a>.</p>
-
-<figure class='code'><figcaption><span>Merge pull request</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="n">stage</span> <span class="o">(</span><span class="s2">&quot;Merge PR&quot;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">steps</span> <span class="o">{</span>
-</span><span class='line'>        <span class="n">withCredentials</span><span class="o">([</span><span class="n">usernamePassword</span><span class="o">(</span><span class="nl">credentialsId:</span> <span class="s1">&#39;credential-value&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_USERNAME&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;ACCESS_TOKEN_PASSWORD&#39;</span><span class="o">,)])</span> <span class="o">{</span>
-</span><span class='line'>            <span class="kt">def</span> <span class="n">GITHUB</span> <span class="o">=</span> <span class="s1">&#39;https://github.ibm.com/api/v3/repos&#39;</span>
-</span><span class='line'>            <span class="n">sh</span> <span class="s2">&quot;curl -X PUT -d &#39;{\&quot;commit_title\&quot;: \&quot;Merge pull request\&quot;}&#39; ${GITHUB}/org-name/repo-name/pulls/${env.CHANGE_ID}/merge?access_token=${env.ACCESS_TOKEN_PASSWORD}&quot;</span>
-</span><span class='line'>        <span class="o">}</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>The Jenkins-provided environment variable <code>$CHANGE_ID</code>, in the case of a pull request, is the pull request number.</p>
-
-<h3>Working with Branches</h3>
-
-<h4>Getting email of branch maintainer</h4>
-
-<p>At the end of a Jenkins build for a feature branch (NOT <code>develop</code>/<code>master</code>), you may want to email some developer of its status, as opposed to blasting a whole distribution list.
-Note that in Git, there is no such metadata for branch creator, as discussed <a href="https://stackoverflow.com/questions/12055198/find-out-git-branch-creator/19135644">here</a>.
-Instead, it makes more sense to notify the latest/active committer which is likely the owner of the branch.</p>
-
-<!--
-Furthermore, while most of the branches in Git has short lifetime, some branches such as `master` and `develop` can stay around for a long time.
-That person may be not active or leave the project entirely.
--->
-
-
-
-
-<figure class='code'><figcaption><span>Get email of branch maintainer.</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-</pre></td><td class='code'><pre><code class='groovy'><span class='line'><span class="kt">def</span> <span class="nf">getBranchCreator</span><span class="o">(</span><span class="n">String</span> <span class="n">githubUsername</span><span class="o">,</span> <span class="n">String</span> <span class="n">githubToken</span><span class="o">,</span> <span class="n">String</span> <span class="n">repo</span><span class="o">,</span> <span class="n">String</span> <span class="n">branch</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="n">String</span> <span class="n">GITHUB_API</span> <span class="o">=</span> <span class="s1">&#39;https://git.enterprise.com/api/v3/repos&#39;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">String</span> <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;${GITHUB_API}/${githubUsername}/${repo}/branches/${branch}&quot;</span>
-</span><span class='line'>    <span class="n">println</span> <span class="s2">&quot;Querying ${url}&quot;</span>
-</span><span class='line'>    <span class="kt">def</span> <span class="n">text</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="na">toURL</span><span class="o">().</span><span class="na">getText</span><span class="o">(</span><span class="nl">requestProperties:</span> <span class="o">[</span><span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s2">&quot;token ${githubToken}&quot;</span><span class="o">])</span>
-</span><span class='line'>    <span class="kt">def</span> <span class="n">json</span> <span class="o">=</span> <span class="k">new</span> <span class="n">JsonSlurper</span><span class="o">().</span><span class="na">parseText</span><span class="o">(</span><span class="n">text</span><span class="o">)</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">// Get last committer.</span>
-</span><span class='line'>    <span class="kt">def</span> <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">email</span>
-</span><span class='line'>    <span class="c1">// TRICKY: json.commit.commit.committer.email is not valid if someone commits from Github web interface.</span>
-</span><span class='line'>    <span class="c1">// In the case, committer name is &#39;GitHub Enterprise&#39;.</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">committer</span><span class="o">.</span><span class="na">name</span> <span class="o">==</span> <span class="s1">&#39;GitHub Enterprise&#39;</span><span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>    <span class="c1">// Use author&#39;s email instead</span>
-</span><span class='line'>    <span class="n">creator</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">commit</span><span class="o">.</span><span class="na">author</span><span class="o">.</span><span class="na">email</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'>    <span class="c1">// TRICKY: the following can return inconsistent data, including &quot;null&quot;.</span>
-</span><span class='line'>    <span class="c1">// def author = json.author</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">creator</span>
-</span><span class='line'><span class="o">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// Calling from Jenkinsfile</span>
-</span><span class='line'><span class="n">withCredentials</span><span class="o">([</span>
-</span><span class='line'>    <span class="o">[</span><span class="n">$class</span><span class="o">:</span> <span class="s1">&#39;UsernamePasswordMultiBinding&#39;</span><span class="o">,</span> <span class="nl">credentialsId:</span> <span class="s1">&#39;my-credentials&#39;</span><span class="o">,</span>
-</span><span class='line'>        <span class="nl">passwordVariable:</span> <span class="s1">&#39;GITHUB_PASSWORD&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;GITHUB_USERNAME&#39;</span><span class="o">]</span>
-</span><span class='line'><span class="o">])</span> <span class="o">{</span>
-</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span> <span class="o">==~</span> <span class="s">/PR-\d+/</span> <span class="o">)</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// If it is a PR build, use some distribution list</span>
-</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="s1">&#39;someemail@enterprise.com&#39;</span>
-</span><span class='line'>    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
-</span><span class='line'>        <span class="c1">// NOTE: Replace env.GITHUB_USERNAME with the correct Github org name.</span>
-</span><span class='line'>        <span class="n">email</span> <span class="o">=</span> <span class="n">getBranchCreator</span><span class="o">(</span><span class="n">env</span><span class="o">.</span><span class="na">GITHUB_USERNAME</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">GITHUB_PASSWORD</span><span class="o">,</span> <span class="s1">&#39;my_repo&#39;</span><span class="o">,</span> <span class="n">env</span><span class="o">.</span><span class="na">BRANCH_NAME</span><span class="o">)</span>
-</span><span class='line'>    <span class="o">}</span>
-</span><span class='line'><span class="o">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>Deleting a branch</h4>
-
-<p>Searching how to delete a branch in Github API&rsquo;s <a href="https://developer.github.com/v3/repos/branches/">Branches reference</a> does not return anything.
-In fact, to delete a branch, we have to delete its HEAD reference as shown <a href="https://developer.github.com/v3/git/refs/#delete-a-reference">here</a>.</p>
-
-<figure class='code'><figcaption><span>Deleting a branch</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>DELETE /repos/octocat/Hello-World/git/refs/heads/feature-a</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>More tips on Github API</h3>
-
-<p>1) When processing data from Github API, note that any commit has an author and a committer, as shown below.</p>
-
-<figure class='code'><figcaption><span>Example commit data</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'>    <span class="s2">&quot;commit&quot;</span><span class="err">:</span> <span class="p">{</span>
-</span><span class='line'>        <span class="nt">&quot;author&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Cuong Dong-Si&quot;</span><span class="p">,</span>
-</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
-</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
-</span><span class='line'>        <span class="p">},</span>
-</span><span class='line'>        <span class="nt">&quot;committer&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Tue-Cuong Dong-Si&quot;</span><span class="p">,</span>
-</span><span class='line'>            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;tdongsi@example.com&quot;</span><span class="p">,</span>
-</span><span class='line'>            <span class="nt">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2017-08-17T05:33:46Z&quot;</span>
-</span><span class='line'>        <span class="p">},</span>
-</span><span class='line'>        <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;@JIRA-4214772@: Add function.&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;tree&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span class='line'>            <span class="nt">&quot;sha&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
-</span><span class='line'>            <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span>
-</span><span class='line'>        <span class="p">},</span>
-</span><span class='line'>        <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;xxx&quot;</span><span class="p">,</span>
-</span><span class='line'>        <span class="nt">&quot;comment_count&quot;</span><span class="p">:</span> <span class="mi">0</span>
-</span><span class='line'>    <span class="p">}</span><span class="err">,</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>While the two fields are usually the same in normal commits (with same associated email and timestamp), they have different meanings.
-In summary, the author is the one who created the content, and the committer is the one who committed it.
-The two fields can be different in some common Github workflows:</p>
-
-<ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#109;&#97;&#105;&#108;&#x74;&#x6f;&#58;&#110;&#x6f;&#x2d;&#114;&#x65;&#112;&#108;&#x79;&#64;&#x67;&#x69;&#116;&#104;&#117;&#98;&#x2e;&#99;&#111;&#x6d;">&#x6e;&#x6f;&#45;&#114;&#101;&#112;&#108;&#121;&#64;&#x67;&#x69;&#116;&#x68;&#117;&#x62;&#x2e;&#99;&#111;&#x6d;</a>&rdquo;.</li>
-<li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
-</ul>
-
-
-<p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#108;&#116;&#x6f;&#58;&#x6e;&#111;&#45;&#x72;&#x65;&#x70;&#108;&#x79;&#x40;&#103;&#105;&#116;&#104;&#117;&#x62;&#46;&#x63;&#x6f;&#109;">&#110;&#111;&#45;&#114;&#101;&#x70;&#x6c;&#121;&#64;&#x67;&#x69;&#116;&#104;&#x75;&#x62;&#x2e;&#x63;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
-
-<p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
-
-<figure class='code'><figcaption><span>Github API limit</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>tdongsi-mac:dev tdongsi$ curl -i https://api.github.com/users/tdongsi
-</span><span class='line'>HTTP/1.1 200 OK
-</span><span class='line'>Date: Fri, 09 Jun 2017 16:16:49 GMT
-</span><span class='line'>Content-Type: application/json; charset=utf-8
-</span><span class='line'>Content-Length: 1236
-</span><span class='line'>Server: GitHub.com
-</span><span class='line'>Status: 200 OK
-</span><span class='line'>X-RateLimit-Limit: 60
-</span><span class='line'>X-RateLimit-Remaining: 55
-</span><span class='line'>X-RateLimit-Reset: 1497025098
-</span><span class='line'>Cache-Control: public, max-age=60, s-maxage=60
-</span><span class='line'>Vary: Accept
-</span><span class='line'>ETag: "4d7770cf5c2478bf64d23bc908494172"
-</span><span class='line'>Last-Modified: Thu, 01 Jun 2017 01:09:00 GMT
-</span><span class='line'>X-GitHub-Media-Type: github.v3; format=json
-</span><span class='line'>Access-Control-Expose-Headers: ETag, Link, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval
-</span><span class='line'>Access-Control-Allow-Origin: *
-</span><span class='line'>Content-Security-Policy: default-src 'none'
-</span><span class='line'>Strict-Transport-Security: max-age=31536000; includeSubdomains; preload
-</span><span class='line'>X-Content-Type-Options: nosniff
-</span><span class='line'>X-Frame-Options: deny
-</span><span class='line'>X-XSS-Protection: 1; mode=block
-</span><span class='line'>X-Runtime-rack: 0.030687
-</span><span class='line'>Vary: Accept-Encoding
-</span><span class='line'>X-Served-By: 62cdcc2d03a2f173f1c58590d1a90077
-</span><span class='line'>Vary: Accept-Encoding
-</span><span class='line'>X-GitHub-Request-Id: FADF:2CB6E:44F743B:56EDC6F:593AC9F1
-</span><span class='line'>
-</span><span class='line'>...</span></code></pre></td></tr></table></div></figure>
-
-
-<p>You are likely to hit this rate limit quickly if you are polling the repos for updates.
-Instead of polling from your CI (e.g., Jenkins) system, it is recommended to use <a href="https://developer.github.com/webhooks/creating/">Github webhooks</a>.</p>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="http://tdongsi.github.io/blog/2015/08/04/curl-cookbook/">curl cookbook</a></li>
-</ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
     <title type="html"><![CDATA[Advanced Jenkinsfile Cookbook]]></title>
     <link href="http://tdongsi.github.io/blog/2017/07/19/jenkinsfile-cookbook/"/>
     <updated>2017-07-19T14:23:01-07:00</updated>
@@ -4294,104 +4393,6 @@ If you want the secret files in specific locations, the workaround is to create 
 <li><a href="https://jenkins.io/doc/pipeline/steps/">Basic Jenkinsfile steps</a></li>
 <li><a href="https://github.com/jenkinsci/workflow-basic-steps-plugin/tree/master/src/main/java/org/jenkinsci/plugins/workflow/steps">Source code of Basic steps</a></li>
 </ul>
-
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[Jsonnet Code Recipes]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/07/12/jsonnet-snippets/"/>
-    <updated>2017-07-12T14:24:32-07:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/07/12/jsonnet-snippets</id>
-    <content type="html"><![CDATA[<p>If you are sending/working with lots of JSON data in files such as AWS CloudFormation templates, <a href="http://jsonnet.org/"><code>Jsonnet</code> tool</a> can help reducing the hassle of maintaining.
-Using Jsonnet templates, it is easier to organize data and reduce repeated code present in such JSON data.
-This post goes over a few common Jsonnet code recipes for generating JSON data.</p>
-
-<!--more-->
-
-
-<h3>Automated tests</h3>
-
-<p>At least, make sure your jsonnet template files can compile.
-The following example bash script will find all the manifest files and try to compile that:</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='bash'><span class='line'><span class="c"># Provide a superset of required parameters</span>
-</span><span class='line'><span class="k">for</span> i in <span class="sb">`</span>find Project1/manifests Project2/manifests   -name <span class="s2">&quot;*.jsonnet&quot;</span><span class="sb">`</span><span class="p">;</span>
-</span><span class='line'><span class="k">do</span>
-</span><span class='line'>  jsonnet -V <span class="nv">param1</span><span class="o">=</span><span class="m">1</span> -V <span class="nv">param2</span><span class="o">=</span>dummy -V <span class="nv">param3</span><span class="o">=</span><span class="m">1</span> <span class="s2">&quot;${i}&quot;</span> &gt;&gt; /dev/null
-</span><span class='line'><span class="k">done</span><span class="p">;</span>
-</span><span class='line'><span class="c"># This will lint-test the files, including libsonnet files.</span>
-</span><span class='line'><span class="k">for</span> i in <span class="sb">`</span>find Project1 Project2 -name <span class="s2">&quot;*.*sonnet&quot;</span><span class="sb">`</span><span class="p">;</span>
-</span><span class='line'><span class="k">do</span>
-</span><span class='line'>  jsonnet fmt -i -n <span class="m">2</span> <span class="s2">&quot;${i}&quot;</span> --test
-</span><span class='line'><span class="k">done</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>Conditional add</h3>
-
-<p>Conditionally adding items to a list.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'>  <span class="err">ports:</span> <span class="p">[</span>
-</span><span class='line'>           <span class="p">{</span>
-</span><span class='line'>             <span class="err">port:</span> <span class="err">$.httpPort,</span>
-</span><span class='line'>             <span class="err">targetport:</span> <span class="err">$.httpTargetPort,</span>
-</span><span class='line'>           <span class="p">},</span>
-</span><span class='line'>           <span class="p">{</span>
-</span><span class='line'>             <span class="err">port:</span> <span class="err">$.jnlpPort,</span>
-</span><span class='line'>             <span class="err">targetport:</span> <span class="err">15372,</span>
-</span><span class='line'>           <span class="p">},</span>
-</span><span class='line'>         <span class="p">]</span> <span class="err">+</span>
-</span><span class='line'>         <span class="err">(if</span> <span class="err">$.sshEnabled</span> <span class="err">then</span>
-</span><span class='line'>            <span class="p">[{</span>
-</span><span class='line'>              <span class="err">port:</span> <span class="err">$.sshPort,</span>
-</span><span class='line'>              <span class="err">targetport:</span> <span class="err">15373,</span>
-</span><span class='line'>            <span class="p">}]</span> <span class="err">else</span> <span class="p">[]</span><span class="err">),</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Conditionally adding attributes to an object/map.</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='json'><span class='line'>  <span class="err">defaultContainerEnv::</span> <span class="p">{</span>
-</span><span class='line'>    <span class="err">LOGGING_STDERR_LEVEL:</span> <span class="nt">&quot;ALL&quot;</span><span class="p">,</span>
-</span><span class='line'>    <span class="err">JENKINS_USER:</span> <span class="nt">&quot;jenkins&quot;</span><span class="p">,</span>
-</span><span class='line'>  <span class="p">}</span> <span class="err">+</span> <span class="err">(if</span> <span class="err">$.sshEnabled</span> <span class="err">then</span> <span class="p">{</span>
-</span><span class='line'>          <span class="err">SSH_PORT:</span> <span class="err">7012,</span>
-</span><span class='line'>        <span class="p">}</span> <span class="err">else</span> <span class="p">{}</span>
-</span><span class='line'>      <span class="err">)</span>
-</span></code></pre></td></tr></table></div></figure>
 
 ]]></content>
   </entry>
