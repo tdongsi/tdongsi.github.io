@@ -1,9 +1,10 @@
 ---
 layout: post
 title: "Jsonnet code recipes"
-date: 2017-07-12 14:24:32 -0700
+date: 2018-07-12 14:24:32 -0700
 comments: true
 categories: 
+- jsonnet
 ---
 
 If you are sending/working with lots of JSON data in files such as AWS CloudFormation templates, [`Jsonnet` tool](http://jsonnet.org/) can help reducing the hassle of maintaining.
