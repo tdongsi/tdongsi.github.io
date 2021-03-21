@@ -8,20 +8,47 @@ categories:
 - Python
 ---
 
-We have great success in using Jupyter for our runbooks in Production Launch exercises.
+We have great success in using Jupyter notebooks as runbooks for our Production Releases.
 
 <!--more-->
 
-### Motivations
+### Background & Motivations
 
-Why Jupyter?
+Before anyone asking about automation, I'd like to emphasize that we already have 100% automation to deploy more than 100 micro-services needed for Apple News.
+In fact, such full automation pipelines are regularly used to update internal environments every day.
+
+However, we still need some form of runbooks for Production Releases at Apple.
+Since Production Releases can potentially impact end-users, it requires special treatments that prevent us from using those 100% automated pipelines.
+Any change in Production environment, usually during Production Releases, requires special coordination between multiple teams and service owners.
+At the scale of Apple, with more than one billion of iOS devices, the idea of simply YOLO-ing the production environment with automated pipelines won't fly.
+TODO: deploy and rollback
+TODO: bad PR if things go wrong
+
+An ideal runbook must allow us to stop at any point during Production Release (e.g., checkpoints, waiting for approval), retry some steps (e.g., in case of intermittent failures), adjust/rollback some previously executed steps (e.g., in case of unforseen problems).
+It also must allow some rehearsals in lower environments with minimal changes.
+Such rehearsals in lower, internal environments will not only help Release Management team with deployment experience, but also help service owners and QA team with quick update cycles should they need to verify those changes.
+
+In the past, teams in my previous companies use some form of shared documents for runbooks.
+Some teams use hosted wiki such as MediaWiki or Confluence while others use some collaborative web application such as Google Docs or Salesforce Quip.
+In these runbooks, the entire deployment process are usually divided into chunks that can be automated in some scripts, that can be easily invoked from command-line terminals.
+These runbooks will document in details with information such as the commands to invoke, success/failure criteria, approval if needed (e.g., from QA or PM) before proceeding, etc.
+Release Managers/Engineers, who coordinate the Production Releases, usually execute those scripts one by one, wait for each to complete and seek approvals if needed before proceeding to the next one.
+
+However, from personal experience, these runbooks can be challenging to use and they are far from ideal because of the following reasons:
+
+* Lots of Copy & Paste: Commands 
+* Hard to retry/adjust
+* Hard to extend
+* Hard to evolve: copy and paste 
+
+#### Why Jupyter?
 
 * [Literate programming](https://en.wikipedia.org/wiki/Literate_programming): Code snippets executed in sequence, surrounded by context & explanations intended for human operators (vs. script order imposed by computer).
+* Check points & Easy retry: Enough control in each step so that human operators can stop and do monitoring, coordination, adjustment, rollback before proceeding to next step.
 * Convenience: Less copy & paste between runbook and terminals.
-* Quick reset: Fresh copy of runbook on-demand for fixing News daily deployments.
-* Archive: Sharable/Viewable copies saved in GHE with timestamps and details for past milestone deployments.
+* Quick reset: Fresh copy of runbook on-demand for easy rehearsals in lower, internal environments.
+* Archive: Sharable/Viewable copies saved in Github Enterprise (GHE) with timestamps and details for past milestone deployments.
 * Easy evolution: Runbooks change overtime with releases. Runbooks for new releases can be done with branching/merge like codes.
-* Easy retry: Enough control in each step so that human operators can do monitoring, adjustment, rollback before proceeding to next step.
 * Extendable: UI elements such as checkboxes can be programmed in Python to add functionality (e.g., timestamped) if needed. In other words, a "programmable Quip/Google Doc".
 
 #### Literate programming
