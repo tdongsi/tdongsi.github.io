@@ -3,6 +3,7 @@ layout: post
 title: "Apple News in 2020 Election"
 date: 2020-12-20 02:08:21 -0800
 comments: true
+featured: true
 categories: 
 ---
 
