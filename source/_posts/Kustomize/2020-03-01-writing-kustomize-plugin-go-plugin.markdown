@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Writing Kustomize plugin: Go plugin"
-date: 2021-03-21 03:25:46 -0700
+date: 2020-03-01 03:25:46 -0700
 comments: true
 categories: 
 ---
