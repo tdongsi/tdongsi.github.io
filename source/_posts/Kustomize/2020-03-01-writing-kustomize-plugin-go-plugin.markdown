@@ -11,3 +11,5 @@ Generator plugin for "PodReaper" permissions.
 
 Transformer plugin for "PodReaper" permissions.
 
+TODO: Compared with Helm: Unit testing, other patching capabilities that are provided by Kustomize.
+ 
