@@ -139,7 +139,7 @@ Want to do:
     Completed with integration with internal **Github OAuth** for authentication/authorization, **Grafana dashboards** for Jenkins and ArgoCD monitoring. 
     Developed Jenkins shared library for **GitOps** implementations with Jenkins and ArgoCD.
   * Initiated, designed and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
-    The runbooks are highly automated and easily extended for generating **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
+    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
   * Designed and implemented various Python commands and tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
     Designed and implemented simple **Kubernetes operators** and Go-based services for supporting Kubernetes operations.
 
