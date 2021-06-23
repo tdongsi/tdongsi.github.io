@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Cuong Dong-Si"
-date: 2016-12-07 13:49
+date: 2021-06-23 13:49
 comments: true
 sharing: false
 footer: true
@@ -125,9 +125,23 @@ Want to do:
 
 ### Work Experience
 
-**Senior SDE**, <a name="Apple">Apple</a> (7/2018 - present)
+**Senior Software Engineer**, <a name="Apple">Apple</a> (7/2018 - present)
 
-* [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
+* [Apple News & Stocks & Weather](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
+* Recent achievements:
+  * Key contributor for migration of various backend services for Apple News/Stocks to **Kubernetes**: implemented proof of concepts (PoC) with various integrations with other Apple internal services, including Docker image builds, logging, metrics. 
+    Designed and implemented **Kustomize plugins** for YAML templating and secrets management. 
+    Designed and implemented **Kubernetes RBAC** for access control and team authorization. 
+    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and prototype Grafana dashboards.
+  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding. 
+    Recommended the teams on various Kubernetes best practices and design decisions.
+  * Designed and implemented CI/CD solutions for deployment to Kubernetes, including containerized, highly scalable **Jenkins** and **ArgoCD** setups. 
+    Completed with integration with internal **Github OAuth** for authentication/authorization, **Grafana dashboards** for Jenkins and ArgoCD monitoring. 
+    Developed Jenkins shared library for **GitOps** implementations with Jenkins and ArgoCD.
+  * Initiated, designed and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
+    The runbooks are highly automated and easily extended for generating **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
+  * Designed and implemented various Python commands and tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
+    Designed and implemented simple **Kubernetes operators** and Go-based services for supporting Kubernetes operations.
 
 <!-- 2021
 Key achievements?
