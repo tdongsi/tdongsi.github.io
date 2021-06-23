@@ -41,10 +41,12 @@ Want to do:
 * Platform: SunOS, HP-UX
 * Big Data: Dimensional Modeling (Kimball), Netezza, Tableau
 * Tools:
-  * DevOps: Datadog, SonarQube, Nexus, Puppet, Ansible, VMWare, VirtualBox
+  * DevOps: Datadog, SonarQube, Nexus, VMWare, VirtualBox
   * Teamware: MediaWiki, Confluence
   * Version control: Subversion
   * IDE: Visual Studio
+  * Configuration: Pulumi, Terraform, Puppet, Ansible, Chef,
+  * Virtualization: Vagrant,
 -->
 * **Language**: 
   [Java](/blog/categories/java/),
@@ -61,10 +63,10 @@ Want to do:
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
   [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **Python stack**:
-  PyCharm, Jupyter, Pandas,
-  [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/matplotlib/),
-  Flask.
+  PyCharm, Jupyter, JupyterHub, 
+  Pandas, <!-- Data manipulation -->
+  [Numpy](/blog/categories/numpy/), [Matplotlib](/blog/categories/matplotlib/), <!-- Matlab -->
+  Flask, Django.  <!-- Web Framework -->
 * **Web stack**:
   Node.js, React.js, jQuery, <!-- Framework -->
   Grunt, npm, Webpack, <!-- Build -->
@@ -91,10 +93,9 @@ Want to do:
   [Vertica](/blog/categories/vertica/),
   Data Warehouse.
 * **Tools**:
-  [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
-  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
-  Chef, <!-- Configuration  --> 
-  Vagrant, <!-- Virtualization --> 
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
+  Pulumi, Terraform, <!-- Configuration -->
   [Git](/blog/categories/git/), 
   [Github](https://github.com/tdongsi), 
   SourceTree, 
@@ -141,12 +142,9 @@ ACI Kube migration:
 * url-bucketing-service: Swift-based service into ACI-Kube. Implemented automated deployment Jenkins jobs (Kustomize-based, not PCL-based) for Weian.
 * anf-toolbox migration with PCL: Porting anf-toolbox repo to ACI Kube using PCL: 3 services, convert Gneiss team's/Independent Release idiosyncrasies in Slug build/PIE deployment into corresponding Gradle jib/PCL-based configs. 
 * Work with News-SRE for utility/Background services and other implementations: Access control policies, event-watchers for logging events into Splunk and helping troubleshooting, pod-reaper for automatic cleanup
-* SAFE requests
 
 Misc: 
-* 1.44 Release DRI. 
 * Refactoring and continue improving Jupyter runbook: more readable and easier-to-update Splunk queries and better generation of clickable URLs (use in runbook/sent to Slack). 
-* Help DevOps team/on-call people with issues in PIE Compute deployments and PIE Secrets.
 -->
 
 <!-- 2020
