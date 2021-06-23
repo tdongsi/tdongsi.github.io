@@ -257,14 +257,6 @@ What were your key achievements?
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
 
-<!--
-**Summer Intern**, Singapore Institute of Manufacturing Technology (5/2005 - 7/2005) 
-
-* Investigated feasibility of using Java technologies for embedded systems, using TStik, STEP and TILT circuit boards and TINI development tools.
-* Implemented several Java applications to interface with several embedded devices.
-* Achievements: A Java application to monitor temperature and send alerts via SMS and Yahoo! Instant Messenger as well as daily email reports. Used Java Swing for GUI control panel design.
--->
-
 ### Education
 
 * *Master of Science*, University of California, Riverside. **GPA**: *3.92/4*
