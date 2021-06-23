@@ -128,6 +128,27 @@ Want to do:
 
 * [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 
+<!-- 2021
+Key achievements?
+
+ArgoCD: setting up ArgoCD instances (beta/prod). Fully integrated with other systems in Apple such as ProdGit OAuth for authentication/authorization, Prometheus/Grafana for monitoring. Advised the team on best usage practices, integration with CI/CD pipelines for GitOps implementation. Upgraded and scaled up ArgoCD prod to host applications for Solr infra monitoring as well as DEVEL/TEST services for ACI Kube migration.
+
+Orca-Jenkins: working with Data Engineering team and DataOps for general migraiton of Orca-Jenkins to ACI Kube: migration of Jenkins configurations to ACI Kube-based ConfigMaps, migration of classic jobs to Pipeline-based jobs for more resilience against container restarts, ArgoCD/Kustomize for Jenkins updates/deployments. 
+
+CI/CD: First implementations of nightly deployment and on-demand deployment for ACI Kube: Docker images for Jenkins agent to execute Gradle/ArgoCD commands, basic automation scripts, Jenkins shared library for orchestration. On-going project.
+
+ACI Kube migration: 
+* url-bucketing-service: Swift-based service into ACI-Kube. Implemented automated deployment Jenkins jobs (Kustomize-based, not PCL-based) for Weian.
+* anf-toolbox migration with PCL: Porting anf-toolbox repo to ACI Kube using PCL: 3 services, convert Gneiss team's/Independent Release idiosyncrasies in Slug build/PIE deployment into corresponding Gradle jib/PCL-based configs. 
+* Work with News-SRE for utility/Background services and other implementations: Access control policies, event-watchers for logging events into Splunk and helping troubleshooting, pod-reaper for automatic cleanup
+* SAFE requests
+
+Misc: 
+* 1.44 Release DRI. 
+* Refactoring and continue improving Jupyter runbook: more readable and easier-to-update Splunk queries and better generation of clickable URLs (use in runbook/sent to Slack). 
+* Help DevOps team/on-call people with issues in PIE Compute deployments and PIE Secrets.
+-->
+
 <!-- 2020
 What were your key achievements?
 
