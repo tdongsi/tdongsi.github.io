@@ -175,17 +175,6 @@ What were your key achievements?
   * DataEng support: Extended pie-cli to add Spark deployment functionality for Data Engineering. 
     Laid out the framework so that Okehee/Liang can further contribute from DataEng side. 
     Took consultation role for general Orca-Jenkins troubleshooting, advised DataEng team on general architecture of Jenkins in Kubernetes and their general migration journey to ACI Kube.
-  * Maintainer of Newspublisher-in-a-Pod: updated its deployment code to account for various migrations, SpringBoot upgrade.
-
-In what areas could you improve or develop?
-
-* Technical leadership.
-* More proficient on how services in News work together, through monthly on-calls.
-
-What goals would you like to establish for the coming year?
-
-* Migration of Apple News services from PIE Compute to ACI Kube.
-* Onboarding developers to ACI Kube. Add developer productivity tools.
 -->
 
 <!-- 2019
