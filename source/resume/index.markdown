@@ -192,49 +192,12 @@ What goals would you like to establish for the coming year?
 What were your key achievements?
 
 * Modernized Jenkins-based deployment pipelines for DEVEL/TEST/QA/STAGING: from separate, divergent, GUI-based Jenkins pipelines to unified, code-based pipelines.
-  * Consistent deployment codes improve team productivity in investigating deployment issues and help experiences carried from deploying in lower environments to higher ones.
-  * Refactored large code sections shared by 4 pipelines into "Jenkins shared library" to reduce copy & paste-ing code (i.e., Don't Repeat Yourself principle).
-  * Various improvements to deployment systems: less parameter input, less manual update, various bug fixes in Python deployment scripts.
-* PIE CLI, Secrets CLI: maintenance, bug fixing. Inherited the code base from Girish, fixed bugs despite little knowledge transfer. 
-  * Made the tools more resilient against exceptional scenarios (e.g., 4xx/5xx from PIE APIs). Introduced mocking as proof of functionality.
-  * Added numerous functional & unit tests to prevent regressions.
-* Improved secret management practices for DevOps tools and code: using Jenkins secret files instead of moving files directly on Jenkins VM (PIE Secrets), using Jenkins secret environment variables instead of checking secrets/tokens into Github.
-* Security tasks: 
-  * cleaned up secrets/tokens from DevOps repos.
-  * implemented HTTPS and AppleConnect (SAML) on DevOps and Orca Jenkins.
-  * addressed Splunk logging requirements from ISG for devops-jenkins and orca-jenkins (PV and MR).
-  * addressed Project Hogwarts audits, ASO-Security audits. 
-  * checked and updated Apple root CA/trust store settings for devops-jenkins, news-orca (PV and MR), Python clients. Helped developers (esp. Data-Engineering team) to resolve related Gradle issues on their machines.
-* Implemented Jenkins Splunk dashboards for DevOps-Jenkins and News-Orca. Demonstrated to Data Engineering team about Splunk queries for Jenkins operations.
-* Supported Data Engineering team on their Jenkins operations. 
-  * Became Okehee’s consultant (aka, personal “Stackoverflow") on Orca-Jenkins and supporting services (AppleConnect, Splunk). 
-  * Created Groovy/Jenkins libraries (orca-jenkins-shared-library) and pipelines for Job-DSL and Jenkinsfile-based jobs.
-* Set up a Jenkins-beta box (fs06) for different risky executions (multiple Jenkins upgrade exercises, AppleConnect) without impacting production devops-jenkins. 
-* Daily Rio-build status notification: Jenkins job that runs daily to check for Rio build failures and publish to DevOps Hipchat/Slack room.
-* On point for 1.33 and 1.34 Prod launches.
-* Various App Config, Experiment tasks and reviews with Vijay A.
+  * Refactored large code sections shared by 4 pipelines into "Jenkins shared library" to reduce copy & paste-ing code.
+* PIE CLI, Secrets CLI: Made the tools more resilient against exceptional scenarios (e.g., 4xx/5xx from PIE APIs).  Added numerous functional & unit tests to prevent regressions, introduced mocking as proof of functionality.
+* Improved secret management practices for DevOps tools and code: using Jenkins secret files and environments, dashboard of credential usages, internal Secrets v2 migration.
+* Implemented Jenkins Splunk dashboards for DevOps-Jenkins and News-Orca. 
 * Jupyter deployment runbook: demonstrated in News Hackathon. Personal use for 1.34 Staging/Prod launches and ad-hoc fixes for nightly QA deployments.
-  * In progress. Additional works required to make it suitable for team-wide consumption (similar to early Jenkinsfile's). 
-* News-Publisher in a Pod: investigated issues, fixed problems. Extended the pod (i.e., adding services) to support additional development needs of News Publisher team.
-* Advocated for moving notifications to HipChat instead of emails for better experience (i.e., mailbox too noisy). Successfully implemented on devops-jenkins. 
-  * Slack migration: successfully investigated for similar integration with Slack (believed impossible due to devops-jenkins in DCVPN) and adjusted devops-jenkins implementation accordingly for Slack. 
-* Secrets v2: 
-  * Two-way mappings (as interactive web pages) for applications and secret keys (in v1) to help DevOps team with Secrets migration.
-  * Python implementation of Secrets client for creating/updating/granting buckets.
-  * Update Jenkins jobs to make GUI more user-friendly (multi-selection choices).
-  * Bucket-application mapping after new conflict resolution mechanism introduced in July 2019.
-  
-In what areas could you improve or develop?
-
-* Better relationship and time management (a.k.a, "influence" per Apple University) with external teams (e.g., IdMS, SAML, PIE Splunk) to achieve News DevOps goals. 
-* More proficient on how services in News work together, through monthly on-calls.
-* Kubernetes/APC: learn APC/Kubernetes features and/or work around APC restrictions.
-
-What goals would you like to establish for the coming year?
-
-* Establish POCs and migration paths for Apple News services from PIE Compute to APC.
-* Investigate PIE Spinnaker and create a POC, in the context of PIE Compute sunset.
-* Jupyter deployment runbook: check the team's need (ok with Quip OR more convenience desired). Synchronize the runbook and Jenkins pipelines AFTER PIE Compute sunset and new deployment tool defined (e.g., Spinnaker?). 
+* News-Publisher in a Pod: investigated issues, fixed problems. Extended the pod (i.e., adding services) to support additional development needs of News Publisher team.  
 -->
 
 **Senior Member of Technical Staff**, <a name="Salesforce">Salesforce</a> (10/2016 - 6/2018)
