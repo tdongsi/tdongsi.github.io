@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Cuong Dong-Si"
-date: 2016-12-07 13:49
+date: 2021-06-23 13:49
 comments: true
 sharing: false
 footer: true
@@ -41,10 +41,12 @@ Want to do:
 * Platform: SunOS, HP-UX
 * Big Data: Dimensional Modeling (Kimball), Netezza, Tableau
 * Tools:
-  * DevOps: Datadog, SonarQube, Nexus, Puppet, Ansible, VMWare, VirtualBox
+  * DevOps: Datadog, SonarQube, Nexus, VMWare, VirtualBox
   * Teamware: MediaWiki, Confluence
   * Version control: Subversion
   * IDE: Visual Studio
+  * Configuration: Pulumi, Terraform, Puppet, Ansible, Chef,
+  * Virtualization: Vagrant,
 -->
 * **Language**: 
   [Java](/blog/categories/java/),
@@ -61,10 +63,10 @@ Want to do:
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
   [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
 * **Python stack**:
-  PyCharm, Jupyter, Pandas,
-  [Numpy](/blog/categories/numpy/), 
-  [Matplotlib](/blog/categories/matplotlib/),
-  Flask.
+  PyCharm, Jupyter, JupyterHub, 
+  Pandas, <!-- Data manipulation -->
+  [Numpy](/blog/categories/numpy/), [Matplotlib](/blog/categories/matplotlib/), <!-- Matlab -->
+  Flask, Django.  <!-- Web Framework -->
 * **Web stack**:
   Node.js, React.js, jQuery, <!-- Framework -->
   Grunt, npm, Webpack, <!-- Build -->
@@ -91,10 +93,9 @@ Want to do:
   [Vertica](/blog/categories/vertica/),
   Data Warehouse.
 * **Tools**:
-  [Jenkins](/blog/categories/jenkins/), Spinnaker, <!-- CI/CD --> 
-  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, <!-- Monitoring --> 
-  Chef, <!-- Configuration  --> 
-  Vagrant, <!-- Virtualization --> 
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
+  Pulumi, Terraform, <!-- Configuration -->
   [Git](/blog/categories/git/), 
   [Github](https://github.com/tdongsi), 
   SourceTree, 
@@ -124,9 +125,41 @@ Want to do:
 
 ### Work Experience
 
-**Senior SDE**, <a name="Apple">Apple</a> (7/2018 - present)
+**Senior Software Engineer**, <a name="Apple">Apple</a> (7/2018 - present)
 
-* [Apple News & Stocks](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
+* [Apple News & Stocks & Weather](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
+* Recent achievements:
+  * Key contributor for migration of various backend services for Apple News/Stocks to **Kubernetes**: implemented proof of concepts (PoC) with various integrations with other Apple internal services, including Docker image builds, logging, metrics. 
+    Designed and implemented **Kustomize plugins** for YAML templating and secrets management. 
+    Designed and implemented **Kubernetes RBAC** for access control and team authorization. 
+    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and prototype Grafana dashboards.
+  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding. 
+    Recommended the teams on various Kubernetes best practices and design decisions.
+  * Designed and implemented CI/CD solutions for deployment to Kubernetes, including containerized, highly scalable **Jenkins** and **ArgoCD** setups. 
+    Completed with integration with internal **Github OAuth** for authentication/authorization, **Grafana dashboards** for Jenkins and ArgoCD monitoring. 
+    Developed Jenkins shared library for **GitOps** implementations with Jenkins and ArgoCD.
+  * Initiated, designed and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
+    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
+  * Designed and implemented various Python commands and tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
+    Designed and implemented simple **Kubernetes operators** and Go-based services for supporting Kubernetes operations.
+
+<!-- 2021
+Key achievements?
+
+ArgoCD: setting up ArgoCD instances (beta/prod). Fully integrated with other systems in Apple such as ProdGit OAuth for authentication/authorization, Prometheus/Grafana for monitoring. Advised the team on best usage practices, integration with CI/CD pipelines for GitOps implementation. Upgraded and scaled up ArgoCD prod to host applications for Solr infra monitoring as well as DEVEL/TEST services for ACI Kube migration.
+
+Orca-Jenkins: working with Data Engineering team and DataOps for general migraiton of Orca-Jenkins to ACI Kube: migration of Jenkins configurations to ACI Kube-based ConfigMaps, migration of classic jobs to Pipeline-based jobs for more resilience against container restarts, ArgoCD/Kustomize for Jenkins updates/deployments. 
+
+CI/CD: First implementations of nightly deployment and on-demand deployment for ACI Kube: Docker images for Jenkins agent to execute Gradle/ArgoCD commands, basic automation scripts, Jenkins shared library for orchestration. On-going project.
+
+ACI Kube migration: 
+* url-bucketing-service: Swift-based service into ACI-Kube. Implemented automated deployment Jenkins jobs (Kustomize-based, not PCL-based) for Weian.
+* anf-toolbox migration with PCL: Porting anf-toolbox repo to ACI Kube using PCL: 3 services, convert Gneiss team's/Independent Release idiosyncrasies in Slug build/PIE deployment into corresponding Gradle jib/PCL-based configs. 
+* Work with News-SRE for utility/Background services and other implementations: Access control policies, event-watchers for logging events into Splunk and helping troubleshooting, pod-reaper for automatic cleanup
+
+Misc: 
+* Refactoring and continue improving Jupyter runbook: more readable and easier-to-update Splunk queries and better generation of clickable URLs (use in runbook/sent to Slack). 
+-->
 
 <!-- 2020
 What were your key achievements?
@@ -154,66 +187,18 @@ What were your key achievements?
   * DataEng support: Extended pie-cli to add Spark deployment functionality for Data Engineering. 
     Laid out the framework so that Okehee/Liang can further contribute from DataEng side. 
     Took consultation role for general Orca-Jenkins troubleshooting, advised DataEng team on general architecture of Jenkins in Kubernetes and their general migration journey to ACI Kube.
-  * Maintainer of Newspublisher-in-a-Pod: updated its deployment code to account for various migrations, SpringBoot upgrade.
-
-In what areas could you improve or develop?
-
-* Technical leadership.
-* More proficient on how services in News work together, through monthly on-calls.
-
-What goals would you like to establish for the coming year?
-
-* Migration of Apple News services from PIE Compute to ACI Kube.
-* Onboarding developers to ACI Kube. Add developer productivity tools.
 -->
 
 <!-- 2019
 What were your key achievements?
 
 * Modernized Jenkins-based deployment pipelines for DEVEL/TEST/QA/STAGING: from separate, divergent, GUI-based Jenkins pipelines to unified, code-based pipelines.
-  * Consistent deployment codes improve team productivity in investigating deployment issues and help experiences carried from deploying in lower environments to higher ones.
-  * Refactored large code sections shared by 4 pipelines into "Jenkins shared library" to reduce copy & paste-ing code (i.e., Don't Repeat Yourself principle).
-  * Various improvements to deployment systems: less parameter input, less manual update, various bug fixes in Python deployment scripts.
-* PIE CLI, Secrets CLI: maintenance, bug fixing. Inherited the code base from Girish, fixed bugs despite little knowledge transfer. 
-  * Made the tools more resilient against exceptional scenarios (e.g., 4xx/5xx from PIE APIs). Introduced mocking as proof of functionality.
-  * Added numerous functional & unit tests to prevent regressions.
-* Improved secret management practices for DevOps tools and code: using Jenkins secret files instead of moving files directly on Jenkins VM (PIE Secrets), using Jenkins secret environment variables instead of checking secrets/tokens into Github.
-* Security tasks: 
-  * cleaned up secrets/tokens from DevOps repos.
-  * implemented HTTPS and AppleConnect (SAML) on DevOps and Orca Jenkins.
-  * addressed Splunk logging requirements from ISG for devops-jenkins and orca-jenkins (PV and MR).
-  * addressed Project Hogwarts audits, ASO-Security audits. 
-  * checked and updated Apple root CA/trust store settings for devops-jenkins, news-orca (PV and MR), Python clients. Helped developers (esp. Data-Engineering team) to resolve related Gradle issues on their machines.
-* Implemented Jenkins Splunk dashboards for DevOps-Jenkins and News-Orca. Demonstrated to Data Engineering team about Splunk queries for Jenkins operations.
-* Supported Data Engineering team on their Jenkins operations. 
-  * Became Okehee’s consultant (aka, personal “Stackoverflow") on Orca-Jenkins and supporting services (AppleConnect, Splunk). 
-  * Created Groovy/Jenkins libraries (orca-jenkins-shared-library) and pipelines for Job-DSL and Jenkinsfile-based jobs.
-* Set up a Jenkins-beta box (fs06) for different risky executions (multiple Jenkins upgrade exercises, AppleConnect) without impacting production devops-jenkins. 
-* Daily Rio-build status notification: Jenkins job that runs daily to check for Rio build failures and publish to DevOps Hipchat/Slack room.
-* On point for 1.33 and 1.34 Prod launches.
-* Various App Config, Experiment tasks and reviews with Vijay A.
+  * Refactored large code sections shared by 4 pipelines into "Jenkins shared library" to reduce copy & paste-ing code.
+* PIE CLI, Secrets CLI: Made the tools more resilient against exceptional scenarios (e.g., 4xx/5xx from PIE APIs).  Added numerous functional & unit tests to prevent regressions, introduced mocking as proof of functionality.
+* Improved secret management practices for DevOps tools and code: using Jenkins secret files and environments, dashboard of credential usages, internal Secrets v2 migration.
+* Implemented Jenkins Splunk dashboards for DevOps-Jenkins and News-Orca. 
 * Jupyter deployment runbook: demonstrated in News Hackathon. Personal use for 1.34 Staging/Prod launches and ad-hoc fixes for nightly QA deployments.
-  * In progress. Additional works required to make it suitable for team-wide consumption (similar to early Jenkinsfile's). 
-* News-Publisher in a Pod: investigated issues, fixed problems. Extended the pod (i.e., adding services) to support additional development needs of News Publisher team.
-* Advocated for moving notifications to HipChat instead of emails for better experience (i.e., mailbox too noisy). Successfully implemented on devops-jenkins. 
-  * Slack migration: successfully investigated for similar integration with Slack (believed impossible due to devops-jenkins in DCVPN) and adjusted devops-jenkins implementation accordingly for Slack. 
-* Secrets v2: 
-  * Two-way mappings (as interactive web pages) for applications and secret keys (in v1) to help DevOps team with Secrets migration.
-  * Python implementation of Secrets client for creating/updating/granting buckets.
-  * Update Jenkins jobs to make GUI more user-friendly (multi-selection choices).
-  * Bucket-application mapping after new conflict resolution mechanism introduced in July 2019.
-  
-In what areas could you improve or develop?
-
-* Better relationship and time management (a.k.a, "influence" per Apple University) with external teams (e.g., IdMS, SAML, PIE Splunk) to achieve News DevOps goals. 
-* More proficient on how services in News work together, through monthly on-calls.
-* Kubernetes/APC: learn APC/Kubernetes features and/or work around APC restrictions.
-
-What goals would you like to establish for the coming year?
-
-* Establish POCs and migration paths for Apple News services from PIE Compute to APC.
-* Investigate PIE Spinnaker and create a POC, in the context of PIE Compute sunset.
-* Jupyter deployment runbook: check the team's need (ok with Quip OR more convenience desired). Synchronize the runbook and Jenkins pipelines AFTER PIE Compute sunset and new deployment tool defined (e.g., Spinnaker?). 
+* News-Publisher in a Pod: investigated issues, fixed problems. Extended the pod (i.e., adding services) to support additional development needs of News Publisher team.  
 -->
 
 **Senior Member of Technical Staff**, <a name="Salesforce">Salesforce</a> (10/2016 - 6/2018)
@@ -271,14 +256,6 @@ What goals would you like to establish for the coming year?
 * Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
-
-<!--
-**Summer Intern**, Singapore Institute of Manufacturing Technology (5/2005 - 7/2005) 
-
-* Investigated feasibility of using Java technologies for embedded systems, using TStik, STEP and TILT circuit boards and TINI development tools.
-* Implemented several Java applications to interface with several embedded devices.
-* Achievements: A Java application to monitor temperature and send alerts via SMS and Yahoo! Instant Messenger as well as daily email reports. Used Java Swing for GUI control panel design.
--->
 
 ### Education
 
