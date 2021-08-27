@@ -11,7 +11,7 @@ categories:
 ---
 
 In this post, we'll look at a nasty gotcha with closures that can ensare even the most experienced programmers. 
-This problem can happen to any language that has **closures**.
+This problem can happen to any programming language that has **closures**.
 
 <!--more-->
 
@@ -34,7 +34,8 @@ for (k in deployedApps) {
 }
 ```
 
-The `jobs` variable is a mapping from a string to a closure that can be passed into `parallel` step to create a beautiful multi-fork stage like this in BlueOcean interface.
+In the above code, the `jobs` variable is a mapping from a string to a closure. 
+It is intended for `parallel` step to programmatically create a multi-fork stage in Jenkins.
 
 ``` groovy
 // Constructing "jobs" variable as above.
@@ -44,15 +45,38 @@ stage('Deploy') {
 }
 ```
 
-TODO: graph
+The stage will look like this in BlueOcean interface:
 
-As you can probably guess, the intention is to deploy/print mulitple distinct applications, colorfully named as `app1` `app2` `app3`, concurrently in a Jenkins stage "Deploy".
+{% img center /images/jenkins/parallel.png Parallel jobs %}
+
+As you can probably guess, the intention is to concurrently deploy/print mulitple distinct applications, colorfully named as `app1` `app2` `app3`, in a Jenkins stage "Deploy".
 
 TODO: However it does not work. Only the **last** one in the list of applications will be deployed/printed out.
 
+``` plain Console log
+[Pipeline] stage
+[Pipeline] { (Deploy)
+[Pipeline] parallel
+[Pipeline] { (Branch: app1)
+[Pipeline] { (Branch: app2)
+[Pipeline] { (Branch: app3)
+[Pipeline] echo
+app3
+[Pipeline] }
+[Pipeline] echo
+app3
+[Pipeline] }
+[Pipeline] echo
+app3
+[Pipeline] }
+[Pipeline] // parallel
+[Pipeline] }
+[Pipeline] // stage
+```
+
 Note that this problem has nothing to do with Map or Groovy. It can happen to any language that has closures.
 
-For example: The same above problem but with Groovy list (probably easier to read and replicated to other languages)
+For example: The same above problem can be simplified with list [in Groovy](https://groovyconsole.appspot.com/script/5140979879247872):
 
 ``` groovy
 // List version
@@ -63,9 +87,7 @@ for (int i = 0; i < 5; i++) {
 closures.each{ it() }
 ```
 
-The same problem can be seen in Go language. 
-
-TODO: Golang playground link
+The same problem can be seen in [Go language](https://play.golang.org/p/OHhJkCwTGQ8):
 
 ``` go
     var closures []func()
@@ -83,7 +105,7 @@ TODO: Golang playground link
     }
 ```
 
-or in JavaScript
+or in JavaScript:
 
 ``` javascript
 for (var i = 0; i < 5; i++) {
@@ -101,7 +123,7 @@ In fact, it is so common that the "Go Programming Language" book dedicates a who
 
 TODO: Link to 5.6.1 book.
 
-TODO: The reason
+TODO: The reason: when we iterate through closures and use iteration variables
 
 TODO: the fix
 
