@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Golang | Personal Programming Notes]]></title>
+  <link href="http://tdongsi.github.io/blog/categories/golang/atom.xml" rel="self"/>
+  <link href="http://tdongsi.github.io/"/>
+  <updated>2021-08-27T20:57:21-07:00</updated>
+  <id>http://tdongsi.github.io/</id>
+  <author>
+    <name><![CDATA[Cuong Dong-Si]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Closures in Loop]]></title>
+    <link href="http://tdongsi.github.io/blog/2021/07/24/closures-in-loop/"/>
+    <updated>2021-07-24T22:12:43-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2021/07/24/closures-in-loop</id>
+    <content type="html"><![CDATA[<p>In this post, we&rsquo;ll look at a nasty gotcha with closures that can ensare even the most experienced programmers.
+This problem can happen to any programming language that has <strong>closures</strong>.</p>
+
+<!--more-->
+
+
+<p>Recently, while working in Jenkinsfile, I got stuck with this piece of Groovy code:</p>
+
+<pre><code class="groovy">def deployedApps = [ 'app1', 'app2', 'app3']
+def jobs = [:]
+
+// ERROR: what's wrong with this?
+for (String app: deployedApps) {
+    jobs[app] = { 
+        println("Deploy $app") 
+    }
+}
+
+// DEBUG: execute the closure to debug.
+for (k in deployedApps) {
+    jobs[k]()
+}
+</code></pre>
+
+<p>In the above code, the <code>jobs</code> variable is a mapping from String to <a href="https://groovy-lang.org/closures.html">Groovy Closure</a> objects.
+It is intended for <a href="https://www.jenkins.io/doc/pipeline/steps/workflow-cps/#parallel-execute-in-parallel"><code>parallel</code> step</a> to programmatically create a multi-fork stage in Jenkins.</p>
+
+<pre><code class="groovy">// Constructing "jobs" variable as above.
+
+stage('Deploy') {
+  parallel jobs
+}
+</code></pre>
+
+<p>The stage will look like this in BlueOcean interface:</p>
+
+<p><img class="center" src="/images/jenkins/parallel.png" title="Parallel jobs" ></p>
+
+<p>As you can probably guess, the intention is to concurrently deploy/print mulitple distinct applications, colorfully named as <code>app1</code> <code>app2</code> <code>app3</code>, in a Jenkins stage &ldquo;Deploy&rdquo;.
+However, it does not work, as shown in the console log output below (NOTE: the deployment code has been replaced with <code>println</code> for simplicity).</p>
+
+<pre><code class="plain Console log">[Pipeline] stage
+[Pipeline] { (Deploy)
+[Pipeline] parallel
+[Pipeline] { (Branch: app1)
+[Pipeline] { (Branch: app2)
+[Pipeline] { (Branch: app3)
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] // parallel
+[Pipeline] }
+[Pipeline] // stage
+</code></pre>
+
+<p>Although the keys (used for display names) are correct, the values, which are Closure objects for actual execution such as deployment or simple prints, are wrong.
+The bug is subtle and puzzling: only the <strong>last element</strong> in the application list, regardless of its size and content, will be deployed or printed out (<code>app3</code> in this example).
+As we look further into it, we&rsquo;ll see that this problem has nothing to do with Map or Groovy.
+It can happen to any language that has closures.
+For example: The same above problem can be simplified with list <a href="https://groovyconsole.appspot.com/script/5140979879247872">in Groovy</a>:</p>
+
+<pre><code class="groovy">// List version
+def closures = []
+for (int i = 0; i &lt; 5; i++) {
+    closures += { println i }
+}
+closures.each{ it() }
+</code></pre>
+
+<p>The same problem can be seen in <a href="https://play.golang.org/p/OHhJkCwTGQ8">Go language</a>:</p>
+
+<pre><code class="go">    var closures []func()
+
+    // Functions to Print from 0 to 4
+    for i := 0; i &lt; 5; i++ {
+        closures = append(closures, func() {
+            fmt.Println(i)
+        })
+    }
+
+    // Now call them
+    for _, f := range closures {
+        f()
+    }
+</code></pre>
+
+<p>or in JavaScript:</p>
+
+<pre><code class="javascript">for (var i = 0; i &lt; 5; i++) {
+    setTimeout(function() {
+        console.log(i);
+    }, 0);
+}
+</code></pre>
+
+<p>In these List-based examples, &ldquo;5&rdquo; (the last values of the list) is always printed 5 times.</p>
+
+<p>It turns out that this surprise problem is quite common.
+In fact, it is so common that the &ldquo;Go Programming Language&rdquo; book dedicates <a href="https://www.oreilly.com/library/view/the-go-programming/9780134190570/ebook_split_047.html">a whole section</a> (5.6.1: Caveat: Capturing iteration variables) in its Chapter 5 to discuss this gotcha.
+The reason is related to scope rule: as we iterate through closures and use iteration variable (<code>i</code> in the three list examples), all the Closure objects created in this loop &ldquo;capture&rdquo; and share the same variable <code>i</code> (i.e., same addressable memory location) - not its value at that particular iteration (such as 0 in the first iteration).
+At the end of the loop, the variable <code>i</code> has been updated several times and has the final value <code>5</code>.
+Thus, the values that are used by all individual Closure objects when executed are all <code>5</code>&rsquo;s instead of 0-4 for each.</p>
+
+<p>Now that we understand what went wrong, the fix is pretty simple: we simply declare a new variable within the loop body before using it in the closure.
+By doing so, each Closure object will have a separate variable (with distinct memory address) and value.</p>
+
+<pre><code class="groovy Groovy fix">// Map version
+def deployedApps = [ 'app1', 'app2', 'app3']
+def jobs = [:]
+
+for (String e: deployedApps) {
+    def app = e  // TRICKY: necessary!
+    jobs[app] = { 
+        println("Deploy $app") 
+    }
+}
+
+// List version
+def closures = []
+for (int i = 0; i &lt; 5; i++) {
+    def e = i  // TRICKY: necessary!
+    closures += { println e }
+}
+closures.each{ it() }
+</code></pre>
+
+<pre><code class="go Go fix">    var closures []func()
+
+    // Functions to Print from 0 to 4
+    for i := 0; i &lt; 5; i++ {
+        e := i  // TRICKY: necessary!
+        closures = append(closures, func() {
+            fmt.Println(e)
+        })
+    }
+</code></pre>
+
+<pre><code class="javascript JavaScript fix">for (var i = 0; i &lt; 5; i++) {
+    let e = i;  // TRICKY: necessary!
+    setTimeout(function() {
+        console.log(e);
+    }, 0);
+}
+</code></pre>
+
+<p>In general, I would recommend adding the comment <code>TRICKY: necessary!</code>.
+This would caution another team member, out of desire for <a href="https://softwareengineering.stackexchange.com/questions/80084/is-premature-optimization-really-the-root-of-all-evil">premature optimization</a>, from accidentally remove the apparently useless line and produce the subtly incorrect variants as seen above.</p>
+]]></content>
+  </entry>
+  
+</feed>

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Groovy | Personal Programming Notes]]></title>
   <link href="http://tdongsi.github.io/blog/categories/groovy/atom.xml" rel="self"/>
   <link href="http://tdongsi.github.io/"/>
-  <updated>2021-06-23T13:02:12-07:00</updated>
+  <updated>2021-08-27T20:57:21-07:00</updated>
   <id>http://tdongsi.github.io/</id>
   <author>
     <name><![CDATA[Cuong Dong-Si]]></name>
@@ -12,6 +12,167 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Closures in Loop]]></title>
+    <link href="http://tdongsi.github.io/blog/2021/07/24/closures-in-loop/"/>
+    <updated>2021-07-24T22:12:43-07:00</updated>
+    <id>http://tdongsi.github.io/blog/2021/07/24/closures-in-loop</id>
+    <content type="html"><![CDATA[<p>In this post, we&rsquo;ll look at a nasty gotcha with closures that can ensare even the most experienced programmers.
+This problem can happen to any programming language that has <strong>closures</strong>.</p>
+
+<!--more-->
+
+
+<p>Recently, while working in Jenkinsfile, I got stuck with this piece of Groovy code:</p>
+
+<pre><code class="groovy">def deployedApps = [ 'app1', 'app2', 'app3']
+def jobs = [:]
+
+// ERROR: what's wrong with this?
+for (String app: deployedApps) {
+    jobs[app] = { 
+        println("Deploy $app") 
+    }
+}
+
+// DEBUG: execute the closure to debug.
+for (k in deployedApps) {
+    jobs[k]()
+}
+</code></pre>
+
+<p>In the above code, the <code>jobs</code> variable is a mapping from String to <a href="https://groovy-lang.org/closures.html">Groovy Closure</a> objects.
+It is intended for <a href="https://www.jenkins.io/doc/pipeline/steps/workflow-cps/#parallel-execute-in-parallel"><code>parallel</code> step</a> to programmatically create a multi-fork stage in Jenkins.</p>
+
+<pre><code class="groovy">// Constructing "jobs" variable as above.
+
+stage('Deploy') {
+  parallel jobs
+}
+</code></pre>
+
+<p>The stage will look like this in BlueOcean interface:</p>
+
+<p><img class="center" src="/images/jenkins/parallel.png" title="Parallel jobs" ></p>
+
+<p>As you can probably guess, the intention is to concurrently deploy/print mulitple distinct applications, colorfully named as <code>app1</code> <code>app2</code> <code>app3</code>, in a Jenkins stage &ldquo;Deploy&rdquo;.
+However, it does not work, as shown in the console log output below (NOTE: the deployment code has been replaced with <code>println</code> for simplicity).</p>
+
+<pre><code class="plain Console log">[Pipeline] stage
+[Pipeline] { (Deploy)
+[Pipeline] parallel
+[Pipeline] { (Branch: app1)
+[Pipeline] { (Branch: app2)
+[Pipeline] { (Branch: app3)
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] echo
+Deploy app3
+[Pipeline] }
+[Pipeline] // parallel
+[Pipeline] }
+[Pipeline] // stage
+</code></pre>
+
+<p>Although the keys (used for display names) are correct, the values, which are Closure objects for actual execution such as deployment or simple prints, are wrong.
+The bug is subtle and puzzling: only the <strong>last element</strong> in the application list, regardless of its size and content, will be deployed or printed out (<code>app3</code> in this example).
+As we look further into it, we&rsquo;ll see that this problem has nothing to do with Map or Groovy.
+It can happen to any language that has closures.
+For example: The same above problem can be simplified with list <a href="https://groovyconsole.appspot.com/script/5140979879247872">in Groovy</a>:</p>
+
+<pre><code class="groovy">// List version
+def closures = []
+for (int i = 0; i &lt; 5; i++) {
+    closures += { println i }
+}
+closures.each{ it() }
+</code></pre>
+
+<p>The same problem can be seen in <a href="https://play.golang.org/p/OHhJkCwTGQ8">Go language</a>:</p>
+
+<pre><code class="go">    var closures []func()
+
+    // Functions to Print from 0 to 4
+    for i := 0; i &lt; 5; i++ {
+        closures = append(closures, func() {
+            fmt.Println(i)
+        })
+    }
+
+    // Now call them
+    for _, f := range closures {
+        f()
+    }
+</code></pre>
+
+<p>or in JavaScript:</p>
+
+<pre><code class="javascript">for (var i = 0; i &lt; 5; i++) {
+    setTimeout(function() {
+        console.log(i);
+    }, 0);
+}
+</code></pre>
+
+<p>In these List-based examples, &ldquo;5&rdquo; (the last values of the list) is always printed 5 times.</p>
+
+<p>It turns out that this surprise problem is quite common.
+In fact, it is so common that the &ldquo;Go Programming Language&rdquo; book dedicates <a href="https://www.oreilly.com/library/view/the-go-programming/9780134190570/ebook_split_047.html">a whole section</a> (5.6.1: Caveat: Capturing iteration variables) in its Chapter 5 to discuss this gotcha.
+The reason is related to scope rule: as we iterate through closures and use iteration variable (<code>i</code> in the three list examples), all the Closure objects created in this loop &ldquo;capture&rdquo; and share the same variable <code>i</code> (i.e., same addressable memory location) - not its value at that particular iteration (such as 0 in the first iteration).
+At the end of the loop, the variable <code>i</code> has been updated several times and has the final value <code>5</code>.
+Thus, the values that are used by all individual Closure objects when executed are all <code>5</code>&rsquo;s instead of 0-4 for each.</p>
+
+<p>Now that we understand what went wrong, the fix is pretty simple: we simply declare a new variable within the loop body before using it in the closure.
+By doing so, each Closure object will have a separate variable (with distinct memory address) and value.</p>
+
+<pre><code class="groovy Groovy fix">// Map version
+def deployedApps = [ 'app1', 'app2', 'app3']
+def jobs = [:]
+
+for (String e: deployedApps) {
+    def app = e  // TRICKY: necessary!
+    jobs[app] = { 
+        println("Deploy $app") 
+    }
+}
+
+// List version
+def closures = []
+for (int i = 0; i &lt; 5; i++) {
+    def e = i  // TRICKY: necessary!
+    closures += { println e }
+}
+closures.each{ it() }
+</code></pre>
+
+<pre><code class="go Go fix">    var closures []func()
+
+    // Functions to Print from 0 to 4
+    for i := 0; i &lt; 5; i++ {
+        e := i  // TRICKY: necessary!
+        closures = append(closures, func() {
+            fmt.Println(e)
+        })
+    }
+</code></pre>
+
+<pre><code class="javascript JavaScript fix">for (var i = 0; i &lt; 5; i++) {
+    let e = i;  // TRICKY: necessary!
+    setTimeout(function() {
+        console.log(e);
+    }, 0);
+}
+</code></pre>
+
+<p>In general, I would recommend adding the comment <code>TRICKY: necessary!</code>.
+This would caution another team member, out of desire for <a href="https://softwareengineering.stackexchange.com/questions/80084/is-premature-optimization-really-the-root-of-all-evil">premature optimization</a>, from accidentally remove the apparently useless line and produce the subtly incorrect variants as seen above.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Github REST API Cookbook]]></title>
@@ -164,13 +325,13 @@ In summary, the author is the one who created the content, and the committer is 
 The two fields can be different in some common Github workflows:</p>
 
 <ul>
-<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#97;&#x69;&#x6c;&#x74;&#x6f;&#x3a;&#110;&#111;&#x2d;&#114;&#x65;&#x70;&#x6c;&#x79;&#64;&#103;&#x69;&#x74;&#104;&#117;&#98;&#x2e;&#99;&#111;&#x6d;">&#110;&#111;&#x2d;&#x72;&#101;&#112;&#x6c;&#x79;&#x40;&#103;&#105;&#x74;&#104;&#117;&#98;&#46;&#x63;&#x6f;&#109;</a>&rdquo;.</li>
+<li>Commit a change from Github web interface: The author is the logged-in user (e.g., tdongsi) but the &ldquo;committer&rdquo; field usually has the Github default name and email, e.g., &ldquo;Github Enterprise&rdquo; and &ldquo;<a href="&#x6d;&#x61;&#x69;&#108;&#x74;&#x6f;&#58;&#110;&#x6f;&#x2d;&#x72;&#101;&#112;&#108;&#121;&#64;&#103;&#105;&#x74;&#x68;&#x75;&#x62;&#x2e;&#99;&#111;&#109;">&#110;&#x6f;&#x2d;&#x72;&#101;&#112;&#108;&#121;&#64;&#x67;&#x69;&#116;&#104;&#x75;&#x62;&#x2e;&#x63;&#111;&#109;</a>&rdquo;.</li>
 <li>Make and/or merge a pull request from Github: For example, Alice submitted a pull request which was accepted and then merged by Betty (the repository owner). In that case, the author is Alice and the committer is Betty.</li>
 </ul>
 
 
 <p>Due to that subtle difference in committer and author in different scenarios, one has to be careful when using data sent by Github API in a Jenkins pipeline.
-For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#109;&#x61;&#105;&#x6c;&#x74;&#x6f;&#x3a;&#x6e;&#111;&#x2d;&#x72;&#x65;&#x70;&#x6c;&#121;&#64;&#103;&#105;&#x74;&#x68;&#117;&#x62;&#46;&#x63;&#111;&#109;">&#x6e;&#111;&#45;&#114;&#101;&#112;&#108;&#x79;&#64;&#x67;&#105;&#x74;&#104;&#117;&#x62;&#x2e;&#99;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
+For example, you want to send email to the repository owner (committer) at the end of a Pull Request build, but what if someone adds a commit via Github web interface (commiter email would be &ldquo;<a href="&#x6d;&#97;&#105;&#x6c;&#116;&#x6f;&#x3a;&#x6e;&#x6f;&#x2d;&#114;&#x65;&#x70;&#x6c;&#121;&#64;&#103;&#105;&#x74;&#104;&#117;&#98;&#x2e;&#99;&#111;&#109;">&#x6e;&#111;&#45;&#x72;&#101;&#x70;&#108;&#121;&#x40;&#103;&#105;&#116;&#x68;&#x75;&#x62;&#x2e;&#99;&#111;&#x6d;</a>&rdquo; which is not helpful).</p>
 
 <p>2) There is an API rate limit for the free public Github API (note &ldquo;X-RateLimit-Limit&rdquo; and &ldquo;X-RateLimit-Remaining&rdquo; in output below).</p>
 
@@ -907,141 +1068,6 @@ def instance = Jenkins.getInstance()
 def location_config = JenkinsLocationConfiguration.get()
 location_config.setAdminAddress("jenkins@skynet.net")
 </code></pre>
-]]></content>
-  </entry>
-  
-  <entry>
-    <title type="html"><![CDATA[`src` Folder in Jenkins Shared Library]]></title>
-    <link href="http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library/"/>
-    <updated>2017-12-26T11:18:09-08:00</updated>
-    <id>http://tdongsi.github.io/blog/2017/12/26/class-in-jenkins-shared-library</id>
-    <content type="html"><![CDATA[<p>This post reviews best practices when we implement Groovy classes and/or static Groovy methods, in <code>src</code> folder as opposed to <code>vars</code> folder, for Jenkins Shared Library.</p>
-
-<!--more-->
-
-
-<h3>Examples of shared libraries in <code>src</code> folder</h3>
-
-<p>All Groovy files in Jenkins shared library for pipelines have to follow this directory structure:</p>
-
-<pre><code class="plain Directory structure of a Shared Library repository">(root)
-+- src                     # Groovy source files
-|   +- org
-|       +- foo
-|           +- Bar.groovy  # for org.foo.Bar class
-+- vars
-|   +- foo.groovy          # for global 'foo' variable
-|   +- foo.txt             # help for 'foo' variable
-+- resources               # resource files (external libraries only)
-|   +- org
-|       +- foo
-|           +- bar.json    # static helper data for org.foo.Bar
-</code></pre>
-
-<p><code>src</code> folder is intended to set up with <code>groovy</code> files in the standard directory structure, such as &ldquo;src/org/foo/bar.groovy&rdquo;.
-It will be added to the class path when the Jenkins pipelines are executed.</p>
-
-<p>Any custom function in a Jenkins shared library has to eventually use basic Pipeline steps such as <code>sh</code> or <code>git</code>, made available through various Jenkins plugins.
-However, Groovy classes in shared Jenkins library cannot simply call those basic steps directly.
-There are a few approaches on how to access those Pipeline steps indirectly.</p>
-
-<h3>Method 1: Methods in implicit class</h3>
-
-<p>Groovy scripts in <code>src</code> folder can implement methods that invoke Pipeline steps, like this:</p>
-
-<pre><code class="groovy Example 1">// src/org/demo/buildUtils.groovy
-package org.demo
-
-def checkOutFrom(repo) {
-  git url: "git@github.com:jenkinsci/${repo}"
-}
-</code></pre>
-
-<p>The method is stored implicitly in library and can then be invoked from a Scripted Pipeline like this:</p>
-
-<pre><code class="groovy Example 1 (continued)">def myUtils = new org.demo.buildUtils()
-myUtils.checkOutFrom(repo)
-</code></pre>
-
-<p>However, the requirement of this approach is that those methods defined in <code>buildUtils.groovy</code> cannot be enclosed in any class.
-The &ldquo;implicit class&rdquo; mentioned in this approach refers to the fact that any Groovy script, such as <code>buildUtils.groovy</code>, has an implicit class (e.g., <code>org.demo.buildUtils</code>) that contains all the defined functions in it.
-This approach has limitations; for example, it prevents the declaration of a superclass.</p>
-
-<h3>Method 2: Explicit objects</h3>
-
-<p>In the following example, we create an enclosing class that would facilitate things like defining a superclass.
-In that case, to access standard DSL steps such as <code>sh</code> or <code>git</code>, we can explicitly pass special global variables <code>env</code> and <code>steps</code> into a constructor or a method of the class.
-Global object <code>env</code> contains all current environment variables while <code>steps</code> contains all standard pipeline steps.
-Note that the class must also implement Serializable interface to support saving the state if the pipeline is stopped or resumed.</p>
-
-<pre><code class="groovy Example 2">package org.demo
-class Utilities implements Serializable {
-  def env
-  def steps
-  Utilities(env, steps) {
-    this.env = env
-    this.steps = steps
-  }
-
-  def mvn(args) {
-    steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
-  }
-}
-</code></pre>
-
-<pre><code class="groovy Example 2 (continued)">@Library('utils') 
-import org.foo.Utilities
-
-def utils = new Utilities(env, steps)
-node {
-  utils.mvn 'clean package'
-}
-</code></pre>
-
-<h3>Method 3: Static methods in explicit class</h3>
-
-<p>In the final example, we can also use static method and pass in the <code>script</code> object, which already has access to everything, including environment variables <code>script.env</code> and Pipeline steps such as <code>script.sh</code>.</p>
-
-<pre><code class="groovy Example 3">package org.demo
-class Utilities {
-  static def mvn(script, args) {
-    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
-  }
-}
-</code></pre>
-
-<p>The above example shows the script being passed in to one static method, invoked from a Scripted Pipeline as follows (note <code>import static</code>):</p>
-
-<pre><code class="groovy Example 3 (continued)">@Library('utils') 
-import static org.demo.Utilities.*
-node {
-  mvn this, 'clean package'
-}
-</code></pre>
-
-<h3>Recommended practices</h3>
-
-<p>All three approaches shown in three examples above are valid in Scripted Jenkinsfile.
-However, per <a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=2310">recommended</a> by <a href="https://www.slideshare.net/BrentLaster/2017-jenkins-world/36">CloudBees Inc.</a>, <code>src</code> folder is best for utility classes that contains a bunch of static Groovy methods.
-It is easier to use global variables in the <code>vars</code> directory instead of classes in the <code>src</code> directory, especially when you need to support <strong>declarative</strong> pipelines in your team.
-The reason is that in declarative pipelines, the custom functions in Jenkins shared libraries must be callable in declarative syntax, e.g., &ldquo;myCustomFunction var1, var2&rdquo; format.
-As you can see in the examples above, only in Method 3 (Static methods in explicit class), where custom functions are defined as static methods, the invocation of custom function is compatible with declarative pipeline syntax.</p>
-
-<p>When using <code>src</code> area&rsquo;s Groovy codes with <code>library</code> step, you should use a temporary variable to reduce its verbosity, as follows:</p>
-
-<pre><code class="groovy Reduce verbosity">def mvn = library('utils').org.demo.Utilities.mvn
-mvn this, 'clean package'
-// or 
-// mvn self, 'clean package'
-</code></pre>
-
-<h3>Reference</h3>
-
-<ul>
-<li><a href="https://youtu.be/M8U9RyL756U?list=PLvBBnHmZuNQLqgKDFmGnUClw68qsQ9Hq5&amp;t=1576">Great Talk at Jenkins World 2017</a></li>
-<li><a href="https://jenkins.io/doc/book/pipeline/shared-libraries/">Accessing Steps section in Jenkins Doc</a></li>
-</ul>
-
 ]]></content>
   </entry>
   
