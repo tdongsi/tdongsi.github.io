@@ -28,32 +28,31 @@ Checklist:
 Want to do: 
 -->
 <!-- SKIPPED:
-* Languages: Matlab, [Perl](/blog/categories/perl/).
+* Languages: Matlab, Ruby, Scala.
 * Database: XPath, XQuery.
 * Java stack: 
-  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), [JDBC](/blog/categories/jdbc/)
+  * Libraries: Guava, SLF4J, JCommander
   * Build: Ant, sbt (Scala)
   * Test: Gatling, JMeter, JMockit, RestAssured.
-* Python stack: PyPI, virtualenv.
+* Python stack: PyPI, venv, Pandas.
 * **Ruby stack**: rake, Gem/Bundle, Rails.
-* JavaScript stack: ExpressJS, MongoDB.
+* JavaScript stack: ExpressJS, MongoDB, React.JS, jQuery.
 * Others: ANTLR, Boost, OpenCV, Eigen
 * Platform: SunOS, HP-UX
-* Big Data: Dimensional Modeling (Kimball), Netezza, Tableau
 * Tools:
   * DevOps: Datadog, SonarQube, Nexus, VMWare, VirtualBox
-  * Teamware: MediaWiki, Confluence
-  * Version control: Subversion
+  * Teamware: MediaWiki, Confluence, JIRA, Trello
+  * Version control: Subversion, Perforce, SourceTree
   * IDE: Visual Studio
-  * Configuration: Pulumi, Terraform, Puppet, Ansible, Chef,
+  * Configuration: Puppet, Ansible, Chef,
   * Virtualization: Vagrant,
 -->
 * **Language**: 
   [Java](/blog/categories/java/),
   [Python](/blog/categories/python/), 
-  Scala, Groovy, Javascript, 
+  Groovy, Javascript, 
   Go, C/C++,
-  Ruby,
+  [Perl](/blog/categories/perl/)
   [bash](/blog/categories/bash/). 
 * **Java stack**: 
   IntelliJ, Eclipse, 
@@ -61,25 +60,28 @@ Want to do:
   Swagger,  <!-- Libraries -->
   [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
-  [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+  Gradle, [Maven](/blog/categories/maven/). <!-- Build -->
 * **Python stack**:
   PyCharm, Jupyter, JupyterHub, 
-  Pandas, <!-- Data manipulation -->
   [Numpy](/blog/categories/numpy/), [Matplotlib](/blog/categories/matplotlib/), <!-- Matlab -->
   Flask, Django.  <!-- Web Framework -->
 * **Web stack**:
-  Node.js, React.js, jQuery, <!-- Framework -->
+  Node.js, Vue.js, <!-- Framework -->
   Grunt, npm, Webpack, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
   HTML/CSS.
-* **Platform**: 
-  [Windows](/blog/categories/windows/), 
-  [Mac OS](/blog/categories/macosx/), 
-  [CentOS](/blog/categories/centos/),
-  Ubuntu,
-  [Docker](/blog/categories/docker/), Kubernetes, <!-- Container -->
+* **Cloud**:
   [AWS](/blog/categories/aws/), GCP,
-  Heroku.
+  [Kubernetes](/blog/categories/kubernetes/), 
+  [Docker](/blog/categories/docker/), <!-- Container -->
+  Helm, Kustomize,
+  Pulumi, Terraform. <!-- Configuration -->
+* **DevOps**:
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
+  [Git](/blog/categories/git/), 
+  [Github](https://github.com/tdongsi), 
+  Slack. <!-- Teamware --> 
 * [**Database**](/blog/categories/database/): 
   [Cassandra](/blog/categories/cassandra/),
   HBase,
@@ -92,20 +94,17 @@ Want to do:
   Kafka,
   [Vertica](/blog/categories/vertica/),
   Data Warehouse.
-* **Tools**:
-  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
-  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
-  Pulumi, Terraform, <!-- Configuration -->
-  [Git](/blog/categories/git/), 
-  [Github](https://github.com/tdongsi), 
-  SourceTree, 
-  Perforce, <!-- Version Control --> 
-  JIRA, Trello, Slack. <!-- Teamware --> 
+* **OS**: 
+  [Windows](/blog/categories/windows/), 
+  [Mac OS](/blog/categories/macosx/), 
+  iOS,
+  [CentOS](/blog/categories/centos/),
+  Ubuntu.
  
 ### Honor & Awards
 
-* [**Salesforce Spot Bonus**](/download/awards/2018_Spot_Bonus.pdf) [March 2018]: for "absolute dedication and ownership".
-* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
+* [**Salesforce Spot Award**](/download/awards/2018_Spot_Bonus.pdf) [March 2018]: for "absolute dedication and ownership".
+* [**Salesforce Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
 * **Winner - Best Idea** [August 2016]: Member of winning team “Ahab” for Best Idea category in Intuit Small Business Group's Data Hackathon. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
