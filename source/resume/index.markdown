@@ -28,32 +28,30 @@ Checklist:
 Want to do: 
 -->
 <!-- SKIPPED:
-* Languages: Matlab, [Perl](/blog/categories/perl/).
+* Languages: Matlab, Ruby, Scala.
 * Database: XPath, XQuery.
 * Java stack: 
-  * Libraries: Guava, SLF4J, JCommander, [Swing](https://github.com/tdongsi/java/tree/master/my.vip.applets), [JDBC](/blog/categories/jdbc/)
+  * Libraries: Guava, SLF4J, JCommander
   * Build: Ant, sbt (Scala)
   * Test: Gatling, JMeter, JMockit, RestAssured.
-* Python stack: PyPI, virtualenv.
+* Python stack: PyPI, venv, Pandas.
 * **Ruby stack**: rake, Gem/Bundle, Rails.
-* JavaScript stack: ExpressJS, MongoDB.
+* JavaScript stack: ExpressJS, MongoDB, React.JS, jQuery.
 * Others: ANTLR, Boost, OpenCV, Eigen
-* Platform: SunOS, HP-UX
-* Big Data: Dimensional Modeling (Kimball), Netezza, Tableau
 * Tools:
   * DevOps: Datadog, SonarQube, Nexus, VMWare, VirtualBox
-  * Teamware: MediaWiki, Confluence
-  * Version control: Subversion
+  * Teamware: MediaWiki, Confluence, JIRA, Trello
+  * Version control: Subversion, Perforce, SourceTree
   * IDE: Visual Studio
-  * Configuration: Pulumi, Terraform, Puppet, Ansible, Chef,
+  * Configuration: Puppet, Ansible, Chef,
   * Virtualization: Vagrant,
 -->
 * **Language**: 
   [Java](/blog/categories/java/),
   [Python](/blog/categories/python/), 
-  Scala, Groovy, Javascript, 
+  Groovy, Javascript, 
   Go, C/C++,
-  Ruby,
+  [Perl](/blog/categories/perl/)
   [bash](/blog/categories/bash/). 
 * **Java stack**: 
   IntelliJ, Eclipse, 
@@ -61,25 +59,28 @@ Want to do:
   Swagger,  <!-- Libraries -->
   [Jacoco](/blog/2017/09/23/jacoco-in-maven-project/),
   [JUnit](/blog/categories/junit/), TestNG, Spock, <!-- Test -->
-  [Maven](/blog/categories/maven/), Gradle. <!-- Build -->
+  Gradle, [Maven](/blog/categories/maven/). <!-- Build -->
 * **Python stack**:
   PyCharm, Jupyter, JupyterHub, 
-  Pandas, <!-- Data manipulation -->
   [Numpy](/blog/categories/numpy/), [Matplotlib](/blog/categories/matplotlib/), <!-- Matlab -->
   Flask, Django.  <!-- Web Framework -->
 * **Web stack**:
-  Node.js, React.js, jQuery, <!-- Framework -->
+  Node.js, Vue.js, <!-- Framework -->
   Grunt, npm, Webpack, <!-- Build -->
   Jasmine, Mocha, <!-- Test -->
   HTML/CSS.
-* **Platform**: 
-  [Windows](/blog/categories/windows/), 
-  [Mac OS](/blog/categories/macosx/), 
-  [CentOS](/blog/categories/centos/),
-  Ubuntu,
-  [Docker](/blog/categories/docker/), Kubernetes, <!-- Container -->
+* **Cloud**:
   [AWS](/blog/categories/aws/), GCP,
-  Heroku.
+  [Kubernetes](/blog/categories/kubernetes/), 
+  [Docker](/blog/categories/docker/), <!-- Container -->
+  Helm, Kustomize,
+  Pulumi, Terraform. <!-- Configuration -->
+* **DevOps**:
+  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
+  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
+  [Git](/blog/categories/git/), 
+  [Github](https://github.com/tdongsi), 
+  Slack. <!-- Teamware --> 
 * [**Database**](/blog/categories/database/): 
   [Cassandra](/blog/categories/cassandra/),
   HBase,
@@ -92,20 +93,17 @@ Want to do:
   Kafka,
   [Vertica](/blog/categories/vertica/),
   Data Warehouse.
-* **Tools**:
-  [Jenkins](/blog/categories/jenkins/), Spinnaker, ArgoCD, <!-- CI/CD --> 
-  [Splunk](/download/training/COC_Searching_Splunk.pdf), Prometheus, Grafana, <!-- Monitoring --> 
-  Pulumi, Terraform, <!-- Configuration -->
-  [Git](/blog/categories/git/), 
-  [Github](https://github.com/tdongsi), 
-  SourceTree, 
-  Perforce, <!-- Version Control --> 
-  JIRA, Trello, Slack. <!-- Teamware --> 
+* **OS**: 
+  [Windows](/blog/categories/windows/), 
+  [Mac OS](/blog/categories/macosx/), 
+  iOS,
+  [CentOS](/blog/categories/centos/),
+  Ubuntu.
  
 ### Honor & Awards
 
-* [**Salesforce Spot Bonus**](/download/awards/2018_Spot_Bonus.pdf) [March 2018]: for "absolute dedication and ownership".
-* [**IoT Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
+* [**Salesforce Spot Award**](/download/awards/2018_Spot_Bonus.pdf) [March 2018]: for "absolute dedication and ownership".
+* [**Salesforce Rock Star Award**](/download/awards/2017_IoT_Star.jpg) [April 2017]: for delivering [a scalable CI/CD system used in Salesforce IoT](/download/awards/2017_IoT_slide.jpg).
 * **Winner - Best Idea** [August 2016]: Member of winning team “Ahab” for Best Idea category in Intuit Small Business Group's Data Hackathon. 
 * [**Intuit Spotlight Award**](/download/awards/2016_Deliver_Awesome.pdf) [June 2016]: Peer's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
 * [**Intuit Spotlight Award**](/download/awards/2015_Deliver_Awesome.pdf) [August 2015]: Manager's spot award for [“Deliver Awesome”](https://about.intuit.com/about_intuit/operating_values/).
@@ -129,19 +127,23 @@ Want to do:
 
 * [Apple News & Stocks & Weather](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 * Recent achievements:
-  * Key contributor for migration of various backend services for Apple News/Stocks to **Kubernetes**: implemented proof of concepts (PoC) with various integrations with other Apple internal services, including Docker image builds, logging, metrics. 
+  * Key contributor for migration of backend services for Apple News/Stocks to **Kubernetes**: 
+    implemented proofs of concepts (PoCs) with various integrations with other Apple internal services. 
     Designed and implemented **Kustomize plugins** for YAML templating and secrets management. 
     Designed and implemented **Kubernetes RBAC** for access control and team authorization. 
-    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and prototype Grafana dashboards.
-  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding. 
-    Recommended the teams on various Kubernetes best practices and design decisions.
+    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and created Grafana dashboards.
+  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding.
+    Recommended the teams on various Kubernetes best practices and design choices.
   * Designed and implemented CI/CD solutions for deployment to Kubernetes, including containerized, highly scalable **Jenkins** and **ArgoCD** setups. 
     Completed with integration with internal **Github OAuth** for authentication/authorization, **Grafana dashboards** for Jenkins and ArgoCD monitoring. 
     Developed Jenkins shared library for **GitOps** implementations with Jenkins and ArgoCD.
-  * Initiated, designed and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
-    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
-  * Designed and implemented various Python commands and tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
-    Designed and implemented simple **Kubernetes operators** and Go-based services for supporting Kubernetes operations.
+  * Designed and implemented PoC for **Kubernetes**-based services that consume from **Kafka**, to reduce **Kafka rebalancing** and improve the services' overall performance and availability.
+  * Designed, implemented and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
+    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting **Slack** updates, leading to significantly reduced deployment time during product launches.
+  * Designed and implemented various Python tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
+    Designed and implemented simple **Kubernetes operators** and **Go**-based services for supporting Kubernetes operations.
+  * Contributed to internal **Gradle plugins** for building Docker images and deploying to Kuberentes/ArgoCD.
+    Improved Gradle plugins' performance by using Task Configuration Avoidance API.
 
 <!-- 2021
 Key achievements?
@@ -207,7 +209,7 @@ What were your key achievements?
 * Achievements:
   * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) from scratch as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
   * Built a robust, highly-available **Kubernetes** infrastructure on top of internal Compute services at Salesforce (similar to AWS EC2 & S3).
-  * Designed and implemented highly-available **Prometheus** and **AlertManager** stack for monitoring Kubernetes infrastructure.
+    Designed and implemented highly-available **Prometheus** and **AlertManager** stack for monitoring Kubernetes infrastructure.
     Integrated with PagerDuty and Slack for notification and **Grafana** for visualization and dashboards.
   * Designed and implemented **fully containerized Jenkins systems** (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as Github/GHE, DockerHub, Artifactory, Nexus, Slack, PagerDuty. 
   * Implemented various key features such as Docker images, access control, Jacoco-based code coverage gates, Slack/email notifications.
@@ -223,7 +225,7 @@ What were your key achievements?
 * Designed and implemented automation frameworks and tools for **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
   Worked with business analysts and data scientists on project requirements to develop appropriate tools and automation solutions.
 * Projects and Achievements:
-  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, 
+  * Designed and implemented an automated verification framework to validate **SQL scripts**, 
     verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
   * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won Intuit Data Hackathon: 
     Using Docker containers to recreate data warehouse infrastructure and pipelines in local environment for efficient ETL development and testing.
@@ -237,7 +239,6 @@ What were your key achievements?
       including automated performance test framework in Python that orchestrate Java-based clients ingesting data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
     * Developed functional tests for Talend data connectors in ETL pipelines for transforming data from MySQL and Cassandra databases to Objectivity databases.
-    * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
 <!--
 *Selected Projects and Achievements*:
@@ -250,12 +251,14 @@ What were your key achievements?
 * Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
 -->
 
+<!--
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
 * Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
 * Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
+-->
 
 ### Education
 
@@ -288,7 +291,3 @@ Lifelong learning and professional training after college.
 * Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
 * Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008. [Technical report](/download/pubs/MEng.pdf)
 * Robust extraction of shady roads for vision-based UGV navigation. IROS 2008. [Technical report](/download/pubs/MEng.pdf)
-
-### Others
-
-* [My only presence on Youtube](/blog/2011/02/07/optical-flow-demo/). 
