@@ -38,7 +38,6 @@ Want to do:
 * **Ruby stack**: rake, Gem/Bundle, Rails.
 * JavaScript stack: ExpressJS, MongoDB, React.JS, jQuery.
 * Others: ANTLR, Boost, OpenCV, Eigen
-* Platform: SunOS, HP-UX
 * Tools:
   * DevOps: Datadog, SonarQube, Nexus, VMWare, VirtualBox
   * Teamware: MediaWiki, Confluence, JIRA, Trello
@@ -128,19 +127,23 @@ Want to do:
 
 * [Apple News & Stocks & Weather](https://www.cnet.com/news/apple-news-adds-browse-tab-brings-news-to-stocks/).
 * Recent achievements:
-  * Key contributor for migration of various backend services for Apple News/Stocks to **Kubernetes**: implemented proof of concepts (PoC) with various integrations with other Apple internal services, including Docker image builds, logging, metrics. 
+  * Key contributor for migration of backend services for Apple News/Stocks to **Kubernetes**: 
+    implemented proofs of concepts (PoCs) with various integrations with other Apple internal services. 
     Designed and implemented **Kustomize plugins** for YAML templating and secrets management. 
     Designed and implemented **Kubernetes RBAC** for access control and team authorization. 
-    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and prototype Grafana dashboards.
-  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding. 
-    Recommended the teams on various Kubernetes best practices and design decisions.
+    Contributed to our Kubernetes monitoring solutions including highly available **Prometheus, AlertManager, Grafana** setups and created Grafana dashboards.
+  * Regularly demoed and presented various Kubernetes features with internal and external teams to help with Kubernetes onboarding.
+    Recommended the teams on various Kubernetes best practices and design choices.
   * Designed and implemented CI/CD solutions for deployment to Kubernetes, including containerized, highly scalable **Jenkins** and **ArgoCD** setups. 
     Completed with integration with internal **Github OAuth** for authentication/authorization, **Grafana dashboards** for Jenkins and ArgoCD monitoring. 
     Developed Jenkins shared library for **GitOps** implementations with Jenkins and ArgoCD.
-  * Initiated, designed and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
-    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting Slack updates, leading to significantly reduced deployment time in product launches.
-  * Designed and implemented various Python commands and tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
-    Designed and implemented simple **Kubernetes operators** and Go-based services for supporting Kubernetes operations.
+  * Designed and implemented PoC for **Kubernetes**-based services that consume from **Kafka**, to reduce **Kafka rebalancing** and improve the services' overall performance and availability.
+  * Designed, implemented and lead the effort to migrate release runbooks from error-prone Quip-based runbooks to **Jupyter-based runbooks**. 
+    The runbooks are highly automated and extendable, completed with auto-generated **Splunk** queries, posting **Slack** updates, leading to significantly reduced deployment time during product launches.
+  * Designed and implemented various Python tools to simplify interaction with internal Apple services and APIs, complementing Jupyter runbooks. 
+    Designed and implemented simple **Kubernetes operators** and **Go**-based services for supporting Kubernetes operations.
+  * Contributed to internal **Gradle plugins** for building Docker images and deploying to Kuberentes/ArgoCD.
+    Improved Gradle plugins' performance by using Task Configuration Avoidance API.
 
 <!-- 2021
 Key achievements?
