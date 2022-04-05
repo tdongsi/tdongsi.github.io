@@ -209,7 +209,7 @@ What were your key achievements?
 * Achievements:
   * Designed and implemented [a solid CI/CD platform](/download/awards/2017_Promotion.jpg) from scratch as the foundation for [launching IoT Explorer](http://www.zdnet.com/article/salesforce-launches-iot-explorer-aims-to-bring-sensor-data-to-business-users/) into production. 
   * Built a robust, highly-available **Kubernetes** infrastructure on top of internal Compute services at Salesforce (similar to AWS EC2 & S3).
-  * Designed and implemented highly-available **Prometheus** and **AlertManager** stack for monitoring Kubernetes infrastructure.
+    Designed and implemented highly-available **Prometheus** and **AlertManager** stack for monitoring Kubernetes infrastructure.
     Integrated with PagerDuty and Slack for notification and **Grafana** for visualization and dashboards.
   * Designed and implemented **fully containerized Jenkins systems** (production and experimental) running on the above Kubernetes infrastructure, integrated with other systems and services such as Github/GHE, DockerHub, Artifactory, Nexus, Slack, PagerDuty. 
   * Implemented various key features such as Docker images, access control, Jacoco-based code coverage gates, Slack/email notifications.
@@ -225,7 +225,7 @@ What were your key achievements?
 * Designed and implemented automation frameworks and tools for **Big Data** projects for QuickBooks Online and Small Business Group (SBG) ecosystem. 
   Worked with business analysts and data scientists on project requirements to develop appropriate tools and automation solutions.
 * Projects and Achievements:
-  * Designed and implemented a test automation framework to facilitate automated unit/functional testing of **SQL scripts**, 
+  * Designed and implemented an automated verification framework to validate **SQL scripts**, 
     verifying Extract-Transform-Load (**ETL**) processes between data sources (e.g., Netezza, Hive, HDFS, Vertica), and validating data consistency and integrity.
   * Member of team ["Ahab"](https://en.wikipedia.org/wiki/Moby-Dick) that won Intuit Data Hackathon: 
     Using Docker containers to recreate data warehouse infrastructure and pipelines in local environment for efficient ETL development and testing.
@@ -239,7 +239,6 @@ What were your key achievements?
       including automated performance test framework in Python that orchestrate Java-based clients ingesting data simultaneously from multiple remote Windows and Linux hosts.
     * Designed and developed an automated test suite for testing Java byte code injection tools, including a custom Java parser (based on ANTLR) to verify correctness of decompiled byte codes after injection.
     * Developed functional tests for Talend data connectors in ETL pipelines for transforming data from MySQL and Cassandra databases to Objectivity databases.
-    * Reviewed Java codes and enforced good practices for more robust and flexible Java API.
 
 <!--
 *Selected Projects and Achievements*:
@@ -252,12 +251,14 @@ What were your key achievements?
 * Developed performance tests for Objectivity/DB with different network configurations and use cases to check for performance regressions. Automated generating performance reports from raw performance logs using Python.
 -->
 
+<!--
 **Research Software Engineer**, National University of Singapore. (8/2006 - 7/2009)
 
 * Worked in driverless car projects, a collaboration effort of multiple Singaporean industrial research labs, managed by Defense Science Organization (DSO), Singapore.
 * Designed, implemented and evaluated computer vision algorithms for [visual sensor modules](/resume/calibration_2007.jpg). 
   Designed and implemented an adaptive machine learning algorithm to identify drivable road surface from stereo images, by building statistical models of road appearance.
 * My (part-time) [Master of Engineering thesis](/download/pubs/MEng.pdf) sums up work during that period.
+-->
 
 ### Education
 
