@@ -291,7 +291,3 @@ Lifelong learning and professional training after college.
 * Technical Report: Application of the MSCKF algorithm on the Cheddar Gorge Wildcat Dataset. [PDF](/download/pubs/2010_MSCKF_Cheddar_Gorge.pdf)
 * Extraction of shady roads using intrinsic colors on stereo camera. SMC 2008. [Technical report](/download/pubs/MEng.pdf)
 * Robust extraction of shady roads for vision-based UGV navigation. IROS 2008. [Technical report](/download/pubs/MEng.pdf)
-
-### Others
-
-* [My only presence on Youtube](/blog/2011/02/07/optical-flow-demo/). 
